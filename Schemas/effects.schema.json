@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Cantrip Effects",
+  "type": "object",
+  "properties": {
+    "declared": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "forbidden": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "budgets": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "perNode": {
+      "description": "Optional per-AST-node effects for IDEs",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "nodeId": {
+            "type": "string"
+          },
+          "effects": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "nodeId",
+          "effects"
+        ]
+      }
+    }
+  },
+  "required": [
+    "declared"
+  ]
+}
