@@ -1,7 +1,0 @@
-Feature,Section,Requirement,Status(Yes/No/NA),Notes
-Effects: missing declaration -> E9001,§500,Emit E9001,,
-Modals: invalid state call -> E3003,§300,Emit E3003,,
-Typed holes elaboration,§400,E9501/E9502/E9503,,
-Async effect mask,§520,Emit E9201 + fix-it,,
-Trait effect bound,§210,Emit E9120,,
-Machine-readable diagnostics,§980,JSON per schema,,

@@ -49,25 +49,816 @@ implementation-defined limits, and unspecified behavior MUST be documented.
 
 ---
 
-# Part 0: LLM Quick Reference (See Separate Document)
+# Part 0 (Informative): LLM Quick Reference
 
-**The complete LLM onboarding and alignment guide has been moved to \Cantrip-LLM-Guide.md\.**
+**Purpose:** This section provides a crash course for Large Language Models generating Cantrip code. It demonstrates correct syntax patterns with anti-patterns, common idioms, and critical differences from similar languages.
 
-For comprehensive LLM guidance including:
-- Core syntax patterns with correct/incorrect examples
-- Common idioms and best practices
-- Critical differences from similar languages
-- Error codes indexed by common LLM mistakes
+**For Human Readers:** This section supplements but does not replace the formal specification. Read Part I-XIII for complete language semantics.
 
-** See:** \Cantrip-LLM-Guide.md
-### Quick Reference
+---
 
-**Key Principles:**
-- Effects are NEVER inferred - always explicit with eeds\ clause
-- Permissions use sigils: \own\, \mut\, \iso\ (reference has no sigil)
-- Modal states use \@State\ syntax
-- Contracts use equires\ and \ensures
-**For complete LLM guidance, see \Cantrip-LLM-Guide.md\.**
+## 0.1 Core Syntax Patterns
+
+### 0.1.1 Function Declaration Syntax
+
+**Canonical Form (ONLY valid syntax):**
+```cantrip
+function name(param: Type): ReturnType
+    needs effects;        // Optional: omit if pure
+    requires conditions;  // Optional: omit if none
+    ensures conditions;   // Optional: omit if none
+{
+    body
+}
+```
+
+**✅ CORRECT Example:**
+
+```cantrip
+// Comprehensive function with all optional clauses
+function divide(a: f64, b: f64): f64
+    needs alloc.heap;          // Optional: effects
+    requires b != 0.0;          // Optional: precondition
+    ensures result == a / b;    // Optional: postcondition
+{
+    a / b
+}
+
+// Pure functions omit all clauses
+function add(x: i32, y: i32): i32 { x + y }
+```
+
+**❌ WRONG - Removed Syntax (ERROR E1010, E1011, E1012):**
+
+```cantrip
+// ERROR E1010: Old syntax removed
+function example()
+    requires<alloc.heap>:  // ❌ WRONG - use 'needs alloc.heap;'
+{ }
+
+// ERROR E1011: Old syntax removed
+function example() returns<i32>:  // ❌ WRONG - use ': i32' in signature
+{ }
+
+// ERROR E1012: Old syntax removed
+function example()
+    implements:  // ❌ WRONG - just write the body
+{ }
+```
+
+### 0.1.2 Ownership and Move Semantics
+
+**Key Principle:** Ownership transfer requires explicit `move` keyword.
+
+**✅ CORRECT Example:**
+
+```cantrip
+// Explicit move required for ownership transfer
+function consume(own data: Data) {
+    // data owned and destroyed here
+}
+
+function example()
+    needs alloc.heap;
+{
+    let data = Data.new();
+    consume(move data);  // Explicit move required
+    // data no longer accessible
+}
+```
+
+**❌ WRONG - Missing Move:**
+
+```cantrip
+function consume(own data: Data) { }
+
+function broken()
+    needs alloc.heap;
+{
+    let data = Data.new();
+    consume(data);  // ERROR E3004: missing 'move'
+}
+```
+
+**Critical Difference from Rust:**
+
+```rust
+// Rust: Move is implicit
+fn consume(data: Data) { }
+fn example() {
+    let data = Data::new();
+    consume(data);  // Implicit move in Rust
+    // data no longer valid
+}
+```
+
+```cantrip
+// Cantrip: Move is explicit
+function consume(own data: Data) { }
+function example() {
+    let data = Data.new();
+    consume(move data);  // Explicit move required
+    // data no longer valid
+}
+```
+
+### 0.1.3 Effect Declaration Syntax
+
+**Key Principle:** Effects are NEVER inferred. They MUST be declared explicitly, otherwise the item is pure.
+
+**✅ CORRECT Example:**
+
+```cantrip
+// Effect declarations
+function process_file(path: String): Result<Data, Error>
+    needs fs.read, fs.write, alloc.heap;  // Declare all effects
+{
+    let contents = std.fs.read_to_string(path)?;
+    std.fs.write("output.txt", contents)
+}
+
+// Pure function needs no clause
+function calculate(x: i32): i32 { x * x }
+```
+
+**❌ WRONG - Missing Effect Declaration:**
+
+```cantrip
+function broken(): Vec<i32> {
+    Vec.new()  // ERROR E9001: alloc.heap not declared
+}
+```
+
+**Effect Hierarchy:**
+
+```
+alloc.*          // All allocation types
+  ├─ alloc.heap
+  ├─ alloc.stack
+  ├─ alloc.region
+  └─ alloc.temp
+
+fs.*             // All file system
+  ├─ fs.read
+  ├─ fs.write
+  ├─ fs.delete
+  └─ fs.metadata
+
+net.*            // All network
+  ├─ net.read(inbound)
+  ├─ net.read(outbound)
+  └─ net.write
+```
+
+### 0.1.4 Modal State Transitions
+
+**Syntax:** `@State >> procedure() >> @NextState`
+
+**✅ CORRECT Examples:**
+
+```cantrip
+modal File {
+    state Closed {
+        path: String;
+    }
+
+    state Open {
+        path: String;
+        handle: FileHandle;
+    }
+
+    // Transition uses >> with @ markers (modal)
+    @Closed >> open() >> @Open
+        needs fs.read;
+    {
+        let handle = FileSystem.open(self.path)?;
+        Open {
+            path: self.path,
+            handle: handle,
+        }
+    }
+
+    @Open >> read(n: usize) >> @Open
+        needs fs.read;
+    {
+        let data = self.handle.read(n)?;
+        (data, self)
+    }
+
+    @Open >> close() >> @Closed {
+        self.handle.close();
+        Closed { path: self.path }
+    }
+}
+
+// Usage
+function example(): Result<(), Error>
+    needs fs.read;
+{
+    let file = File.new("data.txt");  // Type: File@Closed
+
+    // Cannot read in Closed state
+    // let data = file.read(1024)?;  // ERROR E3003
+
+    let file = file.open()?;          // Now File@Open
+    let data = file.read(1024)?;      // OK in Open state
+    let file = file.close();          // Back to File@Closed
+
+    Ok(())
+}
+```
+
+**❌ WRONG - Invalid Syntax:**
+
+```cantrip
+modal Broken {
+    state Start { }
+    state End { }
+
+    // ❌ ERROR E1006: Wrong arrow syntax
+    Start -> procedure() -> End { }     // Wrong: use >> not ->
+    @Start => procedure() => @End { }   // Wrong: use >> not =>
+    Start.procedure() -> End { }        // Wrong: missing @
+}
+```
+
+### 0.1.5 Region-Based Memory Management
+
+**Key Principle:** Regions provide O(1) bulk deallocation with LIFO ordering.
+
+**✅ CORRECT Example:**
+
+```cantrip
+// Basic region usage
+function parse_data(input: String): Result<Data, Error>
+    needs alloc.region, alloc.heap;
+{
+    region temp {
+        let tokens = lex_in<temp>(input);
+        let ast = parse_in<temp>(tokens);
+        Ok(ast.to_heap())  // Convert before escaping
+    }
+}
+```
+
+**❌ WRONG - Escaping Region:**
+
+```cantrip
+function broken(): Vec<i32>
+    needs alloc.region;
+{
+    region temp {
+        let vec = Vec.new_in<temp>();
+        vec  // ERROR E5001: Cannot return region data
+    }
+}
+```
+
+---
+
+## 0.2 Common Patterns Library
+
+### 0.2.1 Error Handling Pattern
+
+**Pattern: Early Return with ?**
+
+```cantrip
+function pipeline(path: String): Result<Output, Error>
+    needs fs.read, alloc.heap;
+    requires !path.is_empty();
+{
+    let raw = read_file(path)?;        // Early return on error
+    let parsed = parse(raw)?;          // Chain cleanly
+    let validated = validate(parsed)?; // No nesting
+    Ok(transform(validated))
+}
+```
+
+**Pattern: Custom Error Types**
+
+```cantrip
+enum ProcessError {
+    IoError(std.io.Error),
+    ParseError(String),
+    ValidationError(String),
+}
+
+function process(path: String): Result<Data, ProcessError>
+    needs fs.read, alloc.heap;
+{
+    let contents = std.fs.read_to_string(path)
+        .map_err(|e| ProcessError.IoError(e))?;
+
+    let parsed = parse(contents)
+        .map_err(|e| ProcessError.ParseError(e))?;
+
+    validate(parsed)
+        .map_err(|e| ProcessError.ValidationError(e))
+}
+```
+
+### 0.2.2 Resource Management Pattern
+
+**Pattern: RAII with Modals**
+
+```cantrip
+modal DatabaseConnection {
+    state Disconnected { config: Config; }
+    state Connected { handle: DbHandle; }
+
+    @Disconnected >> connect() >> @Connected
+        needs net.read(outbound);
+    {
+        let handle = establish_connection(self.config)?;
+        Connected { handle }
+    }
+
+    @Connected >> disconnect() >> @Disconnected {
+        self.handle.close();
+        Disconnected { config: self.config }
+    }
+}
+
+function with_connection<F, T>(config: Config, f: F): Result<T, Error>
+    where F: Fn(DatabaseConnection@Connected): Result<T, Error>
+    needs net.read(outbound);
+{
+    let conn = DatabaseConnection.new(config);
+    let conn = conn.connect()?;
+    let result = f(conn)?;
+    conn.disconnect();
+    Ok(result)
+}
+```
+
+### 0.2.3 Effect Composition Pattern
+
+**Pattern: Named Effect Definitions**
+
+```cantrip
+// Define at module level
+effect WebService = fs.read + fs.write + net.read(inbound) + net.write + alloc.heap;
+effect GameTick = alloc.temp;  // Only temp allocation, everything else denied by default
+effect DatabaseOps = fs.read + fs.write + alloc.heap;
+
+// Use in function signatures
+function handle_request(req: Request): Response
+    needs WebService;
+{
+    let data = load_from_disk()?;
+    let processed = transform(data);
+    send_response(processed)
+}
+
+function update_game_state(state: mut GameState, dt: f32)
+    needs GameTick;
+{
+    region frame {
+        let temp_data = process_frame_in<frame>(state, dt);
+        apply_changes(state, temp_data);
+    }
+}
+```
+
+### 0.2.4 Contract Pattern
+
+**Pattern: Bounds Checking**
+
+```cantrip
+function safe_index<T>(arr: [T], index: usize): Option<T>
+    ensures
+        result.is_some() == (index < arr.length());
+        result.is_some() implies result.unwrap() == arr[index];
+{
+    if index < arr.length() {
+        Some(arr[index])
+    } else {
+        None
+    }
+}
+```
+
+**Pattern: State Preservation**
+
+```cantrip
+function transfer_funds(
+    from: mut Account,
+    to: mut Account,
+    amount: f64
+)
+    requires
+        amount > 0.0,
+            "Transfer amount must be positive";
+        from.balance >= amount,
+            "Insufficient funds: need {amount}, have {from.balance}";
+    ensures
+        from.balance == @old(from.balance) - amount;
+        to.balance == @old(to.balance) + amount;
+        @old(from.balance + to.balance) == (from.balance + to.balance);
+{
+    from.balance -= amount;
+    to.balance += amount;
+}
+```
+
+---
+
+## 0.3 Language Comparison Guide
+
+### 0.3.1 For Rust Developers
+
+**Key Differences:**
+
+| Feature | Rust | Cantrip |
+|---------|------|---------|
+| **Borrow Checker** | Yes - enforces at compile time | No - programmer's responsibility |
+| **Move Semantics** | Implicit by default | Explicit `move` keyword required |
+| **Lifetimes** | Explicit `'a` annotations | Implicit via regions |
+| **Multiple Mut Refs** | Compile error | Allowed (programmer ensures safety) |
+| **Memory Model** | Ownership + borrowing | Ownership + regions |
+
+**Example Comparison:**
+
+```rust
+// Rust: Multiple mutable borrows forbidden
+fn rust_example() {
+    let mut data = Vec::new();
+    let r1 = &mut data;  // First mutable borrow
+    let r2 = &mut data;  // ERROR: cannot borrow as mutable twice
+}
+```
+
+```cantrip
+// Cantrip: Multiple mutable references allowed
+function cantrip_example()
+    needs alloc.heap;
+{
+    var data = Vec.new();
+    let r1 = mut data;  // Mutable reference
+    let r2 = mut data;  // OK - no borrow checker
+    // Programmer ensures r1 and r2 don't conflict
+}
+```
+
+**What Cantrip Does NOT Prevent:**
+
+- ❌ Aliasing bugs (multiple mut refs can conflict)
+- ❌ Data races (no compile-time enforcement)
+- ❌ Iterator invalidation
+
+**What Cantrip DOES Prevent:**
+
+- ✅ Use-after-free (regions enforce LIFO)
+- ✅ Double-free (regions handle cleanup)
+- ✅ Memory leaks (deterministic destruction)
+
+### 0.3.2 For Python Developers
+
+**Key Differences:**
+
+| Feature | Python | Cantrip |
+|---------|--------|---------|
+| **Types** | Dynamic, optional | Static, required |
+| **Effects** | Implicit (any function can do anything) | Explicit (must declare) |
+| **Memory** | Garbage collected | Manual with regions |
+| **Errors** | Exceptions | Result types |
+
+**Example Comparison:**
+
+```python
+# Python: Implicit everything
+def process(path):
+    return open(path).read()  # Hidden: fs.read, alloc, exceptions
+```
+
+```cantrip
+// Cantrip: Explicit everything
+function process(path: String): Result<String, Error>
+    needs fs.read, alloc.heap;  // Explicit effects
+    requires !path.is_empty();   // Explicit preconditions
+{
+    std.fs.read_to_string(path)  // Explicit error handling
+}
+```
+
+### 0.3.3 For C++ Developers
+
+**Key Differences:**
+
+| Feature | C++ | Cantrip |
+|---------|-----|---------|
+| **RAII** | Yes (implicit destructors) | Yes (via modals/regions) |
+| **Smart Pointers** | std::unique_ptr, std::shared_ptr | `own`, regions |
+| **Move** | std::move() | `move` keyword |
+| **Memory Safety** | Undefined behavior possible | Compile-time prevention |
+
+**Example Comparison:**
+
+```cpp
+// C++: RAII with unique_ptr
+std::unique_ptr<File> file = std::make_unique<File>("data.txt");
+file->read();
+// Automatic cleanup via destructor
+```
+
+```cantrip
+// Cantrip: RAII with modals
+modal File {
+    state Open { handle: FileHandle; }
+
+    @Open >> close() >> @Closed {
+        self.handle.close();
+        Closed { }
+    }
+}
+
+function example()
+    needs fs.read;
+{
+    let file = File.new("data.txt").open()?;
+    file.read()?;
+    file.close();  // Explicit but required by type system
+}
+```
+
+---
+
+## 0.4 Standard Library Quick Reference
+
+### 0.4.1 Core Types
+
+```cantrip
+// Option<T> - Nullable values
+let some: Option<i32> = Some(42);
+let none: Option<i32> = None;
+
+match some {
+    Some(value) -> println(value),
+    None -> println("no value"),
+}
+
+// Result<T, E> - Error handling
+let ok: Result<i32, String> = Ok(42);
+let err: Result<i32, String> = Err("failed");
+
+match ok {
+    Ok(value) -> println(value),
+    Err(error) -> println(error),
+}
+
+// Vec<T> - Dynamic array
+let mut numbers = Vec.new();  // needs alloc.heap
+numbers.push(1);
+numbers.push(2);
+let first = numbers[0];
+
+// String - UTF-8 string
+let text = String.from("hello");  // needs alloc.heap
+let length = text.length();
+```
+
+### 0.4.2 Standard Effects
+
+```cantrip
+import std.effects.{
+    Pure,          // No effects
+    SafeIO,        // fs.read + fs.write + alloc.heap
+    WebService,    // fs.* + net.* + alloc.heap
+    GameTick,      // alloc.temp + !alloc.heap + !io.*
+    Deterministic, // !time.* + !random
+};
+```
+
+### 0.4.3 Common Operations
+
+```cantrip
+// File I/O
+function read_file(path: String): Result<String, Error>
+    needs fs.read, alloc.heap;
+{
+    std.fs.read_to_string(path)
+}
+
+function write_file(path: String, data: String): Result<(), Error>
+    needs fs.write;
+{
+    std.fs.write(path, data)
+}
+
+// Console I/O
+function print(msg: String)
+    needs io.write;
+{
+    std.io.println(msg);
+}
+
+// Collections
+function create_map<K, V>(): HashMap<K, V>
+    where K: Hash + Eq
+    needs alloc.heap;
+{
+    HashMap.new()
+}
+```
+
+---
+
+## 0.5 Error Code Quick Reference
+
+| Code | Category | Description |
+|------|----------|-------------|
+| **E1010** | Syntax | Removed: `requires<effects>` (use `needs effects;`) |
+| **E1011** | Syntax | Removed: `returns<Type>` (use `: Type`) |
+| **E1012** | Syntax | Removed: `implements:` (just write body) |
+| **E2001** | Type | Type mismatch |
+| **E3003** | Modal | Procedure not available in current state |
+| **E3004** | Modal | Use of moved value |
+| **E5001** | Region | Cannot return region data |
+| **E9001** | Effect | Missing effect declaration |
+| **E9002** | Effect | Forbidden effect used |
+| **E9010** | Effect | Redundant forbidden effect (use only with wildcards/polymorphic) |
+
+**Most Common Errors:**
+
+1. **Missing effect declaration** (E9001)
+   ```cantrip
+   // ERROR:
+   function f() { Vec.new() }
+   // FIX:
+   function f() needs alloc.heap { Vec.new() }
+   ```
+
+2. **Missing move keyword** (E3004)
+   ```cantrip
+   // ERROR:
+   consume(data)  // where consume takes `own data`
+   // FIX:
+   consume(move data)
+   ```
+
+3. **Modal state error** (E3003)
+   ```cantrip
+   // ERROR:
+   file.read()  // when file is File@Closed
+   // FIX:
+   let file = file.open()?;
+   file.read()
+   ```
+
+---
+
+**END OF PART 0**
+
+*This crash course provides the essential patterns for LLM code generation. For complete formal semantics, see Parts I-XIII.*
+
+---
+
+## Abstract
+
+Cantrip is a systems programming language designed for memory safety, deterministic performance, and AI-assisted development. It achieves these goals through:
+
+- **Lexical Permission System (LPS)**: Compile-time memory safety without garbage collection or borrow checking
+- **Explicit Contracts**: Preconditions and postconditions as executable specifications
+- **Effect System**: Compile-time tracking of side effects, allocations, and I/O
+- **Modal System**: State machines as first-class types with compile-time verification
+- **Memory Regions**: Explicit lifetime control with zero-overhead allocation
+- **File-Based Modules**: Code organization through file system structure
+
+Cantrip compiles to native code with performance matching C/C++ while providing memory safety guarantees through region-based lifetime management.
+
+**Design Philosophy:**
+1. **Explicit over implicit** - All effects, lifetimes, and permissions visible in code
+2. **Local reasoning** - Understanding code requires minimal global context
+3. **Zero abstraction cost** - Safety guarantees without runtime overhead
+4. **LLM-friendly** - Predictable patterns for AI code generation
+5. **Simple ownership** - No borrow checker complexity
+
+**Safety Model:**
+- ✅ **Prevents**: Use-after-free, double-free, memory leaks
+- ✅ **Provides**: Deterministic deallocation, zero GC pauses
+- ❌ **Does NOT prevent**: Aliasing bugs, data races (programmer's responsibility)
+
+**Conformance:** An implementation conforms to this specification if and only if it satisfies all normative requirements stated herein.
+
+---
+
+## Table of Contents
+
+### Part 0: LLM Quick Reference
+0.1. [Core Syntax Patterns](#01-core-syntax-patterns)
+0.2. [Common Patterns Library](#02-common-patterns-library)
+0.3. [Language Comparison Guide](#03-language-comparison-guide)
+0.4. [Standard Library Quick Reference](#04-standard-library-quick-reference)
+0.5. [Error Code Quick Reference](#05-error-code-quick-reference)
+
+### Part I: Foundational Concepts
+1. [Notation and Mathematical Foundations](#1-notation-and-mathematical-foundations)
+2. [Lexical Structure](#2-lexical-structure)
+3. [Abstract Syntax](#3-abstract-syntax)
+
+### Part II: Type System
+4. [Types and Values](#4-types-and-values)
+5. [Type Rules and Semantics](#5-type-rules-and-semantics)
+6. [Records](#6-structs-and-classes)
+7. [Enums and Pattern Matching](#7-enums-and-pattern-matching)
+8. [Traits](#8-traits-and-traits)
+9. [Generics and Parametric Polymorphism](#9-generics-and-parametric-polymorphism)
+
+    - 9.6. [Const Generics](#96-const-generics)
+
+### Part III: Modal System
+10. [Modals: State Machines as Types](#10-modals-state-machines-as-types)
+11. [Modal Formal Semantics](#11-modal-formal-semantics)
+12. [State Transition Verification](#12-state-transition-verification)
+
+### Part IV: Functions and Expressions
+13. [Functions and Procedures](#13-functions-and-procedures)
+14. [Expressions and Operators](#14-expressions-and-operators)
+15. [Control Flow](#15-control-flow)
+16. [Higher-Order Functions and Closures](#16-higher-order-functions-and-closures)
+
+### Part V: Contract System
+17. [Contracts and Specifications](#17-contracts-and-specifications)
+18. [Contract Formal Logic](#18-contract-formal-logic)
+19. [Invariants](#19-invariants)
+20. [Verification and Testing](#20-verification-and-testing)
+
+### Part VI: Effect System
+21. [Effects and Side Effects](#21-effects-and-side-effects)
+22. [Effect Rules and Checking](#22-effect-rules-and-checking)
+23. [Effect Budgets](#23-effect-budgets)
+24. [Effect Soundness](#24-effect-soundness)
+
+### Part VII: Memory Management
+25. [Lexical Permission System](#25-lexical-permission-system)
+26. [Permission Types and Rules](#26-permission-types-and-rules)
+27. [Ownership and Transfer](#27-ownership-and-transfer)
+28. [Memory Regions](#28-memory-regions)
+29. [Region Formal Semantics](#29-region-formal-semantics)
+
+### Part VIII: Module System
+30. [Modules and Code Organization](#30-modules-and-code-organization)
+31. [Import and Export Rules](#31-import-and-export-rules)
+32. [Visibility and Access Control](#32-visibility-and-access-control)
+33. [Module Resolution](#33-module-resolution)
+
+### Part IX: Advanced Features
+34. [Compile-Time Programming](#34-compile-time-programming)
+35. [Concurrency](#35-concurrency)
+36. [Actors (First-Class Type)](#36-actors-and-message-passing)
+37. [Async/Await](#37-asyncawait)
+
+    - 37.1. Async Functions
+    - 37.2. Await Expressions
+    - 37.3. Select Expression
+    - 37.4. Async Iteration
+    - 37.5. Async Effect Masks (Informative)
+
+### Part X: Operational Semantics
+38. [Small-Step Semantics](#38-small-step-semantics)
+39. [Big-Step Semantics](#39-big-step-semantics)
+40. [Memory Model](#40-memory-model)
+41. [Evaluation Order](#41-evaluation-order)
+
+### Part XI: Soundness and Properties
+42. [Type Soundness](#42-type-soundness)
+43. [Effect Soundness](#43-effect-soundness)
+44. [Memory Safety](#44-memory-safety)
+45. [Modal Safety](#45-modal-safety)
+
+### Part XII: Standard Library
+46. [Core Types and Operations](#46-core-types-and-operations)
+47. [Collections](#47-collections)
+48. [I/O and File System](#48-io-and-file-system)
+49. [Networking](#49-networking)
+50. [Concurrency Primitives](#50-concurrency-primitives)
+
+### Part XIII: Tooling and Implementation
+
+### Part XIV: Foreign Function Interface
+56. [Overview](#56-overview)
+57. [Declarations and Linkage](#57-declarations-and-linkage)
+58. [Type Mappings](#58-type-mappings)
+59. [Ownership and Allocation Across FFI](#59-ownership-and-allocation-across-ffi)
+60. [Callbacks from C into Cantrip](#60-callbacks-from-c-into-cantrip)
+61. [Errors and Panics](#61-errors-and-panics)
+62. [Inline Assembly (Reserved)](#62-inline-assembly-reserved)
+
+
+- 55. [Machine‑Readable Output](#55-machine-readable-output)
+51. [Compiler Architecture](#51-compiler-architecture)
+52. [Error Reporting](#52-error-reporting)
+53. [Package Management](#53-package-management)
+54. [Testing Framework](#54-testing-framework)
+
+### Appendices (Informative)
+- [A: Complete Grammar](#appendix-a-complete-grammar)
+- [B: Keywords and Operators](#appendix-b-keywords-and-operators)
+- [C: Error Codes](#appendix-c-error-codes)
+- [D: Standard Library Index](#appendix-d-standard-library-index)
+- [E: Formal Proofs](#appendix-e-formal-proofs)
+
+- [F: Error Codes by Common LLM Mistakes](#appendix-f-informative-error-codes-indexed-by-common-llm-mistakes)
 
 ---
 
@@ -10136,149 +10927,1217 @@ If Γ, Σ ⊢ e : P@S and σ ⊨ I(S) and ⟨e, σ⟩ →* ⟨v, σ'⟩, then σ
 
 ---
 
-# Part XII: Standard Library (See Separate Document)
+# Part XII (Normative): Standard Library
 
-**The Cantrip Standard Library specification has been moved to a separate document for better organization and maintainability.**
+## 46. Core Types and Operations
 
-**📄 See:** `Cantrip-Standard-Library-Spec.md`
+### 46.1 Core Type System
 
-## Overview
+**Standard library core types (`std`):**
 
-The standard library provides:
-- **Core Types:** Option, Result, String, Vec, Box
-- **Collections:** Vec, HashMap, HashSet
-- **I/O:** File operations, standard streams, file system utilities
-- **Networking:** HTTP client, TCP sockets
-- **Concurrency:** Mutex, channels, atomic types, structured concurrency
-
-For complete API documentation, effect declarations, complexity guarantees, and usage examples, refer to the **Cantrip Standard Library Specification v1.0.0**.
-
----
-
-## Quick Reference
-
-### Core Modules
-
-```
-std                     # Core types (Option, Result, String)
-std.collections         # Vec, HashMap, HashSet
-std.io                  # Input/output
-std.fs                  # File system operations
-std.net                 # Networking
-std.net.http            # HTTP client/server
-std.net.tcp             # TCP sockets
-std.sync                # Synchronization primitives
-std.thread              # Threading
-std.concurrent.scope    # Structured concurrency
+```cantrip
+// Fundamental types
+std.Option<T>           // Optional values
+std.Result<T, E>        // Error handling
+std.String              // UTF-8 string
+std.Vec<T>              // Dynamic array
+std.Box<T>              // Heap-allocated value
 ```
 
-### Canonical API Names
+### 46.2 Option Type
 
-| Operation | Correct Name |
-|-----------|-------------|
-| Get size | `.length()` |
-| Add item | `.push(item)` |
-| Remove last | `.pop()` |
-| Check empty | `.is_empty()` |
-| Check contains | `.contains(item)` |
+**Definition 46.1 (Option):**
 
-**Note:** Using alternative names (e.g., `.size()`, `.len()`, `.append()`) will result in compilation errors.
+```cantrip
+// Module: std
+public enum Option<T> {
+    Some(T),
+    None,
+}
 
-### Effect Families
+impl<T> Option<T> {
+    public function is_some(self: Option<T>): bool {
+    match self {
+                Option.Some(_) -> true,
+                Option.None -> false,
+            }
+    }
 
+    public function is_none(self: Option<T>): bool {
+        match self {
+            Option.Some(_) -> false,
+            Option.None -> true,
+        }
+    }
+
+    public function unwrap(self: Option<T>): T
+    needs panic;
+{
+    match self {
+                Option.Some(value) -> value,
+                Option.None -> panic("unwrap on None"),
+            }
+    }
+
+    public function unwrap_or(self: Option<T>, default: T): T {
+        match self {
+            Option.Some(value) -> value,
+            Option.None -> default,
+        }
+    }
+
+    public function map<U>(self: Option<T>, f: T -> U): Option<U>
+        needs effects(f);
+    {
+        match self {
+            Option.Some(value) -> Option.Some(f(value)),
+            Option.None -> Option.None,
+        }
+    }
+}
 ```
-alloc.*     # Allocation (heap, stack, region, temp)
-fs.*        # File system (read, write, delete, metadata)
-net.*       # Networking (read, write)
-io.*        # Console I/O (write)
-thread.*    # Threading (spawn, join, atomic)
+
+### 46.3 Result Type
+
+**Definition 46.2 (Result):**
+
+```cantrip
+// Module: std
+public enum Result<T, E> {
+    Ok(T),
+    Err(E),
+}
+
+impl<T, E> Result<T, E> {
+    public function is_ok(self: Result<T, E>): bool {
+    match self {
+                Result.Ok(_) -> true,
+                Result.Err(_) -> false,
+            }
+    }
+
+    public function is_err(self: Result<T, E>): bool {
+        match self {
+            Result.Ok(_) -> false,
+            Result.Err(_) -> true,
+        }
+    }
+
+    public function unwrap(self: Result<T, E>): T
+    needs panic;
+{
+    match self {
+                Result.Ok(value) -> value,
+                Result.Err(err) -> panic("unwrap on Err: {}", err),
+            }
+    }
+
+    public function unwrap_or(self: Result<T, E>, default: T): T {
+        match self {
+            Result.Ok(value) -> value,
+            Result.Err(_) -> default,
+        }
+    }
+
+    public function map<U>(self: Result<T, E>, f: T -> U): Result<U, E>
+        needs effects(f);
+    {
+        match self {
+            Result.Ok(value) -> Result.Ok(f(value)),
+            Result.Err(err) -> Result.Err(err),
+        }
+    }
+
+    public function map_err<F>(self: Result<T, E>, f: E -> F): Result<T, F>
+        needs effects(f);
+    {
+        match self {
+            Result.Ok(value) -> Result.Ok(value),
+            Result.Err(err) -> Result.Err(f(err)),
+        }
+    }
+}
 ```
 
-**For complete documentation, see `Cantrip-Standard-Library-Spec.md`.**
+### 46.4 String Type
+
+**Definition 46.3 (String):**
+
+```cantrip
+// Module: std
+public record String {
+    // Internal representation
+    data: own Vec<u8>;
+
+    public function new(): own String
+    needs alloc.heap;
+{
+    own String { data: Vec.new() }
+    }
+
+    public function from(slice: str): own String
+        needs alloc.heap;
+        requires !slice.is_empty();
+    {
+        own String { data: slice.as_bytes().to_vec() }
+    }
+
+    public function length(self: String): usize {
+    self.data.length()
+    }
+
+    public function is_empty(self: String): bool {
+        self.data.is_empty()
+    }
+
+    public function push_str(self: mut String, s: str)
+    needs alloc.heap;
+{
+    self.data.extend_from_slice(s.as_bytes());
+    }
+
+    public function split(self: String, delimiter: str): own Vec<str>
+        needs alloc.heap;
+        requires !delimiter.is_empty();
+    {
+        // Implementation
+    }
+}
+```
 
 ---
 
-## 46. [REMOVED - See Standard Library Specification]
+## 47. Collections
 
-### 46.1 [REMOVED - See Standard Library Specification]
+### 47.1 Vec<T>
 
-### 46.2 [REMOVED - See Standard Library Specification]
+**Definition 47.1 (Vec):** Dynamic array with amortized O(1) push.
 
-### 46.3 [REMOVED - See Standard Library Specification]
+**Module:** `std.collections`
 
-### 46.4 [REMOVED - See Standard Library Specification]
+```cantrip
+public record Vec<T> {
+    // Internal fields
+    data: *mut T;
+    length: usize;
+    capacity: usize;
+
+    public function new(): own Vec<T>
+        needs alloc.heap;
+    {
+        own Vec {
+            data: null,
+                length: 0,
+                capacity: 0,
+            }
+    }
+
+    public function new_in<'r>(): own Vec<T>
+        needs alloc.region;
+    {
+        // Region-allocated vector
+    }
+
+    public function with_capacity(capacity: usize): own Vec<T>
+        needs alloc.heap;
+        requires capacity > 0;
+    {
+        // Pre-allocate space
+    }
+
+    public function push(self: mut Vec<T>, item: T)
+    needs alloc.heap;
+{
+    if self.length == self.capacity {
+                self.grow();
+            }
+            self.data[self.length] = item;
+            self.length += 1;
+    }
+
+    public function pop(self: mut Vec<T>): Option<T> {
+        if self.length == 0 {
+            None
+        } else {
+            self.length -= 1;
+            Some(self.data[self.length])
+        }
+    }
+
+    public function length(self: Vec<T>): usize {
+    self.length
+    }
+
+    public function capacity(self: Vec<T>): usize {
+        self.capacity
+    }
+
+    public function is_empty(self: Vec<T>): bool {
+        self.length == 0
+    }
+
+    public function get(self: Vec<T>, index: usize): Option<T> {
+        if index < self.length {
+            Some(self.data[index])
+        } else {
+            None
+        }
+    }
+
+    public function contains(self: Vec<T>, item: T): bool
+        where T: PartialEq;
+    {
+        for i in 0..self.length {
+            if self.data[i] == item {
+                return true;
+            }
+        }
+        false
+    }
+
+    public function clear(self: mut Vec<T>) {
+        self.length = 0;
+    }
+}
+```
+
+**Complexity guarantees:**
+- `push`: O(1) amortized
+- `pop`: O(1)
+- `get`: O(1)
+- `contains`: O(n)
+
+### 47.2 HashMap<K, V>
+
+**Definition 47.2 (HashMap):** Hash table with O(1) average access.
+
+**Module:** `std.collections`
+
+```cantrip
+public record HashMap<K, V> where K: Hash + Eq {
+    // Internal structure
+    buckets: Vec<Bucket<K, V>>;
+    size: usize;
+
+    public function new(): own HashMap<K, V>
+        needs alloc.heap;
+    {
+        own HashMap {
+            buckets: Vec.with_capacity(16),
+            size: 0,
+        }
+    }
+
+    public function insert(self: mut HashMap<K, V>, key: K, value: V): Option<V>
+        needs alloc.heap;
+    {
+        let hash = key.hash();
+        let index = hash % self.buckets.length();
+
+        // Check if key exists
+        if let Some(old_value) = self.buckets[index].find(key) {
+            self.buckets[index].replace(key, value);
+            Some(old_value)
+        } else {
+            self.buckets[index].insert(key, value);
+            self.size += 1;
+            None
+        }
+    }
+
+    public function get(self: HashMap<K, V>, key: K): Option<V> {
+        let hash = key.hash();
+        let index = hash % self.buckets.length();
+        self.buckets[index].find(key)
+    }
+
+    public function remove(self: mut HashMap<K, V>, key: K): Option<V> {
+        let hash = key.hash();
+        let index = hash % self.buckets.length();
+
+        if let Some(value) = self.buckets[index].remove(key) {
+            self.size -= 1;
+            Some(value)
+        } else {
+            None
+        }
+    }
+
+    public function contains_key(self: HashMap<K, V>, key: K): bool {
+    self.get(key).is_some()
+    }
+
+    public function length(self: HashMap<K, V>): usize {
+        self.size
+    }
+}
+```
+
+### 47.3 HashSet<T>
+
+**Definition 47.3 (HashSet):** Set implemented as HashMap<T, ()>.
+
+```cantrip
+public record HashSet<T> where T: Hash + Eq {
+    map: HashMap<T, ()>,
+
+    public function new(): own HashSet<T>
+        needs alloc.heap;
+    {
+        own HashSet { map: HashMap.new() }
+    }
+
+    public function insert(self: mut HashSet<T>, value: T): bool
+    needs alloc.heap;
+{
+    self.map.insert(value, ()).is_none()
+    }
+
+    public function contains(self: HashSet<T>, value: T): bool {
+    self.map.contains_key(value)
+    }
+
+    public function remove(self: mut HashSet<T>, value: T): bool {
+        self.map.remove(value).is_some()
+    }
+}
+```
 
 ---
 
-## 47. [REMOVED - See Standard Library Specification]
+## 48. I/O and File System
 
-### 47.1 [REMOVED - See Standard Library Specification]
+### 48.1 File I/O
 
-### 47.2 [REMOVED - See Standard Library Specification]
+**Module:** `std.io`
 
-### 47.3 [REMOVED - See Standard Library Specification]
+```cantrip
+public record File {
+    handle: FileHandle;
+    path: String;
+
+    public function open(path: str): Result<own File, Error>
+        needs fs.read, alloc.heap;
+        requires !path.is_empty();
+    {
+        match FileSystem.open(path) {
+            Ok(handle) -> Ok(own File {
+                handle,
+                path: String.from(path),
+            }),
+            Err(err) -> Err(err),
+        }
+    }
+
+    public function create(path: str): Result<own File, Error>
+        needs fs.write, alloc.heap;
+        requires !path.is_empty();
+    {
+        match FileSystem.create(path) {
+            Ok(handle) -> Ok(own File {
+                handle,
+                path: String.from(path),
+            }),
+            Err(err) -> Err(err),
+        }
+    }
+
+    public function read(self: mut File, buffer: mut [u8]): Result<usize, Error>
+        needs fs.read;
+        requires buffer.length() > 0;
+    {
+        self.handle.read(buffer)
+    }
+
+    public function read_all(self: mut File): Result<Vec<u8>, Error>
+        needs fs.read, alloc.heap;
+    {
+        let mut data = Vec.new();
+        let mut buffer = [0u8; 4096];
+
+        loop {
+            match self.read(mut buffer) {
+                Ok(0) -> break,
+                Ok(n) -> data.extend_from_slice(buffer[0..n]),
+                Err(err) -> return Err(err),
+            }
+        }
+
+        Ok(data)
+    }
+
+    public function write(self: mut File, data: [u8]): Result<usize, Error>
+        needs fs.write;
+        requires data.length() > 0;
+    {
+        self.handle.write(data)
+    }
+
+    public function close(self: own File) {
+        self.handle.close();
+    }
+}
+```
+
+### 48.2 Standard Streams
+
+```cantrip
+// Module: std.io
+
+public function print(msg: str)
+    needs io.write;
+{
+    stdout().write(msg.as_bytes());
+}
+
+public function println(msg: str)
+    needs io.write;
+{
+    stdout().write(msg.as_bytes());
+        stdout().write("\n".as_bytes());
+}
+
+public function eprint(msg: str)
+    needs io.write;
+{
+    stderr().write(msg.as_bytes());
+}
+
+public function eprintln(msg: str)
+    needs io.write;
+{
+    stderr().write(msg.as_bytes());
+        stderr().write("\n".as_bytes());
+}
+```
+
+### 48.3 File System Operations
+
+**Module:** `std.fs`
+
+```cantrip
+public function read_to_string(path: str): Result<String, Error>
+    needs fs.read, alloc.heap;
+    requires !path.is_empty();
+{
+    let mut file = File.open(path)?;
+    let data = file.read_all()?;
+    String.from_utf8(data)
+}
+
+public function write(path: str, contents: str): Result<(), Error>
+    needs fs.write, alloc.heap;
+    requires !path.is_empty();
+{
+    let mut file = File.create(path)?;
+    file.write(contents.as_bytes())?;
+    Ok(())
+}
+
+public function exists(path: str): bool
+    needs fs.metadata;
+    requires !path.is_empty();
+{
+    FileSystem.exists(path)
+}
+
+public function remove(path: str): Result<(), Error>
+    needs fs.delete;
+    requires !path.is_empty();
+{
+    FileSystem.remove(path)
+}
+```
 
 ---
 
-## 48. [REMOVED - See Standard Library Specification]
+## 49. Networking
 
-### 48.1 [REMOVED - See Standard Library Specification]
+### 49.1 HTTP Client
 
-### 48.2 [REMOVED - See Standard Library Specification]
+**Module:** `std.net.http`
 
-### 48.3 [REMOVED - See Standard Library Specification]
+```cantrip
+public record Client {
+    timeout: Duration;
+
+    public function new(): own Client
+    needs alloc.heap;
+{
+    own Client {
+                timeout: Duration.from_secs(30),
+            }
+    }
+
+    public function get(self: Client, url: str): Result<Response, Error>
+        needs net.read(outbound), alloc.heap;
+        requires !url.is_empty();
+    {
+        let request = Request.builder()
+            .procedure(Procedure.GET)
+            .url(url)
+            .build()?;
+
+        self.execute(request)
+    }
+
+    public function post(self: Client, url: str, body: [u8]): Result<Response, Error>
+        needs net.read(outbound), net.write, alloc.heap;
+        requires !url.is_empty();
+    {
+        let request = Request.builder()
+            .procedure(Procedure.POST)
+            .url(url)
+            .body(body)
+            .build()?;
+
+            self.execute(request)
+    }
+}
+
+public record Response {
+    status: u16;
+    headers: HashMap<String, String>;
+    body: Vec<u8>;
+
+    public function status(self: Response): u16 {
+    self.status
+    }
+
+    public function body(self: Response): Vec<u8> {
+        self.body
+    }
+
+    public function text(self: Response): Result<String, Error>
+        needs alloc.heap;
+    {
+        String.from_utf8(self.body)
+    }
+}
+```
+
+### 49.2 TCP Sockets
+
+**Module:** `std.net.tcp`
+
+```cantrip
+public record TcpListener {
+    addr: SocketAddr;
+
+    public function bind(addr: str): Result<own TcpListener, Error>
+        needs net.read(inbound), alloc.heap;
+    {
+        // Implementation
+    }
+
+    public function accept(self: TcpListener): Result<TcpStream, Error>
+        needs net.read(inbound), alloc.heap;
+    {
+        // Implementation
+    }
+}
+
+public record TcpStream {
+    socket: Socket;
+
+    public function connect(addr: str): Result<own TcpStream, Error>
+        needs net.read(outbound), alloc.heap;
+    {
+        // Implementation
+    }
+
+    public function read(self: mut TcpStream, buffer: mut [u8]): Result<usize, Error>
+        needs net.read(outbound);
+    {
+        self.socket.read(buffer)
+    }
+
+    public function write(self: mut TcpStream, data: [u8]): Result<usize, Error>
+        needs net.write;
+    {
+        self.socket.write(data)
+    }
+}
+```
 
 ---
 
-## 49. [REMOVED - See Standard Library Specification]
+## 50. Concurrency Primitives
 
-### 49.1 [REMOVED - See Standard Library Specification]
 
-### 49.2 [REMOVED - See Standard Library Specification]
+#### 50.1 Structured Concurrency Helpers (Normative)
+
+The `std.concurrent.scope` module is part of the standard library. See §35.5 for semantics.
+Using `scope.spawn` eliminates leaked threads by construction and integrates with the effect
+system (`thread.spawn`, `thread.join`).
+
+
+### 50.1 Mutex
+
+**Module:** `std.sync`
+
+```cantrip
+public record Mutex<T> {
+    data: T;
+    lock: AtomicBool;
+
+    public function new(value: T): own Mutex<T>
+        needs alloc.heap;
+    {
+        own Mutex {
+            data: value,
+            lock: AtomicBool.new(false),
+        }
+    }
+
+    public function lock(self: Mutex<T>): MutexGuard<T> {
+        while !self.lock.compare_exchange(false, true) {
+            // Spin
+        }
+        MutexGuard { mutex: self }
+    }
+}
+
+public record MutexGuard<T> {
+    mutex: Mutex<T>;
+
+    // Automatic unlock on drop
+}
+```
+
+### 50.2 Channels
+
+**Module:** `std.sync.channel`
+
+```cantrip
+public function new<T>(): (Sender<T>, Receiver<T>)
+    needs alloc.heap;
+{
+    let channel = Channel.new();
+    (Sender { channel }, Receiver { channel })
+}
+
+public record Sender<T> {
+    channel: Channel<T>;
+
+    public function send(self: Sender<T>, value: T): Result<(), Error> {
+        self.channel.push(value)
+    }
+}
+
+public record Receiver<T> {
+    channel: Channel<T>;
+
+    public function receive(self: Receiver<T>): Result<T, Error> {
+        self.channel.pop()
+    }
+
+    public function try_receive(self: Receiver<T>): Option<T> {
+        self.channel.try_pop()
+    }
+}
+```
+
+### 50.3 Atomic Types
+
+**Module:** `std.sync.atomic`
+
+```cantrip
+public record AtomicI32 {
+    value: i32;
+
+    public function new(initial: i32): own AtomicI32 {
+    own AtomicI32 { value: initial }
+    }
+
+    public function load(self: AtomicI32): i32
+    needs thread.atomic;
+{
+    atomic_load(&self.value)
+    }
+
+    public function store(self: mut AtomicI32, value: i32)
+    needs thread.atomic;
+{
+    atomic_store(&self.value, value)
+    }
+
+    public function fetch_add(self: mut AtomicI32, value: i32): i32
+        needs thread.atomic;
+    {
+        atomic_fetch_add(&self.value, value)
+    }
+
+    public function compare_exchange(
+        self: mut AtomicI32,
+        current: i32,
+        new: i32
+    ): bool
+        needs thread.atomic;
+    {
+        atomic_compare_exchange(&self.value, current, new)
+    }
+}
+```
 
 ---
 
-## 50. [REMOVED - See Standard Library Specification]
+# Part XIII (Normative): Tooling and Implementation
 
-### 50.1 [REMOVED - See Standard Library Specification]
+## 51. Compiler Architecture
 
-### 50.2 [REMOVED - See Standard Library Specification]
+### 51.1 Compilation Pipeline
 
-### 50.3 [REMOVED - See Standard Library Specification]
+**Definition 51.1 (Compilation Pipeline):** The sequence of transformations from source to executable.
 
----
+**Phases:**
+```
+Source Code (.arc)
+    ↓
+[1. Lexical Analysis]
+    ↓
+Token Stream
+    ↓
+[2. Parsing]
+    ↓
+Abstract Syntax Tree (AST)
+    ↓
+[3. Name Resolution]
+    ↓
+Resolved AST
+    ↓
+[4. Type Checking]
+    ↓
+Typed AST
+    ↓
+[5. Effect Checking]
+    ↓
+Effect-Annotated AST
+    ↓
+[6. Contract Verification]
+    ↓
+Verified AST
+    ↓
+[7. Modal State Analysis]
+    ↓
+State-Verified AST
+    ↓
+[8. Borrow/Region Analysis]
+    ↓
+Lifetime-Annotated AST
+    ↓
+[9. Optimization]
+    ↓
+Optimized IR
+    ↓
+[10. Code Generation]
+    ↓
+Native Code / Bytecode
+```
 
-# Part XIII: Tooling and Implementation (See Separate Document)
+### 51.2 Compiler Invocation
 
-**The complete tooling and implementation guide has been moved to `Cantrip-Tooling-Guide.md`.**
-
-For comprehensive documentation including:
-- Compiler architecture and compilation pipeline
-- Compiler invocation and options
-- Optimization levels
-- Verification modes
-- Incremental compilation
-- Error reporting and machine-readable output
-- Package management (`arc.toml`, commands, dependency resolution)
-- Testing framework (unit tests, integration tests, property-based testing, benchmarks)
-
-**📄 See:** `Cantrip-Tooling-Guide.md`
-
-### Quick Reference
-
-**Compiler invocation:**
+**Basic compilation:**
 ```bash
-arc compile main.arc --opt=2 --verify=runtime
+arc compile main.arc -o output
 ```
 
-**Package management:**
+**Options:**
 ```bash
+arc compile main.arc \
+    --opt=2 \                    # Optimization level (0-3)
+    --verify=static \            # Contract verification mode
+    --target=x86_64-linux \      # Target platform
+    --emit=asm \                 # Emit assembly
+    --no-default-features \      # Disable default features
+    --features=experimental      # Enable features
+```
+
+### 51.3 Optimization Levels
+
+**Optimization levels:**
+
+| Level | Description | Compile Time | Runtime Performance |
+|-------|-------------|--------------|---------------------|
+| `--opt=0` | No optimization | Fast | Slow |
+| `--opt=1` | Basic optimization | Moderate | Good |
+| `--opt=2` | Standard (default) | Moderate | Very Good |
+| `--opt=3` | Aggressive | Slow | Excellent |
+
+**Optimizations:**
+- Level 0: None
+- Level 1: Dead code elimination, constant folding
+- Level 2: Inlining, loop optimizations, register allocation
+- Level 3: Inter-procedural optimization, vectorization, LTO
+
+### 51.4 Verification Modes
+
+**Three verification strategies:**
+
+```bash
+# Static verification (must prove or fail compilation)
+arc compile --verify=static main.arc
+
+# Runtime verification (default - insert runtime checks)
+arc compile --verify=runtime main.arc
+
+# No verification (unsafe - trust programmer)
+arc compile --verify=none main.arc
+```
+
+**Per-function override:**
+```cantrip
+#[verify(static)]
+function critical() { ... }
+
+#[verify(runtime)]
+function normal() { ... }
+
+#[verify(none)]
+unsafe function low_level() { ... }
+```
+
+### 51.5 Incremental Compilation
+
+**Compiler maintains dependency graph:**
+
+```
+Module Dependency Graph:
+  main → http → net.tcp
+  main → json
+  http → json
+```
+
+**Recompilation:**
+- Only recompile changed modules
+- Recompile dependent modules
+- Use cached artifacts for unchanged modules
+
+**Cache structure:**
+```
+target/
+├── cache/
+│   ├── main.arc.o
+│   ├── http.arc.o
+│   └── json.arc.o
+└── deps/
+    └── dependency_graph.json
+```
+
+---
+
+## 52. Error Reporting
+
+### 52.1 Error Message Format
+
+**Standard error format:**
+```
+error[E####]: Error message
+  --> file:line:column
+   |
+## | source code line
+   | ^^^^^ explanation
+   |
+   = note: Additional information
+   = help: Suggestion for fix
+```
+
+### 52.2 Example Error Messages
+
+**Type error:**
+```bash
+error[E2001]: Type mismatch
+  --> src/main.arc:15:9
+   |
+15 |     let x: i32 = "string";
+   |                  ^^^^^^^^ expected i32, found str
+   |
+   = note: Types must match exactly in Cantrip
+   = help: Consider using: let x: i32 = 42;
+```
+
+**Effect error:**
+```bash
+error[E9001]: Missing effect declaration
+  --> src/io.arc:8:9
+   |
+ 8 |         Vec.new()
+   |         ^^^^^^^^^ requires effect alloc.heap
+   |
+note: function declared as pure
+  --> src/io.arc:5:5
+   |
+ 5 |     requires:
+   |     ^^^^^^^^^ declared with no effects
+   |
+help: add effect declaration
+   |
+ 5 |     requires<alloc.heap>:
+   |             ^^^^^^^^^^^^
+```
+
+**Modal state error:**
+```bash
+error[E3003]: Procedure not available in current state
+  --> src/file.arc:42:10
+   |
+42 |     file.read(buffer);
+   |          ^^^^ procedure 'read' not available in state Closed
+   |
+note: file has type File@Closed
+  --> src/file.arc:40:9
+   |
+40 |     let file = File.new("data.txt");
+   |         ^^^^ inferred type: File@Closed
+   |
+help: call 'open' to transition to Open state
+   |
+41 |     let file = file.open()?;
+   |                ^^^^^^^^^^^
+```
+
+### 52.3 Machine-Readable Output
+
+**JSON format:**
+```bash
+arc compile --output-format=json main.arc
+```
+
+**Output:**
+```json
+{
+  "version": "0.4.0",
+  "diagnostics": [
+    {
+      "id": "E2001",
+      "severity": "error",
+      "message": "Type mismatch",
+      "location": {
+        "file": "src/main.arc",
+        "line": 15,
+        "column": 9,
+        "span": {
+          "start": 245,
+          "end": 253
+        }
+      },
+      "fixes": [
+        {
+          "description": "Change to i32",
+          "edits": [
+            {
+              "location": { "start": 245, "end": 253 },
+              "replacement": "42"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+## 53. Package Management
+
+### 53.1 Project Structure
+
+**Standard project layout:**
+```
+myproject/
+├── arc.toml              # Package manifest
+├── src/
+│   ├── main.arc          # Entry point
+│   └── lib.arc           # Library root (optional)
+├── tests/
+│   └── integration.arc   # Integration tests
+├── examples/
+│   └── simple.arc        # Example programs
+├── benches/
+│   └── performance.arc   # Benchmarks
+└── target/               # Build artifacts (generated)
+    ├── debug/
+    └── release/
+```
+
+### 53.2 Package Manifest
+
+**`arc.toml` format:**
+```toml
+[package]
+name = "myproject"
+version = "1.0.0"
+authors = ["Your Name <you@example.com>"]
+edition = "0.4.0"
+description = "A short description"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/user/myproject"
+
+[dependencies]
+http = "2.0"
+json = { version = "1.5", features = ["pretty"] }
+local_crate = { path = "../local_crate" }
+
+[dev-dependencies]
+test_utils = "0.3"
+
+[features]
+default = ["std"]
+std = []
+experimental = []
+
+[profile.release]
+opt-level = 3
+verify = "runtime"
+
+[profile.dev]
+opt-level = 0
+verify = "runtime"
+```
+
+### 53.3 Commands
+
+**Package management commands:**
+
+```bash
+# Create new project
 arc new myproject
+arc new --lib mylibrary
+
+# Build project
+arc build
 arc build --release
+
+# Run project
+arc run
+arc run --release
+
+# Test project
 arc test
+arc test --test integration
+
+# Benchmark
+arc bench
+
+# Clean build artifacts
+arc clean
+
+# Update dependencies
+arc update
+
+# Publish to registry
+arc publish
 ```
 
-**For complete documentation, see `Cantrip-Tooling-Guide.md`.**
+### 53.4 Dependency Resolution
+
+**Version specification:**
+```toml
+[dependencies]
+# Exact version
+exact = "=1.0.0"
+
+# Compatible versions (semver)
+compatible = "1.2"         # >=1.2.0, <2.0.0
+caret = "^1.2.3"           # >=1.2.3, <2.0.0
+tilde = "~1.2.3"           # >=1.2.3, <1.3.0
+
+# Version ranges
+range = ">=1.2, <1.5"
+
+# Wildcard
+any = "*"
+```
+
+**Resolution algorithm:**
+1. Parse dependency specifications
+2. Fetch package metadata from registry
+3. Build dependency graph
+4. Check for conflicts
+5. Select versions satisfying all constraints
+6. Download and cache packages
+
+---
+
+## 54. Testing Framework
+
+### 54.1 Unit Tests
+
+**Test annotation:**
+```cantrip
+#[test]
+function test_addition() {
+    assert_eq(2 + 2, 4);
+}
+
+#[test]
+function test_subtraction() {
+    assert_eq(5 - 3, 2);
+}
+```
+
+**Test macros:**
+```cantrip
+assert!(condition);
+assert_eq!(left, right);
+assert_ne!(left, right);
+```
+
+### 54.2 Integration Tests
+
+**Integration test file (`tests/integration.arc`):**
+```cantrip
+import mylib;
+
+#[test]
+function test_end_to_end() {
+    let result = mylib.process_data(input);
+    assert_eq(result, expected);
+}
+```
+
+### 54.3 Property-Based Testing
+
+**Property tests:**
+```cantrip
+#[property_test(cases = 1000)]
+function test_sort_preserves_length(arr: Vec<i32>) {
+    let original_len = arr.length();
+    let sorted = arr.sort();
+    assert_eq(sorted.length(), original_len);
+}
+
+#[property_test(cases = 1000)]
+function test_addition_commutative(a: i32, b: i32) {
+    assert_eq(a + b, b + a);
+}
+```
+
+### 54.4 Benchmarks
+
+**Benchmark file (`benches/performance.arc`):**
+```cantrip
+#[bench]
+function bench_vector_push(b: Bencher) {
+    b.iter(|| {
+        var v = Vec.new();
+        for i in 0..1000 {
+            v.push(i);
+        }
+    });
+}
+
+#[bench]
+function bench_hashmap_insert(b: Bencher) {
+    b.iter(|| {
+        var map = HashMap.new();
+        for i in 0..1000 {
+            map.insert(i, i * 2);
+        }
+    });
+}
+```
 
 ---
 
@@ -10533,71 +12392,244 @@ where       while
 
 ---
 
-## Appendix C: Error Codes (See Separate Document)
+## Appendix C: Error Codes
 
-**The complete error codes reference has been moved to `Cantrip-Error-Codes.md`.**
+### C.1 Syntax Errors (E1xxx)
 
-For comprehensive documentation including:
-- Complete error code listings by category
-- Detailed descriptions and examples
-- Suggested fixes for common errors
-- LLM-specific error guidance
+| Code | Description |
+|------|-------------|
+| E1001 | Procedure does not exist |
+| E1006 | Invalid modal state transition syntax |
+| E1007 | Missing semicolon after needs clause |
+| E1008 | Missing semicolon after requires clause |
+| E1009 | Missing semicolon after ensures clause |
+| E1010 | Removed syntax: requires<effects> (use 'needs effects;' instead) |
+| E1011 | Removed syntax: returns<Type> (use ': Type' in signature instead) |
+| E1012 | Removed syntax: implements keyword (use direct body instead) |
 
-**📄 See:** `Cantrip-Error-Codes.md`
+### C.2 Type Errors (E2xxx)
 
-### Quick Reference
+| Code | Description |
+|------|-------------|
+| E2001 | Type mismatch |
+| E2002 | Item is private |
+| E2003 | Module not found |
+| E2004 | Import cycle detected |
+| E2005 | Ambiguous import |
+| E2010 | Non-exhaustive match pattern |
+| E2020 | Invalid state annotation |
+| E2021 | Modal state not declared |
+| E2022 | Record field not found |
+| E2023 | Enum variant not found |
 
-**Error Code Categories:**
-- **E1xxx:** Syntax errors
-- **E2xxx:** Type errors
-- **E3xxx:** Modal state errors
-- **E4xxx:** Contract errors
-- **E5xxx:** Region/Lifetime errors
-- **E9xxx:** Effect system errors
+### C.3 Modal State Errors (E3xxx)
 
-**Common Errors:**
-- `E2001`: Type mismatch
-- `E3003`: Procedure not available in current state
-- `E4001`: Precondition violation
-- `E5002`: Reference escapes region scope
-- `E9001`: Missing effect declaration
+| Code | Description |
+|------|-------------|
+| E3001 | State invariant violated |
+| E3002 | Invalid state transition |
+| E3003 | Procedure requires different state |
+| E3004 | Use of moved value |
+| E3005 | Unreachable state declared |
+| E3006 | Missing initial state |
 
-**For complete documentation, see `Cantrip-Error-Codes.md`.**
+### C.4 Contract Errors (E4xxx)
+
+| Code | Description |
+|------|-------------|
+| E4001 | Precondition violation |
+| E4002 | Postcondition violation |
+
+### C.5 Region/Lifetime Errors (E5xxx)
+
+| Code | Description |
+|------|-------------|
+| E5001 | Cannot return region data |
+| E5002 | Reference escapes region scope |
+| E5003 | Region outlived by reference |
+
+### C.6 Effect System Errors (E9xxx)
+
+| Code | Description |
+|------|-------------|
+| E9001 | Missing effect declaration |
+| E9002 | Effect not declared |
+| E9003 | Effect budget exceeded |
+| E9004 | Forbidden effect used |
+| E9005 | Unknown effect name in definition |
+| E9006 | Circular effect definition |
+| E9007 | Effect already defined |
+| E9008 | Invalid effect operation |
+| E9009 | Effect visibility violation |
+| E9010 | Redundant forbidden effect |
+
+**Examples:**
+
+**E9005: Unknown effect name**
+```cantrip
+effect MyOps = fs.read + undefined.effect;
+//                       ^^^^^^^^^^^^^^^^
+// error[E9005]: Unknown effect 'undefined.effect'
+```
+
+**E9006: Circular definition**
+```cantrip
+effect A = B + fs.read;
+effect B = A + fs.write;
+// error[E9006]: Circular effect definition: A -> B -> A
+```
+
+**E9007: Already defined**
+```cantrip
+effect WebOps = fs.read;
+effect WebOps = net.read;  // Different definition
+// error[E9007]: Effect 'WebOps' already defined at line 1
+```
+
+**E9008: Invalid operation**
+```cantrip
+effect Invalid = fs.read * fs.write;  // Invalid operator
+// error[E9008]: Invalid effect operation '*', expected '+', '-', or '!'
+```
+
+**E9009: Visibility violation**
+```cantrip
+// In module a.arc
+effect PrivateOps = fs.read;
+
+// In module b.arc
+import a.PrivateOps;  // Error: PrivateOps is private
+// error[E9009]: Effect 'PrivateOps' is private and cannot be imported
+```
+
+**E9010: Redundant forbidden effect**
+```cantrip
+function example()
+    needs alloc.heap, !fs.*;
+//                    ^^^^^^ error[E9010]: Redundant forbidden effect
+//
+// fs.* is already forbidden by deny-by-default semantics.
+// Forbidden effects (!) are only valid in two contexts:
+//   1. Wildcard restriction: needs fs.*, !fs.delete
+//   2. Polymorphic constraint: needs effects(F), !time.read
+```
 
 ---
 
-## Appendix D: Standard Library Index (See Separate Document)
+## Appendix D: Standard Library Index
 
-**The complete standard library index has been moved to `Cantrip-Standard-Library-Spec.md`.**
+### D.1 Core Modules
 
-For comprehensive documentation including:
-- Complete module index
-- Canonical API names
-- Effect families
-- Standard effect definitions
-- Complexity guarantees
-- Usage patterns and examples
-
-**📄 See:** `Cantrip-Standard-Library-Spec.md`
-
-### Quick Reference
-
-**Core Modules:**
 ```
-std, std.collections, std.io, std.fs, std.net, std.sync, std.thread
-```
-
-**Canonical API Names:**
-- Get size: `.length()` (NOT `.size()` or `.len()`)
-- Add item: `.push(item)` (NOT `.append()` or `.add()`)
-- Check empty: `.is_empty()` (NOT `.empty()`)
-
-**Effect Families:**
-```
-alloc.*, fs.*, net.*, io.*, thread.*, time.*, process.*, ffi.*, unsafe.*
+std                     # Core types (Option, Result, String)
+std.collections         # Vec, HashMap, HashSet
+std.io                  # Input/output
+std.fs                  # File system operations
+std.net                 # Networking
+std.net.http            # HTTP client/server
+std.net.tcp             # TCP sockets
+std.sync                # Synchronization primitives
+std.sync.atomic         # Atomic types
+std.sync.channel        # Message passing
+std.thread              # Threading
+std.time                # Time and duration
+std.math                # Mathematical functions
+std.string              # String utilities
+std.process             # Process management
 ```
 
-**For complete documentation, see `Cantrip-Standard-Library-Spec.md`.**
+### D.2 Canonical API Names
+
+| Operation | Correct Procedure | ❌ Alternatives |
+|-----------|----------------|-----------------|
+| Get size | `.length()` | `.size()`, `.count()`, `.len()` |
+| Add item | `.push(item)` | `.append()`, `.add()` |
+| Remove last | `.pop()` | `.remove_last()` |
+| Check empty | `.is_empty()` | `.empty()` |
+| Check contains | `.contains(item)` | `.has()` |
+
+### D.3 Effect Families
+
+**Complete effect taxonomy:**
+
+```
+alloc.*
+  ├─ alloc.heap
+  ├─ alloc.stack
+  ├─ alloc.region
+  └─ alloc.temp
+
+fs.*
+  ├─ fs.read
+  ├─ fs.write
+  ├─ fs.delete
+  └─ fs.metadata
+
+net.*
+  ├─ net.read(inbound)
+  ├─ net.read(outbound)
+  └─ net.write
+
+time.*
+  ├─ time.read
+  └─ time.sleep
+
+thread.*
+  ├─ thread.spawn
+  ├─ thread.join
+  └─ thread.atomic
+
+render.*
+  ├─ render.draw
+  └─ render.compute
+
+io.*
+  └─ io.write
+
+audio.*
+  └─ audio.play
+
+input.*
+  └─ input.read
+
+process.*
+  └─ process.spawn
+
+ffi.*
+  └─ ffi.call
+
+unsafe.*
+  └─ unsafe.ptr
+```
+
+### D.4 Standard Effect Definitions
+
+**NOTE:** For comprehensive coverage of standard effect definitions, see [Section 21.7: Standard Effect Definitions](#217-standard-effect-definitions).
+
+**Quick reference - Core standard effects:**
+
+```cantrip
+// From std.effects module
+
+Pure            // No effects
+AllAlloc        // All allocation types
+SafeIO          // fs.read + fs.write + alloc.heap
+AllIO           // All I/O operations
+NetworkIO       // Network I/O with allocation
+FileIO          // File I/O with allocation
+ConsoleIO       // Console output only
+NoAlloc         // Forbid all allocation
+NoIO            // Forbid all I/O
+Deterministic   // Forbid time and random
+GameTick        // Temp allocation only, no I/O
+RealTime        // No heap, no I/O
+WebService      // Network + file I/O + heap
+DatabaseOps     // File I/O + heap, no network
+```
+
+**For detailed documentation, usage patterns, and examples:**
+- See [Section 21.7: Standard Effect Definitions](#217-standard-effect-definitions)
+- See [Section 21.8: Effect Composition Best Practices](#218-effect-composition-best-practices)
 
 ---
 
@@ -10764,7 +12796,7 @@ The following checklist maps each original top-level section to its location in 
 Since headings and numbering have been preserved (with explicit **Normative/Informative** tags added),
 most sections map 1:1. Any editorial clarifications are additive.
 
-- **Part 0: LLM Quick Reference** → **Moved to `Cantrip-LLM-Guide.md`**
+- **Part 0: LLM Quick Reference** → **Part 0 (Informative): LLM Quick Reference**
 - **Part I: Foundational Concepts** → **Part I (Normative): Foundational Concepts**
 - **Part II: Type System** → **Part II (Normative): Type System**
 - **Part III: Modal System** → **Part III (Normative): Modal System**
@@ -10789,6 +12821,19 @@ and explicitly marked as **(Informative)**; all rules, typing judgments, and for
 
 ---
 
+## Appendix F (Informative): Migration Checklist (v0.6.x → v0.7.0)
+
+- **Protocols → Modals**: Replace `protocol` with `modal`; all state-machine rules preserved. Transition syntax `@S >> proc() >> @T` unchanged except “method” is now “procedure.”
+- **Structs → Records**: Replace `struct` with `record`. Records are *labeled product types*; use `impl Record { procedure ... }` instead of methods. No inheritance; prefer traits + composition.
+- **Interfaces → Traits**: Replace `interface` with `trait`. All examples and coherence rules now refer to traits. Default trait *procedures* replace default interface methods.
+- **Remove Classes**: Class-based inheritance/virtual dispatch removed. Use records + traits + modals/actors to model behavior. Where OO hierarchies existed, apply *composition* and *trait objects* (via `trait`).
+- **Actors**: `actor` is now a **first-class type** (normative). Use `actor` declarations and handles for message-passing concurrency.
+- **Function / Procedure Types**: Write function types as `fn(T₁, ..., Tₙ): U` and procedure types as `proc(SelfPerm, T₁, ..., Tₙ): U`. Prior notations using `T -> U` are obsolete.
+- **Terminology**: “Method” → “Procedure”. Error messages and diagnostics updated accordingly (e.g., **E3003** modal/procedure availability).
+- **Keywords**: Removed `class`, `interface`, `extends`, `override`, `virtual`, `super`; added `record`, `modal`, `procedure`, `actor`.
+- **Examples**: All code examples updated to use records/procedures/modals and trait terminology.
+
+---
 
 # Part XIV (Normative): Foreign Function Interface (FFI)
 
@@ -10876,20 +12921,40 @@ Inline assembly is reserved for a future version and is not specified here.
 
 ---
 
-## Appendix F: Common LLM Mistakes (See Separate Document)
+## Appendix F (Informative): Error Codes Indexed by Common LLM Mistakes
 
-**The complete index of error codes by common LLM mistakes has been moved to \Cantrip-LLM-Guide.md\.**
+This appendix groups canonical diagnostics by mistakes frequently observed in LLM‑generated code.
 
-For comprehensive guidance including:
-- Missing effects (E9001, E9201)
-- Ownership & moves (E3004, E5001)
-- Modals & states (E3003)
-- Traits & coherence (E9120, E8201, E8202)
-- Typed holes & stubs (E9501, E9502)
-- FFI hazards (E9701, E9704)
-- Structured concurrency (E7801, W7800)
+**1. Missing effects**  
+- `E9001` — missing effect declaration  
+- `E9201` — async effect mask exposes missing `needs` (net.*, time.sleep) (§22.7)  
+Fix‑its: add required `needs ...;` in the function signature.
 
-** See:** \Cantrip-LLM-Guide.md\ Part II
+**2. Ownership & moves**  
+- `E3004` — value moved (missing `move`)  
+- `E5001` — region data escapes its region (returning region‑allocated value)  
+Fix‑its: add `move`, convert to heap via `.to_heap()`, or adjust region scope.
 
----
+**3. Modals & states**  
+- `E3003` — procedure not available in current state  
+Fix‑its: perform the required state transition first.
+
+**4. Traits & coherence**  
+- `E9120` — trait implementation exceeds declared method effects (§8.6)  
+- `E8201` — overlapping impls; `E8202` — orphan impl (§8.7)  
+Fix‑its: narrow effects or relocate impl to a local crate/type.
+
+**5. Typed holes & stubs**  
+- `E9501` — unfilled typed hole stops compilation; `E9502` — dev‑mode trap emitted (§14.10)  
+Fix‑its: fill the hole or accept a generated skeleton.
+
+**6. FFI hazards**  
+- `E9701` — calling extern without `ffi.call`  
+- `E9704` — region‑allocated value crossing FFI boundary  
+Fix‑its: add effects, use `#[repr(C)]`, convert region data to heap, provide free functions.
+
+**7. Structured concurrency**  
+- `E7801` — escaping/detached `JoinHandle` from `scope.spawn` (§35.5)  
+- `W7800` — implicit joins at scope end  
+Fix‑its: hold and join every handle within the scope.
 
