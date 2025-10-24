@@ -1,31 +1,45 @@
 # The Cantrip Language Specification
 
-**Version:** 1.0.0 (compatible with 0.7.x)
-**Date:** October 21, 2025
-**Status:** Normative Reference
-**Target Audience:** Language implementers, library authors, and application developers
+**Version:** 1.0.2
+**Date:** October 22, 2025
+**Status:** Publication Ready
+**Specification Type:** Normative
+**Target Audience:** Language implementers, compiler writers, tool developers
 
 ---
+## Abstract
 
-## Preface and Editorial Policy
+Cantrip is a systems programming language designed for memory safety, deterministic performance, and AI-assisted development. It achieves these goals through:
 
-This document is a reorganized, fully normative specification of the **Cantrip** programming language.
-It preserves all technical material from the prior draft specification while clarifying structure,
-marking normative vs. informative text, and standardizing terminology and code fences.
-Where this document introduces clarifications or editorial fixes, the original technical content
-is retained and the canonical rules are stated explicitly.
+- **Lexical Permission System (LPS)**: Compile-time memory safety without garbage collection or borrow checking
+- **Explicit Contracts**: Preconditions and postconditions as executable specifications
+- **Effect System**: Compile-time tracking of side effects, allocations, and I/O
+- **Modal System**: State machines as first-class types with compile-time verification
+- **Memory Regions**: Explicit lifetime control with zero-overhead allocation
+- **Comptime Metaprogramming**: Compile-time code generation without macros
+- **File-Based Modules**: Code organization through file system structure
 
+Cantrip compiles to native code with performance matching C/C++ while providing memory safety guarantees through region-based lifetime management.
+
+**Design Philosophy:**
+1. **Explicit over implicit** - All effects, lifetimes, and permissions visible in code
+2. **Local reasoning** - Understanding code requires minimal global context
+3. **Zero abstraction cost** - Safety guarantees without runtime overhead
+4. **LLM-friendly** - Predictable patterns for AI code generation
+5. **Simple ownership** - No borrow checker complexity
+6. **No macros** - Metaprogramming through comptime only for predictability
+
+**Safety Model:**
+- **Prevents**: Use-after-free, double-free, memory leaks
+- **Provides**: Deterministic deallocation, zero GC pauses
+- **Does NOT prevent**: Aliasing bugs, data races (programmer's responsibility)
+
+**Conformance:** An implementation conforms to this specification if and only if it satisfies all normative requirements stated herein.
 
 ### Key Words for Requirement Levels
 The key words **MUST**, **MUST NOT**, **REQUIRED**, **SHALL**, **SHALL NOT**, **SHOULD**, **SHOULD NOT**,
 **RECOMMENDED**, **MAY**, and **OPTIONAL** in this document are to be interpreted as described in
 RFC 2119 and RFC 8174 when, and only when, they appear in all capitals.
-
-### Normative vs. Informative
-
-> **Sticky Banners:** Each Part/section heading in this document carries a **(Normative)** or **(Informative)** tag. When a tag appears at the Part level, it applies to all sections within that Part unless a section overrides it explicitly.
-Sections explicitly marked **(Normative)** define conformance requirements. Sections marked **(Informative)**
-provide examples, guidance, or background and are non-binding. “LLM Quick Reference” is informative.
 
 ### Conformance
 An implementation conforms to this specification if and only if it satisfies all normative requirements
@@ -40,829 +54,346 @@ implementation-defined limits, and unspecified behavior MUST be documented.
 
 ---
 
-# The Cantrip Language Specification
-
-**Version:** 1.0.0 (compatible with 0.7.x)
-**Date:** December 2024
-**Status:** Normative Reference
-**Target Audience:** Language implementers, library authors, and application developers
-
----
-
-# Part 0 (Informative): LLM Quick Reference
-
-**Purpose:** This section provides a crash course for Large Language Models generating Cantrip code. It demonstrates correct syntax patterns with anti-patterns, common idioms, and critical differences from similar languages.
-
-**For Human Readers:** This section supplements but does not replace the formal specification. Read Part I-XIII for complete language semantics.
-
----
-
-## 0.1 Core Syntax Patterns
-
-### 0.1.1 Function Declaration Syntax
-
-**Canonical Form (ONLY valid syntax):**
-```cantrip
-function name(param: Type): ReturnType
-    needs effects;        // Optional: omit if pure
-    requires conditions;  // Optional: omit if none
-    ensures conditions;   // Optional: omit if none
-{
-    body
-}
-```
-
-**✅ CORRECT Example:**
-
-```cantrip
-// Comprehensive function with all optional clauses
-function divide(a: f64, b: f64): f64
-    needs alloc.heap;          // Optional: effects
-    requires b != 0.0;          // Optional: precondition
-    ensures result == a / b;    // Optional: postcondition
-{
-    a / b
-}
-
-// Pure functions omit all clauses
-function add(x: i32, y: i32): i32 { x + y }
-```
-
-**❌ WRONG - Removed Syntax (ERROR E1010, E1011, E1012):**
-
-```cantrip
-// ERROR E1010: Old syntax removed
-function example()
-    requires<alloc.heap>:  // ❌ WRONG - use 'needs alloc.heap;'
-{ }
-
-// ERROR E1011: Old syntax removed
-function example() returns<i32>:  // ❌ WRONG - use ': i32' in signature
-{ }
-
-// ERROR E1012: Old syntax removed
-function example()
-    implements:  // ❌ WRONG - just write the body
-{ }
-```
-
-### 0.1.2 Ownership and Move Semantics
-
-**Key Principle:** Ownership transfer requires explicit `move` keyword.
-
-**✅ CORRECT Example:**
-
-```cantrip
-// Explicit move required for ownership transfer
-function consume(own data: Data) {
-    // data owned and destroyed here
-}
-
-function example()
-    needs alloc.heap;
-{
-    let data = Data.new();
-    consume(move data);  // Explicit move required
-    // data no longer accessible
-}
-```
-
-**❌ WRONG - Missing Move:**
-
-```cantrip
-function consume(own data: Data) { }
-
-function broken()
-    needs alloc.heap;
-{
-    let data = Data.new();
-    consume(data);  // ERROR E3004: missing 'move'
-}
-```
-
-**Critical Difference from Rust:**
-
-```rust
-// Rust: Move is implicit
-fn consume(data: Data) { }
-fn example() {
-    let data = Data::new();
-    consume(data);  // Implicit move in Rust
-    // data no longer valid
-}
-```
-
-```cantrip
-// Cantrip: Move is explicit
-function consume(own data: Data) { }
-function example() {
-    let data = Data.new();
-    consume(move data);  // Explicit move required
-    // data no longer valid
-}
-```
-
-### 0.1.3 Effect Declaration Syntax
-
-**Key Principle:** Effects are NEVER inferred. They MUST be declared explicitly, otherwise the item is pure.
-
-**✅ CORRECT Example:**
-
-```cantrip
-// Effect declarations
-function process_file(path: String): Result<Data, Error>
-    needs fs.read, fs.write, alloc.heap;  // Declare all effects
-{
-    let contents = std.fs.read_to_string(path)?;
-    std.fs.write("output.txt", contents)
-}
-
-// Pure function needs no clause
-function calculate(x: i32): i32 { x * x }
-```
-
-**❌ WRONG - Missing Effect Declaration:**
-
-```cantrip
-function broken(): Vec<i32> {
-    Vec.new()  // ERROR E9001: alloc.heap not declared
-}
-```
-
-**Effect Hierarchy:**
-
-```
-alloc.*          // All allocation types
-  ├─ alloc.heap
-  ├─ alloc.stack
-  ├─ alloc.region
-  └─ alloc.temp
-
-fs.*             // All file system
-  ├─ fs.read
-  ├─ fs.write
-  ├─ fs.delete
-  └─ fs.metadata
-
-net.*            // All network
-  ├─ net.read(inbound)
-  ├─ net.read(outbound)
-  └─ net.write
-```
-
-### 0.1.4 Modal State Transitions
-
-**Syntax:** `@State >> procedure() >> @NextState`
-
-**✅ CORRECT Examples:**
-
-```cantrip
-modal File {
-    state Closed {
-        path: String;
-    }
-
-    state Open {
-        path: String;
-        handle: FileHandle;
-    }
-
-    // Transition uses >> with @ markers (modal)
-    @Closed >> open() >> @Open
-        needs fs.read;
-    {
-        let handle = FileSystem.open(self.path)?;
-        Open {
-            path: self.path,
-            handle: handle,
-        }
-    }
-
-    @Open >> read(n: usize) >> @Open
-        needs fs.read;
-    {
-        let data = self.handle.read(n)?;
-        (data, self)
-    }
-
-    @Open >> close() >> @Closed {
-        self.handle.close();
-        Closed { path: self.path }
-    }
-}
-
-// Usage
-function example(): Result<(), Error>
-    needs fs.read;
-{
-    let file = File.new("data.txt");  // Type: File@Closed
-
-    // Cannot read in Closed state
-    // let data = file.read(1024)?;  // ERROR E3003
-
-    let file = file.open()?;          // Now File@Open
-    let data = file.read(1024)?;      // OK in Open state
-    let file = file.close();          // Back to File@Closed
-
-    Ok(())
-}
-```
-
-**❌ WRONG - Invalid Syntax:**
-
-```cantrip
-modal Broken {
-    state Start { }
-    state End { }
-
-    // ❌ ERROR E1006: Wrong arrow syntax
-    Start -> procedure() -> End { }     // Wrong: use >> not ->
-    @Start => procedure() => @End { }   // Wrong: use >> not =>
-    Start.procedure() -> End { }        // Wrong: missing @
-}
-```
-
-### 0.1.5 Region-Based Memory Management
-
-**Key Principle:** Regions provide O(1) bulk deallocation with LIFO ordering.
-
-**✅ CORRECT Example:**
-
-```cantrip
-// Basic region usage
-function parse_data(input: String): Result<Data, Error>
-    needs alloc.region, alloc.heap;
-{
-    region temp {
-        let tokens = lex_in<temp>(input);
-        let ast = parse_in<temp>(tokens);
-        Ok(ast.to_heap())  // Convert before escaping
-    }
-}
-```
-
-**❌ WRONG - Escaping Region:**
-
-```cantrip
-function broken(): Vec<i32>
-    needs alloc.region;
-{
-    region temp {
-        let vec = Vec.new_in<temp>();
-        vec  // ERROR E5001: Cannot return region data
-    }
-}
-```
-
----
-
-## 0.2 Common Patterns Library
-
-### 0.2.1 Error Handling Pattern
-
-**Pattern: Early Return with ?**
-
-```cantrip
-function pipeline(path: String): Result<Output, Error>
-    needs fs.read, alloc.heap;
-    requires !path.is_empty();
-{
-    let raw = read_file(path)?;        // Early return on error
-    let parsed = parse(raw)?;          // Chain cleanly
-    let validated = validate(parsed)?; // No nesting
-    Ok(transform(validated))
-}
-```
-
-**Pattern: Custom Error Types**
-
-```cantrip
-enum ProcessError {
-    IoError(std.io.Error),
-    ParseError(String),
-    ValidationError(String),
-}
-
-function process(path: String): Result<Data, ProcessError>
-    needs fs.read, alloc.heap;
-{
-    let contents = std.fs.read_to_string(path)
-        .map_err(|e| ProcessError.IoError(e))?;
-
-    let parsed = parse(contents)
-        .map_err(|e| ProcessError.ParseError(e))?;
-
-    validate(parsed)
-        .map_err(|e| ProcessError.ValidationError(e))
-}
-```
-
-### 0.2.2 Resource Management Pattern
-
-**Pattern: RAII with Modals**
-
-```cantrip
-modal DatabaseConnection {
-    state Disconnected { config: Config; }
-    state Connected { handle: DbHandle; }
-
-    @Disconnected >> connect() >> @Connected
-        needs net.read(outbound);
-    {
-        let handle = establish_connection(self.config)?;
-        Connected { handle }
-    }
-
-    @Connected >> disconnect() >> @Disconnected {
-        self.handle.close();
-        Disconnected { config: self.config }
-    }
-}
-
-function with_connection<F, T>(config: Config, f: F): Result<T, Error>
-    where F: Fn(DatabaseConnection@Connected): Result<T, Error>
-    needs net.read(outbound);
-{
-    let conn = DatabaseConnection.new(config);
-    let conn = conn.connect()?;
-    let result = f(conn)?;
-    conn.disconnect();
-    Ok(result)
-}
-```
-
-### 0.2.3 Effect Composition Pattern
-
-**Pattern: Named Effect Definitions**
-
-```cantrip
-// Define at module level
-effect WebService = fs.read + fs.write + net.read(inbound) + net.write + alloc.heap;
-effect GameTick = alloc.temp;  // Only temp allocation, everything else denied by default
-effect DatabaseOps = fs.read + fs.write + alloc.heap;
-
-// Use in function signatures
-function handle_request(req: Request): Response
-    needs WebService;
-{
-    let data = load_from_disk()?;
-    let processed = transform(data);
-    send_response(processed)
-}
-
-function update_game_state(state: mut GameState, dt: f32)
-    needs GameTick;
-{
-    region frame {
-        let temp_data = process_frame_in<frame>(state, dt);
-        apply_changes(state, temp_data);
-    }
-}
-```
-
-### 0.2.4 Contract Pattern
-
-**Pattern: Bounds Checking**
-
-```cantrip
-function safe_index<T>(arr: [T], index: usize): Option<T>
-    ensures
-        result.is_some() == (index < arr.length());
-        result.is_some() implies result.unwrap() == arr[index];
-{
-    if index < arr.length() {
-        Some(arr[index])
-    } else {
-        None
-    }
-}
-```
-
-**Pattern: State Preservation**
-
-```cantrip
-function transfer_funds(
-    from: mut Account,
-    to: mut Account,
-    amount: f64
-)
-    requires
-        amount > 0.0,
-            "Transfer amount must be positive";
-        from.balance >= amount,
-            "Insufficient funds: need {amount}, have {from.balance}";
-    ensures
-        from.balance == @old(from.balance) - amount;
-        to.balance == @old(to.balance) + amount;
-        @old(from.balance + to.balance) == (from.balance + to.balance);
-{
-    from.balance -= amount;
-    to.balance += amount;
-}
-```
-
----
-
-## 0.3 Language Comparison Guide
-
-### 0.3.1 For Rust Developers
-
-**Key Differences:**
-
-| Feature | Rust | Cantrip |
-|---------|------|---------|
-| **Borrow Checker** | Yes - enforces at compile time | No - programmer's responsibility |
-| **Move Semantics** | Implicit by default | Explicit `move` keyword required |
-| **Lifetimes** | Explicit `'a` annotations | Implicit via regions |
-| **Multiple Mut Refs** | Compile error | Allowed (programmer ensures safety) |
-| **Memory Model** | Ownership + borrowing | Ownership + regions |
-
-**Example Comparison:**
-
-```rust
-// Rust: Multiple mutable borrows forbidden
-fn rust_example() {
-    let mut data = Vec::new();
-    let r1 = &mut data;  // First mutable borrow
-    let r2 = &mut data;  // ERROR: cannot borrow as mutable twice
-}
-```
-
-```cantrip
-// Cantrip: Multiple mutable references allowed
-function cantrip_example()
-    needs alloc.heap;
-{
-    var data = Vec.new();
-    let r1 = mut data;  // Mutable reference
-    let r2 = mut data;  // OK - no borrow checker
-    // Programmer ensures r1 and r2 don't conflict
-}
-```
-
-**What Cantrip Does NOT Prevent:**
-
-- ❌ Aliasing bugs (multiple mut refs can conflict)
-- ❌ Data races (no compile-time enforcement)
-- ❌ Iterator invalidation
-
-**What Cantrip DOES Prevent:**
-
-- ✅ Use-after-free (regions enforce LIFO)
-- ✅ Double-free (regions handle cleanup)
-- ✅ Memory leaks (deterministic destruction)
-
-### 0.3.2 For Python Developers
-
-**Key Differences:**
-
-| Feature | Python | Cantrip |
-|---------|--------|---------|
-| **Types** | Dynamic, optional | Static, required |
-| **Effects** | Implicit (any function can do anything) | Explicit (must declare) |
-| **Memory** | Garbage collected | Manual with regions |
-| **Errors** | Exceptions | Result types |
-
-**Example Comparison:**
-
-```python
-# Python: Implicit everything
-def process(path):
-    return open(path).read()  # Hidden: fs.read, alloc, exceptions
-```
-
-```cantrip
-// Cantrip: Explicit everything
-function process(path: String): Result<String, Error>
-    needs fs.read, alloc.heap;  // Explicit effects
-    requires !path.is_empty();   // Explicit preconditions
-{
-    std.fs.read_to_string(path)  // Explicit error handling
-}
-```
-
-### 0.3.3 For C++ Developers
-
-**Key Differences:**
-
-| Feature | C++ | Cantrip |
-|---------|-----|---------|
-| **RAII** | Yes (implicit destructors) | Yes (via modals/regions) |
-| **Smart Pointers** | std::unique_ptr, std::shared_ptr | `own`, regions |
-| **Move** | std::move() | `move` keyword |
-| **Memory Safety** | Undefined behavior possible | Compile-time prevention |
-
-**Example Comparison:**
-
-```cpp
-// C++: RAII with unique_ptr
-std::unique_ptr<File> file = std::make_unique<File>("data.txt");
-file->read();
-// Automatic cleanup via destructor
-```
-
-```cantrip
-// Cantrip: RAII with modals
-modal File {
-    state Open { handle: FileHandle; }
-
-    @Open >> close() >> @Closed {
-        self.handle.close();
-        Closed { }
-    }
-}
-
-function example()
-    needs fs.read;
-{
-    let file = File.new("data.txt").open()?;
-    file.read()?;
-    file.close();  // Explicit but required by type system
-}
-```
-
----
-
-## 0.4 Standard Library Quick Reference
-
-### 0.4.1 Core Types
-
-```cantrip
-// Option<T> - Nullable values
-let some: Option<i32> = Some(42);
-let none: Option<i32> = None;
-
-match some {
-    Some(value) -> println(value),
-    None -> println("no value"),
-}
-
-// Result<T, E> - Error handling
-let ok: Result<i32, String> = Ok(42);
-let err: Result<i32, String> = Err("failed");
-
-match ok {
-    Ok(value) -> println(value),
-    Err(error) -> println(error),
-}
-
-// Vec<T> - Dynamic array
-let mut numbers = Vec.new();  // needs alloc.heap
-numbers.push(1);
-numbers.push(2);
-let first = numbers[0];
-
-// String - UTF-8 string
-let text = String.from("hello");  // needs alloc.heap
-let length = text.length();
-```
-
-### 0.4.2 Standard Effects
-
-```cantrip
-import std.effects.{
-    Pure,          // No effects
-    SafeIO,        // fs.read + fs.write + alloc.heap
-    WebService,    // fs.* + net.* + alloc.heap
-    GameTick,      // alloc.temp + !alloc.heap + !io.*
-    Deterministic, // !time.* + !random
-};
-```
-
-### 0.4.3 Common Operations
-
-```cantrip
-// File I/O
-function read_file(path: String): Result<String, Error>
-    needs fs.read, alloc.heap;
-{
-    std.fs.read_to_string(path)
-}
-
-function write_file(path: String, data: String): Result<(), Error>
-    needs fs.write;
-{
-    std.fs.write(path, data)
-}
-
-// Console I/O
-function print(msg: String)
-    needs io.write;
-{
-    std.io.println(msg);
-}
-
-// Collections
-function create_map<K, V>(): HashMap<K, V>
-    where K: Hash + Eq
-    needs alloc.heap;
-{
-    HashMap.new()
-}
-```
-
----
-
-## 0.5 Error Code Quick Reference
-
-| Code | Category | Description |
-|------|----------|-------------|
-| **E1010** | Syntax | Removed: `requires<effects>` (use `needs effects;`) |
-| **E1011** | Syntax | Removed: `returns<Type>` (use `: Type`) |
-| **E1012** | Syntax | Removed: `implements:` (just write body) |
-| **E2001** | Type | Type mismatch |
-| **E3003** | Modal | Procedure not available in current state |
-| **E3004** | Modal | Use of moved value |
-| **E5001** | Region | Cannot return region data |
-| **E9001** | Effect | Missing effect declaration |
-| **E9002** | Effect | Forbidden effect used |
-| **E9010** | Effect | Redundant forbidden effect (use only with wildcards/polymorphic) |
-
-**Most Common Errors:**
-
-1. **Missing effect declaration** (E9001)
-   ```cantrip
-   // ERROR:
-   function f() { Vec.new() }
-   // FIX:
-   function f() needs alloc.heap { Vec.new() }
-   ```
-
-2. **Missing move keyword** (E3004)
-   ```cantrip
-   // ERROR:
-   consume(data)  // where consume takes `own data`
-   // FIX:
-   consume(move data)
-   ```
-
-3. **Modal state error** (E3003)
-   ```cantrip
-   // ERROR:
-   file.read()  // when file is File@Closed
-   // FIX:
-   let file = file.open()?;
-   file.read()
-   ```
-
----
-
-**END OF PART 0**
-
-*This crash course provides the essential patterns for LLM code generation. For complete formal semantics, see Parts I-XIII.*
-
----
-
-## Abstract
-
-Cantrip is a systems programming language designed for memory safety, deterministic performance, and AI-assisted development. It achieves these goals through:
-
-- **Lexical Permission System (LPS)**: Compile-time memory safety without garbage collection or borrow checking
-- **Explicit Contracts**: Preconditions and postconditions as executable specifications
-- **Effect System**: Compile-time tracking of side effects, allocations, and I/O
-- **Modal System**: State machines as first-class types with compile-time verification
-- **Memory Regions**: Explicit lifetime control with zero-overhead allocation
-- **File-Based Modules**: Code organization through file system structure
-
-Cantrip compiles to native code with performance matching C/C++ while providing memory safety guarantees through region-based lifetime management.
-
-**Design Philosophy:**
-1. **Explicit over implicit** - All effects, lifetimes, and permissions visible in code
-2. **Local reasoning** - Understanding code requires minimal global context
-3. **Zero abstraction cost** - Safety guarantees without runtime overhead
-4. **LLM-friendly** - Predictable patterns for AI code generation
-5. **Simple ownership** - No borrow checker complexity
-
-**Safety Model:**
-- ✅ **Prevents**: Use-after-free, double-free, memory leaks
-- ✅ **Provides**: Deterministic deallocation, zero GC pauses
-- ❌ **Does NOT prevent**: Aliasing bugs, data races (programmer's responsibility)
-
-**Conformance:** An implementation conforms to this specification if and only if it satisfies all normative requirements stated herein.
-
----
-
 ## Table of Contents
-
-### Part 0: LLM Quick Reference
-0.1. [Core Syntax Patterns](#01-core-syntax-patterns)
-0.2. [Common Patterns Library](#02-common-patterns-library)
-0.3. [Language Comparison Guide](#03-language-comparison-guide)
-0.4. [Standard Library Quick Reference](#04-standard-library-quick-reference)
-0.5. [Error Code Quick Reference](#05-error-code-quick-reference)
-
-### Part I: Foundational Concepts
-1. [Notation and Mathematical Foundations](#1-notation-and-mathematical-foundations)
-2. [Lexical Structure](#2-lexical-structure)
-3. [Abstract Syntax](#3-abstract-syntax)
-
-### Part II: Type System
-4. [Types and Values](#4-types-and-values)
-5. [Type Rules and Semantics](#5-type-rules-and-semantics)
-6. [Records](#6-structs-and-classes)
-7. [Enums and Pattern Matching](#7-enums-and-pattern-matching)
-8. [Traits](#8-traits-and-traits)
-9. [Generics and Parametric Polymorphism](#9-generics-and-parametric-polymorphism)
-
-    - 9.6. [Const Generics](#96-const-generics)
-
-### Part III: Modal System
-10. [Modals: State Machines as Types](#10-modals-state-machines-as-types)
-11. [Modal Formal Semantics](#11-modal-formal-semantics)
-12. [State Transition Verification](#12-state-transition-verification)
-
-### Part IV: Functions and Expressions
-13. [Functions and Procedures](#13-functions-and-procedures)
-14. [Expressions and Operators](#14-expressions-and-operators)
-15. [Control Flow](#15-control-flow)
-16. [Higher-Order Functions and Closures](#16-higher-order-functions-and-closures)
-
-### Part V: Contract System
-17. [Contracts and Specifications](#17-contracts-and-specifications)
-18. [Contract Formal Logic](#18-contract-formal-logic)
-19. [Invariants](#19-invariants)
-20. [Verification and Testing](#20-verification-and-testing)
-
-### Part VI: Effect System
-21. [Effects and Side Effects](#21-effects-and-side-effects)
-22. [Effect Rules and Checking](#22-effect-rules-and-checking)
-23. [Effect Budgets](#23-effect-budgets)
-24. [Effect Soundness](#24-effect-soundness)
-
-### Part VII: Memory Management
-25. [Lexical Permission System](#25-lexical-permission-system)
-26. [Permission Types and Rules](#26-permission-types-and-rules)
-27. [Ownership and Transfer](#27-ownership-and-transfer)
-28. [Memory Regions](#28-memory-regions)
-29. [Region Formal Semantics](#29-region-formal-semantics)
-
-### Part VIII: Module System
-30. [Modules and Code Organization](#30-modules-and-code-organization)
-31. [Import and Export Rules](#31-import-and-export-rules)
-32. [Visibility and Access Control](#32-visibility-and-access-control)
-33. [Module Resolution](#33-module-resolution)
-
-### Part IX: Advanced Features
-34. [Compile-Time Programming](#34-compile-time-programming)
-35. [Concurrency](#35-concurrency)
-36. [Actors (First-Class Type)](#36-actors-and-message-passing)
-37. [Async/Await](#37-asyncawait)
-
-    - 37.1. Async Functions
-    - 37.2. Await Expressions
-    - 37.3. Select Expression
-    - 37.4. Async Iteration
-    - 37.5. Async Effect Masks (Informative)
-
-### Part X: Operational Semantics
-38. [Small-Step Semantics](#38-small-step-semantics)
-39. [Big-Step Semantics](#39-big-step-semantics)
-40. [Memory Model](#40-memory-model)
-41. [Evaluation Order](#41-evaluation-order)
-
-### Part XI: Soundness and Properties
-42. [Type Soundness](#42-type-soundness)
-43. [Effect Soundness](#43-effect-soundness)
-44. [Memory Safety](#44-memory-safety)
-45. [Modal Safety](#45-modal-safety)
-
-### Part XII: Standard Library
-46. [Core Types and Operations](#46-core-types-and-operations)
-47. [Collections](#47-collections)
-48. [I/O and File System](#48-io-and-file-system)
-49. [Networking](#49-networking)
-50. [Concurrency Primitives](#50-concurrency-primitives)
-
-### Part XIII: Tooling and Implementation
-
-### Part XIV: Foreign Function Interface
-56. [Overview](#56-overview)
-57. [Declarations and Linkage](#57-declarations-and-linkage)
-58. [Type Mappings](#58-type-mappings)
-59. [Ownership and Allocation Across FFI](#59-ownership-and-allocation-across-ffi)
-60. [Callbacks from C into Cantrip](#60-callbacks-from-c-into-cantrip)
-61. [Errors and Panics](#61-errors-and-panics)
-62. [Inline Assembly (Reserved)](#62-inline-assembly-reserved)
-
-
-- 55. [Machine‑Readable Output](#55-machine-readable-output)
-51. [Compiler Architecture](#51-compiler-architecture)
-52. [Error Reporting](#52-error-reporting)
-53. [Package Management](#53-package-management)
-54. [Testing Framework](#54-testing-framework)
-
-### Appendices (Informative)
-- [A: Complete Grammar](#appendix-a-complete-grammar)
-- [B: Keywords and Operators](#appendix-b-keywords-and-operators)
-- [C: Error Codes](#appendix-c-error-codes)
-- [D: Standard Library Index](#appendix-d-standard-library-index)
-- [E: Formal Proofs](#appendix-e-formal-proofs)
-
-- [F: Error Codes by Common LLM Mistakes](#appendix-f-informative-error-codes-indexed-by-common-llm-mistakes)
-
+- [The Cantrip Language Specification](#the-cantrip-language-specification)
+  - [Abstract](#abstract)
+    - [Key Words for Requirement Levels](#key-words-for-requirement-levels)
+    - [Conformance](#conformance)
+    - [Document Conventions](#document-conventions)
+  - [Table of Contents](#table-of-contents)
+  - [1. Notation and Mathematical Foundations](#1-notation-and-mathematical-foundations)
+    - [1.1 Metavariables](#11-metavariables)
+    - [1.2 Judgment Forms](#12-judgment-forms)
+    - [1.3 Formal Operators](#13-formal-operators)
+    - [1.4 Conventions](#14-conventions)
+  - [2. Lexical Structure](#2-lexical-structure)
+    - [2.1 Source Files](#21-source-files)
+    - [2.2 Comments](#22-comments)
+    - [2.3 Identifiers](#23-identifiers)
+  - [3. Abstract Syntax](#3-abstract-syntax)
+    - [3.1 Type Syntax](#31-type-syntax)
+    - [3.2 Expression Syntax](#32-expression-syntax)
+    - [3.3 Value Syntax](#33-value-syntax)
+    - [3.4 Pattern Syntax](#34-pattern-syntax)
+    - [3.5 Contract Syntax](#35-contract-syntax)
+    - [3.6 Effect Syntax](#36-effect-syntax)
+- [Part II: Type System](#part-ii-type-system)
+  - [4. Types and Values](#4-types-and-values)
+    - [4.1 Primitive Types](#41-primitive-types)
+      - [4.1.1 Integer Types](#411-integer-types)
+      - [4.1.2 Floating-Point Types](#412-floating-point-types)
+      - [4.1.3 Boolean Type](#413-boolean-type)
+  - [6. Records and Classes](#6-records-and-classes)
+    - [6.1 Record Declaration](#61-record-declaration)
+    - [6.6 Structure-of-Arrays](#66-structure-of-arrays)
+  - [7. Enums and Pattern Matching](#7-enums-and-pattern-matching)
+    - [7.1 Enum Declaration](#71-enum-declaration)
+    - [7.4 Discriminant Values](#74-discriminant-values)
+  - [8. Traits](#8-traits)
+    - [8.1 Trait Declaration](#81-trait-declaration)
+    - [8.6 Trait-Declared Effects](#86-trait-declared-effects)
+    - [9.5 Type Bounds](#95-type-bounds)
+    - [9.6 Const Generics](#96-const-generics)
+    - [10.3 Using Modals](#103-using-modals)
+    - [10.4 State-Dependent Data](#104-state-dependent-data)
+    - [10.5 Complex State Machines](#105-complex-state-machines)
+    - [10.6 State Unions](#106-state-unions)
+    - [10.7 Common Fields](#107-common-fields)
+    - [10.10 Modal Instantiation](#1010-modal-instantiation)
+      - [10.9.1 Resource Lifecycle Pattern](#1091-resource-lifecycle-pattern)
+      - [10.9.2 Request-Response Pattern](#1092-request-response-pattern)
+      - [10.9.3 Multi-Stage Pipeline Pattern](#1093-multi-stage-pipeline-pattern)
+      - [10.9.4 State Recovery Pattern](#1094-state-recovery-pattern)
+    - [10.10 Modal Instantiation](#1010-modal-instantiation-1)
+  - [11. Modal Formal Semantics](#11-modal-formal-semantics)
+    - [11.1 Modal Definition](#111-modal-definition)
+    - [11.2 State Machine Graph](#112-state-machine-graph)
+    - [11.5 Transition Validity](#115-transition-validity)
+    - [11.6 Reachability Analysis](#116-reachability-analysis)
+  - [12. State Transition Verification](#12-state-transition-verification)
+    - [12.1 Static Verification](#121-static-verification)
+    - [12.2 Dynamic Verification](#122-dynamic-verification)
+    - [12.3 Exhaustiveness Checking](#123-exhaustiveness-checking)
+    - [12.4 State Flow Analysis](#124-state-flow-analysis)
+- [Part IV: Functions and Expressions](#part-iv-functions-and-expressions)
+  - [13. Functions and Procedures](#13-functions-and-procedures)
+    - [13.1 Function Definition Syntax](#131-function-definition-syntax)
+    - [13.2 Pure Functions](#132-pure-functions)
+    - [13.4 Functions with Contracts](#134-functions-with-contracts)
+    - [13.5 Parameters and Permissions](#135-parameters-and-permissions)
+      - [13.5.1 Immutable Reference (Default)](#1351-immutable-reference-default)
+      - [13.5.2 Owned Parameters](#1352-owned-parameters)
+      - [13.5.3 Mutable Parameters](#1353-mutable-parameters)
+    - [13.6 Return Values](#136-return-values)
+    - [13.7 Procedure Syntax](#137-procedure-syntax)
+    - [14.9 Operator Precedence](#149-operator-precedence)
+    - [15.2 While Loops](#152-while-loops)
+    - [15.3 For Loops](#153-for-loops)
+    - [15.4 Loop Control](#154-loop-control)
+  - [16. Higher-Order Functions and Closures](#16-higher-order-functions-and-closures)
+    - [16.1 Function Types (fn) and Procedure Types (proc)](#161-function-types-fn-and-procedure-types-proc)
+    - [16.4 Function Traits](#164-function-traits)
+- [Part V: Contract System](#part-v-contract-system)
+  - [17. Contracts and Specifications](#17-contracts-and-specifications)
+    - [17.1 Contract Overview](#171-contract-overview)
+    - [17.2 Preconditions](#172-preconditions)
+    - [17.3 Postconditions](#173-postconditions)
+    - [17.4 Contract Messages](#174-contract-messages)
+    - [17.5 Empty Contracts](#175-empty-contracts)
+    - [17.6 Old-Value References](#176-old-value-references)
+    - [17.9 Common Contract Patterns](#179-common-contract-patterns)
+      - [17.9.1 Bounds Checking Pattern](#1791-bounds-checking-pattern)
+      - [17.9.2 Collection Invariant Pattern](#1792-collection-invariant-pattern)
+      - [17.9.3 State Consistency Pattern](#1793-state-consistency-pattern)
+      - [17.9.4 Resource Conservation Pattern](#1794-resource-conservation-pattern)
+      - [17.9.5 Ordering Preservation Pattern](#1795-ordering-preservation-pattern)
+      - [17.9.6 Error Handling Contract Pattern](#1796-error-handling-contract-pattern)
+  - [18. Contract Formal Logic](#18-contract-formal-logic)
+    - [18.1 Assertion Language](#181-assertion-language)
+    - [18.2 Hoare Logic](#182-hoare-logic)
+    - [18.3 Weakest Precondition](#183-weakest-precondition)
+    - [18.5 Contract Soundness](#185-contract-soundness)
+  - [19. Invariants](#19-invariants)
+    - [19.1 Record Invariants](#191-record-invariants)
+    - [19.3 Class Invariants](#193-class-invariants)
+    - [19.4 Modal State Invariants](#194-modal-state-invariants)
+    - [19.5 Loop Invariants](#195-loop-invariants)
+  - [20. Verification and Testing](#20-verification-and-testing)
+    - [20.1 Verification Modes](#201-verification-modes)
+    - [20.2 Static Verification](#202-static-verification)
+    - [20.3 Runtime Verification](#203-runtime-verification)
+    - [20.4 Contract Fuzzing](#204-contract-fuzzing)
+    - [20.5 Fuzzing Configuration](#205-fuzzing-configuration)
+    - [20.6 Integration with Testing](#206-integration-with-testing)
+- [Part VI: Effect System](#part-vi-effect-system)
+  - [21. Effects and Side Effects](#21-effects-and-side-effects)
+    - [21.1 Effect System Overview](#211-effect-system-overview)
+    - [21.2 Effect Syntax](#212-effect-syntax)
+    - [21.2.7 User-Defined Effects](#2127-user-defined-effects)
+    - [21.3 Memory Effects](#213-memory-effects)
+    - [21.7 Standard Effect Definitions](#217-standard-effect-definitions)
+      - [21.7.1 Importing Standard Effects](#2171-importing-standard-effects)
+      - [21.7.2 Core Standard Effects](#2172-core-standard-effects)
+      - [21.7.3 Effect Pattern Examples](#2173-effect-pattern-examples)
+      - [21.7.4 Custom Effect Composition](#2174-custom-effect-composition)
+      - [21.7.5 Effect Documentation Pattern](#2175-effect-documentation-pattern)
+    - [21.9 Rendering Effects](#219-rendering-effects)
+      - [21.11.2 File System Effects (`fs.*`)](#21112-file-system-effects-fs)
+      - [21.11.3 Network Effects (`net.*`)](#21113-network-effects-net)
+      - [21.11.4 I/O Effects (`io.*`)](#21114-io-effects-io)
+      - [21.11.5 Time Effects (`time.*`)](#21115-time-effects-time)
+      - [21.11.6 Threading Effects (`thread.*`)](#21116-threading-effects-thread)
+      - [21.11.7 Rendering Effects (`render.*`)](#21117-rendering-effects-render)
+      - [21.11.8 Audio Effects (`audio.*`)](#21118-audio-effects-audio)
+      - [21.11.9 Input Effects (`input.*`)](#21119-input-effects-input)
+      - [21.11.10 Process Effects (`process.*`)](#211110-process-effects-process)
+      - [21.11.11 FFI Effects (`ffi.*`)](#211111-ffi-effects-ffi)
+      - [21.11.12 Unsafe Effects (`unsafe.*`)](#211112-unsafe-effects-unsafe)
+      - [21.11.13 System Effects](#211113-system-effects)
+      - [21.11.14 Complete Effect Hierarchy](#211114-complete-effect-hierarchy)
+      - [21.11.15 Standard Effect Definitions](#211115-standard-effect-definitions)
+  - [22. Effect Rules and Checking](#22-effect-rules-and-checking)
+    - [22.7 Async Effect Masks](#227-async-effect-masks)
+    - [22.3.1 Named Effects in Declarations](#2231-named-effects-in-declarations)
+    - [22.4 Forbidden Effects](#224-forbidden-effects)
+      - [22.4.1 Valid Use Case 1: Wildcard Restriction](#2241-valid-use-case-1-wildcard-restriction)
+      - [22.4.2 Valid Use Case 2: Polymorphic Effect Constraint](#2242-valid-use-case-2-polymorphic-effect-constraint)
+      - [22.4.3 INVALID: Redundant Forbidden Effects](#2243-invalid-redundant-forbidden-effects)
+    - [22.5 Effect Wildcards](#225-effect-wildcards)
+    - [22.6 Higher-Order Functions](#226-higher-order-functions)
+    - [Async Effect Masking (await)](#async-effect-masking-await)
+  - [23. Effect Budgets](#23-effect-budgets)
+    - [23.1 Budget Overview](#231-budget-overview)
+    - [23.2 Static Budgets](#232-static-budgets)
+    - [23.3 Dynamic Budgets](#233-dynamic-budgets)
+    - [23.4 Time Budgets](#234-time-budgets)
+    - [23.5 Count Budgets](#235-count-budgets)
+    - [23.6 Budget Composition](#236-budget-composition)
+- [Part VII: Memory Management](#part-vii-memory-management)
+  - [25. Lexical Permission System](#25-lexical-permission-system)
+    - [25.1 LPS Overview](#251-lps-overview)
+    - [25.2 Design Goals](#252-design-goals)
+    - [25.3 Memory Safety Model](#253-memory-safety-model)
+    - [25.4 Compilation Model](#254-compilation-model)
+  - [26. Permission Types and Rules](#26-permission-types-and-rules)
+    - [26.1 Permission Overview](#261-permission-overview)
+    - [26.2 Immutable Reference (Default)](#262-immutable-reference-default)
+    - [26.3 Owned Permission](#263-owned-permission)
+    - [26.5 Isolated Permission](#265-isolated-permission)
+    - [27.2 Passing by Reference](#272-passing-by-reference)
+    - [27.3 Permission Transitions](#273-permission-transitions)
+    - [27.8 The Cantrip Safety Model: Trade-offs and Guarantees](#278-the-cantrip-safety-model-trade-offs-and-guarantees)
+      - [27.8.1 What Cantrip Guarantees (✅ Compile-Time Safe)](#2781-what-cantrip-guarantees--compile-time-safe)
+      - [27.8.2 What Cantrip Does NOT Guarantee (⚠️ Programmer Responsibility)](#2782-what-cantrip-does-not-guarantee-️-programmer-responsibility)
+  - [28. Memory Regions](#28-memory-regions)
+    - [28.1 Region Overview](#281-region-overview)
+    - [28.2 Three Allocation Strategies Compared](#282-three-allocation-strategies-compared)
+    - [28.3 Region Declaration](#283-region-declaration)
+    - [28.5 Region Allocation Syntax](#285-region-allocation-syntax)
+    - [28.6 Implementing Region Allocation](#286-implementing-region-allocation)
+    - [28.7 Region vs Heap Decision Guide](#287-region-vs-heap-decision-guide)
+    - [28.8 Performance Characteristics](#288-performance-characteristics)
+    - [28.9 Common Patterns](#289-common-patterns)
+    - [28.10 Safety Restrictions](#2810-safety-restrictions)
+  - [29. Region Formal Semantics](#29-region-formal-semantics)
+    - [29.1 Region Algebra](#291-region-algebra)
+    - [29.2 Allocation Rules](#292-allocation-rules)
+    - [29.3 Deallocation Rules](#293-deallocation-rules)
+    - [29.4 Escape Analysis](#294-escape-analysis)
+    - [29.5 Region Typing](#295-region-typing)
+    - [29.6 Memory Model](#296-memory-model)
+    - [29.7 Happens-Before Relation](#297-happens-before-relation)
+- [Part VIII: Module System](#part-viii-module-system)
+  - [30. Modules and Code Organization](#30-modules-and-code-organization)
+    - [30.1 File-Based Module System](#301-file-based-module-system)
+    - [30.2 Module Definition](#302-module-definition)
+    - [30.3 Module Metadata](#303-module-metadata)
+    - [30.4 Module Resolution Algorithm](#304-module-resolution-algorithm)
+    - [30.6 Modules vs Regions](#306-modules-vs-regions)
+  - [31. Import and Export Rules](#31-import-and-export-rules)
+    - [31.1 Import Syntax](#311-import-syntax)
+    - [31.2 Import Resolution](#312-import-resolution)
+    - [31.3 Re-exports](#313-re-exports)
+    - [31.6 Import Ordering](#316-import-ordering)
+  - [32. Visibility and Access Control](#32-visibility-and-access-control)
+    - [32.1 Visibility Modifiers](#321-visibility-modifiers)
+    - [32.2 Public Items](#322-public-items)
+    - [32.3 Internal Items](#323-internal-items)
+    - [32.4 Private Items](#324-private-items)
+    - [32.5 Record Field Visibility](#325-record-field-visibility)
+    - [32.6 Procedure Visibility](#326-procedure-visibility)
+    - [32.7 Trait Implementation Visibility](#327-trait-implementation-visibility)
+  - [33. Module Resolution](#33-module-resolution)
+    - [33.1 Resolution Rules](#331-resolution-rules)
+    - [33.2 Search Path](#332-search-path)
+    - [33.4 Package Configuration](#334-package-configuration)
+    - [33.5 Module Cache](#335-module-cache)
+- [Part IX: Advanced Features](#part-ix-advanced-features)
+  - [34. Compile-Time Programming](#34-compile-time-programming)
+    - [34.6 Opt‑In Reflection](#346-optin-reflection)
+    - [34.1 Comptime Keyword](#341-comptime-keyword)
+    - [34.3 Type Introspection](#343-type-introspection)
+    - [34.5 Comptime Type Introspection](#345-comptime-type-introspection)
+    - [34.6 Comptime Code Generation](#346-comptime-code-generation)
+    - [34.7 Comptime Validation](#347-comptime-validation)
+  - [35. Concurrency](#35-concurrency)
+    - [35.5 Structured Concurrency](#355-structured-concurrency)
+    - [35.2 Message Passing](#352-message-passing)
+    - [35.3 Send and Sync Traits](#353-send-and-sync-traits)
+    - [35.4 Atomic Operations](#354-atomic-operations)
+  - [36. Actors (First-Class Type)](#36-actors-first-class-type)
+    - [36.1 Actor Pattern Overview](#361-actor-pattern-overview)
+    - [36.2 Basic Actor Pattern Implementation](#362-basic-actor-pattern-implementation)
+    - [36.4 Standard Library Support](#364-standard-library-support)
+  - [37. Async/Await](#37-asyncawait)
+    - [37.4 Async Iteration](#374-async-iteration)
+    - [37.1 Async Functions](#371-async-functions)
+    - [37.2 Await Expressions](#372-await-expressions)
+    - [37.3 Select Expression](#373-select-expression)
+  - [55. Machine‑Readable Output](#55-machinereadable-output)
+- [Part XIV: Foreign Function Interface (FFI)](#part-xiv-foreign-function-interface-ffi)
+  - [56. Foreign Function Interface Overview](#56-foreign-function-interface-overview)
+  - [57. Declarations and Linkage](#57-declarations-and-linkage)
+  - [58. Type Mappings](#58-type-mappings)
+  - [59. Ownership and Allocation Across FFI](#59-ownership-and-allocation-across-ffi)
+  - [60. Callbacks from C into Cantrip](#60-callbacks-from-c-into-cantrip)
+  - [61. Errors and Panics](#61-errors-and-panics)
+  - [62. Inline Assembly (Reserved)](#62-inline-assembly-reserved)
+- [Part X: Operational Semantics](#part-x-operational-semantics)
+  - [38. Small-Step Semantics](#38-small-step-semantics)
+    - [38.1 Small-Step Reduction](#381-small-step-reduction)
+    - [38.2 Evaluation Contexts](#382-evaluation-contexts)
+  - [39. Big-Step Semantics](#39-big-step-semantics)
+    - [39.1 Big-Step Evaluation](#391-big-step-evaluation)
+  - [40. Memory Model](#40-memory-model)
+    - [40.1 Memory State](#401-memory-state)
+    - [40.2 Happens-Before](#402-happens-before)
+  - [41. Evaluation Order](#41-evaluation-order)
+    - [41.1 Left-to-Right Evaluation](#411-left-to-right-evaluation)
+    - [41.2 Short-Circuit Evaluation](#412-short-circuit-evaluation)
+- [Part XI: Soundness and Properties](#part-xi-soundness-and-properties)
+  - [42. Type Soundness](#42-type-soundness)
+  - [43. Effect Soundness](#43-effect-soundness)
+  - [44. Memory Safety](#44-memory-safety)
+  - [45. Modal Safety](#45-modal-safety)
+- [Part XII: Standard Library](#part-xii-standard-library)
+  - [46. Core Types and Operations](#46-core-types-and-operations)
+    - [46.1 Core Type System](#461-core-type-system)
+    - [46.2 Option Type](#462-option-type)
+    - [46.3 Result Type](#463-result-type)
+    - [46.4 String Type](#464-string-type)
+  - [47. Collections](#47-collections)
+    - [47.1 Vec](#471-vec)
+    - [47.2 HashMap\<K, V\>](#472-hashmapk-v)
+    - [47.3 HashSet](#473-hashset)
+  - [48. I/O and File System](#48-io-and-file-system)
+    - [48.1 File I/O](#481-file-io)
+    - [48.2 Standard Streams](#482-standard-streams)
+    - [48.3 File System Operations](#483-file-system-operations)
+  - [49. Networking](#49-networking)
+    - [49.1 HTTP Client](#491-http-client)
+    - [49.2 TCP Sockets](#492-tcp-sockets)
+  - [50. Concurrency Primitives](#50-concurrency-primitives)
+      - [50.1 Structured Concurrency Helpers](#501-structured-concurrency-helpers)
+    - [50.1 Mutex](#501-mutex)
+    - [50.2 Channels](#502-channels)
+    - [50.3 Atomic Types](#503-atomic-types)
+- [Part XIII: Tooling and Implementation](#part-xiii-tooling-and-implementation)
+  - [51. Compiler Architecture](#51-compiler-architecture)
+    - [51.1 Compilation Pipeline](#511-compilation-pipeline)
+    - [51.2 Compiler Invocation](#512-compiler-invocation)
+    - [51.3 Optimization Levels](#513-optimization-levels)
+    - [51.4 Verification Modes](#514-verification-modes)
+    - [51.5 Incremental Compilation](#515-incremental-compilation)
+  - [52. Error Reporting](#52-error-reporting)
+    - [52.1 Error Message Format](#521-error-message-format)
+    - [52.2 Example Error Messages](#522-example-error-messages)
+    - [52.3 Machine-Readable Output](#523-machine-readable-output)
+  - [53. Package Management](#53-package-management)
+    - [53.1 Project Structure](#531-project-structure)
+    - [53.2 Package Manifest](#532-package-manifest)
+    - [53.3 Commands](#533-commands)
+    - [53.4 Dependency Resolution](#534-dependency-resolution)
+  - [54. Testing Framework](#54-testing-framework)
+    - [54.1 Unit Tests](#541-unit-tests)
+    - [54.2 Integration Tests](#542-integration-tests)
+    - [54.3 Property-Based Testing](#543-property-based-testing)
+    - [54.4 Benchmarks](#544-benchmarks)
+  - [56. Overview](#56-overview)
+  - [57. Declarations and Linkage](#57-declarations-and-linkage-1)
+  - [58. Type Mappings](#58-type-mappings-1)
+  - [59. Ownership and Allocation Across FFI](#59-ownership-and-allocation-across-ffi-1)
+  - [60. Callbacks from C into Cantrip](#60-callbacks-from-c-into-cantrip-1)
+  - [61. Errors and Panics](#61-errors-and-panics-1)
+  - [62. Inline Assembly (Reserved)](#62-inline-assembly-reserved-1)
+- [Part XII: Standard Library](#part-xii-standard-library-1)
+  - [46. Core Types and Operations {#46-core-types-and-operations}](#46-core-types-and-operations-46-core-types-and-operations)
+    - [46.1 Option](#461-option)
+    - [46.2 Result](#462-result)
+    - [46.3 String and str](#463-string-and-str)
+    - [46.4 Vec](#464-vec)
+    - [46.5 HashMap / HashSet](#465-hashmap--hashset)
+    - [46.6 Core Functions (Normative)](#466-core-functions-normative)
+  - [47. Collections {#47-collections}](#47-collections-47-collections)
+  - [48. I/O and File System {#48-io-and-file-system}](#48-io-and-file-system-48-io-and-file-system)
+  - [49. Networking {#49-networking}](#49-networking-49-networking)
+  - [50. Concurrency Primitives {#50-concurrency-primitives}](#50-concurrency-primitives-50-concurrency-primitives)
+- [Part XIII: Tooling and Implementation](#part-xiii-tooling-and-implementation-1)
+  - [51. Compiler Architecture {#51-compiler-architecture}](#51-compiler-architecture-51-compiler-architecture)
+  - [52. Error Reporting {#52-error-reporting}](#52-error-reporting-52-error-reporting)
+  - [53. Package Management {#53-package-management}](#53-package-management-53-package-management)
+  - [54. Testing Framework {#54-testing-framework}](#54-testing-framework-54-testing-framework)
+  - [55. Machine‑Readable Output {#55-machine-readable-output}](#55-machinereadable-output-55-machine-readable-output)
+- [Part XIV: Foreign Function Interface](#part-xiv-foreign-function-interface)
+  - [56. Overview {#56-overview}](#56-overview-56-overview)
+  - [57. Declarations and Linkage {#57-declarations-and-linkage}](#57-declarations-and-linkage-57-declarations-and-linkage)
+  - [58. Type Mappings {#58-type-mappings}](#58-type-mappings-58-type-mappings)
+  - [59. Ownership and Allocation Across FFI {#59-ownership-and-allocation-across-ffi}](#59-ownership-and-allocation-across-ffi-59-ownership-and-allocation-across-ffi)
+  - [60. Callbacks from C into Cantrip {#60-callbacks-from-c-into-cantrip}](#60-callbacks-from-c-into-cantrip-60-callbacks-from-c-into-cantrip)
+  - [61. Errors and Panics {#61-errors-and-panics}](#61-errors-and-panics-61-errors-and-panics)
+  - [62. Inline Assembly (Reserved) {#62-inline-assembly-reserved}](#62-inline-assembly-reserved-62-inline-assembly-reserved)
+  
 ---
-
-# Part I (Normative): Foundational Concepts
 
 ## 1. Notation and Mathematical Foundations
 
@@ -874,7 +405,7 @@ Throughout this specification, we use the following metavariable conventions:
 x, y, z ∈ Var          (variables)
 f, g, h ∈ FunName      (function names)
 T, U, V ∈ Type         (types)
-S, S' ∈ State          (modal states)
+@S, @S' ∈ State        (modal states)
 e ∈ Expr               (expressions)
 v ∈ Value              (values)
 ε ∈ Effect             (effects)
@@ -890,8 +421,8 @@ P, Q ∈ Assertion       (contract assertions)
 **Type judgments:**
 ```
 Γ ⊢ e : T                         (expression e has type T in context Γ)
-Γ ⊢ e : T@S                       (expression e has type T in state S)
-Γ ⊢ e : T@S ! ε                   (type T, state S, effect ε)
+Γ ⊢ e : T@S                       (expression e has type T in state @S)
+Γ ⊢ e : T@S ! ε                   (type T, state @S, effect ε)
 ```
 
 **Effect judgments:**
@@ -917,30 +448,9 @@ ensures(f) = Q                    (function f ensures postcondition Q)
 
 **State transitions:**
 ```
-S₁ →ₘ S₂                          (state transition via procedure m)
+@S₁ →ₘ @S₂                        (state transition via procedure m)
 Σ ⊢ T@S₁ →ₘ T@S₂                  (valid state transition)
 ```
-
-### 1.2.6 LLM Accessibility Notation
-
-**For AI Code Generation:** Throughout this specification, we use consistent patterns designed for machine readability:
-
-- **Explicit over implicit**: All ownership, effects, and contracts visible in code
-- **Named abstractions**: Effects and modals use descriptive names
-- **Consistent syntax**: One way to express each concept
-- **Documented patterns**: Common idioms shown with anti-patterns
-
-When generating code, prefer:
-- ✅ Explicit ownership annotations at boundaries
-- ✅ Named effect definitions from `std.effects`
-- ✅ Clear modal state types
-- ✅ Contracts with natural language descriptions
-
-Avoid:
-- ❌ Implicit ownership transfer
-- ❌ Anonymous effect unions
-- ❌ Ambiguous state representations
-- ❌ Vague or missing specifications
 
 ### 1.3 Formal Operators
 
@@ -992,7 +502,7 @@ Avoid:
 
 ### 2.1 Source Files
 
-**Definition 2.1 (Source File):** An Cantrip source file is a UTF-8 encoded text file with extension `.arc`.
+**Definition 2.1 (Source File):** An Cantrip source file is a UTF-8 encoded text file with extension `.cantrip`.
 
 **Formal properties:**
 - Encoding: UTF-8
@@ -1039,7 +549,6 @@ IdentStart ::= [a-zA-Z_]
 IdentContinue ::= [a-zA-Z0-9_]
 ```
 
-**Examples:**
 ```cantrip
 valid_identifier
 _private
@@ -1047,8 +556,6 @@ CamelCase
 snake_case
 CONSTANT_VALUE
 identifier123
-```
-
 **Restrictions:**
 - Cannot be a reserved keyword
 - Cannot start with a digit
@@ -1077,15 +584,12 @@ BinaryLiteral ::= "0b" [01] [01_]*
 OctalLiteral ::= "0o" [0-7] [0-7_]*
 ```
 
-**Examples:**
 ```cantrip
 42              // Decimal
 0x2A            // Hexadecimal (42)
 0b101010        // Binary (42)
 0o52            // Octal (42)
 1_000_000       // With separators (1000000)
-```
-
 **Type inference:**
 - Default type: `i32`
 - Suffix determines type: `42u64`, `100i8`
@@ -1107,14 +611,11 @@ FloatLiteral ::= DecimalLiteral "." DecimalLiteral Exponent?
 Exponent ::= [eE] [+-]? DecimalLiteral
 ```
 
-**Examples:**
 ```cantrip
 3.14
 1.0e10
 2.5e-3
 0.1
-```
-
 **Type inference:**
 - Default type: `f64`
 - Suffix determines type: `3.14f32`
@@ -1148,7 +649,6 @@ EscapeSequence ::= "\\" [nrt\\'"0]
                  | "\\u{" HexDigit+ "}"
 ```
 
-**Examples:**
 ```cantrip
 'a'
 '\n'            // Newline
@@ -1156,8 +656,6 @@ EscapeSequence ::= "\\" [nrt\\'"0]
 '\\'            // Backslash
 '\x41'          // 'A'
 '\u{1F600}'     // 😀 (emoji)
-```
-
 **Type:** `char` (32-bit Unicode scalar value)
 
 #### 2.4.5 String Literals
@@ -1167,14 +665,11 @@ EscapeSequence ::= "\\" [nrt\\'"0]
 StringLiteral ::= '"' (EscapeSequence | ~["\\])* '"'
 ```
 
-**Examples:**
 ```cantrip
 "hello world"
 "line 1\nline 2"
 "unicode: 🚀"
 "quotes: \" "
-```
-
 **Type:** `str` (immutable string slice)
 
 **Formal semantics:**
@@ -1184,8 +679,7 @@ StringLiteral ::= '"' (EscapeSequence | ~["\\])* '"'
 
 ### 2.5 Keywords
 
-
-### 2.6 Attributes (Normative)
+### 2.6 Attributes
 
 **Purpose:** Attributes are metadata annotations that modify compilation behavior of the item that follows.
 Attributes are parsed but do not change program semantics unless specified below.
@@ -1232,18 +726,18 @@ Rules:
 **Reserved keywords (cannot be used as identifiers):**
 
 ```
-abstract    actor       as          async       await
-break       case        comptime    const       continue
-defer       effect      else        ensures     enum
-exists      false       for         forall      function
-if          impl        import      internal    invariant
-iso         let         loop        match       modal
-module      move        mut         needs       new
-none        own         private     protected   procedure
-public      record      ref         region      requires
-result      select      self        Self        state
-static      trait       true        type        var
-where       while
+abstract    as          async       await       break
+case        comptime    const       continue    defer
+effect      else        ensures     enum        exists
+false       for         forall      function    if
+impl        import      internal    invariant   iso
+let         loop        match       modal       module
+move        mut         needs       new         none
+own         private     protected   procedure   public
+record      ref         region      requires    result
+select      self        Self        state       static
+trait       true        type        var         where
+while
 ```
 
 **Contextual keywords (special meaning in specific contexts):**
@@ -1251,11 +745,7 @@ where       while
 effects     pure
 ```
 
-
-**Contextual keywords (special meaning in specific contexts):**
-```
-effects     pure
-```
+**Normative requirement:** Implementations MUST reject programs that use reserved keywords as identifiers. Contextual keywords MAY be used as identifiers outside their specific contexts.
 
 ---
 
@@ -1264,7 +754,6 @@ effects     pure
 ### 3.1 Type Syntax
 
 **Definition 3.1 (Type Language):**
-
 
 ```
 T ::= i8 | i16 | i32 | i64 | isize          (signed integers)
@@ -1281,16 +770,14 @@ T ::= i8 | i16 | i32 | i64 | isize          (signed integers)
     | own T                                  (owned type)
     | mut T                                  (mutable reference)
     | iso T                                  (isolated reference)
-    | T@S                                    (type T in modal state S)
+    | T@S                                    (type T in modal state @S)
     | ∀α. T                                  (polymorphic type)
     | !                                      (never type)
     | record Name                            (record type)
     | modal Name                             (modal type)
     | enum Name                              (enum type)
     | trait Name                             (trait type)
-    | actor Name                             (actor type)
 ```
-
 
 **Type well-formedness:**
 
@@ -1427,7 +914,7 @@ Function Contracts ::=
 
 ---
 
-# Part II (Normative): Type System
+# Part II: Type System
 
 ## 4. Types and Values
 
@@ -1466,12 +953,9 @@ For type T with min M and max N:
 - Release mode: (x ⊕ y) mod (N - M + 1) ∈ [M, N]
 ```
 
-**Example:**
 ```cantrip
 let x: u8 = 255;
 let y = x + 1;  // Debug: panic, Release: 0 (wrapping)
-```
-
 **Attribute control:**
 ```cantrip
 #[overflow_checks(true)]
@@ -1520,14 +1004,11 @@ x + ∞ = ∞ (for x ≠ -∞)
 ⊥ ∧ _ = ⊥    (short-circuit)
 ```
 
-**Example:**
 ```cantrip
 let a = true;
 let b = false;
 let c = a && b;  // false
 let d = a || b;  // true
-```
-
 #### 4.1.4 Character Type
 
 **Definition 4.4 (Character Type):**
@@ -1540,12 +1021,9 @@ let d = a || b;  // true
 - Valid range: Excludes surrogate pairs [U+D800, U+DFFF]
 - Representation: UTF-32
 
-**Example:**
 ```cantrip
 let ch: char = 'A';         // U+0041
 let emoji: char = '🚀';     // U+1F680
-```
-
 ### 4.2 Compound Types
 
 #### 4.2.1 Arrays
@@ -1562,7 +1040,6 @@ align([T; n]) = align(T)
 layout = contiguous memory
 ```
 
-**Example:**
 ```cantrip
 let numbers: [i32; 5] = [1, 2, 3, 4, 5];
 let zeros: [i32; 100] = [0; 100];  // Repeat syntax
@@ -1570,8 +1047,6 @@ let zeros: [i32; 100] = [0; 100];  // Repeat syntax
 // Type rules:
 // Γ ⊢ numbers : [i32; 5]
 // Γ ⊢ numbers[0] : i32
-```
-
 **Access semantics:**
 ```
 [T-Array-Index]
@@ -1595,15 +1070,12 @@ record SliceRepr<T> {
 }
 ```
 
-**Example:**
 ```cantrip
 let arr = [1, 2, 3, 4, 5];
 let slice: [i32] = arr[1..3];  // [2, 3]
 
 // Range semantics:
 // arr[a..b] = { arr[i] | a ≤ i < b }
-```
-
 **Type rules:**
 ```
 [T-Slice]
@@ -1620,7 +1092,6 @@ start ≤ end ≤ n
 (T₁, ..., Tₙ) = T₁ × T₂ × ... × Tₙ
 ```
 
-**Example:**
 ```cantrip
 let pair: (i32, str) = (42, "answer");
 let (x, y) = pair;          // Destructuring
@@ -1631,8 +1102,6 @@ let second = pair.1;
 // Γ ⊢ pair : (i32, str)
 // Γ ⊢ pair.0 : i32
 // Γ ⊢ pair.1 : str
-```
-
 **Formal semantics:**
 ```
 [T-Tuple]
@@ -1666,7 +1135,6 @@ let second = pair.1;
 2. Match arms that are unreachable
 3. Error handling branches
 
-**Example:**
 ```cantrip
 function panic(message: str): !
     needs panic;
@@ -1682,8 +1150,6 @@ function example(x: i32): i32 {
             x * 2  // Only this branch returns
         }
 }
-```
-
 ---
 
 ## 5. Type Rules and Semantics
@@ -1697,13 +1163,10 @@ x : T ∈ Γ
 Γ ⊢ x : T
 ```
 
-**Example:**
 ```cantrip
 let x: i32 = 42;
 // Context: Γ = {x : i32}
 // Judgment: Γ ⊢ x : i32
-```
-
 **[T-Let] Let binding:**
 ```
 Γ ⊢ e₁ : T₁    Γ, x : T₁ ⊢ e₂ : T₂
@@ -1711,15 +1174,12 @@ let x: i32 = 42;
 Γ ⊢ let x = e₁ in e₂ : T₂
 ```
 
-**Example:**
 ```cantrip
 let result = let x = 42 in x + 1;
 // Type derivation:
 // ⊢ 42 : i32
 // x : i32 ⊢ x + 1 : i32
 // ⊢ let x = 42 in x + 1 : i32
-```
-
 **[T-App] Function application:**
 ```
 Γ ⊢ e₁ : T -> U    Γ ⊢ e₂ : T
@@ -1727,7 +1187,6 @@ let result = let x = 42 in x + 1;
 Γ ⊢ e₁(e₂) : U
 ```
 
-**Example:**
 ```cantrip
 function double(x: i32): i32 {
     x * 2
@@ -1737,8 +1196,6 @@ let result = double(21);
 // double : i32 -> i32
 // 21 : i32
 // double(21) : i32
-```
-
 **[T-Abs] Lambda abstraction:**
 ```
 Γ, x : T ⊢ e : U
@@ -1746,12 +1203,9 @@ let result = double(21);
 Γ ⊢ λx:T. e : T -> U
 ```
 
-**Example:**
 ```cantrip
 let add_one = |x: i32| { x + 1 };
 // Type: i32 -> i32
-```
-
 **[T-If] Conditional:**
 ```
 Γ ⊢ e₁ : bool    Γ ⊢ e₂ : T    Γ ⊢ e₃ : T
@@ -1759,12 +1213,9 @@ let add_one = |x: i32| { x + 1 };
 Γ ⊢ if e₁ then e₂ else e₃ : T
 ```
 
-**Example:**
 ```cantrip
 let max = if a > b { a } else { b };
 // Both branches must have same type
-```
-
 **[T-Pipeline] Pipeline operator:**
 ```
 Γ ⊢ e₁ : T    Γ ⊢ e₂ : T -> U
@@ -1772,15 +1223,12 @@ let max = if a > b { a } else { b };
 Γ ⊢ e₁ => e₂ : U
 ```
 
-**Example:**
 ```cantrip
 let result = data
     => filter(predicate)
     => map(transform)
     => sum;
 // Each stage must match types
-```
-
 ### 5.2 Subtyping
 
 **Definition 5.1 (Subtype Relation):**
@@ -1813,8 +1261,6 @@ T₂ <: T₁    U₁ <: U₂
 ────────────────────────
 T₁ -> U₁ <: T₂ -> U₂
 ```
-
-Note: Function parameters are contravariant!
 
 **[Sub-Permission] Permission hierarchy:**
 ```
@@ -1858,7 +1304,6 @@ if `R { f₁: T₁; …; fₙ: Tₙ }` then `⟦R⟧ ≅ T₁ × … × Tₙ` wi
 named projections `fᵢ : R → Tᵢ`. Records provide *procedures* (see §13.7)
 via `impl R` blocks; inheritance is not part of the model—use traits and composition.
 
-
 ### 6.1 Record Declaration
 
 **Syntax:**
@@ -1879,7 +1324,6 @@ fields distinct
 Γ ⊢ record Name { f₁: T₁; ...; fₙ: Tₙ } : Type
 ```
 
-**Example:**
 ```cantrip
 record Point {
     x: f64;
@@ -1891,8 +1335,6 @@ public record User {
     public email: String;
     private password_hash: String;
 }
-```
-
 **Memory layout:**
 ```
 Point layout:
@@ -1916,7 +1358,6 @@ record Name { f₁: T₁; ...; fₙ: Tₙ }
 Γ ⊢ Name { f₁: e₁, ..., fₙ: eₙ } : Name
 ```
 
-**Example:**
 ```cantrip
 let origin = Point { x: 0.0, y: 0.0 };
 
@@ -1924,8 +1365,6 @@ let origin = Point { x: 0.0, y: 0.0 };
 let x = 3.0;
 let y = 4.0;
 let point = Point { x, y };  // Equivalent to Point { x: x, y: y }
-```
-
 ### 6.3 Field Access
 
 **Type rule:**
@@ -1936,12 +1375,9 @@ let point = Point { x, y };  // Equivalent to Point { x: x, y: y }
 Γ ⊢ e.f : T
 ```
 
-**Example:**
 ```cantrip
 let p = Point { x: 1.0, y: 2.0 };
 let x_coord = p.x;  // x_coord : f64
-```
-
 ### 6.4 Procedures
 
 **Definition 6.1 (Procedure):** A procedure is a function with an explicit `self` parameter.
@@ -1958,7 +1394,6 @@ impl StructName {
 }
 ```
 
-**Example:**
 ```cantrip
 impl Point {
     function new(x: f64, y: f64): own Point {
@@ -1976,8 +1411,6 @@ impl Point {
         self.y += dy;
     }
 }
-```
-
 **Procedure call desugaring:**
 ```
 obj.procedure(args) ≡ Type::procedure(obj, args)
@@ -2069,9 +1502,6 @@ impl ParticleSOA {
 }
 ```
 
-**Performance benefit:** Better cache locality for SIMD operations.
-
-
 ## 7. Enums and Pattern Matching
 
 ### 7.1 Enum Declaration
@@ -2092,7 +1522,6 @@ enum Name {
 ⟦enum E { V₁(T₁), ..., Vₙ(Tₙ) }⟧ = T₁ + T₂ + ... + Tₙ
 ```
 
-**Example:**
 ```cantrip
 enum Status {
     Active,
@@ -2116,8 +1545,6 @@ enum Message {
     Write(String),
     ChangeColor(u8, u8, u8),
 }
-```
-
 **Memory layout:**
 ```
 enum Layout = {
@@ -2150,8 +1577,6 @@ match expression {
 }
 ```
 
-**Note:** Uses `->` (maps to), not `=>`
-
 **Type rule:**
 ```
 [T-Match]
@@ -2177,7 +1602,6 @@ exhaustive(patterns, type) = {
 }
 ```
 
-**Example:**
 ```cantrip
 enum Status {
     Active,
@@ -2193,8 +1617,6 @@ function describe(status: Status): str {
         // Exhaustive - all variants covered
     }
 }
-```
-
 ### 7.3 Pattern Forms
 
 **Literal patterns:**
@@ -2309,7 +1731,6 @@ public trait InterfaceName {
 }
 ```
 
-**Example:**
 ```cantrip
 public trait Drawable {
     function draw(self: Self, canvas: Canvas)
@@ -2325,8 +1746,6 @@ public trait Comparable<T> {
             (result == 0) == (self == other);
             (result > 0) == (self > other);
 }
-```
-
 **Type rule:**
 ```
 [T-Trait]
@@ -2339,7 +1758,6 @@ trait I { m₁; ...; mₙ } well-formed
 
 **Definition 8.2 (Default Implementation):** An trait can provide default implementations for procedures.
 
-**Example:**
 ```cantrip
 public trait Logger {
     // Required procedure
@@ -2359,8 +1777,6 @@ public trait Logger {
         self.log("WARN: " + msg);
     }
 }
-```
-
 **Inheritance of defaults:**
 ```
 impl Logger for MyLogger {
@@ -2388,7 +1804,6 @@ impl InterfaceName for TypeName {
 }
 ```
 
-**Example:**
 ```cantrip
 record Point { x: f64, y: f64 }
 
@@ -2403,8 +1818,6 @@ impl Drawable for Point {
         Rectangle.new(self.x - 2.0, self.y - 2.0, 4.0, 4.0)
     }
 }
-```
-
 **Type rule:**
 ```
 [T-Impl]
@@ -2439,7 +1852,6 @@ function name<T: Constraint>(param: T): U
 }
 ```
 
-**Example:**
 ```cantrip
 function max<T>(a: T, b: T): T
     where T: Comparable<T>
@@ -2450,8 +1862,6 @@ function max<T>(a: T, b: T): T
         b
     }
 }
-```
-
 **Type rule:**
 ```
 [T-Generic-Constraint]
@@ -2504,11 +1914,7 @@ T : I    T.A = U
 
 ---
 
-
-### 8.6 Trait-Declared Effects (Normative)
-
-**Motivation:** Implementations of a trait method SHOULD NOT silently widen observable side effects.
-To enable local reasoning, a trait MAY declare *required effects* for each method.
+### 8.6 Trait-Declared Effects
 
 **Grammar extension (add to §8.1):**
 ```ebnf
@@ -2533,7 +1939,6 @@ impl well-typed
 - `E9120` — *Trait effect exceeds bound*: implementation declares or exhibits effects not permitted by the trait.
   Fix-it: “narrow `needs` to be ≤ specified bound” or “refine trait bound”.
 
-**Examples:**
 ```cantrip
 public trait Logger {
     function log(self: Self, message: String)
@@ -2551,9 +1956,7 @@ impl Logger for BadLogger {
         needs io.write, fs.write; // ERROR E9120: fs.write exceeds trait bound
     { std.fs.append("log.txt", message) }
 }
-```
-
-### 8.7 Coherence and Orphan Rules (Normative)
+### 8.7 Coherence and Orphan Rules
 
 **Coherence (global uniqueness):** For any fully monomorphized pair `(Trait, Type)`, at most one implementation
 is visible in the *program* (the primary package plus all transitive dependencies).
@@ -2585,7 +1988,6 @@ Specialization is not part of this specification.
 
 **Visibility of impls:** Implementations are public by definition (§32.7).
 
-
 ## 9. Generics and Parametric Polymorphism
 
 ### 9.1 Generic Functions
@@ -2599,7 +2001,6 @@ function name<T₁, ..., Tₙ>(params): U {
 }
 ```
 
-**Example:**
 ```cantrip
 function identity<T>(x: T): T {
     x
@@ -2612,8 +2013,6 @@ function swap<T>(a: T, b: T): (T, T) {
 function first<T, U>(pair: (T, U)): T {
     pair.0
 }
-```
-
 **Type rule:**
 ```
 [T-Generic-Fun]
@@ -2640,7 +2039,6 @@ record Name<T₁, ..., Tₙ> {
 }
 ```
 
-**Example:**
 ```cantrip
 record Pair<T, U> {
     first: T;
@@ -2662,8 +2060,6 @@ impl<T> Box<T> {
         self.value
     }
 }
-```
-
 **Type rule:**
 ```
 [T-Generic-Record]
@@ -2685,7 +2081,6 @@ function name<T>(param: T)
 }
 ```
 
-**Example:**
 ```cantrip
 function process<T, U>(data: T): U
     where T: Clone + Serialize,
@@ -2696,8 +2091,6 @@ function process<T, U>(data: T): U
     let copy = data.clone();
     // ...
 }
-```
-
 **Type rule:**
 ```
 [T-Where]
@@ -2722,8 +2115,8 @@ let x = max(1, 2);       // T = i32
 let y = max(1.0, 2.0);   // T = f64
 
 // Compiler generates:
-function max_i32(a: i32, b: i32) -> i32 { ... }
-function max_f64(a: f64, b: f64) -> f64 { ... }
+function max_i32(a: i32, b: i32): i32 { ... }
+function max_f64(a: f64, b: f64): f64 { ... }
 ```
 
 **Performance:** Zero-cost abstraction - no runtime dispatch
@@ -2731,7 +2124,7 @@ function max_f64(a: f64, b: f64) -> f64 { ... }
 **Code size:** May increase binary size (trade-off for speed)
 
 ### 9.5 Type Bounds
-### 9.6 Const Generics (Normative)
+### 9.6 Const Generics
 
 **Purpose:** *Const generics* allow types and functions to be parameterized by compile‑time constants
 (e.g., array lengths, matrix dimensions, bit widths) without runtime overhead.
@@ -2745,7 +2138,6 @@ ConstArg       ::= IntegerLiteral | BooleanLiteral | ConstExpr
 ConstExpr      ::= (literal | arithmetic over consts | sizeof(T) | alignof(T))
 ```
 
-**Examples:**
 ```cantrip
 // Function parameterized by a const length N
 function process<T, const N: usize>(data: [T; N]): T {
@@ -2761,8 +2153,6 @@ record RingBuffer<T, const CAP: usize> {
     head: usize;
     tail: usize;
 }
-```
-
 **Type rules:**
 ```
 [T-Const-Generic]
@@ -2791,13 +2181,11 @@ Each distinct const argument produces a distinct specialized instance.
 - `E9310` — non-constant used where a const generic argument is required.
 - `E9311` — const expression not evaluable at compile time.
 
-
 **Syntax:**
 ```cantrip
 T: Bound₁ + Bound₂ + ... + Boundₙ
 ```
 
-**Example:**
 ```cantrip
 function serialize<T>(value: T): String
     where T: Serialize + Clone
@@ -2805,8 +2193,6 @@ function serialize<T>(value: T): String
 {
     value.clone().to_json()
 }
-```
-
 **Type rule:**
 ```
 [T-Bounds]
@@ -2817,7 +2203,7 @@ function serialize<T>(value: T): String
 
 ---
 
-# Part III (Normative): Modal System
+# Part III: Modal System
 
 ## 10. Modals: State Machines as Types
 
@@ -2854,7 +2240,7 @@ modal Name {
         ...
     }
 
-    @State₁ >> procedure() >> @State₂
+    procedure name@State₁(params) -> @State₂
         needs ε;
         requires P;
         ensures Q;
@@ -2865,7 +2251,6 @@ modal Name {
 }
 ```
 
-**Example:**
 ```cantrip
 modal File {
     // Each state has its own data shape
@@ -2879,8 +2264,8 @@ modal File {
         position: usize;
     }
 
-    // State transitions use >> with @ markers
-    @Closed >> open() >> @Open
+    // State transformation functions use @State notation
+    procedure open@Closed() -> @Open
         needs fs.read;
     {
         let handle = FileSystem.open(self.path)?;
@@ -2891,7 +2276,7 @@ modal File {
         }
     }
 
-    @Open >> read(n: usize) >> @Open
+    procedure read@Open(n: usize) -> @Open
         needs fs.read;
     {
         let data = self.handle.read(n)?;
@@ -2899,7 +2284,7 @@ modal File {
         (data, self)
     }
 
-    @Open >> close() >> @Closed {
+    procedure close@Open() -> @Closed {
         self.handle.close();
         Closed { path: self.path }
     }
@@ -2908,13 +2293,12 @@ modal File {
 
 **Key features:**
 - Each state can have **different fields**
-- `@State` markers indicate state names in transitions
-- `>>` operator shows state flow
+- `@State` notation indicates the source state for procedures
+- `-> @State` indicates the target state after transition
 - Compiler enforces valid transitions
 
 ### 10.3 Using Modals
 
-**Example:**
 ```cantrip
 function example(): Result<(), Error>
     needs fs.read, alloc.heap;
@@ -2934,10 +2318,6 @@ function example(): Result<(), Error>
 
     Ok(())
 }
-```
-
-**The compiler prevents invalid operations at compile time!**
-
 **Type annotation:**
 ```cantrip
 let file: File@Closed = File.new("data.txt");
@@ -2945,8 +2325,6 @@ let file: File@Open = file.open()?;
 ```
 
 ### 10.4 State-Dependent Data
-
-**This is the killer feature** - each state has its own data:
 
 ```cantrip
 modal Transaction {
@@ -2966,7 +2344,7 @@ modal Transaction {
         error: Error;          // Only exists after rollback!
     }
 
-    @Pending >> commit() >> @Committed {
+    procedure commit@Pending() -> @Committed {
         let (id, timestamp) = self.conn.commit(self.operations)?;
         Committed {
             conn: self.conn,
@@ -2975,7 +2353,7 @@ modal Transaction {
         }
     }
 
-    @Pending >> rollback(err: Error) >> @RolledBack {
+    procedure rollback@Pending(err: Error) -> @RolledBack {
         self.conn.rollback();
         RolledBack {
             conn: self.conn,
@@ -2991,7 +2369,7 @@ tx.add_operation(op1);
 let tx = tx.commit()?;
 
 // Compile-time proof that commit_id exists:
-println!("Committed as {}", tx.commit_id);  // OK!
+std.io.println(String.format("Committed as {}", tx.commit_id));  // OK!
 ```
 
 **Access to state-specific fields:**
@@ -3028,14 +2406,14 @@ modal TcpConnection {
         error: Error;
     }
 
-    @Disconnected >> connect(host: String) >> @Connecting
+    procedure connect@Disconnected(host: String) -> @Connecting
         needs net.read(outbound);
     {
         let socket = Socket.new(host)?;
         Connecting { config: self.config, socket }
     }
 
-    @Connecting >> handshake() >> (@Connected | @Failed)
+    procedure handshake@Connecting() -> (@Connected | @Failed)
         needs net.read, net.write;
     {
         match self.socket.handshake() {
@@ -3051,14 +2429,14 @@ modal TcpConnection {
         }
     }
 
-    @Connected >> send(data: [u8]) >> @Connected
+    procedure send@Connected(data: [u8]) -> @Connected
         needs net.write;
     {
         self.stream.write(data)?;
         Ok(self)
     }
 
-    @Connected >> disconnect() >> @Disconnected {
+    procedure disconnect@Connected() -> @Disconnected {
         self.stream.close();
         Disconnected { config: self.config }
     }
@@ -3076,7 +2454,7 @@ modal OrderProcessor {
     state Cancelled { order_id: u64; reason: String; }
 
     // Can cancel from either state
-    (@Submitted | @Draft) >> cancel(reason: String) >> @Cancelled {
+    procedure cancel@(Submitted | Draft)(reason: String) -> @Cancelled {
         let order_id = match self {
             Submitted { order_id, .. } -> order_id,
             Draft { .. } -> generate_id(),
@@ -3089,9 +2467,9 @@ modal OrderProcessor {
 **Type rule:**
 ```
 [T-State-Union]
-Γ ⊢ e : P@S₁    S₁ ⊆ (S₂ | S₃)
-──────────────────────────────
-Γ ⊢ e : P@(S₂ | S₃)
+Γ ⊢ e : P@S₁    @S₁ ⊆ (@S₂ | @S₃)
+──────────────────────────────────
+Γ ⊢ e : P@(@S₂ | @S₃)
 ```
 
 ### 10.7 Common Fields
@@ -3121,7 +2499,7 @@ modal HttpRequest {
         sent_at: DateTime;
     }
 
-    @Building >> set_method(m: HttpMethod) >> @Ready {
+    procedure set_method@Building(m: HttpMethod) -> @Ready {
         Ready {
             // common fields (url, headers) automatically included
             procedure: m,
@@ -3133,260 +2511,30 @@ modal HttpRequest {
 
 **Formal semantics:**
 ```
-state S with common C = {
-    fields(S) = C ∪ S.specific_fields
+state @S with common C = {
+    fields(@S) = C ∪ @S.specific_fields
 }
 ```
 
-### 10.8 Modal State Machine Diagrams
+### 10.10 Modal Instantiation
 
-**Purpose:** Visual representations help understand state transition logic. This section provides ASCII diagrams and common patterns.
-
-#### 10.8.1 Reading State Diagrams
-
-**Notation:**
-```
-State --[procedure]--> NextState   // Transition via procedure
-State --[event]?--> NextState   // Conditional transition
-(StateA | StateB)               // Union of states
-[StateC]                        // Final/terminal state
-```
-
-#### 10.8.2 File Modal Diagram
-
+**Creating initial state:**
 ```cantrip
 modal File {
-    //
-    // STATE MACHINE:
-    //
-    //    [Closed] --[open]--> [Open]
-    //       ^                    |
-    //       |                    |
-    //       +------[close]-------+
-    //                            |
-    //                        [read]
-    //                            |
-    //                            v
-    //                         [Open]  (self-loop)
-    //
+    state Closed { path: String; }
+    state Open { ... }
 
-    state Closed {
-        path: String;
-    }
-
-    state Open {
-        path: String;
-        handle: FileHandle;
-        position: usize;
-    }
-
-    @Closed >> open() >> @Open
-        needs fs.read;
-    {
-        let handle = FileSystem.open(self.path)?;
-        Open {
-            path: self.path,
-            handle: handle,
-            position: 0,
-        }
-    }
-
-    @Open >> read(n: usize) >> @Open
-        needs fs.read;
-    {
-        let data = self.handle.read(n)?;
-        self.position += data.len();
-        (data, self)
-    }
-
-    @Open >> close() >> @Closed {
-        self.handle.close();
-        Closed { path: self.path }
+    // Constructor creates initial state
+    function new(path: String): File@Closed {
+    File@Closed { path }
     }
 }
-```
 
-#### 10.8.3 TCP Connection Diagram
-
-```cantrip
-modal TcpConnection {
-    //
-    // STATE MACHINE:
-    //
-    //                      [timeout]
-    //                          |
-    //                          v
-    //   Disconnected --[connect]--> Connecting --[handshake]?--> Connected
-    //        ^                                                         |
-    //        |                          +------------------------------+
-    //        |                          |                              |
-    //        |                          v                              |
-    //        +----------------------- Failed                       [send/recv]
-    //        |                                                         |
-    //        |                                                         |
-    //        +------------------[disconnect]-------------------------+
-    //
-
-    state Disconnected { config: ConnectionConfig; }
-    state Connecting { socket: Socket; }
-    state Connected { stream: TcpStream; }
-    state Failed { error: Error; }
-
-    @Disconnected >> connect(host: String) >> @Connecting
-        needs net.read(outbound);
-    {
-        let socket = Socket.new(host)?;
-        Connecting { socket }
-    }
-
-    @Connecting >> handshake() >> (@Connected | @Failed)
-        needs net.read, net.write;
-    {
-        match self.socket.handshake() {
-            Ok(stream) -> Ok(Connected { stream }),
-            Err(err) -> Ok(Failed { error: err }),
-        }
-    }
-
-    @Connected >> send(data: [u8]) >> @Connected
-        needs net.write;
-    {
-        self.stream.write(data)?;
-        Ok(self)
-    }
-
-    @Connected >> disconnect() >> @Disconnected {
-        self.stream.close();
-        Disconnected { config: self.config }
-    }
-
-    @Failed >> retry() >> @Disconnected {
-        Disconnected { config: self.config }
-    }
-}
-```
-
-#### 10.8.4 Transaction Modal Diagram
-
-```cantrip
-modal Transaction {
-    //
-    // STATE MACHINE:
-    //
-    //                    [begin]
-    //                      |
-    //                      v
-    //    Pending --[add_operation]--> Pending  (self-loop)
-    //       |
-    //       |
-    //   [commit]?
-    //       |
-    //       +---> Committed
-    //       |
-    //   [rollback]?
-    //       |
-    //       +---> RolledBack
-    //
-
-    state Pending {
-        conn: Connection;
-        operations: Vec<Operation>;
-    }
-
-    state Committed {
-        conn: Connection;
-        commit_id: u64;
-        timestamp: DateTime;
-    }
-
-    state RolledBack {
-        conn: Connection;
-        error: Error;
-    }
-
-    @Pending >> add_operation(op: Operation) >> @Pending
-        needs alloc.heap;
-    {
-        self.operations.push(op);
-        self
-    }
-
-    @Pending >> commit() >> @Committed
-        needs net.write, time.read;
-    {
-        let (id, timestamp) = self.conn.commit(self.operations)?;
-        Committed {
-            conn: self.conn,
-            commit_id: id,
-            timestamp: timestamp,
-        }
-    }
-
-    @Pending >> rollback(err: Error) >> @RolledBack {
-        self.conn.rollback();
-        RolledBack {
-            conn: self.conn,
-            error: err,
-        }
-    }
-}
-```
-
-#### 10.8.5 Parser Modal Diagram
-
-```cantrip
-modal Parser {
-    //
-    // STATE MACHINE:
-    //
-    //   Start --[tokenize]?--> Tokenized --[parse]?--> Parsed
-    //     |                         |                     |
-    //     |                         |                     |
-    //     +-------[error]-----------+-----[error]--------+
-    //                               |
-    //                               v
-    //                            Failed
-    //
-
-    state Start {
-        input: String;
-    }
-
-    state Tokenized {
-        tokens: Vec<Token>;
-    }
-
-    state Parsed {
-        ast: AST;
-    }
-
-    state Failed {
-        error: ParseError;
-    }
-
-    @Start >> tokenize() >> (@Tokenized | @Failed)
-        needs alloc.heap;
-    {
-        match lex(self.input) {
-            Ok(tokens) -> Ok(Tokenized { tokens }),
-            Err(err) -> Ok(Failed { error: err }),
-        }
-    }
-
-    @Tokenized >> parse() >> (@Parsed | @Failed)
-        needs alloc.heap;
-    {
-        match parse_tokens(self.tokens) {
-            Ok(ast) -> Ok(Parsed { ast }),
-            Err(err) -> Ok(Failed { error: err }),
-        }
-    }
-}
+// Usage
+let file = File.new("data.txt");  // Type: File@Closed
 ```
 
 ---
-
-### 10.9 Common Modal Patterns
 
 #### 10.9.1 Resource Lifecycle Pattern
 
@@ -3421,14 +2569,14 @@ modal Resource {
 
     state Closed { }
 
-    @Uninitialized >> initialize() >> @Ready
+    procedure initialize@Uninitialized() -> @Ready
         needs alloc.heap;
     {
         let handle = create_handle(self.config)?;
         Ready { config: self.config, handle }
     }
 
-    @Ready >> acquire() >> @InUse
+    procedure acquire@Ready() -> @InUse
         needs time.read;
     {
         let usage = UsageInfo.start();
@@ -3439,7 +2587,7 @@ modal Resource {
         }
     }
 
-    @InUse >> release() >> @Ready
+    procedure release@InUse() -> @Ready
         needs time.read;
     {
         self.usage.end();
@@ -3449,7 +2597,7 @@ modal Resource {
         }
     }
 
-    (@Ready | @InUse) >> close() >> @Closed
+    procedure close@(Ready | InUse)() -> @Closed
         needs time.read;
     {
         self.handle.close();
@@ -3501,7 +2649,7 @@ modal RequestHandler {
         response: Response;
     }
 
-    @Idle >> receive(req: Request) >> @Processing
+    procedure receive@Idle(req: Request) -> @Processing
         needs time.read;
     {
         Processing {
@@ -3510,14 +2658,14 @@ modal RequestHandler {
         }
     }
 
-    @Processing >> respond(res: Response) >> @Responded {
+    procedure respond@Processing(res: Response) -> @Responded {
         Responded {
             request: self.request,
             response: res,
         }
     }
 
-    @Responded >> reset() >> @Idle {
+    procedure reset@Responded() -> @Idle {
         Idle { }
     }
 }
@@ -3543,7 +2691,7 @@ modal Pipeline {
     state Transformed { data: ProcessedData; }
     state Complete { result: Output; }
 
-    @Raw >> validate(schema: Schema) >> @Validated
+    procedure validate@Raw(schema: Schema) -> @Validated
         needs alloc.heap;
     {
         validate_data(self.data, schema)?;
@@ -3553,14 +2701,14 @@ modal Pipeline {
         }
     }
 
-    @Validated >> transform() >> @Transformed
+    procedure transform@Validated() -> @Transformed
         needs alloc.heap;
     {
         let processed = process_data(self.data)?;
         Transformed { data: processed }
     }
 
-    @Transformed >> finalize() >> @Complete
+    procedure finalize@Transformed() -> @Complete
         needs alloc.heap;
     {
         let output = generate_output(self.data)?;
@@ -3602,14 +2750,14 @@ modal ResilientService {
     state Recovering { service: Service; recovery_plan: RecoveryPlan; }
     state Stopped { }
 
-    @Running >> fail(err: Error) >> @Failed {
+    procedure fail@Running(err: Error) -> @Failed {
         Failed {
             service: self.service,
             error: err,
         }
     }
 
-    @Failed >> diagnose() >> @Diagnosing
+    procedure diagnose@Failed() -> @Diagnosing
         needs alloc.heap;
     {
         let diagnostics = run_diagnostics(self.service, self.error)?;
@@ -3619,7 +2767,7 @@ modal ResilientService {
         }
     }
 
-    @Diagnosing >> recover() >> @Recovering
+    procedure recover@Diagnosing() -> @Recovering
         needs alloc.heap;
     {
         let plan = create_recovery_plan(self.diagnostics)?;
@@ -3629,7 +2777,7 @@ modal ResilientService {
         }
     }
 
-    @Recovering >> restart() >> @Running
+    procedure restart@Recovering() -> @Running
         needs alloc.heap;
     {
         let recovered_service = execute_recovery(
@@ -3639,7 +2787,7 @@ modal ResilientService {
         Running { service: recovered_service }
     }
 
-    @Diagnosing >> abort() >> @Stopped {
+    procedure abort@Diagnosing() -> @Stopped {
         self.service.shutdown();
         Stopped { }
     }
@@ -3667,7 +2815,6 @@ let file = File.new("data.txt");  // Type: File@Closed
 ```
 
 ---
-
 ## 11. Modal Formal Semantics
 
 ### 11.1 Modal Definition
@@ -3680,14 +2827,14 @@ modal P {
     ...
     state Sₖ { fₖ₁: Tₖ₁; ...; fₖₘ: Tₖₘ }
 
-    @Sᵢ >> mⱼ(params) >> @Sₗ { body }
+    procedure mⱼ@Sᵢ(params) -> @Sₗ { body }
 }
 ```
 
 **Formal components:**
-- States: S = {S₁, ..., Sₖ}
-- Transitions: T = {(Sᵢ, m, Sⱼ) | transition exists}
-- State data: Fields(S) = {f : T | f declared in S}
+- States: @S = {@S₁, ..., @Sₖ}
+- Transitions: T = {(@Sᵢ, m, @Sⱼ) | transition exists}
+- State data: Fields(@S) = {f : T | f declared in @S}
 
 ### 11.2 State Machine Graph
 
@@ -3695,8 +2842,8 @@ modal P {
 
 ```
 G(P) = (V, E) where:
-  V = {S₁, ..., Sₖ}
-  E = {(Sᵢ, m, Sⱼ) | @Sᵢ >> m >> @Sⱼ in P}
+  V = {@S₁, ..., @Sₖ}
+  E = {(@Sᵢ, m, @Sⱼ) | procedure m@Sᵢ -> @Sⱼ in P}
 ```
 
 **Properties:**
@@ -3704,14 +2851,11 @@ G(P) = (V, E) where:
 2. **Determinism:** At most one transition per (state, procedure) pair
 3. **Totality:** Not required - some procedures may not be available in some states
 
-**Example:**
 ```
 File state graph:
   Closed --[open]--> Open
   Open --[read]--> Open
   Open --[close]--> Closed
-```
-
 ### 11.3 State Type Rules
 
 **[T-Modal-Type] Modal as type:**
@@ -3723,41 +2867,41 @@ modal P { state S₁ {...}; ...; state Sₙ {...}; ... } well-formed
 
 **[T-State-Annot] State annotation:**
 ```
-Γ ⊢ e : modal P    Σ ⊢ P has state S    σ ⊨ invariant(S)
+Γ ⊢ e : modal P    Σ ⊢ P has state @S    σ ⊨ invariant(@S)
 ─────────────────────────────────────────────────────────────
 Γ, Σ ⊢ e : P@S
 ```
 
 **[T-State-Trans] State transition:**
 ```
-Γ, Σ ⊢ e : P@S₁    
-Σ ⊢ @S₁ >> m(args) >> @S₂
+Γ, Σ ⊢ e : P@S₁
+Σ ⊢ procedure m@S₁(args) -> @S₂
 needs(m) = ε    requires(m) = P    ensures(m) = Q
-σ ⊨ P ∧ invariant(S₁)
+σ ⊨ P ∧ invariant(@S₁)
 ───────────────────────────────────────────────────────────
 Γ, Σ ⊢ e.m(args) : P@S₂ ! ε
-σ' ⊨ Q ∧ invariant(S₂)
+σ' ⊨ Q ∧ invariant(@S₂)
 ```
 
 **[T-State-Procedure] Procedure invocation:**
 ```
-Γ ⊢ self : P@S₁    procedure m : P@S₁ >>ₘ P@S₂ in modal P
+Γ ⊢ self : P@S₁    procedure m@S₁ -> @S₂ in modal P
 ──────────────────────────────────────────────────────────
 Γ ⊢ self.m(...) : P@S₂
 ```
 
 **[T-State-Union] State union:**
 ```
-Γ ⊢ e : P@S₁    S₁ ⊆ (S₂ | S₃)
-──────────────────────────────
-Γ ⊢ e : P@(S₂ | S₃)
+Γ ⊢ e : P@S₁    @S₁ ⊆ (@S₂ | @S₃)
+──────────────────────────────────
+Γ ⊢ e : P@(@S₂ | @S₃)
 ```
 
 ### 11.4 State Invariants
 
 **Definition 11.3 (State Invariant):**
 
-Each modal state S has an invariant I(S):
+Each modal state @S has an invariant I(@S):
 ```
 modal P {
     state S
@@ -3767,23 +2911,23 @@ modal P {
         must Pₙ;
 }
 
-I(S) = P₁ ∧ P₂ ∧ ... ∧ Pₙ
+I(@S) = P₁ ∧ P₂ ∧ ... ∧ Pₙ
 ```
 
 **Axiom 11.1 (State Exclusivity):**
 
-For all distinct states S₁, S₂ of modal P:
+For all distinct states @S₁, @S₂ of modal P:
 ```
-I(S₁) ∧ I(S₂) = false
+I(@S₁) ∧ I(@S₂) = false
 ```
 
 States must be mutually exclusive.
 
 **Axiom 11.2 (State Completeness):**
 
-For all modals P with states S₁, ..., Sₙ:
+For all modals P with states @S₁, ..., @Sₙ:
 ```
-I(S₁) ∨ I(S₂) ∨ ... ∨ I(Sₙ) = true
+I(@S₁) ∨ I(@S₂) ∨ ... ∨ I(@Sₙ) = true
 ```
 
 Every valid instance must be in exactly one state.
@@ -3822,21 +2966,21 @@ modal BankAccount {
 
 **Definition 11.4 (Valid Transition):**
 
-A transition @S₁ >> m >> @S₂ is valid if:
+A transition procedure m@S₁ -> @S₂ is valid if:
 1. Procedure m exists in modal
-2. Pre-state S₁ exists in modal
-3. Post-state S₂ exists in modal
+2. Pre-state @S₁ exists in modal
+3. Post-state @S₂ exists in modal
 4. Transition preserves invariants
 
 **Formal rule:**
 ```
 [Valid-Transition]
-(S₁, m, S₂) ∈ Transitions(P)
-σ ⊨ I(S₁)
+(@S₁, m, @S₂) ∈ Transitions(P)
+σ ⊨ I(@S₁)
 ⟨m(σ), σ⟩ ⇓ ⟨v, σ'⟩
-σ' ⊨ I(S₂)
+σ' ⊨ I(@S₂)
 ────────────────────────────────
-S₁ →ₘ S₂ valid
+@S₁ →ₘ @S₂ valid
 ```
 
 ### 11.6 Reachability Analysis
@@ -3844,7 +2988,7 @@ S₁ →ₘ S₂ valid
 **Algorithm 11.1 (Reachability):**
 
 ```
-reach(P, S) = {S' | ∃ path in G(P) from initial state to S'}
+reach(P, @S) = {@S' | ∃ path in G(P) from initial state to @S'}
 ```
 
 **Compiler verification:**
@@ -3852,7 +2996,6 @@ reach(P, S) = {S' | ∃ path in G(P) from initial state to S'}
 2. Dead states generate warnings
 3. Unreachable transitions generate errors
 
-**Example:**
 ```cantrip
 modal Example {
     state Start { }
@@ -3860,8 +3003,8 @@ modal Example {
     state End { }
     state Unreachable { }  // WARNING: Unreachable state
 
-    @Start >> go() >> @Middle
-    @Middle >> finish() >> @End
+    procedure go@Start() -> @Middle
+    procedure finish@Middle() -> @End
     // No path to Unreachable!
 }
 ```
@@ -3878,18 +3021,17 @@ modal Example {
 ```
 [VC-Transition]
 modal P {
-    @S₁ >> m(x: T) >> @S₂
+    procedure m@S₁(x: T) -> @S₂
         requires P;
         ensures Q;
     { e }
 }
 
 Verification Condition:
-∀σ. σ ⊨ P ∧ I(S₁) ⟹
-  ∃σ', v. ⟨e, σ⟩ ⇓ ⟨v, σ'⟩ ∧ σ' ⊨ Q ∧ I(S₂)
+∀σ. σ ⊨ P ∧ I(@S₁) ⟹
+  ∃σ', v. ⟨e, σ⟩ ⇓ ⟨v, σ'⟩ ∧ σ' ⊨ Q ∧ I(@S₂)
 ```
 
-**Example:**
 ```cantrip
 modal BankAccount {
     state Active {
@@ -3897,7 +3039,7 @@ modal BankAccount {
         must balance >= 0.0;
     }
 
-    @Active >> withdraw(amount: f64) >> @Active
+    procedure withdraw@Active(amount: f64) -> @Active
         requires
             amount > 0.0;
             self.balance >= amount;
@@ -3926,13 +3068,13 @@ modal BankAccount {
 **Generated code:**
 ```cantrip
 // Source
-@Active >> withdraw(amount: f64) >> @Active { ... }
+procedure withdraw@Active(amount: f64) -> @Active { ... }
 
 // Generated
 function withdraw(self: BankAccount@Active, amount: f64) {
     // Check preconditions
-    assert!(amount > 0.0, "Precondition: amount > 0.0");
-    assert!(self.balance >= amount, "Precondition: balance >= amount");
+    assert(amount > 0.0, "Precondition: amount > 0.0");
+    assert(self.balance >= amount, "Precondition: balance >= amount");
 
     let old_balance = self.balance;
 
@@ -3940,8 +3082,8 @@ function withdraw(self: BankAccount@Active, amount: f64) {
     self.balance -= amount;
 
     // Check postconditions
-    assert!(self.balance == old_balance - amount, "Postcondition");
-    assert!(self.balance >= 0.0, "Invariant: balance >= 0.0");
+    assert(self.balance == old_balance - amount, "Postcondition");
+    assert(self.balance >= 0.0, "Invariant: balance >= 0.0");
 
     self
 }
@@ -3951,15 +3093,14 @@ function withdraw(self: BankAccount@Active, amount: f64) {
 
 **Definition 12.1 (Procedure Exhaustiveness):** For a given state, the compiler checks which procedures are available.
 
-**Example:**
 ```cantrip
 modal File {
     state Closed { ... }
     state Open { ... }
 
-    @Closed >> open() >> @Open
-    @Open >> read() >> @Open
-    @Open >> close() >> @Closed
+    procedure open@Closed() -> @Open
+    procedure read@Open() -> @Open
+    procedure close@Open() -> @Closed
 }
 
 function process(file: File@Closed) {
@@ -3972,9 +3113,9 @@ function process(file: File@Closed) {
 **Type checking algorithm:**
 ```
 check_method_call(obj: P@S, procedure: m) = {
-    transitions = {(S, m, S') | @S >> m >> @S' in P}
+    transitions = {(@S, m, @S') | procedure m@S -> @S' in P}
     if transitions.is_empty() {
-        error("Procedure {m} not available in state {S}")
+        error("Procedure {m} not available in state {@S}")
     }
     return result_state(transitions)
 }
@@ -3984,7 +3125,6 @@ check_method_call(obj: P@S, procedure: m) = {
 
 **Definition 12.2 (Flow-Sensitive Types):** Modal state types are flow-sensitive - the type changes as the program executes.
 
-**Example:**
 ```cantrip
 function example(): Result<(), Error>
     needs fs.read;
@@ -4001,8 +3141,6 @@ function example(): Result<(), Error>
 
         Ok(())
 }
-```
-
 **Flow analysis:**
 ```
 Point 1: file : File@Closed
@@ -4024,7 +3162,6 @@ Point 4: file : File@Closed (after close())
 Γ \ {obj : P@S₁} ∪ {obj : P@S₂}
 ```
 
-**Example:**
 ```cantrip
 let file = File.new("data.txt");  // file : File@Closed
 
@@ -4033,8 +3170,6 @@ let file = file.open()?;
 
 // Cannot use old binding - consumed by transition
 // The name 'file' now refers to the Open state
-```
-
 **Rebinding semantics:**
 ```cantrip
 let file = file.open()?;
@@ -4046,7 +3181,7 @@ let file = file.open()?;
 
 ---
 
-# Part IV (Normative): Functions and Expressions
+# Part IV: Functions and Expressions
 
 ## 13. Functions and Procedures
 
@@ -4071,12 +3206,6 @@ function name(param: Type): ReturnType
 4. **`ensures`** - Postconditions (optional if none)
 5. **Body** - Implementation in `{ }`
 
-**Design rationale:**
-- Consistent with type annotation style (using `:` for return type)
-- Effects and contracts are first-class, not comments
-- LLM-friendly: consistent structure, easy to parse
-- Verification-friendly: contracts machine-checkable
-
 ### 13.2 Pure Functions
 
 **Definition 13.1 (Pure Function):** A function with no side effects.
@@ -4095,7 +3224,6 @@ function name(params): T
 }
 ```
 
-**Examples:**
 ```cantrip
 function add(a: i32, b: i32): i32 {
     a + b
@@ -4109,8 +3237,6 @@ function max(a: i32, b: i32): i32
 {
     if a > b { a } else { b }
 }
-```
-
 **Type rule:**
 ```
 [T-Pure-Fun]
@@ -4383,13 +3509,10 @@ impl Counter {
 obj.procedure(args) ≡ Type::procedure(obj, args)
 ```
 
-**Usage:**
 ```cantrip
 var counter = Counter.new();
 counter.increment();
 let value = counter.get();
-```
-
 ---
 
 ## 14. Expressions and Operators
@@ -4440,13 +3563,10 @@ let value = counter.get();
 ⟨e₁ + e₂, σ⟩ ⇓ ⟨n₁ + n₂, σ₂⟩
 ```
 
-**Examples:**
 ```cantrip
 let sum = a + b;
 let product = x * y;
 let remainder = n % 10;
-```
-
 ### 14.3 Comparison Operators
 
 **Operators:**
@@ -4515,13 +3635,10 @@ let remainder = n % 10;
 ⟨e₁ && e₂, σ⟩ ⇓ ⟨false, σ₁⟩
 ```
 
-**Example:**
 ```cantrip
 let valid = x > 0 && x < 100;
 let has_value = opt.is_some() || use_default;
 let inverted = !flag;
-```
-
 ### 14.5 Bitwise Operators
 
 **Operators:**
@@ -4546,13 +3663,10 @@ let inverted = !flag;
 Γ ⊢ e₁ << e₂ : T
 ```
 
-**Examples:**
 ```cantrip
 let masked = value & 0xFF;
 let combined = flags | new_flags;
 let shifted = n << 2;  // Multiply by 4
-```
-
 ### 14.6 Assignment Operators
 
 **Operators:**
@@ -4606,7 +3720,6 @@ x *= e  ≡  x = x * e
 Γ ⊢ e₁..=e₂ : RangeInclusive<T>
 ```
 
-**Examples:**
 ```cantrip
 for i in 0..10 {  // 0, 1, 2, ..., 9
     println(i);
@@ -4617,8 +3730,6 @@ for i in 0..=10 {  // 0, 1, 2, ..., 10
 }
 
 let slice = arr[2..5];  // Elements at indices 2, 3, 4
-```
-
 ### 14.8 Pipeline Operator
 
 **The pipeline operator `=>` chains function calls:**
@@ -4684,18 +3795,14 @@ function load_and_process(path: str): Result<Data, Error>
 | 11 | `=>` | Left |
 | 12 (Lowest) | `=`, `+=`, `-=`, etc. | Right |
 
-**Examples:**
 ```cantrip
 a + b * c       ≡  a + (b * c)
 a && b || c     ≡  (a && b) || c
 x = y = z       ≡  x = (y = z)
 a => f => g     ≡  g(f(a))
-```
-
 ---
 
-
-### 14.10 Typed Holes (Normative)
+### 14.10 Typed Holes
 
 **Goal:** Improve developer flow and LLM-assisted coding by allowing *incomplete* expressions that type-check
 and produce precise diagnostics and fix-its, while preserving safety and AOT compilation.
@@ -4726,7 +3833,6 @@ Emits obligation: "hole(?x) : α must be defined"
 **Effects:** Filling a hole MUST NOT widen declared effects. A hole in a function with `needs ε`
 is considered to have effects ⊆ `ε` until filled; otherwise `E9503` is raised.
 
-**Examples:**
 ```cantrip
 function parse(line: String): Result<Item, Error>
     needs alloc.heap;
@@ -4735,10 +3841,7 @@ function parse(line: String): Result<Item, Error>
     let qty  = ?;                   // hole with inferred type
     ???                              // hard hole: diverges here
 }
-```
-
 **Machine-Readable Output:** See §55 for the `typedHole` field in diagnostics.
-
 
 ## 15. Control Flow
 
@@ -4947,13 +4050,10 @@ in_loop
 ->  (function type constructor)
 ```
 
-**Examples:**
 ```cantrip
 type Handler = fn(Request): Response;
 type BinaryOp = fn(i32, i32): i32;
 type Transform = fn(String): Result<Data, Error>;
-```
-
 **Currying:**
 ```
 i32 -> i32 -> i32  ≡  i32 -> (i32 -> i32)
@@ -4963,7 +4063,6 @@ i32 -> i32 -> i32  ≡  i32 -> (i32 -> i32)
 
 **Definition 16.2 (Higher-Order Function):** A function that takes functions as parameters or returns functions.
 
-**Examples:**
 ```cantrip
 function apply_twice<T>(value: T, f: T -> T): T {
     f(f(value))
@@ -4984,8 +4083,6 @@ function filter<T>(items: [T], pred: T -> bool): Vec<T>
 function compose<A, B, C>(f: fn(A): B, g: fn(B): C): fn(A): C {
     |x: A| { g(f(x)) }
 }
-```
-
 **Type rule:**
 ```
 [T-Higher-Order]
@@ -5001,16 +4098,15 @@ compose(f, g) : T -> V
 **Syntax:**
 ```cantrip
 |param| { body }
-|param: Type| -> RetType { body }
+|param: Type|: RetType { body }
 move |param| { body }  // Move captured variables
 ```
 
-**Examples:**
 ```cantrip
 let add_n = |x| { x + n };  // Captures n
 
 // Explicit types
-let multiply: fn(i32, i32) -> i32 = |a, b| { a * b };
+let multiply: fn(i32, i32): i32 = |a, b| { a * b };
 
 // Move semantics
 let closure = move |x| { x + captured_value };
@@ -5040,7 +4136,7 @@ move closure captures x by value
 
 **Example with state:**
 ```cantrip
-function make_counter(): fn() -> i32
+function make_counter(): fn(): i32
     needs alloc.heap;
 {
     var count = 0;
@@ -5078,15 +4174,12 @@ trait FnOnce<Args> {
 Fn <: FnMut <: FnOnce
 ```
 
-**Usage:**
 ```cantrip
 function apply<F>(f: F, x: i32): i32
     where F: Fn(i32): i32
 {
     f.call(x)
 }
-```
-
 ### 16.5 Effect Propagation
 
 **Use `effects(F)` to propagate callback effects:**
@@ -5125,7 +4218,7 @@ function parallel_map<T, U, F>(items: [T], mapper: F): Vec<U>
 }
 ```
 
-# Part V (Normative): Contract System
+# Part V: Contract System
 
 ## 17. Contracts and Specifications
 
@@ -5210,7 +4303,6 @@ function name(params): Type
 - `@old(expr)`: Value of expression on entry
 - Parameters: Original parameter values
 
-**Example:**
 ```cantrip
 function push(self: mut Vec<T>, item: T)
     needs alloc.heap;
@@ -5222,8 +4314,6 @@ function push(self: mut Vec<T>, item: T)
     self.data[self.length()] = item;
     self.length += 1;
 }
-```
-
 **Complex postconditions:**
 ```cantrip
 function sqrt(x: f64): f64
@@ -5276,7 +4366,7 @@ assertion, "error message with {interpolation}"
 // If precondition fails:
 panic("Contract violation in withdraw:
        Insufficient funds: need 100.0, have 50.0
-       at src/account.arc:42")
+       at src/account.cantrip:42")
 ```
 
 ### 17.5 Empty Contracts
@@ -5304,7 +4394,6 @@ function identity(x: i32): i32 {
 @old(expression)
 ```
 
-**Usage:**
 ```cantrip
 function transfer(from: mut Account, to: mut Account, amount: f64)
     requires
@@ -5319,8 +4408,6 @@ function transfer(from: mut Account, to: mut Account, amount: f64)
     from.balance -= amount;
     to.balance += amount;
 }
-```
-
 **Formal semantics:**
 ```
 [Old-Value]
@@ -5340,8 +4427,8 @@ function transfer(from: mut Account, to: mut Account, amount: f64) {
     to.balance += amount;
 
     // Check postconditions
-    assert!(from.balance == from_balance_old - amount);
-    assert!(to.balance == to_balance_old + amount);
+    assert(from.balance == from_balance_old - amount, "from balance updated correctly");
+    assert(to.balance == to_balance_old + amount, "to balance updated correctly");
 }
 ```
 
@@ -5731,7 +4818,6 @@ wp(if b then c₁ else c₂, Q) = (b ⇒ wp(c₁, Q)) ∧ (¬b ⇒ wp(c₂, Q))
 wp(while b do c, Q) = I where I is loop invariant
 ```
 
-**Example:**
 ```cantrip
 // Command: x = x + 1
 // Postcondition: x > 0
@@ -5743,8 +4829,6 @@ function increment(x: i32): i32
 {
     x + 1
 }
-```
-
 ### 18.4 Verification Conditions
 
 **Definition 18.4 (Verification Condition):** A verification condition (VC) is a logical formula that, if valid, proves correctness of a program with respect to its contracts.
@@ -5767,7 +4851,7 @@ function f(x: T): U
 **For state transition:**
 ```cantrip
 modal P {
-    @S₁ >> m(x: T) >> @S₂
+    procedure m@S₁(x: T) -> @S₂
         requires P;
         ensures Q;
     { e }
@@ -5776,8 +4860,8 @@ modal P {
 
 **Verification condition:**
 ```
-∀σ. σ ⊨ P ∧ I(S₁) ⟹
-  ∃σ', v. ⟨e, σ⟩ ⇓ ⟨v, σ'⟩ ∧ σ' ⊨ Q ∧ I(S₂)
+∀σ. σ ⊨ P ∧ I(@S₁) ⟹
+  ∃σ', v. ⟨e, σ⟩ ⇓ ⟨v, σ'⟩ ∧ σ' ⊨ Q ∧ I(@S₂)
 ```
 
 ### 18.5 Contract Soundness
@@ -5821,7 +4905,6 @@ record Name {
 }
 ```
 
-**Example:**
 ```cantrip
 record BankAccount {
     balance: f64;
@@ -5829,8 +4912,6 @@ record BankAccount {
     invariant:
         balance >= 0.0;
 }
-```
-
 **Enforcement points:**
 1. After construction
 2. Before and after public procedure calls
@@ -5913,21 +4994,25 @@ public record Counter {
 }
 ```
 
-**Derived record must maintain base invariant:**
+**Composition-based bounded counter with invariants:**
 ```cantrip
-public record BoundedCounter {  /* migrated: was `extends Counter`; use composition or trait bounds */
+public record BoundedCounter {
+    counter: Counter;  // Composition pattern
     max_value: i32;
 
     invariant:
-        value <= max_value;  // Additional constraint
+        counter.value >= 0;           // Maintains base invariant
+        counter.value <= max_value;   // Additional constraint
         max_value > 0;
 
-    public override function increment(self: mut BoundedCounter)
-        requires self.value < self.max_value;
-        ensures self.value <= self.max_value;
+    public function increment(self: mut BoundedCounter)
+        requires self.counter.value < self.max_value;
+        ensures
+            self.counter.value == @old(self.counter.value) + 1;
+            self.counter.value <= self.max_value;
     {
-        if self.value < self.max_value {
-            super.increment();
+        if self.counter.value < self.max_value {
+            self.counter.increment();
         }
     }
 }
@@ -5963,7 +5048,7 @@ modal Transaction {
 
 **Checked at transition boundaries:**
 ```cantrip
-@Pending >> commit() >> @Committed {
+procedure commit@Pending() -> @Committed {
     // Must establish Committed invariants
     let id = generate_commit_id();  // Must be > 0
     let ts = DateTime.now();        // Must be valid
@@ -6030,13 +5115,13 @@ I ∧ ¬(i < arr.length()) ⟹ sum == sum_of(arr[0..arr.length()])
 **Compiler flags:**
 ```bash
 # Static verification (must prove or fail compilation)
-arc compile --verify=static main.arc
+cantrip compile --verify=static main.cantrip
 
 # Runtime verification (default)
-arc compile --verify=runtime main.arc
+cantrip compile --verify=runtime main.cantrip
 
 # No verification (unsafe)
-arc compile --verify=none main.arc
+cantrip compile --verify=none main.cantrip
 ```
 
 **Per-function control:**
@@ -6077,7 +5162,6 @@ unsafe function low_level_operation(ptr: *u8) {
 4. If provable: compilation succeeds
 5. If not provable: compilation fails with counterexample
 
-**Example:**
 ```cantrip
 #[verify(static)]
 function abs(x: i32): i32
@@ -6095,13 +5179,11 @@ function abs(x: i32): i32
 // (assert (=> (< x 0) (= (abs x) (- x))))
 // (assert (>= (abs x) 0))
 // (check-sat)  → sat (provable)
-```
-
 **When static verification fails:**
 ```bash
-$ arc compile --verify=static main.arc
+$ cantrip compile --verify=static main.cantrip
 error[E4001]: Cannot prove postcondition
-  --> src/main.arc:15:5
+  --> src/main.cantrip:15:5
    |
 15 |         result >= 0;
    |         ^^^^^^^^^^^ cannot prove this always holds
@@ -6127,9 +5209,9 @@ function divide(a: f64, b: f64): f64
 function divide(a: f64, b: f64): f64 {
     // Check preconditions
     if !(b != 0.0) {
-        panic!("Precondition violation in divide: b != 0.0
-                at src/math.arc:42
-                b = {}", b);
+        std.panic(String.format("Precondition violation in divide: b != 0.0
+                at src/math.cantrip:42
+                b = {}", b));
     }
 
     // Execute
@@ -6208,7 +5290,7 @@ test {
 
 **Project configuration:**
 ```toml
-# arc.toml
+# cantrip.toml
 [testing]
 contract_fuzzing = true
 fuzz_cases_default = 100
@@ -6219,10 +5301,10 @@ fuzz_seed = 42  # For reproducibility
 
 **Command line:**
 ```bash
-arc test --contract-fuzzing
-arc test --fuzz-cases=10000
-arc test --no-contract-fuzzing
-arc test --fuzz-only=binary_search
+cantrip test --contract-fuzzing
+cantrip test --fuzz-cases=10000
+cantrip test --no-contract-fuzzing
+cantrip test --fuzz-only=binary_search
 ```
 
 **Fuzzing strategies:**
@@ -6260,28 +5342,22 @@ function test_overdraft() {
 #[property_test(cases = 1000)]
 function test_sum_commutative(a: i32, b: i32) {
     // Property: addition is commutative
-    assert_eq!(a + b, b + a);
+    assert(a + b == b + a, "addition is commutative");
 }
 
 #[property_test(cases = 1000)]
 function test_sort_preserves_length(arr: Vec<i32>) {
     let original_len = arr.length();
     let sorted = arr.sort();
-    assert_eq!(sorted.length(), original_len);
+    assert(sorted.length() == original_len, "sort preserves length");
 }
 ```
 
 ---
 
-# Part VI (Normative): Effect System
+# Part VI: Effect System
 
 ## 21. Effects and Side Effects
-
-> **Editorial Note (Informative):** Drafts of §21 contained overlapping sub-numbering (e.g., §21.9.* and §21.11.*).
-> This specification treats §21.11 “Complete Effect Taxonomy” as canonical for taxonomy definitions and retains
-> all previously listed content verbatim for completeness. Where duplicate listings occur, the normative definition
-> is the earliest occurrence within §21 and the taxonomy table in §21.11.
-
 
 ### 21.1 Effect System Overview
 
@@ -6346,8 +5422,6 @@ EffectAtom ::= EffectName ("." "*")?          // e.g., fs.read or fs.*
              | EffectName "(" EffectParam ")"  // e.g., net.read(inbound)
              | Identifier                      // Reference to named effect
 ```
-
-**Examples:**
 
 ```cantrip
 // Simple combination
@@ -6467,11 +5541,11 @@ function process()
 ```
 
 ```cantrip
-// In effects module: src/effects.arc
+// In effects module: src/effects.cantrip
 public effect WebService = fs.read + fs.write + net.read(inbound);
 public effect DatabaseOps = fs.read + fs.write + alloc.heap;
 
-// Import and use: src/handlers.arc
+// Import and use: src/handlers.cantrip
 import effects.WebService;
 
 function handler()
@@ -6493,7 +5567,6 @@ alloc.temp          // Temporary allocations (frame-local)
 alloc.*             // Any allocation
 ```
 
-**Examples:**
 ```cantrip
 function create_vector(): own Vec<i32>
     needs alloc.heap;
@@ -6517,8 +5590,6 @@ function parse(): Result<Data, Error>
         Ok(optimize(ast))
     }
 }
-```
-
 **Type rule:**
 ```
 [T-Alloc]
@@ -6544,7 +5615,6 @@ fs.metadata         // Read file metadata
 fs.*                // Any filesystem operation
 ```
 
-**Examples:**
 ```cantrip
 function read_config(path: String): Result<Config, Error>
     needs fs.read, alloc.heap;
@@ -6566,8 +5636,6 @@ function backup_directory(source: String, dest: String): Result<(), Error>
 {
     std.fs.copy_dir(source, dest)
 }
-```
-
 ### 21.5 Network Effects
 
 **Effect family: `net.*`**
@@ -6583,7 +5651,6 @@ net.*               // Any network operation
 - `inbound`: Server accepting connections
 - `outbound`: Client making connections
 
-**Examples:**
 ```cantrip
 function fetch_url(url: String): Result<String, Error>
     needs net.read(outbound), alloc.heap;
@@ -6605,8 +5672,6 @@ function handle_request(req: Request): Result<(), Error>
     let response = process(req);
     response.send()
 }
-```
-
 ### 21.6 Non-Determinism Effects
 
 **Time and randomness:**
@@ -6619,7 +5684,6 @@ thread.spawn        // Create threads
 thread.join         // Wait for threads
 ```
 
-**Examples:**
 ```cantrip
 function current_timestamp(): i64
     needs time.read;
@@ -6638,8 +5702,6 @@ function parallel_map<T, U>(items: Vec<T>, f: T -> U): Vec<U>
 {
     std.parallel.map(items, f)
 }
-```
-
 **Determinism enforcement:**
 ```cantrip
 function replay_simulation(events: [Event]): State
@@ -6808,8 +5870,6 @@ effect ReadOnly = std.effects.FileIO - fs.write;
 effect BatchProcessor = std.effects.FileIO + std.effects.Deterministic;
 ```
 
-**Usage:**
-
 ```cantrip
 function api_endpoint(req: Request): Response
     needs BackendAPI;
@@ -6854,87 +5914,6 @@ effect CryptoEffects =
 
 ---
 
-### 21.8 Effect Composition Best Practices
-
-#### 21.8.1 Naming Conventions
-
-**Follow consistent naming for custom effects:**
-
-```cantrip
-// ✅ GOOD: Descriptive, domain-specific
-effect UserAuthEffects = ...
-effect PaymentProcessing = ...
-effect DataExport = ...
-
-// ❌ BAD: Vague, generic
-effect Effects1 = ...
-effect MyEffects = ...
-effect Stuff = ...
-```
-
-#### 21.8.2 Granularity Guidelines
-
-**Balance between specificity and reusability:**
-
-```cantrip
-// ✅ GOOD: Clear scope, reusable
-effect WebService = net.* + fs.read + fs.write + alloc.heap;
-effect DatabaseRead = fs.read + alloc.heap;
-effect DatabaseWrite = fs.write + alloc.heap;
-
-// ❌ TOO SPECIFIC: Not reusable
-effect HandleUserLoginRequest = net.read(inbound) + fs.read + alloc.heap;
-
-// ❌ TOO BROAD: Not meaningful
-effect Everything = *;
-```
-
-#### 21.8.3 Documentation Requirements
-
-**All custom effects must document:**
-
-1. **Purpose:** What the effect is for
-2. **Included effects:** What it grants access to
-3. **Excluded effects:** What it forbids (if any)
-4. **Example usage:** Typical function signatures
-
-```cantrip
-/// Effects for microservice internal operations.
-///
-/// **Purpose:** Standard effects for internal service operations including
-/// database access, inter-service communication, and logging.
-///
-/// **Includes:**
-/// - Database I/O (read and write)
-/// - Service-to-service network calls
-/// - Structured logging to disk
-/// - Heap allocation for dynamic data
-///
-/// **Excludes:**
-/// - External network access (use `ExternalService` instead)
-/// - File deletion (use `AdminEffects` instead)
-///
-/// **Example:**
-/// ```
-/// function update_user_record(user_id: u64, data: UserData): Result<(), Error>
-///     needs MicroserviceInternal;
-/// {
-///     let user = db.load_user(user_id)?;
-///     let updated = user.merge(data);
-///     db.save_user(updated)?;
-///     log.info("User {} updated", user_id);
-///     Ok(())
-/// }
-/// ```
-effect MicroserviceInternal =
-    fs.read + fs.write +
-    net.read(outbound) + net.write +
-    io.write +
-    alloc.heap;
-```
-
----
-
 ### 21.9 Rendering Effects
 
 **GPU and audio:**
@@ -6946,7 +5925,6 @@ audio.play          // Audio playback
 input.read          // Read input devices
 ```
 
-**Examples:**
 ```cantrip
 function render_frame(scene: Scene)
     needs render.draw;
@@ -6963,8 +5941,6 @@ function run_physics(data: ComputeData): Result<PhysicsState, Error>
 {
     gpu.dispatch_compute_shader(data)
 }
-```
-
 ### 21.10 System Effects
 
 **Process and FFI:**
@@ -6976,7 +5952,6 @@ unsafe.ptr          // Raw pointer operations
 panic               // May panic/abort
 ```
 
-**Examples:**
 ```cantrip
 function run_command(cmd: String): Result<Output, Error>
     needs process.spawn, alloc.heap;
@@ -6991,8 +5966,6 @@ function call_c_library(data: *u8): i32
             external_c_function(data)
         }
 }
-```
-
 ### 21.11 Complete Effect Taxonomy
 
 **Definition 21.11 (Effect Taxonomy):** The complete set of primitive effects in Cantrip, organized hierarchically by category.
@@ -7015,7 +5988,7 @@ alloc.temp          // Frame-local temporary allocation
 **Wildcards:**
 - `alloc.*`: Any allocation type
 
-#### 21.9.2 File System Effects (`fs.*`)
+#### 21.11.2 File System Effects (`fs.*`)
 
 ```cantrip
 fs.read             // Read files and directories
@@ -7027,7 +6000,7 @@ fs.metadata         // Read file metadata (size, permissions, etc.)
 **Wildcards:**
 - `fs.*`: Any file system operation
 
-#### 21.9.3 Network Effects (`net.*`)
+#### 21.11.3 Network Effects (`net.*`)
 
 ```cantrip
 net.read(inbound)   // Accept incoming connections (server)
@@ -7043,22 +6016,20 @@ net.write           // Send data over network
 - `net.*`: Any network operation
 - `net.read`: Both inbound and outbound
 
-#### 21.9.4 I/O Effects (`io.*`)
+#### 21.11.4 I/O Effects (`io.*`)
 
 ```cantrip
 io.write            // Write to stdout/stderr (console output)
 ```
 
-**Note:** `io.write` is distinct from `fs.write` (files) and `net.write` (network).
-
-#### 21.9.5 Time Effects (`time.*`)
+#### 21.11.5 Time Effects (`time.*`)
 
 ```cantrip
 time.read           // Read system clock/time
 time.sleep          // Sleep/delay operations
 ```
 
-#### 21.9.6 Threading Effects (`thread.*`)
+#### 21.11.6 Threading Effects (`thread.*`)
 
 ```cantrip
 thread.spawn        // Create new threads
@@ -7066,44 +6037,44 @@ thread.join         // Wait for thread completion
 thread.atomic       // Atomic operations
 ```
 
-#### 21.9.7 Rendering Effects (`render.*`)
+#### 21.11.7 Rendering Effects (`render.*`)
 
 ```cantrip
 render.draw         // GPU draw calls
 render.compute      // GPU compute shaders
 ```
 
-#### 21.9.8 Audio Effects (`audio.*`)
+#### 21.11.8 Audio Effects (`audio.*`)
 
 ```cantrip
 audio.play          // Audio playback
 ```
 
-#### 21.9.9 Input Effects (`input.*`)
+#### 21.11.9 Input Effects (`input.*`)
 
 ```cantrip
 input.read          // Read from input devices (keyboard, mouse, gamepad)
 ```
 
-#### 21.9.10 Process Effects (`process.*`)
+#### 21.11.10 Process Effects (`process.*`)
 
 ```cantrip
 process.spawn       // Execute external processes
 ```
 
-#### 21.9.11 FFI Effects (`ffi.*`)
+#### 21.11.11 FFI Effects (`ffi.*`)
 
 ```cantrip
 ffi.call            // Call foreign functions (C, etc.)
 ```
 
-#### 21.9.12 Unsafe Effects (`unsafe.*`)
+#### 21.11.12 Unsafe Effects (`unsafe.*`)
 
 ```cantrip
 unsafe.ptr          // Raw pointer operations
 ```
 
-#### 21.9.13 System Effects
+#### 21.11.13 System Effects
 
 ```cantrip
 panic               // May panic/abort execution
@@ -7111,7 +6082,7 @@ async               // Asynchronous computation
 random              // Non-deterministic random number generation
 ```
 
-#### 21.9.14 Complete Effect Hierarchy
+#### 21.11.14 Complete Effect Hierarchy
 
 ```
 All Effects (*)
@@ -7156,7 +6127,7 @@ All Effects (*)
 └── random
 ```
 
-#### 21.9.15 Standard Effect Definitions
+#### 21.11.15 Standard Effect Definitions
 
 The standard library (`std.effects`) provides common effect combinations:
 
@@ -7220,8 +6191,7 @@ function process_config(path: String): Result<Config, Error>
 
 ## 22. Effect Rules and Checking
 
-
-### 22.7 Async Effect Masks (Normative)
+### 22.7 Async Effect Masks
 
 Awaiting a future imports its declared effects into the enclosing async function’s *effect mask*.
 To reduce boilerplate while preserving explicitness, Cantrip provides targeted diagnostics and fix‑its
@@ -7244,7 +6214,6 @@ if ε_fut ⊄ ε_fun then
 - Implementations MAY surface the exact missing atoms (e.g., `net.read(outbound)`), and SHOULD
   offer “Add `needs net.read(outbound)`” code actions.
 
-**Examples:**
 ```cantrip
 async function fetch(url: str): String
     needs alloc.heap; // missing net.read(outbound)
@@ -7252,8 +6221,6 @@ async function fetch(url: str): String
     let body = await http.get(url)?;  // E9201 → fix-it adds net.read(outbound)
     body
 }
-```
-
 
 ### 22.1 Effect Type System
 
@@ -7353,15 +6320,15 @@ f well-typed
 
 **Error if undeclared:**
 ```bash
-$ arc compile main.arc
+$ cantrip compile main.cantrip
 error[E9001]: Missing effect declaration
-  --> src/main.arc:5:9
+  --> src/main.cantrip:5:9
    |
  5 |         Vec.new()
    |         ^^^^^^^^^ requires effect alloc.heap
    |
 note: function requires no effects
-  --> src/main.arc:2:5
+  --> src/main.cantrip:2:5
    |
  2 |     requires:
    |     ^^^^^^^^^ declared as pure
@@ -7633,7 +6600,6 @@ function map<T, U, F>(items: [T], mapper: F): Vec<U>
 effects(f) = ε
 ```
 
-**Usage:**
 ```cantrip
 let numbers = [1, 2, 3, 4, 5];
 
@@ -7645,8 +6611,6 @@ let logged = map(numbers, |x| {
     std.io.println(x);  // io.write effect
     x * 2
 });  // map requires<io.write, alloc.heap>
-```
-
 **Constraining callbacks:**
 ```cantrip
 function parallel_map<T, U, F>(items: [T], mapper: F): Vec<U>
@@ -7667,6 +6631,38 @@ let result = parallel_map(data, |x| {
 
 ---
 
+### Async Effect Masking (await)
+
+Awaiting a future imports its declared effects into the enclosing async function’s *effect mask*.
+To reduce boilerplate while preserving explicitness, Cantrip provides targeted diagnostics and fix‑its
+for common async sources:
+
+- `net.*` from awaited network futures
+- `time.sleep` from awaited timers
+
+**Rule (masking):**
+```
+[T-Async-Mask]
+Γ ⊢ await e : T ! ε_fut
+enclosing function declares ε_fun
+if ε_fut ⊄ ε_fun then
+  ERROR E9201 with fix-it: add missing effects to 'needs' clause
+```
+
+**Notes:**
+- This is **not** effect inference; no code is accepted unless the signature is updated.
+- Implementations MAY surface the exact missing atoms (e.g., `net.read(outbound)`), and SHOULD
+  offer “Add `needs net.read(outbound)`” code actions.
+
+**Examples:**
+```cantrip
+async function fetch(url: str): String
+    needs alloc.heap; // missing net.read(outbound)
+{
+    let body = await http.get(url)?;  // E9201 → fix-it adds net.read(outbound)
+    body
+}
+```
 ## 23. Effect Budgets
 
 ### 23.1 Budget Overview
@@ -7745,7 +6741,7 @@ function process_chunks(data: [u8], chunk_size: usize): Vec<Vec<u8>>
         budget_used += chunk_vec.capacity() * sizeof<u8>();
 
         if budget_used > 65536 {
-            panic!("Budget exceeded");
+            std.panic("Budget exceeded");
         }
 
         result.push(chunk_vec);
@@ -7770,7 +6766,7 @@ function f() {
     let result = dynamic_allocation_tracked(n, &mut budget);
 
     if budget.exceeded() {
-        panic!("Budget exceeded: used {} bytes", budget.used());
+        std.panic(String.format("Budget exceeded: used {} bytes", budget.used()));
     }
 
     result
@@ -7860,7 +6856,6 @@ function composed()
 Γ ⊢ e₁ ; e₂ : T₂ ! alloc.heap(bytes≤N₁+N₂)
 ```
 
-**Example:**
 ```cantrip
 function process()
     needs alloc.heap(bytes<=10000);
@@ -7870,8 +6865,6 @@ function process()
         step3();  // 2000 bytes
         // Total: 9000 bytes < 10000 ✓
 }
-```
-
 ### 23.7 Budget Units
 
 **Supported unit types:**
@@ -7896,14 +6889,11 @@ min<=N    // Minutes
 count<=N  // Number of operations
 ```
 
-**Examples:**
 ```cantrip
 requires<alloc.heap(KiB<=64)>:      // 64 KiB
 requires<alloc.heap(MiB<=1)>:       // 1 MiB
 requires<time.sleep(ms<=500)>:      // 500ms
 requires<thread.spawn(count<=16)>:  // 16 threads
-```
-
 ---
 
 ## 24. Effect Soundness
@@ -7943,7 +6933,6 @@ then total_allocated(e) ≤ N.
 
 **Application:** Can always overapproximate effects.
 
-**Example:**
 ```cantrip
 function specific()
     needs fs.read;
@@ -7956,8 +6945,6 @@ function general()
 {
     specific()  // OK: fs.read ⊆ fs.*
 }
-```
-
 ### 24.4 Effect Monotonicity
 
 **Lemma 24.2 (Effect Monotonicity):**
@@ -7980,7 +6967,7 @@ function sneaky(): i32 {  // Claims pure
 }
 ```
 
-# Part VII (Normative): Memory Management
+# Part VII: Memory Management
 
 ## 25. Lexical Permission System
 
@@ -8170,7 +7157,6 @@ function example()
 3. Must use `move` to transfer ownership
 4. Can pass by reference without transferring
 
-**Example:**
 ```cantrip
 function take_ownership(own data: Data) {
     // data is owned by this function
@@ -8189,8 +7175,6 @@ function example()
         take_ownership(move data);
         // data no longer accessible
 }
-```
-
 **Formal semantics:**
 ```
 ⟦own T⟧ = { unique pointer to value of type T }
@@ -8287,7 +7271,6 @@ impl Atomic<T> {
 3. Can be safely transferred between threads
 4. Used for lock-free data structures
 
-**Example:**
 ```cantrip
 function send_to_thread(data: iso Data): JoinHandle<()>
     needs thread.spawn, alloc.heap;
@@ -8297,8 +7280,6 @@ function send_to_thread(data: iso Data): JoinHandle<()>
         process(data);
     })
 }
-```
-
 **Formal semantics:**
 ```
 ⟦iso T⟧ = { isolated reference to value of type T }
@@ -8316,7 +7297,6 @@ own T <: mut T <: T
 iso T <: own T
 ```
 
-**Example:**
 ```cantrip
 function read_only(data: Data) {
     data.field
@@ -8331,8 +7311,6 @@ function example()
         read_only(owned);     // own Data <: Data ✓
         read_only(mutable);   // mut Data <: Data ✓
 }
-```
-
 ---
 
 ## 27. Ownership and Transfer
@@ -8426,7 +7404,6 @@ mut T → own T      // ERROR: Cannot steal from mut ref
 T → iso T          // ERROR: Cannot prove unique
 ```
 
-**Example:**
 ```cantrip
 function example()
     needs alloc.heap;
@@ -8445,8 +7422,6 @@ function example()
         // Cannot use after move
         // read(owned);  // ERROR E3004
 }
-```
-
 ### 27.4 No Borrow Syntax
 
 **Cantrip does NOT have explicit borrow blocks or lifetime annotations.**
@@ -8628,7 +7603,7 @@ Can modify collections while iterating. Programmer must ensure safety.
 function iterator_invalidation_possible()
     needs alloc.heap;
 {
-    var numbers = vec![1, 2, 3, 4, 5];
+    var numbers = Vec.from_array([1, 2, 3, 4, 5]);
 
     for n in numbers {
         numbers.push(n * 2);  // ⚠️ Modifies while iterating
@@ -8643,7 +7618,7 @@ function iterator_invalidation_possible()
 function iterator_safe()
     needs alloc.heap;
 {
-    let numbers = vec![1, 2, 3, 4, 5];
+    let numbers = Vec.from_array([1, 2, 3, 4, 5]);
     var new_numbers = Vec.new();
 
     for n in numbers {
@@ -8725,7 +7700,6 @@ region name {
 // Region destroyed here (O(1))
 ```
 
-**Example:**
 ```cantrip
 function process_data(input: String): Result<Data, Error>
     needs alloc.region;
@@ -8742,8 +7716,6 @@ function process_data(input: String): Result<Data, Error>
         Ok(data.to_heap())
     } // All temp memory freed in O(1)
 }
-```
-
 **Type rule:**
 ```
 [T-Region]
@@ -9220,7 +8192,7 @@ If alloc(v, r) →ʜʙ dealloc(r) →ʜʙ use(v), then ERROR.
 **Proof:** By construction of region semantics and happens-before relation.
 
 ---
-# Part VIII (Normative): Module System
+# Part VIII: Module System
 
 ## 30. Modules and Code Organization
 
@@ -9233,16 +8205,16 @@ If alloc(v, r) →ʜʙ dealloc(r) →ʜʙ use(v), then ERROR.
 **Project structure:**
 ```
 myproject/
-├── arc.toml
+├── cantrip.toml
 └── src/
-    ├── main.arc              # Module: main
-    ├── http.arc              # Module: http
+    ├── main.cantrip              # Module: main
+    ├── http.cantrip              # Module: http
     ├── math/
-    │   ├── geometry.arc      # Module: math.geometry
-    │   └── algebra.arc       # Module: math.algebra
+    │   ├── geometry.cantrip      # Module: math.geometry
+    │   └── algebra.cantrip       # Module: math.algebra
     └── data/
-        ├── structures.arc    # Module: data.structures
-        └── algorithms.arc    # Module: data.algorithms
+        ├── structures.cantrip    # Module: data.structures
+        └── algorithms.cantrip    # Module: data.algorithms
 ```
 
 **Formal definition:**
@@ -9260,7 +8232,7 @@ where:
 **Each file automatically defines a module based on its path:**
 
 ```cantrip
-// File: src/math/geometry.arc
+// File: src/math/geometry.cantrip
 // Module path: math.geometry
 
 public function area_of_circle(radius: f64): f64
@@ -9294,10 +8266,10 @@ Module M = (module_path(P), {I₁, ..., Iₙ}, exports({I₁, ..., Iₙ}))
 
 **Path resolution:**
 ```
-module_path(src/main.arc) = main
-module_path(src/http.arc) = http
-module_path(src/http/client.arc) = http.client
-module_path(src/a/b/c/deep.arc) = a.b.c.deep
+module_path(src/main.cantrip) = main
+module_path(src/http.cantrip) = http
+module_path(src/http/client.cantrip) = http.client
+module_path(src/a/b/c/deep.cantrip) = a.b.c.deep
 ```
 
 ### 30.3 Module Metadata
@@ -9305,7 +8277,7 @@ module_path(src/a/b/c/deep.arc) = a.b.c.deep
 **Optional metadata using the `#[module]` attribute:**
 
 ```cantrip
-// File: src/math/geometry.arc
+// File: src/math/geometry.cantrip
 
 #[module(
     purpose = "Geometric calculations for 2D and 3D shapes",
@@ -9349,29 +8321,26 @@ resolve_module(path: ModulePath) -> FilePath {
     1. Split path by '.' separator
     2. Join with OS path separator
     3. Prepend 'src/'
-    4. Append '.arc'
+    4. Append '.cantrip'
     5. Check file exists
     6. Return absolute path
 }
 ```
 
-**Examples:**
 ```
 resolve_module("main")
-  → src/main.arc
+  → src/main.cantrip
 
 resolve_module("http.client")
-  → src/http/client.arc
+  → src/http/client.cantrip
 
 resolve_module("data.structures.linked_list")
-  → src/data/structures/linked_list.arc
-```
-
+  → src/data/structures/linked_list.cantrip
 **Formal specification:**
 ```
 [Module-Resolution]
 path = id₁.id₂.....idₙ
-file = src/id₁/id₂/.../idₙ.arc
+file = src/id₁/id₂/.../idₙ.cantrip
 file exists
 ────────────────────────────────
 resolve(path) = file
@@ -9392,25 +8361,25 @@ import std.net.http.Client;
 **Standard library structure:**
 ```
 std/
-├── collections.arc       # std.collections
-├── io.arc               # std.io
-├── fs.arc               # std.fs
-├── string.arc           # std.string
+├── collections.cantrip       # std.collections
+├── io.cantrip               # std.io
+├── fs.cantrip               # std.fs
+├── string.cantrip           # std.string
 ├── net/
-│   ├── http.arc         # std.net.http
-│   └── tcp.arc          # std.net.tcp
+│   ├── http.cantrip         # std.net.http
+│   └── tcp.cantrip          # std.net.tcp
 ├── sync/
-│   ├── mutex.arc        # std.sync.mutex
-│   └── channel.arc      # std.sync.channel
-└── math.arc             # std.math
+│   ├── mutex.cantrip        # std.sync.mutex
+│   └── channel.cantrip      # std.sync.channel
+└── math.cantrip             # std.math
 ```
 
 **Resolution:**
 ```
 resolve_std_module(path: ModulePath) -> FilePath {
-    assert!(path.starts_with("std."));
+    assert(path.starts_with("std."), "path must start with std.");
     let relative = path.strip_prefix("std.");
-    return stdlib_root / relative.replace('.', '/') + ".arc";
+    return stdlib_root / relative.replace('.', '/') + ".cantrip";
 }
 ```
 
@@ -9430,7 +8399,7 @@ resolve_std_module(path: ModulePath) -> FilePath {
 
 **Example showing both:**
 ```cantrip
-// File: src/parser/lexer.arc
+// File: src/parser/lexer.cantrip
 // Module: parser.lexer (from file path)
 
 #[module(
@@ -9534,18 +8503,15 @@ resolve_import(import_stmt: Import) -> Result<Item, Error> {
 }
 ```
 
-**Example:**
 ```cantrip
 import math.geometry.area_of_circle;
 
 // Resolution steps:
 // 1. Module path: math.geometry
-// 2. File: src/math/geometry.arc
+// 2. File: src/math/geometry.cantrip
 // 3. Parse and extract exports
 // 4. Verify area_of_circle is public
 // 5. Add to scope: area_of_circle : f64 -> f64
-```
-
 **Error cases:**
 ```cantrip
 import math.geometry.nonexistent;
@@ -9567,9 +8533,8 @@ import nonexistent.module.item;
 public import source.module.item;
 ```
 
-**Example:**
 ```cantrip
-// File: src/collections.arc
+// File: src/collections.cantrip
 // Module: collections
 
 // Re-export from other modules
@@ -9582,8 +8547,6 @@ public import data.algorithms.sort;
 // import collections.Vec;
 // Instead of:
 // import data.structures.Vec;
-```
-
 **Type rule:**
 ```
 [T-Reexport]
@@ -9610,27 +8573,24 @@ M₁ imports M₂, M₂ imports M₃, ..., Mₙ imports M₁
 ERROR: Import cycle detected
 ```
 
-**Example:**
 ```cantrip
-// File: src/a.arc
+// File: src/a.cantrip
 import b.function_b;
 
 public function function_a() {
     function_b()
 }
 
-// File: src/b.arc
+// File: src/b.cantrip
 import a.function_a;  // ERROR: Import cycle
 
 public function function_b() {
     function_a()
 }
-```
-
 **Error message:**
 ```
 error[E2004]: Import cycle detected
-  --> src/b.arc:1:1
+  --> src/b.cantrip:1:1
    |
  1 | import a.function_a;
    | ^^^^^^^^^^^^^^^^^^^^ import creates cycle
@@ -9725,7 +8685,7 @@ Only M can access I
 **Public items are accessible from any module:**
 
 ```cantrip
-// File: src/math/geometry.arc
+// File: src/math/geometry.cantrip
 
 public record Point {
     public x: f64;
@@ -9741,7 +8701,7 @@ public function distance(p1: Point, p2: Point): f64 {
 
 **Usage from other modules:**
 ```cantrip
-// File: src/main.arc
+// File: src/main.cantrip
 import math.geometry.Point;
 import math.geometry.distance;
 
@@ -9757,7 +8717,7 @@ function main() {
 **Internal visibility (default) - accessible within the same package:**
 
 ```cantrip
-// File: src/utils/helpers.arc
+// File: src/utils/helpers.cantrip
 
 record Config {  // Internal by default
     data: String;
@@ -9772,7 +8732,7 @@ function parse_config(source: String): Config {  // Internal
 ```
 Package = {all modules under src/}
 
-Same package: src/a.arc and src/b/c.arc
+Same package: src/a.cantrip and src/b/c.cantrip
 Different package: external dependency
 ```
 
@@ -9790,7 +8750,7 @@ M₂ can access I (if internal or public)
 **Private items are only accessible within the defining module:**
 
 ```cantrip
-// File: src/database/connection.arc
+// File: src/database/connection.cantrip
 
 private function validate_credentials(user: str, pass: str): bool {
     // Only accessible within this file
@@ -9806,7 +8766,7 @@ public function connect(user: str, pass: str): Result<Connection, Error> {
 
 **Error on access:**
 ```cantrip
-// File: src/main.arc
+// File: src/main.cantrip
 import database.connection.validate_credentials;
 // ERROR E2002: Item 'validate_credentials' is private
 ```
@@ -9909,7 +8869,7 @@ resolve(import_path: Path) -> Result<Module, Error> {
     }
 
     // 3. Resolve to source file
-    let file_path = src_root / segments.join('/') + ".arc";
+    let file_path = src_root / segments.join('/') + ".cantrip";
 
     // 4. Check file exists
     if !file_path.exists() {
@@ -9932,29 +8892,26 @@ resolve(import_path: Path) -> Result<Module, Error> {
 2. **Standard library** (`std/`)
 3. **Dependencies** (from `arc.toml`)
 
-**Example:**
 ```cantrip
 import collections.Vec;
 
 // Search order:
-// 1. src/collections.arc (or src/collections/vec.arc)
-// 2. std/collections.arc
-// 3. dependencies/collections/src/vec.arc
-```
-
+// 1. src/collections.cantrip (or src/collections/vec.cantrip)
+// 2. std/collections.cantrip
+// 3. dependencies/collections/src/vec.cantrip
 ### 33.3 Ambiguity Resolution
 
 **If multiple modules match:**
 
 ```cantrip
-// src/data.arc exists
+// src/data.cantrip exists
 // dependency 'data' also exists
 
 import data.process;
 
 // ERROR E2005: Ambiguous import 'data'
 // note: Could refer to:
-//   - src/data.arc (local module)
+//   - src/data.cantrip (local module)
 //   - data v1.0 (dependency)
 // help: Use full qualification:
 //   - ::data.process (local)
@@ -9969,7 +8926,7 @@ import extern::data.process;  // External dependency
 
 ### 33.4 Package Configuration
 
-**Package manifest (`arc.toml`):**
+**Package manifest (`cantrip.toml`):**
 
 ```toml
 [package]
@@ -10015,12 +8972,11 @@ where:
 
 ---
 
-# Part IX (Normative): Advanced Features
+# Part IX: Advanced Features
 
 ## 34. Compile-Time Programming
 
-
-### 34.6 Opt‑In Reflection (Normative)
+### 34.6 Opt‑In Reflection
 
 Cantrip supports *opt‑in* reflection for types explicitly marked as reflective. Reflection is split into
 compile‑time introspection (§34.3) and **runtime reflection** gated by effects and attributes.
@@ -10074,7 +9030,6 @@ impl<T> Mirror<T> {
 - `E9602` — unknown member in `reflect.get/call`.
 - `E9603` — effect mismatch when invoking reflected member.
 
-
 ### 34.1 Comptime Keyword
 
 **Definition 34.1 (Compile-Time Evaluation):** Code within `comptime` blocks executes during compilation.
@@ -10087,7 +9042,6 @@ comptime {
 }
 ```
 
-**Example:**
 ```cantrip
 function example(): i32 {
     comptime {
@@ -10097,8 +9051,6 @@ function example(): i32 {
         let arr = [0; SIZE];  // SIZE known at compile time
         arr.length() as i32
 }
-```
-
 **Type rule:**
 ```
 [T-Comptime]
@@ -10144,7 +9096,6 @@ comptime {
 @isCopyable(T) -> bool
 ```
 
-**Example:**
 ```cantrip
 function serialize<T>(value: T): String {
     comptime {
@@ -10155,8 +9106,6 @@ function serialize<T>(value: T): String {
             }
         }
 }
-```
-
 ### 34.4 Code Generation
 
 **Generate types and functions at compile time:**
@@ -10181,45 +9130,87 @@ type IntArray10 = Array(i32, 10);
 let arr = IntArray10.new();
 ```
 
-### 34.5 Macro System
+### 34.5 Comptime Type Introspection
 
-**Hygienic macros for code generation:**
+**Requirement:** Implementations MUST provide compile-time type introspection through the `comptime` mechanism.
 
-```cantrip
-macro vec[$($elem:expr),*] {
-    {
-        let mut v = Vec.new();
-        $(v.push($elem);)*
-        v
-    }
+**Type Information Query:**
+```
+comptime {
+    type_info: TypeInfo<T>
 }
-
-// Usage
-let numbers = vec![1, 2, 3, 4, 5];
 ```
 
-**Macro expansion:**
+**Normative Type Information:**
+- `size_of<T>(): usize` - Size in bytes of type T
+- `align_of<T>(): usize` - Alignment requirement of type T
+- `has_trait<T, Trait>(): bool` - Whether T implements Trait
+- `field_count<T>(): usize` - Number of fields in record type T
+- `variant_count<T>(): usize` - Number of variants in enum type T
+
+**Type rule:**
+```
+[T-Comptime-TypeInfo]
+Γ ⊢ T : Type
+────────────────────────────────
+Γ ⊢ comptime { size_of<T>() } : usize
+```
+
+### 34.6 Comptime Code Generation
+
+**Requirement:** Implementations MUST support compile-time code generation through comptime functions.
+
+**Comptime Function Definition:**
 ```cantrip
-// vec![1, 2, 3]
-// Expands to:
-{
-    let mut v = Vec.new();
-    v.push(1);
-    v.push(2);
-    v.push(3);
-    v
+comptime function generate_impl<T>(comptime info: TypeInfo<T>): type {
+    // Compile-time computation
 }
+```
+
+**Normative Requirements:**
+1. Comptime functions MUST be evaluated during compilation
+2. Comptime function parameters marked `comptime` MUST be compile-time constants
+3. Comptime functions MUST NOT perform effects
+4. Comptime function results MUST be deterministic
+
+**Type rule:**
+```
+[T-Comptime-Function]
+Γ ⊢ f : comptime (T) -> U
+Γ ⊢ e : T    e is compile-time constant
+────────────────────────────────────────
+Γ ⊢ f(e) : U    evaluated at compile time
+```
+
+### 34.7 Comptime Validation
+
+**Requirement:** Implementations MUST support compile-time assertions.
+
+**Comptime Assertion:**
+```cantrip
+comptime {
+    assert(condition, "message");
+}
+```
+
+**Normative Requirements:**
+1. Comptime assertions MUST be evaluated during compilation
+2. Failed comptime assertions MUST produce compilation errors
+3. Comptime assertions MUST NOT affect runtime behavior
+
+**Validation rule:**
+```
+[T-Comptime-Assert]
+Γ ⊢ e : bool    e evaluates to true at compile time
+────────────────────────────────────────────────────
+Γ ⊢ comptime { assert(e, msg) } : ()
 ```
 
 ---
 
 ## 35. Concurrency
 
-
-### 35.5 Structured Concurrency (Normative)
-
-**Motivation:** Unstructured thread spawning easily leaks joins and lifetime management. Cantrip’s standard library
-provides a *scope-based* concurrency helper that guarantees all spawned threads are joined before the scope exits.
+### 35.5 Structured Concurrency
 
 **API (stdlib):**
 ```cantrip
@@ -10247,7 +9238,6 @@ impl Scope {
 - `E7801` — attempt to detach/escape a `JoinHandle` created by `scope.spawn`.
 - `W7800` — implicit join at scope end due to missing explicit `join()`.
 
-**Example:**
 ```cantrip
 import std.concurrent.scope;
 
@@ -10260,8 +9250,6 @@ function parallel_sum(input: [i32]): i64
         (left.join() + right.join()) as i64
     })
 }
-```
-
 ### 35.1 Thread Spawning
 
 **Create new threads:**
@@ -10351,124 +9339,111 @@ impl Counter {
 
 ---
 
-## 36. Actors (First-Class Type)
+## 36. Actor Pattern (Standard Library)
 
-**Syntax:**
+**Definition 36.1 (Actor Pattern):** The actor pattern is a concurrency design pattern provided by the standard library that composes Cantrip's existing features—modals, channels, effects, and the permission system—to achieve isolated, message-driven concurrent computation.
 
-```cantrip
-actor Name {
-    // private state (record-like fields)
-    state {
-        field₁: Type₁;
-        ...
-    }
-
-    // message-handling procedures (may be async)
-    procedure handle_msg(self: mut Name, msg: Msg): Result<(), Error>
-        needs alloc.heap;
-
-    // optional constructors
-    function new(...): own (Name, NameHandle);
-}
-```
-
-**Type rules (sketch):**
-- `actor A` defines the types `A` (the actor) and `AHandle` (the send-only handle).
-- Sending requires `where Msg: Send`.
-- Actor state is encapsulated; direct mutable access is not exposed outside procedures.
-
-**Note:** Cantrip does not have a built-in `actor` keyword. The actor model can be implemented as a library pattern using existing language features: channels, async/await, and the permission system.
+**Key insight:** Actors are not a primitive language feature but emerge naturally from Cantrip's composable type system.
 
 ### 36.1 Actor Pattern Overview
 
-**Definition 36.1 (Actor Pattern):** An actor is a record that encapsulates state and processes messages sequentially through a private channel.
+**Core composition:**
+1. **Modal types** (§10) - State machine semantics for actor state
+2. **Channels** (§35.2) - Message passing primitives
+3. **Permission system** (§26) - `own` ensures isolation
+4. **Effect system** (§21) - Tracks all side effects
+5. **Async/await** (§37) - Asynchronous message processing
 
-**Core components:**
-1. **State**: Private record fields (modal state machine optional)
-2. **Mailbox**: Private channel for message passing
-3. **Message loop**: Async function processing messages sequentially
-4. **Handle**: Public trait for sending messages
+**Guarantees achieved:**
+- **Isolation**: Enforced by `own` permission on actor state
+- **Sequential processing**: Single-threaded message loop
+- **Type safety**: Messages constrained by enum types
+- **Effect tracking**: All I/O and mutations explicitly declared
 
-**Guarantees provided:**
-- **Sequential processing**: One message processed at a time per actor
-- **Isolation**: No shared mutable state (enforced by permission system)
-- **Fault tolerance**: Actor crashes don't affect other actors
-- **Location transparency**: Handle can be sent between threads
+### 36.2 Basic Actor Pattern
 
-**Enforced by:**
-- **Permission system**: Actor state is `own`, mailbox is private
-- **Type system**: Messages must be `Send` to cross thread boundaries
-- **Runtime**: Channel provides FIFO ordering
-
-### 36.2 Basic Actor Pattern Implementation
-
-**Message type:**
+**Message type (user-defined enum):**
 ```cantrip
 enum CounterMessage {
     Increment,
-    Get(Channel<usize>),
+    Decrement,
+    Get(reply: Sender<usize>),
     Shutdown,
 }
 ```
 
-**Actor state:**
+**Actor state (using modals for state machines):**
+```cantrip
+modal Counter {
+    state Running {
+        count: usize;
+    }
+
+    state Shutdown;
+
+    // State transitions via procedures
+    procedure increment@Running(self: mut Counter)
+        ensures self.count == @old(self.count) + 1;
+    {
+        self.count += 1;
+    }
+
+    procedure decrement@Running(self: mut Counter)
+        requires self.count > 0;
+        ensures self.count == @old(self.count) - 1;
+    {
+        self.count -= 1;
+    }
+
+    procedure get@Running(self: Counter): usize {
+        self.count
+    }
+
+    procedure shutdown@Running(self: mut Counter) -> @Shutdown;
+}
+```
+
+**Actor wrapper (user-defined record):**
 ```cantrip
 record CounterActor {
-    count: usize;
-    mailbox: Channel<CounterMessage>;
+    state: own Counter@Running;
+    mailbox: Receiver<CounterMessage>;
 }
 
 impl CounterActor {
-    function new(): own (CounterActor, CounterHandle)
+    public function new(): (CounterActor, Sender<CounterMessage>)
         needs alloc.heap;
     {
-        let (sender, receiver) = Channel.new();
-        let actor = own CounterActor {
-            count: 0,
-            mailbox: receiver,
+        let (tx, rx) = channel();
+        let actor = CounterActor {
+            state: own Counter@Running { count: 0 },
+            mailbox: rx,
         };
-        let handle = CounterHandle { sender };
-        (actor, handle)
+        (actor, tx)
     }
 
-    // Private message processing loop
-    async function run(self: mut CounterActor)
+    // Message processing loop
+    public async function run(self: mut CounterActor)
         needs alloc.heap;
     {
         loop {
             match self.mailbox.receive().await {
                 CounterMessage.Increment => {
-                    self.count += 1;
+                    self.state.increment();
+                },
+                CounterMessage.Decrement => {
+                    self.state.decrement();
                 },
                 CounterMessage.Get(reply) => {
-                    reply.send(self.count).await;
+                    let count = self.state.get();
+                    reply.send(count).await;
                 },
-                CounterMessage.Shutdown => break,
+                CounterMessage.Shutdown => {
+                    self.state.shutdown();
+                    break;
+                },
             }
         }
-    }
-}
-```
-
-**Public handle:**
-```cantrip
-record CounterHandle {
-    sender: Channel<CounterMessage>;
-}
-
-impl CounterHandle {
-    async function increment(self: CounterHandle)
-        needs alloc.heap;
-    {
-        self.sender.send(CounterMessage.Increment).await;
-    }
-
-    async function get(self: CounterHandle): usize
-        needs alloc.heap;
-    {
-        let (reply_sender, reply_receiver) = Channel.new();
-        self.sender.send(CounterMessage.Get(reply_sender)).await;
-        reply_receiver.receive().await
     }
 }
 ```
@@ -10480,72 +9455,189 @@ function example()
 {
     let (actor, handle) = CounterActor.new();
 
-    // Spawn actor on separate task
+    // Spawn actor on separate thread
     thread.spawn(move || {
         actor.run().await;
     });
 
-    // Interact through handle
-    handle.increment().await;
-    handle.increment().await;
-    let count = handle.get().await;
-    std.io.println("Count: {}", count);
+    // Send messages
+    handle.send(CounterMessage.Increment).await;
+    handle.send(CounterMessage.Increment).await;
+
+    // Request-reply pattern
+    let (reply_tx, reply_rx) = channel();
+    handle.send(CounterMessage.Get(reply_tx)).await;
+    let count = reply_rx.receive().await;
+
+    assert_eq(count, 2);
 }
 ```
 
-### 36.3 Actor Pattern with Modals
+### 36.3 Standard Library Support
 
-Actors can combine with modals for state machine guarantees:
+The standard library provides `std.actor` with generic helpers to reduce boilerplate:
 
 ```cantrip
-modal FileActorState {
+module std.actor
+
+// Generic actor wrapper
+public record Actor<S, M> {
+    state: own S;
+    mailbox: Receiver<M>;
+}
+
+impl<S, M> Actor<S, M>
+    where M: Send
+{
+    public function spawn<F>(initial_state: own S, handler: F): (Actor<S, M>, Sender<M>)
+        where F: FnMut(mut S, M) -> S
+        needs alloc.heap;
+    {
+        let (tx, rx) = channel();
+        (Actor { state: initial_state, mailbox: rx }, tx)
+    }
+
+    public async function run<F>(self: mut Actor<S, M>, mut handler: F)
+        where F: FnMut(mut S, M) -> S
+        needs alloc.heap;
+    {
+        loop {
+            match self.mailbox.receive().await {
+                Some(msg) => {
+                    self.state = handler(self.state, msg);
+                },
+                None => break,  // Channel closed
+            }
+        }
+    }
+}
+```
+
+**Simplified usage with std.actor:**
+```cantrip
+import std.actor.Actor;
+
+function simplified_example()
+    needs alloc.heap, thread.spawn;
+{
+    let initial = Counter@Running { count: 0 };
+
+    let (mut actor, handle) = Actor.spawn(initial, |mut state, msg| {
+        match msg {
+            CounterMessage.Increment => {
+                state.increment();
+                state
+            },
+            CounterMessage.Decrement => {
+                state.decrement();
+                state
+            },
+            CounterMessage.Get(reply) => {
+                reply.send(state.get());
+                state
+            },
+            CounterMessage.Shutdown => {
+                state.shutdown()
+            },
+        }
+    });
+
+    thread.spawn(move || actor.run().await);
+
+    // Use handle...
+}
+```
+
+### 36.4 Actor Pattern Guarantees
+
+**Isolation (via permission system):**
+```
+Invariant 36.1 (State Isolation):
+Actor state is owned (`own S`), preventing:
+  - Shared mutable access from other threads
+  - Aliasing of mutable state
+  - Data races on actor state
+```
+
+**Sequential processing (via single receiver):**
+```
+Axiom 36.1 (FIFO Ordering):
+Receiver<M> ensures messages are processed in order:
+  send(m₁) happens-before send(m₂) ⟹
+  receive() delivers m₁ before m₂
+```
+
+**Type safety (via modal constraints):**
+```
+Theorem 36.1 (State Machine Safety):
+If actor state is modal S@State₁:
+  - Only procedures valid in State₁ can be called
+  - State transitions are verified at compile time
+  - Invalid state access is a compile error
+```
+
+### 36.5 Actors with Complex State Machines
+
+Modals enable sophisticated actor state machines:
+
+```cantrip
+modal FileActor {
     state Closed { path: String; }
+    state Opening;
     state Open { fd: FileDescriptor; }
+    state Error { err: Error; }
 
-    @Closed >> open() >> @Open
+    procedure open@Closed(self: mut FileActor) -> @Opening
         needs fs.read;
-    { /* transition */ }
 
-    @Open >> close() >> @Closed
+    procedure complete_open@Opening(self: mut FileActor, fd: FileDescriptor) -> @Open;
+
+    procedure fail_open@Opening(self: mut FileActor, err: Error) -> @Error;
+
+    procedure read@Open(self: FileActor, buf: mut [u8]): usize
+        needs fs.read;
+
+    procedure close@Open(self: mut FileActor) -> @Closed
         needs fs.write;
-    { /* transition */ }
 }
 
 enum FileMessage {
-    Open(Channel<Result<(), Error>>),
-    Read(Channel<Result<Data, Error>>),
+    Open(reply: Sender<Result<(), Error>>),
+    Read(buf: Vec<u8>, reply: Sender<Result<Vec<u8>, Error>>),
     Close,
 }
 
-record FileActor {
-    state: FileActorState;
-    mailbox: Channel<FileMessage>;
-}
-
-// Implementation follows pattern above
+// Actor wrapper follows same pattern as Counter
 ```
 
-### 36.4 Standard Library Support
+**Key advantage:** The modal type system ensures the file actor cannot:
+- Read from a closed file (compile error)
+- Close an already-closed file (compile error)
+- Violate the state machine invariants (compile error)
 
-The standard library provides actor utilities in `std.actor`:
+### 36.6 Why Pattern, Not Primitive?
 
-```cantrip
-import std.actor.Actor;
-import std.actor.Handle;
+**Design rationale:**
 
-// Simplified actor creation
-let (actor, handle) = Actor.spawn(initial_state, message_handler);
-```
+1. **Composability**: Actors emerge from combining existing features, demonstrating language expressiveness
 
-See standard library documentation for details.
+2. **Flexibility**: Users can customize the pattern (e.g., prioritized queues, selective receive)
+
+3. **Transparency**: No "magic"—users see exactly how actors work
+
+4. **LLM-friendly**: Explicit patterns are more predictable than language-specific syntax
+
+5. **Simplicity**: No new keywords, grammar rules, or type system complexity
+
+6. **Teachability**: Understanding actors teaches modals, channels, effects, and permissions simultaneously
+
+**Trade-off accepted:** More verbose than built-in syntax, but gains transparency and composability
 
 ---
 
 ## 37. Async/Await
 
-
-
-### 37.4 Async Iteration (Normative)
+### 37.4 Async Iteration
 
 **Trait:** Asynchronous iteration yields items over time via an `async next` method.
 
@@ -10582,12 +9674,6 @@ async function consume<I>(iter: I)
 **Syntactic sugar (optional):** Implementations MAY provide `for await item in iter { ... }` desugaring to the
 `while`/`await next()` form above. If provided, `for await` requires the enclosing function to be `async` and
 imports the iterator’s effects into the enclosing effect mask (see §22.7).
-
-### 37.5 Async Effect Masks (Informative)
-
-Tooling guidance: IDEs and LLMs SHOULD surface missing `needs` entries on an `await` site as soon as
-the awaited expression is known to perform `net.*` or `time.sleep`. See §22.7 for the normative rule.
-
 
 ### 37.1 Async Functions
 
@@ -10646,8 +9732,7 @@ function fetch_with_timeout(url: str): Result<Data, Error>
 
 ---
 
-
-## 55. Machine‑Readable Output (Normative)
+## 55. Machine‑Readable Output
 
 Compilers and tools MUST provide a machine‑readable diagnostics stream to support IDEs and LLMs.
 
@@ -10687,10 +9772,7 @@ Compilers and tools MUST provide a machine‑readable diagnostics stream to supp
 --json-emit-effect-mask        include async effect mask (see §22.7)
 ```
 
-
-
-
-# Part XIV (Normative): Foreign Function Interface (FFI)
+# Part XIV: Foreign Function Interface (FFI)
 
 ## 56. Foreign Function Interface Overview
 
@@ -10747,8 +9829,7 @@ codes or nulls as specified by the binding. Conversely, C long‑jumps must not 
 Inline assembly is reserved in 1.0. Implementations MAY provide experimental features behind flags,
 but no normative syntax is defined.
 
-
-# Part X (Normative): Operational Semantics
+# Part X: Operational Semantics
 
 ## 38. Small-Step Semantics
 
@@ -10887,7 +9968,7 @@ true || e   →  true   (e not evaluated)
 
 ---
 
-# Part XI (Normative): Soundness and Properties
+# Part XI: Soundness and Properties
 
 ## 42. Type Soundness
 
@@ -10923,11 +10004,11 @@ If ⟨e, σ⟩ →* ⟨e', σ'⟩ and e' accesses ℓ, then ℓ ∈ dom(σ').
 
 **Theorem 45.1 (State Invariant Preservation):**
 
-If Γ, Σ ⊢ e : P@S and σ ⊨ I(S) and ⟨e, σ⟩ →* ⟨v, σ'⟩, then σ' ⊨ I(S).
+If Γ, Σ ⊢ e : P@S and σ ⊨ I(@S) and ⟨e, σ⟩ →* ⟨v, σ'⟩, then σ' ⊨ I(@S).
 
 ---
 
-# Part XII (Normative): Standard Library
+# Part XII: Standard Library
 
 ## 46. Core Types and Operations
 
@@ -11564,13 +10645,11 @@ public record TcpStream {
 
 ## 50. Concurrency Primitives
 
-
-#### 50.1 Structured Concurrency Helpers (Normative)
+#### 50.1 Structured Concurrency Helpers
 
 The `std.concurrent.scope` module is part of the standard library. See §35.5 for semantics.
 Using `scope.spawn` eliminates leaked threads by construction and integrates with the effect
 system (`thread.spawn`, `thread.join`).
-
 
 ### 50.1 Mutex
 
@@ -11682,7 +10761,7 @@ public record AtomicI32 {
 
 ---
 
-# Part XIII (Normative): Tooling and Implementation
+# Part XIII: Tooling and Implementation
 
 ## 51. Compiler Architecture
 
@@ -11692,7 +10771,7 @@ public record AtomicI32 {
 
 **Phases:**
 ```
-Source Code (.arc)
+Source Code (.cantrip)
     ↓
 [1. Lexical Analysis]
     ↓
@@ -11739,12 +10818,12 @@ Native Code / Bytecode
 
 **Basic compilation:**
 ```bash
-arc compile main.arc -o output
+cantrip compile main.cantrip -o output
 ```
 
 **Options:**
 ```bash
-arc compile main.arc \
+cantrip compile main.cantrip \
     --opt=2 \                    # Optimization level (0-3)
     --verify=static \            # Contract verification mode
     --target=x86_64-linux \      # Target platform
@@ -11776,13 +10855,13 @@ arc compile main.arc \
 
 ```bash
 # Static verification (must prove or fail compilation)
-arc compile --verify=static main.arc
+cantrip compile --verify=static main.cantrip
 
 # Runtime verification (default - insert runtime checks)
-arc compile --verify=runtime main.arc
+cantrip compile --verify=runtime main.cantrip
 
 # No verification (unsafe - trust programmer)
-arc compile --verify=none main.arc
+cantrip compile --verify=none main.cantrip
 ```
 
 **Per-function override:**
@@ -11817,9 +10896,9 @@ Module Dependency Graph:
 ```
 target/
 ├── cache/
-│   ├── main.arc.o
-│   ├── http.arc.o
-│   └── json.arc.o
+│   ├── main.cantrip.o
+│   ├── http.cantrip.o
+│   └── json.cantrip.o
 └── deps/
     └── dependency_graph.json
 ```
@@ -11847,7 +10926,7 @@ error[E####]: Error message
 **Type error:**
 ```bash
 error[E2001]: Type mismatch
-  --> src/main.arc:15:9
+  --> src/main.cantrip:15:9
    |
 15 |     let x: i32 = "string";
    |                  ^^^^^^^^ expected i32, found str
@@ -11859,13 +10938,13 @@ error[E2001]: Type mismatch
 **Effect error:**
 ```bash
 error[E9001]: Missing effect declaration
-  --> src/io.arc:8:9
+  --> src/io.cantrip:8:9
    |
  8 |         Vec.new()
    |         ^^^^^^^^^ requires effect alloc.heap
    |
 note: function declared as pure
-  --> src/io.arc:5:5
+  --> src/io.cantrip:5:5
    |
  5 |     requires:
    |     ^^^^^^^^^ declared with no effects
@@ -11879,13 +10958,13 @@ help: add effect declaration
 **Modal state error:**
 ```bash
 error[E3003]: Procedure not available in current state
-  --> src/file.arc:42:10
+  --> src/file.cantrip:42:10
    |
 42 |     file.read(buffer);
    |          ^^^^ procedure 'read' not available in state Closed
    |
 note: file has type File@Closed
-  --> src/file.arc:40:9
+  --> src/file.cantrip:40:9
    |
 40 |     let file = File.new("data.txt");
    |         ^^^^ inferred type: File@Closed
@@ -11900,7 +10979,7 @@ help: call 'open' to transition to Open state
 
 **JSON format:**
 ```bash
-arc compile --output-format=json main.arc
+cantrip compile --output-format=json main.cantrip
 ```
 
 **Output:**
@@ -11913,7 +10992,7 @@ arc compile --output-format=json main.arc
       "severity": "error",
       "message": "Type mismatch",
       "location": {
-        "file": "src/main.arc",
+        "file": "src/main.cantrip",
         "line": 15,
         "column": 9,
         "span": {
@@ -11946,16 +11025,16 @@ arc compile --output-format=json main.arc
 **Standard project layout:**
 ```
 myproject/
-├── arc.toml              # Package manifest
-├── src/
-│   ├── main.arc          # Entry point
-│   └── lib.arc           # Library root (optional)
+├── cantrip.toml              # Package manifest
+├── source/
+│   ├── main.cantrip          # Entry point
+│   └── lib.cantrip           # Library root (optional)
 ├── tests/
-│   └── integration.arc   # Integration tests
+│   └── integration.cantrip   # Integration tests
 ├── examples/
-│   └── simple.arc        # Example programs
+│   └── simple.cantrip        # Example programs
 ├── benches/
-│   └── performance.arc   # Benchmarks
+│   └── performance.cantrip   # Benchmarks
 └── target/               # Build artifacts (generated)
     ├── debug/
     └── release/
@@ -11963,7 +11042,7 @@ myproject/
 
 ### 53.2 Package Manifest
 
-**`arc.toml` format:**
+**`cantrip.toml` format:**
 ```toml
 [package]
 name = "myproject"
@@ -12002,32 +11081,32 @@ verify = "runtime"
 
 ```bash
 # Create new project
-arc new myproject
-arc new --lib mylibrary
+cantrip new myproject
+cantrip new --lib mylibrary
 
 # Build project
-arc build
-arc build --release
+cantrip build
+cantrip build --release
 
 # Run project
-arc run
-arc run --release
+cantrip run
+cantrip run --release
 
 # Test project
-arc test
-arc test --test integration
+cantrip test
+cantrip test --test integration
 
 # Benchmark
-arc bench
+cantrip bench
 
 # Clean build artifacts
-arc clean
+cantrip clean
 
 # Update dependencies
-arc update
+cantrip update
 
 # Publish to registry
-arc publish
+cantrip publish
 ```
 
 ### 53.4 Dependency Resolution
@@ -12077,16 +11156,16 @@ function test_subtraction() {
 }
 ```
 
-**Test macros:**
+**Test assertions:**
 ```cantrip
-assert!(condition);
-assert_eq!(left, right);
-assert_ne!(left, right);
+assert(condition, "message");
+assert(left == right, "values must be equal");
+assert(left != right, "values must not be equal");
 ```
 
 ### 54.2 Integration Tests
 
-**Integration test file (`tests/integration.arc`):**
+**Integration test file (`tests/integration.cantrip`):**
 ```cantrip
 import mylib;
 
@@ -12116,7 +11195,7 @@ function test_addition_commutative(a: i32, b: i32) {
 
 ### 54.4 Benchmarks
 
-**Benchmark file (`benches/performance.arc`):**
+**Benchmark file (`benches/performance.cantrip`):**
 ```cantrip
 #[bench]
 function bench_vector_push(b: Bencher) {
@@ -12141,26 +11220,34 @@ function bench_hashmap_insert(b: Bencher) {
 
 ---
 
-# Appendices (Informative)
+# Appendix A: Complete EBNF Grammar
 
-## Appendix A: Complete Grammar
+This appendix collects all grammar productions from the specification into a single normative reference.
 
-### A.1 Lexical Grammar
+## A.1 Lexical Grammar
 
+### A.1.1 Comments
 ```ebnf
-(* Comments *)
 LineComment ::= "//" ~[\n\r]* [\n\r]
 BlockComment ::= "/*" (~"*/" any)* "*/"
 DocComment ::= "///" ~[\n\r]*
 ModuleDoc ::= "//!" ~[\n\r]*
+```
 
-(* Identifiers *)
+### A.1.2 Identifiers
+```ebnf
 Identifier ::= IdentStart IdentContinue*
 IdentStart ::= [a-zA-Z_]
 IdentContinue ::= [a-zA-Z0-9_]
+```
 
-(* Literals *)
-IntegerLiteral ::= DecimalLiteral | HexLiteral | BinaryLiteral | OctalLiteral
+### A.1.3 Literals
+```ebnf
+IntegerLiteral ::= DecimalLiteral
+                 | HexLiteral
+                 | BinaryLiteral
+                 | OctalLiteral
+
 DecimalLiteral ::= [0-9] [0-9_]*
 HexLiteral ::= "0x" [0-9a-fA-F] [0-9a-fA-F_]*
 BinaryLiteral ::= "0b" [01] [01_]*
@@ -12172,70 +11259,30 @@ Exponent ::= [eE] [+-]? DecimalLiteral
 BooleanLiteral ::= "true" | "false"
 
 CharLiteral ::= "'" (EscapeSequence | ~['\\]) "'"
+EscapeSequence ::= "\\" [nrt\\'"0]
+                 | "\\x" HexDigit HexDigit
+                 | "\\u{" HexDigit+ "}"
+
 StringLiteral ::= '"' (EscapeSequence | ~["\\])* '"'
-EscapeSequence ::= "\\" [nrt\\'"0] | "\\x" HexDigit HexDigit | "\\u{" HexDigit+ "}"
 ```
 
-### A.2 Expression Grammar
-
+### A.1.4 Attributes
 ```ebnf
-Expression ::= PrimaryExpression
-             | BinaryExpression
-             | UnaryExpression
-             | IfExpression
-             | MatchExpression
-             | WhileExpression
-             | ForExpression
-             | LoopExpression
-
-PrimaryExpression ::= Literal
-                    | Identifier
-                    | "(" Expression ")"
-                    | BlockExpression
-                    | FunctionCall
-                    | FieldAccess
-                    | IndexExpression
-
-BinaryExpression ::= Expression BinaryOp Expression
-UnaryExpression ::= UnaryOp Expression
-
-IfExpression ::= "if" Expression BlockExpression ("else" (BlockExpression | IfExpression))?
-
-MatchExpression ::= "match" Expression "{" MatchArm* "}"
-MatchArm ::= Pattern "->" Expression ","
-
-WhileExpression ::= "while" Expression BlockExpression
-ForExpression ::= "for" Pattern "in" Expression BlockExpression
-LoopExpression ::= "loop" BlockExpression
+Attribute ::= "#[" AttributeBody "]"
+AttributeBody ::= Ident ( "(" AttrArgs? ")" )?
+AttrArgs ::= AttrArg ( "," AttrArg )*
+AttrArg ::= Ident "=" Literal | Literal | Ident
 ```
 
-### A.3 Statement Grammar
-
-```ebnf
-Statement ::= LetStatement
-            | VarStatement
-            | ExpressionStatement
-            | ReturnStatement
-            | BreakStatement
-            | ContinueStatement
-
-LetStatement ::= "let" Pattern (":" Type)? "=" Expression ";"
-VarStatement ::= "var" Identifier (":" Type)? "=" Expression ";"
-ExpressionStatement ::= Expression ";"
-ReturnStatement ::= "return" Expression? ";"
-BreakStatement ::= "break" Expression? ";"
-ContinueStatement ::= "continue" ";"
-```
-
-### A.4 Type Grammar
+## A.2 Type Grammar
 
 ```ebnf
 Type ::= PrimitiveType
-       | ArrayType
-       | SliceType
-       | TupleType
+       | CompoundType
+       | UserType
+       | PermissionType
+       | ModalType
        | FunctionType
-       | ProtocolType
        | GenericType
 
 PrimitiveType ::= "i8" | "i16" | "i32" | "i64" | "isize"
@@ -12243,718 +11290,414 @@ PrimitiveType ::= "i8" | "i16" | "i32" | "i64" | "isize"
                 | "f32" | "f64"
                 | "bool" | "char" | "str"
 
+CompoundType ::= ArrayType | TupleType | SliceType
+
 ArrayType ::= "[" Type ";" IntegerLiteral "]"
 SliceType ::= "[" Type "]"
 TupleType ::= "(" Type ("," Type)* ")"
-FunctionType ::= Type "->" Type
-ProtocolType ::= Type "@" StateIdentifier
-GenericType ::= Identifier "<" Type ("," Type)* ">"
+
+UserType ::= RecordType | EnumType | TraitType
+
+PermissionType ::= "own" Type
+                 | "mut" Type
+                 | "iso" Type
+
+ModalType ::= Type "@" StateIdent
+
+FunctionType ::= "fn" "(" TypeList? ")" (":" Type)?
+ProcedureType ::= "proc" "(" SelfParam "," TypeList? ")" (":" Type)?
+
+TypeList ::= Type ("," Type)*
+
+GenericType ::= Identifier "<" TypeArgs ">"
+TypeArgs ::= Type ("," Type)*
 ```
 
-### A.5 Item Grammar
+## A.3 Expression Grammar
 
 ```ebnf
-Item ::= FunctionItem
-       | StructItem
-       | EnumItem
-       | ProtocolItem
-       | InterfaceItem
-       | ImplItem
-       | EffectItem
-       | ModuleMetadata
+Expr ::= Literal
+       | Identifier
+       | BinaryExpr
+       | UnaryExpr
+       | CallExpr
+       | IfExpr
+       | MatchExpr
+       | BlockExpr
+       | LetExpr
+       | PipelineExpr
+       | LambdaExpr
+       | RegionExpr
+       | ComptimeExpr
+       | TypedHoleExpr
 
-FunctionItem ::=
-    "function" Identifier GenericParams? "(" Parameters ")" ReturnType
-    NeedsClause?
-    RequiresClause?
-    EnsuresClause?
-    FunctionBody
+Literal ::= IntegerLiteral
+          | FloatLiteral
+          | BooleanLiteral
+          | CharLiteral
+          | StringLiteral
 
-Parameters ::= Parameter ("," Parameter)*
-Parameter ::= Identifier ":" Type
+BinaryExpr ::= Expr BinOp Expr
+BinOp ::= "+" | "-" | "*" | "/" | "%"
+        | "==" | "!=" | "<" | ">" | "<=" | ">="
+        | "&&" | "||"
+        | "&" | "|" | "^" | "<<" | ">>"
+        | "=>" | "=" | "+=" | "-=" | "*=" | "/="
 
-ReturnType ::= ":" Type
+UnaryExpr ::= UnaryOp Expr
+UnaryOp ::= "-" | "!" | "*" | "&"
 
+CallExpr ::= Expr "(" ArgList? ")"
+ArgList ::= Expr ("," Expr)*
+
+IfExpr ::= "if" Expr BlockExpr ("else" (IfExpr | BlockExpr))?
+
+MatchExpr ::= "match" Expr "{" MatchArm* "}"
+MatchArm ::= Pattern ("if" Expr)? "=>" Expr ","
+
+BlockExpr ::= "{" Statement* Expr? "}"
+
+LetExpr ::= "let" Pattern (":" Type)? "=" Expr
+
+PipelineExpr ::= Expr "=>" Expr
+
+LambdaExpr ::= "|" ParamList? "|" Expr
+             | "|" ParamList? "|" BlockExpr
+
+RegionExpr ::= "region" Identifier BlockExpr
+
+ComptimeExpr ::= "comptime" BlockExpr
+
+TypedHoleExpr ::= "?" Identifier? (":" Type)?
+                | "???"
+```
+
+## A.4 Pattern Grammar
+
+```ebnf
+Pattern ::= IdentPattern
+          | WildcardPattern
+          | LiteralPattern
+          | TuplePattern
+          | EnumPattern
+          | RecordPattern
+
+IdentPattern ::= Identifier
+WildcardPattern ::= "_"
+LiteralPattern ::= IntegerLiteral | BooleanLiteral | CharLiteral
+
+TuplePattern ::= "(" Pattern ("," Pattern)* ")"
+
+EnumPattern ::= Identifier ("::" Identifier)? ("(" Pattern ")")?
+
+RecordPattern ::= Identifier "{" FieldPatterns? "}"
+FieldPatterns ::= FieldPattern ("," FieldPattern)*
+FieldPattern ::= Identifier (":" Pattern)?
+```
+
+## A.5 Statement Grammar
+
+```ebnf
+Statement ::= LetStmt
+            | VarStmt
+            | ExprStmt
+            | AssignStmt
+            | ReturnStmt
+            | BreakStmt
+            | ContinueStmt
+
+LetStmt ::= "let" Pattern (":" Type)? "=" Expr ";"
+VarStmt ::= "var" Pattern (":" Type)? "=" Expr ";"
+ExprStmt ::= Expr ";"
+AssignStmt ::= Expr "=" Expr ";"
+ReturnStmt ::= "return" Expr? ";"
+BreakStmt ::= "break" ";"
+ContinueStmt ::= "continue" ";"
+```
+
+## A.6 Declaration Grammar
+
+### A.6.1 Function and Procedure Declarations
+```ebnf
+FunctionDecl ::= Attribute* Visibility? "function" Identifier GenericParams?
+                 "(" ParamList? ")" (":" Type)?
+                 ContractClause*
+                 FunctionBody
+
+ProcedureDecl ::= Attribute* Visibility? "procedure" Identifier GenericParams?
+                  "(" SelfParam ("," ParamList)? ")" (":" Type)?
+                  StateTransition?
+                  ContractClause*
+                  FunctionBody
+
+ParamList ::= Param ("," Param)*
+Param ::= Identifier ":" Type
+
+SelfParam ::= "self" (":" SelfType)?
+SelfType ::= "Self" | "mut" "Self" | "own" "Self"
+
+StateTransition ::= "@" Identifier "->" "@" Identifier
+
+ContractClause ::= RequiresClause | EnsuresClause | NeedsClause | InvariantClause
+
+RequiresClause ::= "requires" Assertion (";" Assertion)* ";"
+EnsuresClause ::= "ensures" Assertion (";" Assertion)* ";"
 NeedsClause ::= "needs" EffectList ";"
-EffectList ::= Effect ("," Effect)*
-Effect ::= EffectName
-         | EffectName "." "*"
-         | EffectName "(" EffectArgs ")"
-         | Identifier
+InvariantClause ::= "invariant" ":" Assertion (";" Assertion)* ";"
 
-RequiresClause ::= "requires" AssertionList ";"
-EnsuresClause ::= "ensures" AssertionList ";"
-AssertionList ::= Assertion ("," Assertion)*
-Assertion ::= Expression
+FunctionBody ::= BlockExpr | ";"
+```
 
-FunctionBody ::= "{" Statement* Expression? "}"
+### A.6.2 Type Declarations
+```ebnf
+RecordDecl ::= Attribute* Visibility? "record" Identifier GenericParams?
+               "{" RecordField* "}"
 
-ModuleMetadata ::= "#[module" "(" MetadataFields ")" "]"
+RecordField ::= Visibility? Identifier ":" Type ";"
 
-MetadataFields ::= MetadataField ("," MetadataField)*
+EnumDecl ::= Attribute* Visibility? "enum" Identifier GenericParams?
+             "{" EnumVariant ("," EnumVariant)* ","? "}"
 
-MetadataField ::= Identifier "=" StringLiteral
-                | Identifier "=" BooleanLiteral
-                | Identifier "=" ArrayLiteral
+EnumVariant ::= Identifier ("(" Type ")")? ("=" IntegerLiteral)?
 
-ArrayLiteral ::= "[" StringList "]"
+ModalDecl ::= Attribute* Visibility? "modal" Identifier GenericParams?
+              "{" ModalState+ "}"
 
-StringList ::= StringLiteral ("," StringLiteral)*
+ModalState ::= "state" Identifier "{" RecordField* "}"
 
-StructItem ::= "record" Identifier GenericParams? "{" FieldList "}"
-EnumItem ::= "enum" Identifier GenericParams? "{" VariantList "}"
-ProtocolItem ::= "modal" Identifier "{" ProtocolBody "}"
-InterfaceItem ::= "trait" Identifier GenericParams? "{" InterfaceBody "}"
-ImplItem ::= "impl" GenericParams? Type ("for" Type)? "{" ImplBody "}"
+TraitDecl ::= Attribute* Visibility? "trait" Identifier GenericParams? (":" TraitBounds)?
+              "{" TraitItem* "}"
 
-EffectItem ::= Visibility? "effect" Identifier "=" EffectExpr ";"
+TraitItem ::= FunctionDecl | TypeDecl
 
-EffectExpr ::= EffectTerm
-             | EffectExpr "+" EffectTerm
-             | EffectExpr "-" EffectTerm
+ImplDecl ::= "impl" GenericParams? Type ("for" Type)? WhereClause?
+             "{" ImplItem* "}"
 
-EffectTerm ::= PrimitiveEffect
-             | "!" EffectTerm
-             | "(" EffectExpr ")"
+ImplItem ::= FunctionDecl | ProcedureDecl
+```
+
+### A.6.3 Generic Parameters
+```ebnf
+GenericParams ::= "<" GenericParam ("," GenericParam)* ">"
+GenericParam ::= TypeParam | ConstParam
+
+TypeParam ::= Identifier (":" TraitBounds)?
+ConstParam ::= "const" Identifier ":" Type
+
+TraitBounds ::= Trait ("+" Trait)*
+
+WhereClause ::= "where" WherePredicate ("," WherePredicate)*
+WherePredicate ::= Type ":" TraitBounds
+```
+
+## A.7 Module Grammar
+
+```ebnf
+ModuleItem ::= ImportDecl
+             | FunctionDecl
+             | ProcedureDecl
+             | RecordDecl
+             | EnumDecl
+             | ModalDecl
+             | TraitDecl
+             | ImplDecl
+             | EffectDecl
+             | TypeAlias
+
+ImportDecl ::= "import" ImportPath ("as" Identifier)? ";"
+ImportPath ::= Identifier ("::" Identifier)*
+
+TypeAlias ::= Visibility? "type" Identifier GenericParams? "=" Type ";"
+
+EffectDecl ::= "effect" Identifier ("{" EffectAtom* "}")? ";"
+EffectAtom ::= Identifier ("(" EffectParam ("," EffectParam)* ")")?
+
+Visibility ::= "public" | "internal" | "private"
+```
+
+## A.8 Contract Grammar
+
+```ebnf
+Assertion ::= LogicExpr
+
+LogicExpr ::= LogicTerm
+            | LogicExpr "&&" LogicExpr
+            | LogicExpr "||" LogicExpr
+            | "!" LogicExpr
+            | LogicExpr "=>" LogicExpr
+
+LogicTerm ::= Expr CompareOp Expr
+            | "forall" "(" Identifier "in" Expr ")" "{" Assertion "}"
+            | "exists" "(" Identifier "in" Expr ")" "{" Assertion "}"
+            | "@old" "(" Expr ")"
+            | "result"
+            | Expr
+
+CompareOp ::= "==" | "!=" | "<" | ">" | "<=" | ">="
+```
+
+## A.9 Effect Grammar
+
+```ebnf
+EffectList ::= Effect (";" Effect)*
+
+Effect ::= EffectAtom
+         | "effects" "(" Identifier ")"
+         | "!" Effect
+         | "_?"
+
+EffectAtom ::= "alloc" "." AllocEffect
+             | "fs" "." FileSystemEffect
+             | "net" "." NetworkEffect
+             | "time" "." TimeEffect
+             | "thread" "." ThreadEffect
+             | "render" "." RenderEffect
+             | "audio" "." AudioEffect
+             | "input" "." InputEffect
+             | "ffi" "." FFIEffect
+             | "unsafe" "." UnsafeEffect
+             | "panic"
              | Identifier
 
-PrimitiveEffect ::= EffectName
-                  | EffectName "." "*"
-                  | EffectName "(" EffectArgs ")"
+AllocEffect ::= "heap" | "region" | "stack" | "temp" | "*"
+FileSystemEffect ::= "read" | "write" | "delete"
+NetworkEffect ::= "read" "(" Direction ")" | "write"
+Direction ::= "inbound" | "outbound"
+TimeEffect ::= "read" | "sleep"
+ThreadEffect ::= "spawn" | "join" | "atomic"
+RenderEffect ::= "draw" | "compute"
+AudioEffect ::= "play"
+InputEffect ::= "read"
+FFIEffect ::= "call"
+UnsafeEffect ::= "ptr"
 ```
 
 ---
+# Appendix B: Error Code Catalog
 
-## Appendix B: Keywords and Operators
+This appendix catalogs all normative error codes referenced throughout the specification. Implementations MUST emit these codes for the corresponding violations.
 
-### B.1 Reserved Keywords
+## B.1 Parsing Errors (E10xx)
 
-**All reserved keywords (cannot be used as identifiers):**
+| Code | Description | Section |
+|------|-------------|---------|
+| E1001 | Unexpected token | §2 |
+| E1002 | Unterminated string literal | §2.4.5 |
+| E1003 | Unterminated block comment | §2.2 |
+| E1004 | Invalid escape sequence | §2.4.4-5 |
+| E1005 | Invalid integer literal | §2.4.1 |
+| E1006 | Invalid float literal | §2.4.2 |
 
+## B.2 Name Resolution Errors (E20xx)
 
-```
-abstract    actor       as          async       await
-break       case        comptime    const       continue
-defer       effect      else        ensures     enum
-exists      false       for         forall      function
-if          impl        import      internal    invariant
-iso         let         loop        match       modal
-module      move        mut         needs       new
-none        own         private     protected   procedure
-public      record      ref         region      requires
-result      select      self        Self        state
-static      trait       true        type        var
-where       while
-```
+| Code | Description | Section |
+|------|-------------|---------|
+| E2001 | Undefined identifier | §30-33 |
+| E2002 | Ambiguous name | §31.2 |
+| E2003 | Circular import | §31 |
+| E2004 | Module not found | §33.1 |
+| E2005 | Private item access violation | §32 |
 
+## B.3 Type Errors (E2xxx)
 
-### B.2 Operators
+| Code | Description | Section |
+|------|-------------|---------|
+| E2101 | Type mismatch | §4-9 |
+| E2102 | Unknown type | §4 |
+| E2103 | Trait not implemented | §8 |
+| E2104 | Conflicting trait implementations | §8 |
+| E2105 | Type parameter mismatch | §9 |
+| E2106 | Const generic mismatch | §9.6 |
+| E2107 | Array size mismatch | §5.1 |
+| E2108 | Infinite type recursion | §4 |
 
-**Arithmetic operators:**
-```
-+   -   *   /   %
-+=  -=  *=  /=  %=
-```
+## B.4 Modal Errors (E30xx)
 
-**Comparison operators:**
-```
-==  !=  <   <=  >   >=
-```
+| Code | Description | Section |
+|------|-------------|---------|
+| E3001 | Invalid state transition | §10-12 |
+| E3002 | Procedure called in wrong state | §10.3 |
+| E3003 | Unreachable state | §11.6 |
+| E3004 | Non-exhaustive state coverage | §12.3 |
+| E3005 | Modal state invariant violation | §19.4 |
 
-**Logical operators:**
-```
-&&  ||  !
-```
+## B.5 Contract Errors (E40xx)
 
-**Bitwise operators:**
-```
-&   |   ^   <<  >>
-```
+| Code | Description | Section |
+|------|-------------|---------|
+| E4001 | Precondition may fail | §17.2 |
+| E4002 | Postcondition cannot be proven | §17.3 |
+| E4003 | Invariant violation | §19 |
+| E4004 | Loop invariant not maintained | §19.5 |
+| E4005 | Invalid @old reference | §17.6 |
+| E4006 | Contract references private field | §17 |
 
-**Special operators:**
-```
-->   // Function type constructor
-=>   // Pipeline operator
-..   // Exclusive range
-..=  // Inclusive range
-@    // Modal state marker
-?    // Error propagation
-```
+## B.6 Region/Memory Errors (E50xx)
 
-**Effect algebra operators (in effect expressions only):**
-```
-+    // Effect union (e.g., fs.read + fs.write)
--    // Effect difference (e.g., WebOps - fs.delete)
-!    // Effect negation (e.g., !net.*)
-```
+| Code | Description | Section |
+|------|-------------|---------|
+| E5001 | Region escape detected | §29.4 |
+| E5002 | Region outlived allocation | §28 |
+| E5003 | Invalid region nesting | §28.3 |
+| E5004 | Region allocation without declaration | §28.5 |
 
-**Note:** The `+`, `-`, and `!` operators have different meanings in effect expressions versus arithmetic/logical expressions, disambiguated by context.
+## B.7 Permission Errors (E60xx)
 
----
+| Code | Description | Section |
+|------|-------------|---------|
+| E6001 | Permission violation | §26 |
+| E6002 | Moved value used | §26.3 |
+| E6003 | Mutable reference to immutable data | §26 |
+| E6004 | Isolated permission violation | §26.5 |
 
-## Appendix C: Error Codes
+## B.8 Effect Errors (E90xx)
 
-### C.1 Syntax Errors (E1xxx)
+| Code | Description | Section |
+|------|-------------|---------|
+| E9001 | Missing effect declaration | §21-24 |
+| E9002 | Effect exceeds declared needs | §22 |
+| E9003 | Forbidden effect used | §22.4 |
+| E9004 | Effect budget exceeded | §23 |
+| E9005 | Async effect mask violation | §22.7 |
+| E9201 | Callback exceeds effect mask | §36.5, §60 |
 
-| Code | Description |
-|------|-------------|
-| E1001 | Procedure does not exist |
-| E1006 | Invalid modal state transition syntax |
-| E1007 | Missing semicolon after needs clause |
-| E1008 | Missing semicolon after requires clause |
-| E1009 | Missing semicolon after ensures clause |
-| E1010 | Removed syntax: requires<effects> (use 'needs effects;' instead) |
-| E1011 | Removed syntax: returns<Type> (use ': Type' in signature instead) |
-| E1012 | Removed syntax: implements keyword (use direct body instead) |
+## B.9 Typed Holes (E95xx)
 
-### C.2 Type Errors (E2xxx)
+| Code | Description | Section |
+|------|-------------|---------|
+| E9501 | Unfilled typed hole | §14.10 |
+| E9502 | Typed hole elaborated to trap (warning) | §14.10 |
+| E9503 | Hole effects exceed function effects | §14.10 |
 
-| Code | Description |
-|------|-------------|
-| E2001 | Type mismatch |
-| E2002 | Item is private |
-| E2003 | Module not found |
-| E2004 | Import cycle detected |
-| E2005 | Ambiguous import |
-| E2010 | Non-exhaustive match pattern |
-| E2020 | Invalid state annotation |
-| E2021 | Modal state not declared |
-| E2022 | Record field not found |
-| E2023 | Enum variant not found |
+## B.10 FFI Errors (E97xx)
 
-### C.3 Modal State Errors (E3xxx)
+| Code | Description | Section |
+|------|-------------|---------|
+| E9701 | FFI call without ffi.call effect | §57 |
+| E9702 | Invalid type across FFI boundary | §58 |
+| E9703 | Mismatched calling convention | §57 |
+| E9704 | Region value crosses FFI boundary | §59 |
 
-| Code | Description |
-|------|-------------|
-| E3001 | State invariant violated |
-| E3002 | Invalid state transition |
-| E3003 | Procedure requires different state |
-| E3004 | Use of moved value |
-| E3005 | Unreachable state declared |
-| E3006 | Missing initial state |
+## B.11 Concurrency Errors (E78xx)
 
-### C.4 Contract Errors (E4xxx)
+| Code | Description | Section |
+|------|-------------|---------|
+| E7801 | JoinHandle escape from scope | §35.5 |
 
-| Code | Description |
-|------|-------------|
-| E4001 | Precondition violation |
-| E4002 | Postcondition violation |
+## B.12 Warnings (W0xxx-W9xxx)
 
-### C.5 Region/Lifetime Errors (E5xxx)
+| Code | Description | Section |
+|------|-------------|---------|
+| W0101 | Alias collides with real name | §2.6 |
+| W7800 | Implicit join at scope end | §35.5 |
 
-| Code | Description |
-|------|-------------|
-| E5001 | Cannot return region data |
-| E5002 | Reference escapes region scope |
-| E5003 | Region outlived by reference |
+## B.13 Implementation-Defined Diagnostics
 
-### C.6 Effect System Errors (E9xxx)
+Implementations MAY define additional error codes in the following ranges:
+- **I1000-I1999**: Implementation-specific parsing warnings
+- **I2000-I2999**: Implementation-specific type system warnings
+- **I9000-I9999**: Implementation-specific optimization hints
 
-| Code | Description |
-|------|-------------|
-| E9001 | Missing effect declaration |
-| E9002 | Effect not declared |
-| E9003 | Effect budget exceeded |
-| E9004 | Forbidden effect used |
-| E9005 | Unknown effect name in definition |
-| E9006 | Circular effect definition |
-| E9007 | Effect already defined |
-| E9008 | Invalid effect operation |
-| E9009 | Effect visibility violation |
-| E9010 | Redundant forbidden effect |
-
-**Examples:**
-
-**E9005: Unknown effect name**
-```cantrip
-effect MyOps = fs.read + undefined.effect;
-//                       ^^^^^^^^^^^^^^^^
-// error[E9005]: Unknown effect 'undefined.effect'
-```
-
-**E9006: Circular definition**
-```cantrip
-effect A = B + fs.read;
-effect B = A + fs.write;
-// error[E9006]: Circular effect definition: A -> B -> A
-```
-
-**E9007: Already defined**
-```cantrip
-effect WebOps = fs.read;
-effect WebOps = net.read;  // Different definition
-// error[E9007]: Effect 'WebOps' already defined at line 1
-```
-
-**E9008: Invalid operation**
-```cantrip
-effect Invalid = fs.read * fs.write;  // Invalid operator
-// error[E9008]: Invalid effect operation '*', expected '+', '-', or '!'
-```
-
-**E9009: Visibility violation**
-```cantrip
-// In module a.arc
-effect PrivateOps = fs.read;
-
-// In module b.arc
-import a.PrivateOps;  // Error: PrivateOps is private
-// error[E9009]: Effect 'PrivateOps' is private and cannot be imported
-```
-
-**E9010: Redundant forbidden effect**
-```cantrip
-function example()
-    needs alloc.heap, !fs.*;
-//                    ^^^^^^ error[E9010]: Redundant forbidden effect
-//
-// fs.* is already forbidden by deny-by-default semantics.
-// Forbidden effects (!) are only valid in two contexts:
-//   1. Wildcard restriction: needs fs.*, !fs.delete
-//   2. Polymorphic constraint: needs effects(F), !time.read
-```
+These codes SHOULD be documented in the implementation's reference manual and MUST NOT conflict with normative codes defined in this specification.
 
 ---
-
-## Appendix D: Standard Library Index
-
-### D.1 Core Modules
-
-```
-std                     # Core types (Option, Result, String)
-std.collections         # Vec, HashMap, HashSet
-std.io                  # Input/output
-std.fs                  # File system operations
-std.net                 # Networking
-std.net.http            # HTTP client/server
-std.net.tcp             # TCP sockets
-std.sync                # Synchronization primitives
-std.sync.atomic         # Atomic types
-std.sync.channel        # Message passing
-std.thread              # Threading
-std.time                # Time and duration
-std.math                # Mathematical functions
-std.string              # String utilities
-std.process             # Process management
-```
-
-### D.2 Canonical API Names
-
-| Operation | Correct Procedure | ❌ Alternatives |
-|-----------|----------------|-----------------|
-| Get size | `.length()` | `.size()`, `.count()`, `.len()` |
-| Add item | `.push(item)` | `.append()`, `.add()` |
-| Remove last | `.pop()` | `.remove_last()` |
-| Check empty | `.is_empty()` | `.empty()` |
-| Check contains | `.contains(item)` | `.has()` |
-
-### D.3 Effect Families
-
-**Complete effect taxonomy:**
-
-```
-alloc.*
-  ├─ alloc.heap
-  ├─ alloc.stack
-  ├─ alloc.region
-  └─ alloc.temp
-
-fs.*
-  ├─ fs.read
-  ├─ fs.write
-  ├─ fs.delete
-  └─ fs.metadata
-
-net.*
-  ├─ net.read(inbound)
-  ├─ net.read(outbound)
-  └─ net.write
-
-time.*
-  ├─ time.read
-  └─ time.sleep
-
-thread.*
-  ├─ thread.spawn
-  ├─ thread.join
-  └─ thread.atomic
-
-render.*
-  ├─ render.draw
-  └─ render.compute
-
-io.*
-  └─ io.write
-
-audio.*
-  └─ audio.play
-
-input.*
-  └─ input.read
-
-process.*
-  └─ process.spawn
-
-ffi.*
-  └─ ffi.call
-
-unsafe.*
-  └─ unsafe.ptr
-```
-
-### D.4 Standard Effect Definitions
-
-**NOTE:** For comprehensive coverage of standard effect definitions, see [Section 21.7: Standard Effect Definitions](#217-standard-effect-definitions).
-
-**Quick reference - Core standard effects:**
-
-```cantrip
-// From std.effects module
-
-Pure            // No effects
-AllAlloc        // All allocation types
-SafeIO          // fs.read + fs.write + alloc.heap
-AllIO           // All I/O operations
-NetworkIO       // Network I/O with allocation
-FileIO          // File I/O with allocation
-ConsoleIO       // Console output only
-NoAlloc         // Forbid all allocation
-NoIO            // Forbid all I/O
-Deterministic   // Forbid time and random
-GameTick        // Temp allocation only, no I/O
-RealTime        // No heap, no I/O
-WebService      // Network + file I/O + heap
-DatabaseOps     // File I/O + heap, no network
-```
-
-**For detailed documentation, usage patterns, and examples:**
-- See [Section 21.7: Standard Effect Definitions](#217-standard-effect-definitions)
-- See [Section 21.8: Effect Composition Best Practices](#218-effect-composition-best-practices)
-
----
-
-## Appendix E: Formal Proofs
-
-### E.1 Type Soundness Proof (Sketch)
-
-**Theorem E.1 (Progress):**
-```
-If Γ ⊢ e : T and e is closed, then either:
-  1. e is a value, or
-  2. ∃e', σ, σ'. ⟨e, σ⟩ → ⟨e', σ'⟩
-```
-
-**Proof (by induction on typing derivation):**
-
-*Base cases:*
-- Variables: Cannot occur (e is closed)
-- Values: Satisfy case 1
-
-*Inductive cases:*
-- Application: By IH, e₁ reduces to λx.e or e₁ → e₁'
-- Let: By IH, e₁ reduces or is value
-- If: By IH, condition reduces or is boolean
-- (Other cases similar)
-
-∎
-
-**Theorem E.2 (Preservation):**
-```
-If Γ ⊢ e : T and ⟨e, σ⟩ → ⟨e', σ'⟩, then Γ ⊢ e' : T
-```
-
-**Proof (by induction on reduction):**
-
-*Case [E-App-β]:*
-```
-⟨(λx:T₁. e) v, σ⟩ → ⟨e[x ↦ v], σ⟩
-
-By inversion of T-App:
-  Γ ⊢ λx:T₁. e : T₁ -> T
-  Γ ⊢ v : T₁
-
-By inversion of T-Abs:
-  Γ, x : T₁ ⊢ e : T
-
-By substitution lemma:
-  Γ ⊢ e[x ↦ v] : T
-```
-
-*Other cases: Similar*
-
-∎
-
-### E.2 Effect Soundness Proof (Sketch)
-
-**Theorem E.3 (Effect Approximation):**
-```
-If Γ ⊢ e : T ! ε and ⟨e, σ, ∅⟩ →* ⟨v, σ', ε'⟩, then ε' ⊆ ε
-```
-
-**Proof (by induction on evaluation):**
-
-The declared effects ε form an upper bound on actual effects ε'.
-
-*Base case:* Values have no effects, ∅ ⊆ ε
-
-*Inductive case:*
-- Effect composition preserves bounds
-- Each reduction step adds only declared effects
-
-∎
-
-### E.3 Modal Safety Proof (Sketch)
-
-**Theorem E.4 (State Invariant Preservation):**
-```
-If Γ, Σ ⊢ e : P@S and σ ⊨ I(S) and ⟨e, σ⟩ →* ⟨v, σ'⟩,
-then σ' ⊨ I(S)
-```
-
-**Proof:**
-By induction on state transitions, each transition preserves state invariants by construction.
-
-∎
-
----
-
-## Bibliography
-
-1. **Cyclone: A Safe Dialect of C**
-   - Grossman et al., USENIX 2002
-   - Basis for region-based memory management
-
-2. **Typestate: A Programming Language Concept**
-   - Strom & Yemini, IEEE TSE 1986
-   - Foundation for modal state machines
-
-3. **Practical Affine Types**
-   - Tov & Pucella, POPL 2011
-   - Linear type system without full linearity
-
-4. **Effect Systems**
-   - Nielson & Nielson, 1999
-   - Systematic treatment of computational effects
-
-5. **Hoare Logic**
-   - Hoare, CACM 1969
-   - Foundation for contract-based reasoning
-
-6. **Semantic Subtyping**
-   - Frisch et al., POPL 2008
-   - Type system foundations
-
----
-
-## Revision History
-
-**Version 0.5.0** - December 2024
-- Corrected language name from "Cantrip" to "Cantrip" throughout
-- Standardized all function syntax to canonical form (needs/requires/ensures)
-- Removed deprecated syntax (requires<>/returns<>/implements:)
-- Converted actor system to library pattern recommendation
-- Added formal effect taxonomy specification with standard definitions
-- Updated grammar to match canonical syntax
-- Corrected keyword lists to include effect, ensures, and needs
-- Fixed error codes to mark removed syntax
-- Resolved all internal inconsistencies
-- Fixed chronologically impossible dates in revision history
-
-**Version 0.4.0** - December 2024
-- Complete unified specification
-- Formal semantics integrated
-- Modal system fully specified
-- Effect system formalized
-- Memory regions detailed
-- Standard library documented
-
-**Version 0.3.0** - November 2024
-- Modal system introduced
-- Effect budgets added
-- Contract fuzzing specified
-
-**Version 0.2.1** - October 2024
-- Removed borrow checking
-- Clarified permission model
-- Enhanced region semantics
-
-**Version 0.1** - September 2024
-- Initial release
-
----
-
-**END OF SPECIFICATION**
-
-© 2025 Cantrip Language Project
-Licensed under MIT
-
----
-
-# Appendix Z (Informative): Coverage Checklist — Mapping from Original to Revised Sections
-
-The following checklist maps each original top-level section to its location in this revised specification.
-Since headings and numbering have been preserved (with explicit **Normative/Informative** tags added),
-most sections map 1:1. Any editorial clarifications are additive.
-
-- **Part 0: LLM Quick Reference** → **Part 0 (Informative): LLM Quick Reference**
-- **Part I: Foundational Concepts** → **Part I (Normative): Foundational Concepts**
-- **Part II: Type System** → **Part II (Normative): Type System**
-- **Part III: Modal System** → **Part III (Normative): Modal System**
-- **Part IV: Functions and Expressions** → **Part IV (Normative): Functions and Expressions**
-- **Part V: Contract System** → **Part V (Normative): Contract System**
-- **Part VI: Effect System** → **Part VI (Normative): Effect System**
-  - Note on §21 sub-numbering: See the editorial note at the start of §21. All content from §21.2–§21.11,
-    including previously duplicated §21.9.* material, is retained. Canonical taxonomy is §21.11.
-- **Part VII: Memory Management** → **Part VII (Normative): Memory Management**
-- **Part VIII: Module System** → **Part VIII (Normative): Module System**
-- **Part IX: Advanced Features** → **Part IX (Normative): Advanced Features**
-- **Part X: Operational Semantics** → **Part X (Normative): Operational Semantics**
-- **Part XI: Soundness and Properties** → **Part XI (Normative): Soundness and Properties**
-- **Part XII: Standard Library** → **Part XII (Normative): Standard Library**
-- **Part XIII: Tooling and Implementation** → **Part XIII (Normative): Tooling and Implementation**
-- **Appendices** → **Appendices (Informative)**
-
-**Status of examples and quick references:** All examples, anti-examples, and LLM-oriented guidance are preserved
-and explicitly marked as **(Informative)**; all rules, typing judgments, and formal definitions remain **(Normative)**.
-
-
-
----
-
-## Appendix F (Informative): Migration Checklist (v0.6.x → v0.7.0)
-
-- **Protocols → Modals**: Replace `protocol` with `modal`; all state-machine rules preserved. Transition syntax `@S >> proc() >> @T` unchanged except “method” is now “procedure.”
-- **Structs → Records**: Replace `struct` with `record`. Records are *labeled product types*; use `impl Record { procedure ... }` instead of methods. No inheritance; prefer traits + composition.
-- **Interfaces → Traits**: Replace `interface` with `trait`. All examples and coherence rules now refer to traits. Default trait *procedures* replace default interface methods.
-- **Remove Classes**: Class-based inheritance/virtual dispatch removed. Use records + traits + modals/actors to model behavior. Where OO hierarchies existed, apply *composition* and *trait objects* (via `trait`).
-- **Actors**: `actor` is now a **first-class type** (normative). Use `actor` declarations and handles for message-passing concurrency.
-- **Function / Procedure Types**: Write function types as `fn(T₁, ..., Tₙ): U` and procedure types as `proc(SelfPerm, T₁, ..., Tₙ): U`. Prior notations using `T -> U` are obsolete.
-- **Terminology**: “Method” → “Procedure”. Error messages and diagnostics updated accordingly (e.g., **E3003** modal/procedure availability).
-- **Keywords**: Removed `class`, `interface`, `extends`, `override`, `virtual`, `super`; added `record`, `modal`, `procedure`, `actor`.
-- **Examples**: All code examples updated to use records/procedures/modals and trait terminology.
-
----
-
-# Part XIV (Normative): Foreign Function Interface (FFI)
-
-## 56. Overview
-
-The FFI enables interoperable calls between Cantrip and foreign languages with a C‑compatible ABI.
-FFI calls are **unsafe** and gated by effects.
-
-- Effect atoms: `ffi.call`, `unsafe.ptr`, `process.spawn` (when launching external tools)
-- Layout attributes: `#[repr(C)]`, `#[repr(packed)]`, `#[repr(align(N))]`
-
-## 57. Declarations and Linkage
-
-**Extern declarations:**
-```cantrip
-extern "C" {
-    function puts(s: *const u8): i32
-        needs ffi.call, unsafe.ptr;
-}
-```
-
-**Link metadata:**
-```cantrip
-#[link(name = "m")]   // link against libm
-extern "C" {
-    function cos(x: f64): f64
-        needs ffi.call;
-}
-```
-
-**Rules:**
-1. Only `extern "C"` is specified by this version. Other ABIs are implementation‑defined.
-2. Extern functions implicitly have `unsafe` pointer types; callers MUST provide valid pointers.
-3. Effects: every `extern` call contributes `ffi.call`; raw pointer deref requires `unsafe.ptr`.
-
-**Diagnostics:**
-- `E9701` — calling `extern` function without `needs ffi.call`.
-- `E9702` — passing an invalid or non‑`repr(C)` aggregate across FFI boundary.
-- `E9703` — mismatched calling convention or variadic use.
-
-## 58. Type Mappings
-
-**Scalars:** one‑to‑one with C fixed‑width types.
-```
-i8  <-> int8_t      u8  <-> uint8_t
-i16 <-> int16_t     u16 <-> uint16_t
-i32 <-> int32_t     u32 <-> uint32_t
-i64 <-> int64_t     u64 <-> uint64_t
-f32 <-> float       f64 <-> double
-bool (u8) <-> _Bool (0/1)
-```
-
-**Pointers:**
-```
-*T        <-> T*
-*const T  <-> const T*
-*mut T    <-> T*
-```
-**Aggregates:** Use `#[repr(C)]` records/enums (§6.5, §7.4).
-
-## 59. Ownership and Allocation Across FFI
-
-- A value allocated by Cantrip and returned to C must be freed by a Cantrip‑provided `extern "C"` free function.
-- C‑allocated memory handed to Cantrip must specify its ownership policy; raw pointers are `unsafe.ptr`.
-- Region‑allocated data MUST NOT cross FFI boundaries (`E9704`).
-
-## 60. Callbacks from C into Cantrip
-
-**Callback type:**
-```cantrip
-#[repr(C)]
-public type CCallback = extern "C" fn(*mut u8): i32;
-```
-Callbacks re‑entering Cantrip may perform effects as declared by the receiving function. The callee’s
-`needs` clause governs the allowed effects.
-
-## 61. Errors and Panics
-
-- Panics MUST NOT unwind across the FFI boundary. Implementations SHOULD abort or translate to error codes.
-- Use `Result<T, E>` wrappers in Cantrip and map to C return codes as appropriate.
-
-## 62. Inline Assembly (Reserved)
-
-Inline assembly is reserved for a future version and is not specified here.
-
----
-
-## Appendix F (Informative): Error Codes Indexed by Common LLM Mistakes
-
-This appendix groups canonical diagnostics by mistakes frequently observed in LLM‑generated code.
-
-**1. Missing effects**  
-- `E9001` — missing effect declaration  
-- `E9201` — async effect mask exposes missing `needs` (net.*, time.sleep) (§22.7)  
-Fix‑its: add required `needs ...;` in the function signature.
-
-**2. Ownership & moves**  
-- `E3004` — value moved (missing `move`)  
-- `E5001` — region data escapes its region (returning region‑allocated value)  
-Fix‑its: add `move`, convert to heap via `.to_heap()`, or adjust region scope.
-
-**3. Modals & states**  
-- `E3003` — procedure not available in current state  
-Fix‑its: perform the required state transition first.
-
-**4. Traits & coherence**  
-- `E9120` — trait implementation exceeds declared method effects (§8.6)  
-- `E8201` — overlapping impls; `E8202` — orphan impl (§8.7)  
-Fix‑its: narrow effects or relocate impl to a local crate/type.
-
-**5. Typed holes & stubs**  
-- `E9501` — unfilled typed hole stops compilation; `E9502` — dev‑mode trap emitted (§14.10)  
-Fix‑its: fill the hole or accept a generated skeleton.
-
-**6. FFI hazards**  
-- `E9701` — calling extern without `ffi.call`  
-- `E9704` — region‑allocated value crossing FFI boundary  
-Fix‑its: add effects, use `#[repr(C)]`, convert region data to heap, provide free functions.
-
-**7. Structured concurrency**  
-- `E7801` — escaping/detached `JoinHandle` from `scope.spawn` (§35.5)  
-- `W7800` — implicit joins at scope end  
-Fix‑its: hold and join every handle within the scope.
-

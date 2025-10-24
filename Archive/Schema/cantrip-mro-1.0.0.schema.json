@@ -1,0 +1,735 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cantrip-lang.org/schemas/cantrip-mro-1.0.0.json",
+  "title": "Cantrip \u00a755 Machine\u2011Readable Output (MRO) \u2014 v1.0.0",
+  "description": "Canonical machine\u2011readable output for Cantrip compilers, linters, and tools as specified by \u00a755, with cross\u2011references to related sections (effects, modals, typed holes, attributes).",
+  "type": "object",
+  "required": [
+    "mroVersion",
+    "producer",
+    "target",
+    "timestamp",
+    "kind",
+    "payload"
+  ],
+  "properties": {
+    "mroVersion": {
+      "type": "string",
+      "description": "MRO schema version, MUST be semver and MUST match compiler's supported MRO version for compatibility gates.",
+      "pattern": "^1\\.0\\.0(-[0-9A-Za-z\\.-]+)?$"
+    },
+    "producer": {
+      "type": "object",
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z\\.-]+)?$"
+        },
+        "commit": {
+          "type": "string",
+          "description": "Optional VCS commit hash"
+        },
+        "build": {
+          "type": "string",
+          "description": "Optional build id or CI run id"
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "target": {
+      "type": "object",
+      "required": [
+        "package",
+        "rootUri"
+      ],
+      "properties": {
+        "package": {
+          "type": "string"
+        },
+        "rootUri": {
+          "type": "string",
+          "format": "uri"
+        },
+        "edition": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "diagnostics",
+        "symbolIndex",
+        "moduleMetadata",
+        "effectsReport",
+        "verifyReport",
+        "buildGraph",
+        "ast",
+        "ir"
+      ]
+    },
+    "payload": {
+      "description": "Payload discriminated by `kind`.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/Diagnostics"
+        },
+        {
+          "$ref": "#/$defs/SymbolIndex"
+        },
+        {
+          "$ref": "#/$defs/ModuleMetadata"
+        },
+        {
+          "$ref": "#/$defs/EffectsReport"
+        },
+        {
+          "$ref": "#/$defs/VerifyReport"
+        },
+        {
+          "$ref": "#/$defs/BuildGraph"
+        },
+        {
+          "$ref": "#/$defs/AST"
+        },
+        {
+          "$ref": "#/$defs/IR"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Uri": {
+      "type": "string",
+      "format": "uri"
+    },
+    "Position": {
+      "type": "object",
+      "required": [
+        "line",
+        "column"
+      ],
+      "properties": {
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "Span": {
+      "type": "object",
+      "required": [
+        "uri",
+        "start",
+        "end"
+      ],
+      "properties": {
+        "uri": {
+          "$ref": "#/$defs/Uri"
+        },
+        "start": {
+          "$ref": "#/$defs/Position"
+        },
+        "end": {
+          "$ref": "#/$defs/Position"
+        },
+        "snippet": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "EffectAtom": {
+      "type": "string",
+      "description": "Primitive effect atom or parameterized atom (e.g., net.read(outbound))."
+    },
+    "EffectSet": {
+      "type": "object",
+      "required": [
+        "declared",
+        "observed"
+      ],
+      "properties": {
+        "declared": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EffectAtom"
+          }
+        },
+        "observed": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EffectAtom"
+          }
+        },
+        "forbidden": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EffectAtom"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Budget": {
+      "type": "object",
+      "properties": {
+        "allocHeapBytesMax": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "timeSleepMaxMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "threadSpawnMax": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "FixEdit": {
+      "type": "object",
+      "required": [
+        "range",
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "insert",
+            "replace",
+            "delete"
+          ]
+        },
+        "range": {
+          "$ref": "#/$defs/Span"
+        },
+        "insertText": {
+          "type": "string"
+        },
+        "replaceText": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "insert"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "insertText"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "replace"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "replaceText"
+            ]
+          }
+        }
+      ]
+    },
+    "FixIt": {
+      "type": "object",
+      "required": [
+        "title",
+        "edits"
+      ],
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "edits": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/FixEdit"
+          }
+        },
+        "toolAction": {
+          "type": "string",
+          "enum": [
+            "addNeedsEffects",
+            "removeForbiddenEffect",
+            "narrowNeedsEffects",
+            "addImport",
+            "addMoveKeyword",
+            "wrapInRegion",
+            "updateTraitEffectBound",
+            "addVerifyAttribute",
+            "suggestSignatureUpdate",
+            "createStub"
+          ]
+        },
+        "metadata": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Related": {
+      "type": "object",
+      "required": [
+        "message",
+        "span"
+      ],
+      "properties": {
+        "message": {
+          "type": "string"
+        },
+        "span": {
+          "$ref": "#/$defs/Span"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Severity": {
+      "type": "string",
+      "enum": [
+        "error",
+        "warning",
+        "note",
+        "info"
+      ]
+    },
+    "Category": {
+      "type": "string",
+      "enum": [
+        "syntax",
+        "type",
+        "modal",
+        "region",
+        "effect",
+        "budget",
+        "trait",
+        "async",
+        "verify",
+        "const",
+        "ffi",
+        "concurrency",
+        "reflection",
+        "warning",
+        "other"
+      ]
+    },
+    "TypedHoleMeta": {
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "inferredType": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "static",
+            "runtimeTrap"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "Diagnostic": {
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "severity",
+        "category",
+        "span"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "description": "Error/Warning code (e.g., E9001, W0101). MUST match ^[EW]\\d{4}$.",
+          "pattern": "^[EW]\\d{4}$"
+        },
+        "message": {
+          "type": "string"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "category": {
+          "$ref": "#/$defs/Category"
+        },
+        "span": {
+          "$ref": "#/$defs/Span"
+        },
+        "related": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Related"
+          }
+        },
+        "fixes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/FixIt"
+          }
+        },
+        "effectSet": {
+          "$ref": "#/$defs/EffectSet"
+        },
+        "budget": {
+          "$ref": "#/$defs/Budget"
+        },
+        "typedHole": {
+          "$ref": "#/$defs/TypedHoleMeta"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fingerprint": {
+          "type": "string",
+          "description": "Stable identifier for de\u2011duplication"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Diagnostics": {
+      "type": "object",
+      "required": [
+        "diagnostics",
+        "summary"
+      ],
+      "properties": {
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Diagnostic"
+          }
+        },
+        "summary": {
+          "type": "object",
+          "required": [
+            "errorCount",
+            "warningCount"
+          ],
+          "properties": {
+            "errorCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "warningCount": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "Symbol": {
+      "type": "object",
+      "required": [
+        "name",
+        "kind",
+        "span"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "module",
+            "record",
+            "enum",
+            "trait",
+            "function",
+            "effect",
+            "modal",
+            "actor",
+            "type",
+            "alias"
+          ]
+        },
+        "span": {
+          "$ref": "#/$defs/Span"
+        },
+        "visibility": {
+          "type": "string",
+          "enum": [
+            "public",
+            "internal",
+            "private"
+          ]
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "modulePath": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "SymbolIndex": {
+      "type": "object",
+      "required": [
+        "symbols"
+      ],
+      "properties": {
+        "symbols": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Symbol"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "ModuleMetadata": {
+      "type": "object",
+      "properties": {
+        "modules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "modulePath",
+              "span"
+            ],
+            "properties": {
+              "modulePath": {
+                "type": "string"
+              },
+              "span": {
+                "$ref": "#/$defs/Span"
+              },
+              "attributes": {
+                "type": "object"
+              },
+              "metadata": {
+                "type": "object"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "EffectsReport": {
+      "type": "object",
+      "properties": {
+        "functions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "declared",
+              "observed"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "declared": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/EffectAtom"
+                }
+              },
+              "observed": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/EffectAtom"
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "VerifyReport": {
+      "type": "object",
+      "properties": {
+        "results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "item",
+              "status"
+            ],
+            "properties": {
+              "item": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "proved",
+                  "failed",
+                  "unknown"
+                ]
+              },
+              "counterexample": {
+                "type": "object"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "BuildGraph": {
+      "type": "object",
+      "properties": {
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "AST": {
+      "type": "object"
+    },
+    "IR": {
+      "type": "object"
+    }
+  },
+  "examples": [
+    {
+      "mroVersion": "1.0.0",
+      "producer": {
+        "name": "cantripc",
+        "version": "1.0.0"
+      },
+      "target": {
+        "package": "demo",
+        "rootUri": "file:///workspace/demo"
+      },
+      "timestamp": "2025-10-22T02:36:45Z",
+      "kind": "diagnostics",
+      "payload": {
+        "diagnostics": [
+          {
+            "code": "E9001",
+            "message": "Missing effect declaration: alloc.heap",
+            "severity": "error",
+            "category": "effect",
+            "span": {
+              "uri": "file:///workspace/demo/src/main.arc",
+              "start": {
+                "line": 12,
+                "column": 5
+              },
+              "end": {
+                "line": 12,
+                "column": 15
+              }
+            },
+            "fixes": [
+              {
+                "title": "Add needs alloc.heap;",
+                "toolAction": "addNeedsEffects",
+                "edits": [
+                  {
+                    "kind": "insert",
+                    "range": {
+                      "uri": "file:///workspace/demo/src/main.arc",
+                      "start": {
+                        "line": 10,
+                        "column": 1
+                      },
+                      "end": {
+                        "line": 10,
+                        "column": 1
+                      }
+                    },
+                    "insertText": "    needs alloc.heap;\n"
+                  }
+                ]
+              }
+            ],
+            "effectSet": {
+              "declared": [],
+              "observed": [
+                "alloc.heap"
+              ]
+            }
+          }
+        ],
+        "summary": {
+          "errorCount": 1,
+          "warningCount": 0
+        }
+      }
+    }
+  ]
+}
