@@ -1,4 +1,4 @@
-# Part II: Type System - §2.8. Map Types
+# Chapter 2: Type System - §2.8. Map Types
 
 **Section**: §2.8 | **Part**: Type System (Part II)
 **Previous**: [Generics](07_Generics.md) | **Next**: [Type Aliases](../PART_E_Utilities/09_TypeAliases.md)
@@ -41,11 +41,13 @@ let h = increment   // h binds to the same function value
 ```
 
 Think of it this way:
+
 - **Procedures** are like blueprints (what you declare)
 - **Functions** are like instances (what you use)
 - **Map types** are like type signatures (how you describe them)
 
 **When to use map types:**
+
 - Higher-order programming (map, filter, fold)
 - Callback parameters
 - Strategy pattern implementations
@@ -54,11 +56,13 @@ Think of it this way:
 - Zero-cost abstraction over callable code
 
 **When NOT to use map types:**
+
 - Need to capture environment variables → use closures (§2.8.5)
 - Need different function implementations → use enums with match
 - Single-use inline code → use closure expressions directly
 
 **Relationship to other features:**
+
 - **Closures (§2.8.5):** Map types are the simplest callable form; closures extend them with environment capture
 - **Methods (§2.8.6):** Procedures with explicit `self` parameter (using `$` syntax)
 - **Enums (§5):** For different callable implementations, use enums wrapping map types
@@ -72,6 +76,7 @@ Think of it this way:
 #### 2.8.2.1 Concrete Syntax
 
 **Map type syntax:**
+
 ```ebnf
 MapType ::= "map" "(" ParamTypes? ")" "->" ReturnType
 
@@ -81,6 +86,7 @@ ReturnType ::= Type
 ```
 
 **Procedure declaration syntax:**
+
 ```ebnf
 ProcedureDecl ::= "procedure" Ident GenericParams? "(" Params? ")" (":" ReturnType)? Block
 
@@ -92,12 +98,14 @@ Permission ::= "own" | "mut"
 ```
 
 **Function value creation:**
+
 ```ebnf
 FunctionValue ::= Ident                    // Named procedure
                 | ClosureExpr              // Anonymous function
 ```
 
 **Examples:**
+
 ```cantrip
 // Procedure declarations
 procedure increment(x: i32): i32 { x + 1 }
@@ -118,6 +126,7 @@ let f: map(i32) -> i32 = increment
 ```
 
 **Map types with effects:**
+
 ```ebnf
 MapTypeWithEffects ::= "map" "(" ParamTypes? ")" "->" ReturnType "!" Effects
 
@@ -125,6 +134,7 @@ Effects ::= "{" Effect ("," Effect)* "}"
 ```
 
 **Examples with effects:**
+
 ```cantrip
 // Function that performs I/O
 let logger: map(String) -> () ! {io.write} = log_message
@@ -137,6 +147,7 @@ let pure_math: map(f64, f64) -> f64 = multiply
 ```
 
 **Method syntax (procedure with self):**
+
 ```cantrip
 record Counter {
     value: i32
@@ -161,6 +172,7 @@ record Counter {
 #### 2.8.2.2 Abstract Syntax
 
 **Type representation:**
+
 ```
 τ ::= map(τ₁, ..., τₙ) → τ                 (map type)
     | map(τ₁, ..., τₙ) → τ ! ε              (map type with effects)
@@ -176,22 +188,26 @@ where:
 **Declaration vs Value (Critical Distinction):**
 
 Procedures exist in the **declaration space**:
+
 ```
 decl ::= procedure f(x₁: τ₁, ..., xₙ: τₙ): τ { e }    (procedure declaration)
 ```
 
 Functions exist in the **value space**:
+
 ```
 value ::= f                                             (procedure name referenced as value)
         | |x₁, ..., xₙ| e                              (closure expression)
 ```
 
 **The relationship:**
+
 1. You **declare** a procedure with `procedure f(...) { ... }`
 2. You **obtain** a function value by referencing `f` without calling it
 3. The function value has type `map(T₁, ..., Tₙ) → U` matching the procedure's signature
 
 **Value set (denotational semantics):**
+
 ```
 ⟦map(T₁, ..., Tₙ) → U⟧ = { v | v represents code at address addr,
                            code has signature (T₁, ..., Tₙ) → U,
@@ -199,6 +215,7 @@ value ::= f                                             (procedure name referenc
 ```
 
 **Key properties:**
+
 - **Code address:** Function values reference executable code in text segment (NOT heap/stack data)
 - **Signature:** Full type information captured in map type (arity, parameter types, return type)
 - **Non-null:** Map types cannot be null (unlike raw pointers)
@@ -210,6 +227,7 @@ value ::= f                                             (procedure name referenc
 #### 2.8.2.3 Basic Examples
 
 **Example 1: Declaration Site vs Use Site**
+
 ```cantrip
 // DECLARATION SITE: Define procedure
 procedure add_one(x: i32): i32 { x + 1 }
@@ -231,6 +249,7 @@ add_one(5)   // 6
 ```
 
 **Example 2: Multiple Procedures**
+
 ```cantrip
 // Declare two procedures
 procedure add_one(x: i32): i32 { x + 1 }
@@ -246,6 +265,7 @@ let result2 = f2(6, 7)      // 42
 ```
 
 **Example 3: Higher-Order Procedures (procedures that accept function values)**
+
 ```cantrip
 // Procedure that takes a FUNCTION VALUE as parameter
 procedure apply(f: map(i32) -> i32, x: i32): i32 {
@@ -262,6 +282,7 @@ let result2 = twice(add_one, 5)      // 7
 ```
 
 **Example 4: Returning Function Values**
+
 ```cantrip
 // Procedure that RETURNS a function value
 procedure compose<A, B, C>(
@@ -273,6 +294,7 @@ procedure compose<A, B, C>(
 ```
 
 **Example 5: What You CANNOT Do**
+
 ```cantrip
 // ❌ Cannot call a map TYPE (types aren't callable)
 let t: map(i32) -> i32 = ...
@@ -292,6 +314,7 @@ let t: map(i32) -> i32 = ...
 **Definition 10.2 (Well-Formed Map Type):** A map type is well-formed if all parameter types and the return type are well-formed in the given context.
 
 **[WF-MapType] Map type well-formedness:**
+
 ```
 [WF-MapType]
 Γ ⊢ T₁ : Type    ...    Γ ⊢ Tₙ : Type    Γ ⊢ U : Type
@@ -302,6 +325,7 @@ let t: map(i32) -> i32 = ...
 **Explanation:** A map type is well-formed if all component types are well-formed.
 
 **[WF-MapType-Effects] Map type with effects:**
+
 ```
 [WF-MapType-Effects]
 Γ ⊢ map(T₁, ..., Tₙ) → U : Type
@@ -313,6 +337,7 @@ let t: map(i32) -> i32 = ...
 **Explanation:** Effects must be a valid subset of the available effect system.
 
 **[WF-MapType-Recursive] Recursive map types:**
+
 ```
 [WF-MapType-Recursive]
 Γ ⊢ T₁ : Type    ...    Γ ⊢ Tₙ : Type
@@ -325,6 +350,7 @@ map(T₁, ..., Tₙ) → U does NOT appear negatively in U
 **Explanation:** Map types can appear recursively only in positive positions (return types, not as function parameters) to ensure well-foundedness.
 
 **[WF-MapType-Permission] Map type with permission:**
+
 ```
 [WF-MapType-Permission]
 Γ ⊢ map(T₁, ..., Tₙ) → U : Type
@@ -340,6 +366,7 @@ map(T₁, ..., Tₙ) → U does NOT appear negatively in U
 ##### Procedure Declaration Rules
 
 **[T-Procedure] Procedure declaration:**
+
 ```
 [T-Procedure]
 Γ, x₁: T₁, ..., xₙ: Tₙ ⊢ e : U
@@ -351,6 +378,7 @@ map(T₁, ..., Tₙ) → U does NOT appear negatively in U
 **Explanation:** A procedure declaration introduces a new procedure with the corresponding map type.
 
 **[T-ProcedureAsFunction] Procedure name as function value:**
+
 ```
 [T-ProcedureAsFunction]
 procedure f(x₁: T₁, ..., xₙ: Tₙ): U { e } declared in Γ
@@ -361,10 +389,12 @@ procedure f(x₁: T₁, ..., xₙ: Tₙ): U { e } declared in Γ
 **Explanation:** When a procedure name appears in expression position (not being called), it is treated as a function value. The procedure's signature `(T₁, ..., Tₙ) → U` becomes the function's map type `map(T₁, ..., Tₙ) → U`.
 
 **Key insight:** This rule bridges the declaration space and value space:
+
 - **Input:** A procedure declaration (compile-time construct)
 - **Output:** A function value (runtime construct with map type)
 
 **Example:**
+
 ```cantrip
 // DECLARATION SPACE: Procedure declaration
 procedure square(x: i32): i32 { x * x }
@@ -376,6 +406,7 @@ let f: map(i32) -> i32 = square  // Type: map(i32) -> i32
 ```
 
 **Distinction:**
+
 ```cantrip
 square(5)   // Direct call: procedure invocation (not using this rule)
 square      // Value reference: becomes function value (uses this rule)
@@ -384,6 +415,7 @@ square      // Value reference: becomes function value (uses this rule)
 ##### Function Call Rules
 
 **[T-FunctionCall] Function call through function value:**
+
 ```
 [T-FunctionCall]
 Γ ⊢ f : map(T₁, ..., Tₙ) → U
@@ -395,12 +427,14 @@ square      // Value reference: becomes function value (uses this rule)
 **Explanation:** Calling a function value with arguments of the correct types produces a value of the return type.
 
 **Example:**
+
 ```cantrip
 let f: map(i32, i32) -> i32 = add
 let result: i32 = f(10, 20)  // Type: i32
 ```
 
 **[T-FunctionCall-Effects] Function call with effects:**
+
 ```
 [T-FunctionCall-Effects]
 Γ ⊢ f : map(T₁, ..., Tₙ) → U ! ε
@@ -413,6 +447,7 @@ let result: i32 = f(10, 20)  // Type: i32
 **Explanation:** Calling a function with effects must those effects to be available in the calling context.
 
 **Example:**
+
 ```cantrip
 procedure process_data(f: map(String) -> () ! {io.write}, msg: String)
     uses io.write
@@ -424,6 +459,7 @@ procedure process_data(f: map(String) -> () ! {io.write}, msg: String)
 ##### Higher-Order Rules
 
 **[T-HigherOrder] Higher-order procedure parameter:**
+
 ```
 [T-HigherOrder]
 Γ ⊢ T₁ : Type    ...    Γ ⊢ Tₙ : Type    Γ ⊢ U : Type
@@ -435,6 +471,7 @@ procedure process_data(f: map(String) -> () ! {io.write}, msg: String)
 **Explanation:** Procedures can accept functions as parameters (higher-order procedures).
 
 **Example:**
+
 ```cantrip
 procedure map<T, U>(transform: map(T) -> U, items: [T]): Vec<U>
     uses alloc.heap
@@ -448,6 +485,7 @@ procedure map<T, U>(transform: map(T) -> U, items: [T]): Vec<U>
 ```
 
 **[T-ReturnFunction] Procedure returning function:**
+
 ```
 [T-ReturnFunction]
 Γ ⊢ e : map(T₁, ..., Tₙ) → U
@@ -458,6 +496,7 @@ procedure map<T, U>(transform: map(T) -> U, items: [T]): Vec<U>
 **Explanation:** Procedures can return functions (currying, partial application).
 
 **Example:**
+
 ```cantrip
 procedure make_adder(x: i32): map(i32) -> i32 {
     |y| x + y  // Returns closure
@@ -467,6 +506,7 @@ procedure make_adder(x: i32): map(i32) -> i32 {
 ##### Subtyping Rules
 
 **[Sub-MapType] Map type subtyping (contravariant/covariant):**
+
 ```
 [Sub-MapType]
 T₂ <: T₁    ...    Tₙ' <: Tₙ    (contravariant in parameters)
@@ -478,6 +518,7 @@ map(T₁, ..., Tₙ) → U <: map(T₂, ..., Tₙ') → U'
 **Explanation:** Map types are contravariant in parameters (can accept more general inputs) and covariant in return type (can return more specific outputs). This is the Liskov Substitution Principle for functions.
 
 **Example:**
+
 ```cantrip
 // If String <: Object and i32 <: f64:
 // map(Object) -> i32 <: map(String) -> f64
@@ -489,6 +530,7 @@ procedure process_object(f: map(Object) -> i32, s: String) {
 ```
 
 **[Sub-MapType-Effects] Effect subtyping:**
+
 ```
 [Sub-MapType-Effects]
 map(T₁, ..., Tₙ) → U <: map(T₁, ..., Tₙ) → U
@@ -500,6 +542,7 @@ map(T₁, ..., Tₙ) → U ! ε₁ <: map(T₁, ..., Tₙ) → U ! ε₂
 **Explanation:** A function with fewer effects can substitute for one requiring more effects (contravariance on effects).
 
 **[Sub-MapType-Never] Never type in return:**
+
 ```
 [Sub-MapType-Never]
 ─────────────────────────────────────────────────────
@@ -511,6 +554,7 @@ map(T₁, ..., Tₙ) → ! <: map(T₁, ..., Tₙ) → U
 ##### Permission Integration Rules
 
 **[T-MapType-Owned] Owned function value:**
+
 ```
 [T-MapType-Owned]
 Γ ⊢ f : map(T₁, ..., Tₙ) → U
@@ -521,6 +565,7 @@ map(T₁, ..., Tₙ) → ! <: map(T₁, ..., Tₙ) → U
 **Explanation:** Function values can be owned (though they're typically zero-sized).
 
 **[T-MapType-Move] Moving function values:**
+
 ```
 [T-MapType-Move]
 Γ ⊢ f : own map(T₁, ..., Tₙ) → U
@@ -533,6 +578,7 @@ map(T₁, ..., Tₙ) → ! <: map(T₁, ..., Tₙ) → U
 **Explanation:** Function values can be moved, transferring ownership (though in practice they're often Copy).
 
 **[T-MapType-Copy] Function values are Copy:**
+
 ```
 [T-MapType-Copy]
 ─────────────────────────────────────────────────────
@@ -544,6 +590,7 @@ map(T₁, ..., Tₙ) → U : Copy
 ##### Arity and Currying Rules
 
 **[T-MapType-ZeroArity] Zero-argument functions:**
+
 ```
 [T-MapType-ZeroArity]
 Γ ⊢ U : Type
@@ -554,6 +601,7 @@ map(T₁, ..., Tₙ) → U : Copy
 **Explanation:** Functions can take zero arguments.
 
 **Example:**
+
 ```cantrip
 procedure get_random(): i32
     uses random
@@ -565,6 +613,7 @@ let f: map() -> i32 = get_random
 ```
 
 **[T-MapType-Curry] Currying transformation:**
+
 ```
 [T-MapType-Curry]
 Γ ⊢ f : map(T₁, T₂) → U
@@ -575,6 +624,7 @@ curry(f) : map(T₁) -> map(T₂) -> U
 **Explanation:** Multi-parameter functions can be curried into nested single-parameter functions.
 
 **Example:**
+
 ```cantrip
 procedure curry<A, B, C>(f: map(A, B) -> C): map(A) -> map(B) -> C {
     |a| |b| f(a, b)
@@ -584,6 +634,7 @@ procedure curry<A, B, C>(f: map(A, B) -> C): map(A) -> map(B) -> C {
 ##### Generic Map Type Rules
 
 **[T-MapType-Generic] Generic map types:**
+
 ```
 [T-MapType-Generic]
 Γ, α : Type ⊢ T₁ : Type    ...    Γ, α : Type ⊢ Tₙ : Type
@@ -595,6 +646,7 @@ procedure curry<A, B, C>(f: map(A, B) -> C): map(A) -> map(B) -> C {
 **Explanation:** Map types can be generic over type parameters.
 
 **Example:**
+
 ```cantrip
 procedure identity<T>(x: T): T { x }
 
@@ -602,6 +654,7 @@ let f: map<T>(T) -> T = identity
 ```
 
 **[T-MapType-Generic-Call] Calling generic functions:**
+
 ```
 [T-MapType-Generic-Call]
 Γ ⊢ f : map<α>(T₁, ..., Tₙ) → U
@@ -616,6 +669,7 @@ let f: map<T>(T) -> T = identity
 ##### Effect Composition Rules
 
 **[T-MapType-EffectComposition] Effect propagation:**
+
 ```
 [T-MapType-EffectComposition]
 Γ ⊢ f : map(T₁, ..., Tₙ) → U ! ε₁
@@ -627,6 +681,7 @@ let f: map<T>(T) -> T = identity
 **Explanation:** Composing functions with effects produces a function with the union of effects.
 
 **[T-MapType-EffectRequired] Effect availability check:**
+
 ```
 [T-MapType-EffectRequired]
 Γ ⊢ f : map(T₁, ..., Tₙ) → U ! ε
@@ -640,6 +695,7 @@ let f: map<T>(T) -> T = identity
 ##### Type Equivalence Rules
 
 **[Equiv-MapType] Map type equivalence:**
+
 ```
 [Equiv-MapType]
 T₁ ≡ T₁'    ...    Tₙ ≡ Tₙ'    U ≡ U'
@@ -650,6 +706,7 @@ map(T₁, ..., Tₙ) → U ≡ map(T₁', ..., Tₙ') → U'
 **Explanation:** Map types are equivalent if their parameter types and return type are pairwise equivalent.
 
 **[Equiv-MapType-Eta] Eta equivalence:**
+
 ```
 [Equiv-MapType-Eta]
 Γ ⊢ f : map(T₁, ..., Tₙ) → U
@@ -666,6 +723,7 @@ f ≡ |x₁, ..., xₙ| f(x₁, ..., xₙ)
 **Theorem 10.1 (Type Safety):**
 
 If `Γ ⊢ f : map(T₁, ..., Tₙ) → U` and `Γ ⊢ eᵢ : Tᵢ` for all `i`, then `⟨f(e₁, ..., eₙ), σ⟩` either:
+
 1. Evaluates to a value of type `U`, or
 2. Diverges (infinite loop or recursion), or
 3. Panics (explicit failure)
@@ -697,6 +755,7 @@ If `T₂ <: T₁` then `map(T₁) → U <: map(T₂) → U`.
 **Proof sketch:** A function accepting more general inputs (T₁) can safely substitute for one requiring more specific inputs (T₂), by Liskov Substitution Principle.
 
 **Example:**
+
 ```cantrip
 // String <: Object
 // map(Object) -> bool <: map(String) -> bool
@@ -728,6 +787,7 @@ Map type subtyping is transitive: if `F <: G` and `G <: H`, then `F <: H`.
 **Theorem 10.7 (Eta Equivalence):**
 
 For any function `f : map(T₁, ..., Tₙ) → U`, we have:
+
 ```
 f ≡ |x₁: T₁, ..., xₙ: Tₙ| f(x₁, ..., xₙ)
 ```
@@ -737,6 +797,7 @@ f ≡ |x₁: T₁, ..., xₙ: Tₙ| f(x₁, ..., xₙ)
 **Theorem 10.8 (Beta Equivalence):**
 
 For any lambda `|x: T| e` and value `v : T`:
+
 ```
 (|x: T| e)(v) ≡ e[x ↦ v]
 ```
@@ -754,6 +815,7 @@ Map types compile to direct function calls with no runtime indirection, vtable l
 **Property 10.1 (Memory Representation):**
 
 Map types have zero size:
+
 ```
 sizeof(map(T₁, ..., Tₙ) → U) = 0 bytes
 ```
@@ -763,6 +825,7 @@ sizeof(map(T₁, ..., Tₙ) → U) = 0 bytes
 **Property 10.2 (Copy Semantics):**
 
 Map types (without environment capture) are `Copy`:
+
 ```
 ∀ T₁, ..., Tₙ, U. map(T₁, ..., Tₙ) → U : Copy
 ```
@@ -774,6 +837,7 @@ Map types (without environment capture) are `Copy`:
 #### 2.8.4.1 Evaluation Rules
 
 **[E-ProcedureValue] Procedure value evaluation:**
+
 ```
 [E-ProcedureValue]
 procedure f(...) { body } declared at address addr
@@ -784,6 +848,7 @@ procedure f(...) { body } declared at address addr
 **Explanation:** A named procedure evaluates to a function value pointing to its code address. The store is unchanged because no allocation occurs.
 
 **[E-FunctionCall] Function call evaluation:**
+
 ```
 [E-FunctionCall]
 ⟨f, σ⟩ ⇓ ⟨fn_val(addr), σ₁⟩
@@ -798,6 +863,7 @@ procedure f(...) { body } declared at address addr
 **Explanation:** Function call evaluates the function expression, evaluates each argument left-to-right, then executes the function body with parameters substituted by argument values.
 
 **[E-FunctionCall-Direct] Direct function call optimization:**
+
 ```
 [E-FunctionCall-Direct]
 procedure f(x₁, ..., xₙ) { body } known at compile time
@@ -810,6 +876,7 @@ procedure f(x₁, ..., xₙ) { body } known at compile time
 **Explanation:** When the function is known at compile time, the call can be directly compiled without indirection.
 
 **[E-HigherOrder] Higher-order function call:**
+
 ```
 [E-HigherOrder]
 ⟨f_arg, σ⟩ ⇓ ⟨fn_val(addr), σ₁⟩
@@ -822,6 +889,7 @@ procedure f(x₁, ..., xₙ) { body } known at compile time
 **Explanation:** When passing a function as an argument, the function value is passed directly (zero-sized), then the receiving function can call it.
 
 **[E-ReturnFunction] Returning function value:**
+
 ```
 [E-ReturnFunction]
 ⟨e, σ⟩ ⇓ ⟨fn_val(addr), σ'⟩
@@ -832,6 +900,7 @@ procedure f(x₁, ..., xₙ) { body } known at compile time
 **Explanation:** Procedures can return function values. The returned value is the code address.
 
 **[E-Compose] Function composition:**
+
 ```
 [E-Compose]
 ⟨f, σ⟩ ⇓ ⟨fn_val(addr_f), σ₁⟩
@@ -844,6 +913,7 @@ compose_fn(addr_f, addr_g) = addr_composed
 **Explanation:** Function composition creates a new function that calls both functions in sequence.
 
 **[E-PartialApply] Partial application:**
+
 ```
 [E-PartialApply]
 ⟨f, σ⟩ ⇓ ⟨fn_val(addr), σ₁⟩
@@ -911,6 +981,7 @@ Raw fn pointer (*fn)    8               None           None (C FFI)
 **Calling convention:**
 
 Function calls use standard calling conventions (platform-dependent):
+
 - **x86-64:** System V AMD64 ABI (Linux/Unix) or Microsoft x64 (Windows)
 - **ARM64:** AAPCS64
 - Parameters passed in registers first, then stack
@@ -926,6 +997,7 @@ let result = f(10, 20)
 ```
 
 Compiles to (x86-64 assembly):
+
 ```asm
 add:
     mov eax, edi        ; x in edi
@@ -946,6 +1018,7 @@ main:
 **Call-by-value semantics:**
 
 Cantrip uses strict call-by-value evaluation:
+
 1. Evaluate function expression to code address
 2. Evaluate arguments left-to-right
 3. Pass argument values to function
@@ -953,6 +1026,7 @@ Cantrip uses strict call-by-value evaluation:
 5. Return result value
 
 **Example:**
+
 ```cantrip
 procedure expensive_computation(): i32
     uses io.write
@@ -1019,6 +1093,7 @@ let y = add_one(42)  // Compiled to: let y = 42 + 1
 **Stack frame layout:**
 
 Function calls create stack frames with:
+
 ```
 ┌─────────────────────────────┐
 │ Return address              │
@@ -1049,6 +1124,7 @@ Parameter passing          1-2 cycles per register
 #### 2.8.5.1 Closure Syntax
 
 **Closure expression syntax:**
+
 ```ebnf
 ClosureExpr ::= "|" ParamList? "|" Expr
               | "|" ParamList? "|" "->" Type Expr
@@ -1058,6 +1134,7 @@ Param ::= Ident (":" Type)?
 ```
 
 **Examples:**
+
 ```cantrip
 // No parameters
 let f = || 42
@@ -1085,18 +1162,21 @@ let complex = |x| {
 Closures can capture variables from their environment in three ways:
 
 1. **By immutable value** (default):
+
 ```cantrip
 let x = 42
 let f = || x + 1  // Captures x (Copy)
 ```
 
 2. **By mutable capture** (if closure mutates):
+
 ```cantrip
 var count = 0
 let mut increment = || { count += 1; }  // Captures count mutably
 ```
 
 3. **By move** (takes ownership):
+
 ```cantrip
 let s = String.from("hello")
 let f = move || s.len()  // Captures own String
@@ -1108,6 +1188,7 @@ let f = move || s.len()  // Captures own String
 Closures implement one of three traits based on their capture behavior:
 
 **Fn trait (immutable access):**
+
 ```cantrip
 trait Fn<Args> {
     type Output
@@ -1116,12 +1197,14 @@ trait Fn<Args> {
 ```
 
 Example:
+
 ```cantrip
 let x = 10
 let f = |y| x + y  // Closure capturing &x: inferred type <closure(i32) => i32>
 ```
 
 **FnMut contract (mutable access):**
+
 ```cantrip
 contract FnMut<Args> {
     type Output
@@ -1130,12 +1213,14 @@ contract FnMut<Args> {
 ```
 
 Example:
+
 ```cantrip
 var count = 0
 let f = || { count += 1; count }  // Closure capturing count mutably
 ```
 
 **FnOnce contract (consumes captured values):**
+
 ```cantrip
 contract FnOnce<Args> {
     type Output
@@ -1144,6 +1229,7 @@ contract FnOnce<Args> {
 ```
 
 Example:
+
 ```cantrip
 let s = String.from("data")
 let f = move || s.len()  // Closure with move, consumes String
@@ -1152,6 +1238,7 @@ let f = move || s.len()  // Closure with move, consumes String
 #### 2.8.5.4 Closure Type Rules
 
 **[T-Closure-Simple] Closure without capture:**
+
 ```
 [T-Closure-Simple]
 Γ, x₁: T₁, ..., xₙ: Tₙ ⊢ e : U
@@ -1163,6 +1250,7 @@ no free variables in e
 **Explanation:** Closures without environment capture have map type.
 
 **[T-Closure-Capture-Immut] Closure with immutable capture:**
+
 ```
 [T-Closure-Capture-Immut]
 Γ, x₁: T₁, ..., xₙ: Tₙ ⊢ e : U
@@ -1175,6 +1263,7 @@ all yᵢ used immutably in e
 **Explanation:** Closures capturing immutable references have closure type implementing `Fn` contract.
 
 **[T-Closure-Capture-Mut] Closure with mutable capture:**
+
 ```
 [T-Closure-Capture-Mut]
 Γ, x₁: T₁, ..., xₙ: Tₙ ⊢ e : U
@@ -1187,6 +1276,7 @@ some yᵢ used mutably in e
 **Explanation:** Closures requiring mutable access to captured variables implement `FnMut` contract.
 
 **[T-Closure-Move] Closure with move capture:**
+
 ```
 [T-Closure-Move]
 Γ, x₁: T₁, ..., xₙ: Tₙ ⊢ e : U
@@ -1202,6 +1292,7 @@ free_vars(e) = {y₁: S₁, ..., yₘ: Sₘ} ⊆ Γ
 #### 2.8.5.5 Closure Memory Representation
 
 **Without captures (zero-sized):**
+
 ```
 Closure with no captures:
 ┌────────────────────┐
@@ -1210,6 +1301,7 @@ Closure with no captures:
 ```
 
 **With captures:**
+
 ```
 Closure with captures:
 ┌────────────────────────────┐
@@ -1224,6 +1316,7 @@ Alignment: max alignment of captured variables
 ```
 
 **Example:**
+
 ```cantrip
 let x: i32 = 10
 let y: f64 = 3.14
@@ -1253,11 +1346,13 @@ record TypeName {
 ```
 
 **Self parameter forms:**
+
 - `$` — Immutable self (desugars to `self: Self`)
 - `mut $` — Mutable self (desugars to `self: mut Self`)
 - `own $` — Owned self (desugars to `self: own Self`)
 
 **Examples:**
+
 ```cantrip
 record Counter {
     value: i32
@@ -1287,6 +1382,7 @@ record Counter {
 #### 2.8.6.2 Method Type Rules
 
 **[T-Method-Immut] Immutable method:**
+
 ```
 [T-Method-Immut]
 record T { procedure m($, x₁: T₁, ..., xₙ: Tₙ): U { e } }
@@ -1296,6 +1392,7 @@ record T { procedure m($, x₁: T₁, ..., xₙ: Tₙ): U { e } }
 ```
 
 **[T-Method-Call] Method call:**
+
 ```
 [T-Method-Call]
 Γ ⊢ obj : T
@@ -1323,109 +1420,55 @@ Counter::increment(counter)
 // Both are equivalent
 ```
 
-### 2.8.7 Examples and Patterns
+## 2.8.7 Related Sections
 
-#### 2.8.7.1 Higher-Order Procedures Pattern
+- See §2.1 for [Primitive Types](../PART_A_Primitives/01_PrimitiveTypes.md) - functions using primitive parameters and returns
+- See §2.2 for [Product Types](../PART_B_Composite/02_ProductTypes.md) - functions with tuple/record parameters
+- See §2.3 for [Sum Types](../PART_B_Composite/03_SumTypes.md) - functions returning Result/Option
+- See §2.5 for [Pointers](../PART_C_References/05_Pointers.md) - distinction between map types and raw function pointers
+- See §2.6 for [Traits](06_Traits.md) - Fn/FnMut/FnOnce traits for closures
+- See §2.7 for [Generics](07_Generics.md) - generic functions and type parameters
+- See §2.10 for [Self Type](../PART_E_Utilities/10_SelfType.md) - the $ (self) parameter in methods
+- See Part III (Permissions) for permission semantics with function values
+- See Part V (Effects) for effect tracking in map types
+- See Part VI (Procedures) for procedure declaration and implementation details
+- **Examples**: See [08_MapExamples.md](../Examples/08_MapExamples.md) for practical function and closure patterns
 
-**Map implementation:**
-```cantrip
-procedure map<T, U>(transform: map(T) -> U, items: [T; n]): Vec<U>
-    uses alloc.heap
-{
-    var result = Vec.with_capacity(n)
-    for item in items {
-        result.push(transform(item))
-    }
-    result
-}
+## 2.8.8 Notes and Warnings
 
-// Usage
-procedure square(x: i32): i32 { x * x }
-let numbers = [1, 2, 3, 4, 5]
-let squared = map(square, numbers)  // Vec[1, 4, 9, 16, 25]
-```
+**Note 1 (Terminology):** Cantrip distinguishes between *procedures* (what you declare), *functions* (first-class values), and *map types* (the type system representation). This differs from languages that use "function" for all three concepts.
 
-#### 2.8.7.2 Function Composition Pattern
+**Note 2 (Zero-Size Functions):** Function values without captured environment are zero-sized at runtime. They compile to direct calls with no allocation or indirection.
 
-**Composing functions:**
-```cantrip
-procedure compose<A, B, C>(
-    f: map(B) -> C,
-    g: map(A) -> B
-): map(A) -> C {
-    |x| f(g(x))
-}
+**Note 3 (Static Dispatch):** All map type calls use static dispatch (compile-time resolution). There is no dynamic dispatch or vtable lookup for plain function values.
 
-// Usage
-procedure add_one(x: i32): i32 { x + 1 }
-procedure double(x: i32): i32 { x * 2 }
+**Note 4 (Non-Nullable):** Map types cannot be null, unlike raw function pointers in FFI contexts. Use Option<map(T) -> U> for nullable functions.
 
-let add_then_double = compose(double, add_one)
-let result = add_then_double(5)  // (5 + 1) * 2 = 12
-```
+**Note 5 (Copy Semantics):** Function values (without environment capture) implement Copy trait. Passing a function value creates no copies at runtime.
 
-#### 2.8.7.3 Callback Pattern
+**Note 6 (Closure Capture):** Closures can capture variables by immutable reference (Fn), mutable reference (FnMut), or by move (FnOnce). Capture mode is inferred from closure body.
 
-**Event handling with callbacks:**
-```cantrip
-record Button {
-    label: String
-    on_click: map()
+**Note 7 (Method Sugar):** The `$` parameter is syntactic sugar for `self: Permission Self`. Methods can be called as `obj.method()` or `Type::method(obj)` (UFCS).
 
-    procedure new(label: String, callback: map()): own Self {
-        own Self {
-            label,
-            on_click: callback,
-        }
-    }
+**Note 8 (Contravariance):** Map types are contravariant in parameters (accept more general inputs) and covariant in returns (return more specific outputs).
 
-    procedure click($) {
-        std.io.println(format!("Clicked: {}", $.label))
-        ($.on_click)()  // Call the callback
-    }
-}
+**Warning 1 (Closure Size):** Closures with captured environment have non-zero size equal to the sum of captured variable sizes. Large captures can impact performance.
 
-// Usage
-procedure handle_submit() {
-    std.io.println("Form submitted!")
-}
+**Warning 2 (Move Closures):** The `move` keyword forces ownership transfer of all captured variables. Original variables become inaccessible after closure creation.
 
-let button = Button.new("Submit", handle_submit)
-button.click()
-```
+**Warning 3 (Recursive Map Types):** Map types can appear recursively only in positive positions (return types, not parameters) to ensure well-foundedness.
 
-#### 2.8.7.4 Strategy Pattern with Functions
+**Warning 4 (Effect Requirements):** Functions with effects (`map(T) -> U ! {e}`) can only be called in contexts where those effects are available via `uses` declarations.
 
-**Different algorithms via function parameters:**
-```cantrip
-enum SortOrder {
-    Ascending,
-    Descending,
-}
+**Performance Note 1 (Inlining):** Small functions are typically inlined at call sites, eliminating call overhead entirely. Use `#[inline]` attributes to control inlining.
 
-procedure sort<T>(
-    items: mut Vec<T>,
-    compare: map(T, T) -> bool
-) {
-    // Sorting implementation using compare function
-    for i in 0..items.len() {
-        for j in (i + 1)..items.len() {
-            if compare(items[j], items[i]) {
-                items.swap(i, j)
-            }
-        }
-    }
-}
+**Performance Note 2 (Tail Call Optimization):** Cantrip implementations should optimize tail calls to prevent stack overflow in recursive functions. Tail-recursive functions compile to loops.
 
-// Usage
-var numbers = vec![5, 2, 8, 1, 9]
+**Performance Note 3 (Monomorphization):** Generic functions are monomorphized - separate code generated for each concrete type instantiation. This enables full optimization but increases binary size.
 
-// Sort ascending
-sort(mut numbers, |a, b| a < b)
+**Implementation Note 1 (Calling Conventions):** Function calls follow platform-specific calling conventions (System V AMD64, Microsoft x64, AAPCS64). First parameters pass in registers, remainder on stack.
 
-// Sort descending
-sort(mut numbers, |a, b| a > b)
-```
+**Implementation Note 2 (Function Pointers for FFI):** For C FFI, use raw function pointers (`*fn`) instead of map types. Map types are Cantrip-specific and don't match C ABI.
 
 ---
 

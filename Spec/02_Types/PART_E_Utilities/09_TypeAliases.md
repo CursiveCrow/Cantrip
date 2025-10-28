@@ -1,4 +1,4 @@
-# Part II: Type System - §2.9. Type Aliases
+# Chapter 2: Type System - §2.9. Type Aliases
 
 **Section**: §2.9 | **Part**: Type System (Part II)
 **Previous**: [Function Types](../PART_D_Abstraction/08_FunctionTypes.md) | **Next**: [Self Type](10_SelfType.md)
@@ -14,6 +14,7 @@
 **Key innovation/purpose:** Type aliases provide meaningful names for complex types, improving code readability and maintainability without introducing runtime overhead or new type distinctions.
 
 **When to use type aliases:**
+
 - Simplify complex type signatures (function pointers, nested generics)
 - Document domain-specific meanings of types
 - Reduce repetition of lengthy type expressions
@@ -23,6 +24,7 @@
 - Define project-specific vocabulary for types
 
 **When NOT to use type aliases:**
+
 - Need distinct types with different semantics → use newtype pattern (`record Name(T);`)
 - Need different trait implementations → use newtype pattern
 - Want to prevent accidental type confusion → use newtype pattern
@@ -30,6 +32,7 @@
 - Simple types that don't need renaming → use original type directly
 
 **Relationship to other features:**
+
 - **Newtype Pattern (§4):** Records with single fields create distinct nominal types
 - **Associated Types (§6.5):** Type aliases within trait definitions for polymorphism
 - **Generics (§7):** Type aliases can be parameterized by type variables
@@ -41,6 +44,7 @@
 #### 2.9.2.1 Concrete Syntax
 
 **Grammar:**
+
 ```ebnf
 TypeAlias     ::= "type" Ident GenericParams? WhereClauses? "=" Type ";"
 GenericParams ::= "<" TypeParam ("," TypeParam)* ">"
@@ -50,6 +54,7 @@ WhereClause   ::= Type ":" Bound ("+" Bound)*
 ```
 
 **Syntax:**
+
 ```cantrip
 // Simple type alias
 type Kilometers = f64
@@ -71,6 +76,7 @@ type StringMap<V> = HashMap<String, V>
 #### 2.9.2.2 Abstract Syntax
 
 **Formal representation:**
+
 ```
 TypeDef ::= type A<α₁, ..., αₙ> = τ
 
@@ -81,6 +87,7 @@ where:
 ```
 
 **Type equivalence rule:**
+
 ```
 [Equiv-Alias]
 type A<α₁, ..., αₙ> = τ
@@ -89,39 +96,19 @@ A<τ₁, ..., τₙ> ≡ τ[α₁ ↦ τ₁, ..., αₙ ↦ τₙ]
 ```
 
 **Components:**
+
 - **Alias name:** Identifier introducing the new type name
 - **Type parameters:** Optional generic parameters `<α₁, ..., αₙ>`
 - **Target type:** The type being aliased (right-hand side)
 - **Where clauses:** Optional trait bounds on type parameters
 
-#### 2.9.2.3 Basic Examples
-
-```cantrip
-// Domain-specific type vocabulary
-type UserId = u64
-type Temperature = f32
-type Timestamp = i64
-
-// Function pointer aliases
-type Predicate<T> = fn(T) => bool
-type Comparator<T> = fn(T, T) => i32
-
-// Collection aliases
-type StringList = Vec<String>
-type IntSet = HashSet<i32>
-
-// Result type shortcuts
-type IoResult<T> = Result<T, IoError>
-type ParseResult = Result<i32, ParseError>
-```
-
-**Explanation:** These examples show how type aliases create readable names for types that would otherwise require verbose repetition. Aliases are fully transparent and can be used interchangeably with their definitions.
 
 ### 2.9.3 Static Semantics
 
 #### 2.9.3.1 Well-Formedness Rules
 
 **Definition 11.2 (Well-Formed Type Alias):** A type alias `type A<α₁, ..., αₙ> = τ` is well-formed if:
+
 1. The target type τ is well-formed under the given type parameters
 2. All type parameters appear in τ (no unused parameters)
 3. All trait bounds in where clauses are satisfiable
@@ -139,6 +126,7 @@ No cycles: A ∉ FV(τ)      (non-recursive)
 **Well-formedness examples:**
 
 **Valid:**
+
 ```cantrip
 type Point2D = (f64, f64)                    // ✓ Well-formed
 type Callback<T> = fn(T) => Option<T>       // ✓ Generic parameter used
@@ -146,6 +134,7 @@ type Matrix<T> = Vec<Vec<T>> where T: Num   // ✓ Bounded parameter used
 ```
 
 **Invalid:**
+
 ```cantrip
 type Invalid<T> = String    // ✗ Unused type parameter T
 type Cycle = Vec<Cycle>     // ✗ Recursive without indirection
@@ -155,6 +144,7 @@ type Bad<T> = fn(U) => T    // ✗ Free variable U not in parameters
 #### 2.9.3.2 Type Rules
 
 **[T-TypeAlias] Type Alias Declaration:**
+
 ```
 [T-TypeAlias]
 Γ ⊢ τ : Type
@@ -173,6 +163,7 @@ let x: f64 = d             // ✓ Transparent, no conversion needed
 ```
 
 **[T-TypeAliasInst] Generic Type Alias Instantiation:**
+
 ```
 [T-TypeAliasInst]
 type A<α₁, ..., αₙ> = τ declared
@@ -191,6 +182,7 @@ let q: (i32, i32) = p            // ✓ Transparent equivalence
 ```
 
 **[T-AliasTransparency] Transparency Rule:**
+
 ```
 [T-AliasTransparency]
 type A = τ
@@ -217,6 +209,7 @@ is_adult(years)  // ✓ u32 can be passed where Age expected
 ```
 
 **[T-AliasSubstitution] Substitution in Types:**
+
 ```
 [T-AliasSubstitution]
 type A = τ₁
@@ -235,6 +228,7 @@ type GameState = HashMap<String, Score>
 ```
 
 **[T-AliasBounds] Bounded Type Alias:**
+
 ```
 [T-AliasBounds]
 type A<α> = τ where α: Trait
@@ -258,6 +252,7 @@ let cmp: Comparator<i32> = |a, b| a - b
 ```
 
 **[T-AliasNesting] Nested Type Aliases:**
+
 ```
 [T-AliasNesting]
 type A = τ₁
@@ -277,6 +272,7 @@ type Cache = HashMap<Key, Value>
 ```
 
 **[T-AliasFunction] Function Type Aliases:**
+
 ```
 [T-AliasFunction]
 type F = fn(τ₁, ..., τₙ) → τ
@@ -299,6 +295,7 @@ function apply(op: BinaryOp, x: i32, y: i32) => i32 {
 ```
 
 **[T-AliasInference] Type Inference with Aliases:**
+
 ```
 [T-AliasInference]
 type A = τ
@@ -317,6 +314,7 @@ let indices = vec![1, 2, 3]  // Inferred as Vec<Index> or Vec<usize>
 ```
 
 **[T-AliasError] Error Reporting with Aliases:**
+
 ```
 [T-AliasError]
 type A = τ
@@ -338,6 +336,7 @@ get_user("invalid")
 ```
 
 **[T-AliasVisibility] Visibility and Scope:**
+
 ```
 [T-AliasVisibility]
 type A = τ declared in module M
@@ -361,6 +360,7 @@ let v: Vector = (1.0, 2.0, 3.0)  // ✓ Public alias accessible
 ```
 
 **[T-AliasRecursive] Recursive Types with Indirection:**
+
 ```
 [T-AliasRecursive]
 type List<T> = Option<Ptr<(T, List<T>)>@Exclusive>
@@ -382,6 +382,7 @@ let list: List<i32> = Some(Ptr.new(&(1, None)))
 ```
 
 **[T-AliasAssociated] Associated Type Aliases:**
+
 ```
 [T-AliasAssociated]
 trait I { type A; }
@@ -412,6 +413,7 @@ impl Container for Vec<i32> {
 ```
 
 **[T-AliasEffect] Type Aliases with Effects:**
+
 ```
 [T-AliasEffect]
 type F = fn(τ₁) → τ₂ ! ε
@@ -430,6 +432,7 @@ let log: Logger = |msg| println(msg)
 ```
 
 **[T-AliasPermission] Type Aliases with Permissions:**
+
 ```
 [T-AliasPermission]
 type A = π τ    (alias includes permission)
@@ -447,6 +450,7 @@ type MutableVec<T> = mut Vec<T>
 ```
 
 **[T-AliasConversion] No Implicit Conversion:**
+
 ```
 [T-AliasConversion]
 type A = τ
@@ -470,6 +474,7 @@ let value: f64 = distance    // ✓ No conversion, same type
 ```
 
 **[T-AliasCopy] Trait Implementation Inheritance:**
+
 ```
 [T-AliasCopy]
 type A = τ
@@ -522,6 +527,7 @@ let p3 = p1.copy()  // ✓ Explicit copy because (i32, i32) is Copy
 Type aliases have no evaluation rules because they are purely compile-time constructs. They are erased before code generation.
 
 **[E-AliasErased] Compile-Time Erasure:**
+
 ```
 [E-AliasErased]
 type A = τ
@@ -549,6 +555,7 @@ Align(type A = τ) = Align(τ)
 ```
 
 **Examples:**
+
 ```cantrip
 type Coordinate = (f32, f32)
 // Size: 8 bytes (2 × f32)
@@ -582,23 +589,25 @@ let sum = i + j  // Same as: 5_usize + 10_usize
 The **newtype pattern** uses single-field record types to create distinct nominal types. Unlike type aliases, newtypes are not transparent and provide type safety through nominal distinctions.
 
 **Syntax:**
+
 ```cantrip
 record NewtypeName(InnerType)
 ```
 
 **Comparison with Type Aliases:**
 
-| Feature | Type Alias | Newtype Pattern |
-|---------|------------|----------------|
-| **Type equivalence** | Transparent (`A ≡ τ`) | Distinct nominal type |
-| **Type safety** | No protection | Prevents mixing similar types |
-| **Trait implementations** | Inherited from target | Custom implementations possible |
-| **Conversion** | Automatic (same type) | Explicit field access |
-| **Use case** | Readability, abbreviation | Type safety, abstraction |
+| Feature                   | Type Alias                | Newtype Pattern                 |
+| ------------------------- | ------------------------- | ------------------------------- |
+| **Type equivalence**      | Transparent (`A ≡ τ`)     | Distinct nominal type           |
+| **Type safety**           | No protection             | Prevents mixing similar types   |
+| **Trait implementations** | Inherited from target     | Custom implementations possible |
+| **Conversion**            | Automatic (same type)     | Explicit field access           |
+| **Use case**              | Readability, abbreviation | Type safety, abstraction        |
 
 **Examples:**
 
 **Type alias (transparent):**
+
 ```cantrip
 type Meters = f64
 type Feet = f64
@@ -611,6 +620,7 @@ let sum = m + f  // ✓ Compiles but semantically wrong
 ```
 
 **Newtype pattern (distinct types):**
+
 ```cantrip
 record Meters(f64)
 record Feet(f64)
@@ -630,12 +640,14 @@ let sum_meters = m.0 + feet_to_meters(f).0  // ✓ Explicit
 ```
 
 **When to use newtype pattern:**
+
 - **Type safety:** Prevent accidental mixing of similar types (currencies, units, IDs)
 - **Trait encapsulation:** Provide different trait implementations than inner type
 - **Abstraction:** Hide implementation details behind a nominal type
 - **API stability:** Inner type can change without breaking API
 
 **Example: Preventing ID confusion**
+
 ```cantrip
 record UserId(u64)
 record ProductId(u64)
@@ -655,6 +667,7 @@ get_user(product_id)   // ✗ ERROR: Expected UserId, found ProductId
 Generic type aliases allow parameterization by type variables, enabling reusable type abbreviations.
 
 **Syntax:**
+
 ```cantrip
 type AliasName<T1, T2, ...> = ComplexType<T1, T2, ...>
 ```
@@ -662,6 +675,7 @@ type AliasName<T1, T2, ...> = ComplexType<T1, T2, ...>
 **Examples:**
 
 **Standard library patterns:**
+
 ```cantrip
 // Result type with fixed error type
 type IoResult<T> = Result<T, IoError>
@@ -674,6 +688,7 @@ function read_config(): IoResult<Config> {
 ```
 
 **Collection type aliases:**
+
 ```cantrip
 type StringMap<V> = HashMap<String, V>
 type IntSet = HashSet<i32>
@@ -684,6 +699,7 @@ let grid: Matrix<f64> = vec![vec![1.0, 2.0], vec![3.0, 4.0]]
 ```
 
 **Function type aliases:**
+
 ```cantrip
 type Predicate<T> = fn(T) => bool
 type Transform<T, U> = fn(T) => U
@@ -695,6 +711,7 @@ function filter<T>(items: Vec<T>, pred: Predicate<T>) => Vec<T> {
 ```
 
 **Trait-bounded generic aliases:**
+
 ```cantrip
 type Comparator<T> = fn(T, T) => i32
     where T: Ord
@@ -707,6 +724,7 @@ type Cloner<T> = fn(T) => T
 ```
 
 **Complex nested generics:**
+
 ```cantrip
 // Simplify callback signatures
 type AsyncCallback<T> = fn(Result<T, Error>) => ()
@@ -718,176 +736,52 @@ type Graph<N, E> = HashMap<N, Vec<(N, E)>>
 type Cache<K, V> = Arc<Mutex<HashMap<K, V>>>
 ```
 
-### 2.9.7 Examples and Patterns
+## 2.9.7 Related Sections
 
-#### 2.9.7.1 Domain-Specific Type Vocabulary
+- See §2.1 for [Primitive Types](../PART_A_Primitives/01_PrimitiveTypes.md) - primitive types as alias targets
+- See §2.2 for [Product Types](../PART_B_Composite/02_ProductTypes.md) - tuple and record types in aliases
+- See §2.3 for [Sum Types](../PART_B_Composite/03_SumTypes.md) - enum types and newtype pattern
+- See §2.4 for [Collection Types](../PART_B_Composite/04_CollectionTypes.md) - collection type aliases
+- See §2.6 for [Traits](../PART_D_Abstraction/06_Traits.md) - trait bounds in generic aliases
+- See §2.7 for [Generics](../PART_D_Abstraction/07_Generics.md) - generic type parameters in aliases
+- See §2.8 for [Map Types](../PART_D_Abstraction/08_MapTypes.md) - function type aliases
+- See Part VIII (Modules) for type alias visibility and imports
+- **Examples**: See [09_TypeAliasExamples.md](../Examples/09_TypeAliasExamples.md) for practical alias patterns
 
-**Pattern:** Create a vocabulary of domain-specific types for clarity.
+## 2.9.8 Notes and Warnings
 
-```cantrip
-// Physics simulation
-type Position = (f64, f64, f64)
-type Velocity = (f64, f64, f64)
-type Mass = f64
-type Force = (f64, f64, f64)
+**Note 1 (Transparency):** Type aliases are completely transparent - they create alternative names, not new types. `type A = B` means A and B are interchangeable everywhere.
 
-record Particle {
-    position: Position
-    velocity: Velocity
-    mass: Mass
-}
+**Note 2 (Zero Cost):** Type aliases have zero runtime cost. They exist only at compile time for improved readability and documentation.
 
-function apply_force(p: Particle, f: Force, dt: f64) => Particle {
-    let acceleration = (f.0 / p.mass, f.1 / p.mass, f.2 / p.mass)
-    let new_velocity = (
-        p.velocity.0 + acceleration.0 * dt,
-        p.velocity.1 + acceleration.1 * dt,
-        p.velocity.2 + acceleration.2 * dt
-    )
-    let new_position = (
-        p.position.0 + new_velocity.0 * dt,
-        p.position.1 + new_velocity.1 * dt,
-        p.position.2 + new_velocity.2 * dt
-    )
+**Note 3 (Generic Aliases):** Type aliases can have generic parameters, enabling parameterized abbreviations like `type Result<T> = Result<T, MyError>`.
 
-    Particle {
-        position: new_position,
-        velocity: new_velocity,
-        mass: p.mass
-    }
-}
-```
+**Note 4 (Recursive Aliases):** Type aliases can be recursive if they appear through indirection (pointer, Box, etc.): `type List<T> = Option<Box<(T, List<T>)>>`.
 
-**Explanation:** Type aliases create a shared vocabulary that makes physics code self-documenting. Position, Velocity, and Force are all `(f64, f64, f64)` but the names communicate intent.
+**Note 5 (No Separate Implementations):** You cannot implement traits specifically for a type alias. Trait implementations apply to the underlying type.
 
-#### 2.9.7.2 Simplifying Complex Function Types
+**Note 6 (Newtype for Safety):** For type safety (preventing misuse of similar types), use the newtype pattern (single-field records) instead of type aliases.
 
-**Pattern:** Use type aliases to make function pointer types readable.
+**Note 7 (Module Visibility):** Type aliases respect module visibility. Private aliases are only accessible within their defining module.
 
-```cantrip
-// Without aliases (verbose and unclear)
-function process_data(
-    data: Vec<i32>,
-    transform: fn(i32) => f64,
-    filter: fn(f64) => bool,
-    fold: fn(f64, f64) => f64
-) => f64 {
-    data.iter()
-        .map(transform)
-        .filter(filter)
-        .fold(0.0, fold)
-}
+**Note 8 (Documentation):** Type aliases serve as inline documentation, making complex types self-explanatory. Use them to communicate intent.
 
-// With aliases (clear and concise)
-type Transform = fn(i32) => f64
-type Filter = fn(f64) => bool
-type Reducer = fn(f64, f64) => f64
+**Warning 1 (No Type Safety):** Type aliases provide NO type safety. `type Meters = f64` and `type Feet = f64` are both `f64` and can be mixed accidentally.
 
-function process_data(
-    data: Vec<i32>,
-    transform: Transform,
-    filter: Filter,
-    fold: Reducer
-) => f64 {
-    data.iter()
-        .map(transform)
-        .filter(filter)
-        .fold(0.0, fold)
-}
+**Warning 2 (Confusing Errors):** Compiler error messages may show either the alias name or the expanded type, potentially causing confusion.
 
-// Usage
-let t: Transform = |x| x as f64 * 2.0
-let f: Filter = |x| x > 0.0
-let r: Reducer = |acc, x| acc + x
+**Warning 3 (Infinite Recursion):** Direct recursive aliases without indirection are invalid: `type Foo = (i32, Foo)` causes infinite expansion. Use `type Foo = (i32, Box<Foo>)`.
 
-process_data(vec![1, 2, 3], t, f, r)
-```
+**Warning 4 (Cannot Override):** You cannot "override" or "refine" an alias. `type A = B` in one module and `type A = C` in another creates a conflict if both are imported.
 
-**Explanation:** Type aliases make function signatures more readable and easier to maintain. Changes to callback signatures only need to be made in one place.
+**Performance Note 1:** Type aliases have literally zero runtime overhead. All alias resolution happens at compile time.
 
-#### 2.9.7.3 Result Type Specialization
+**Performance Note 2:** Using aliases for complex generic types (like `HashMap<K, V>`) doesn't affect performance - the generated code is identical to using the full type name.
 
-**Pattern:** Create specialized Result types for different error contexts.
+**Implementation Note 1:** Compilers typically implement type aliases through simple substitution during type checking and name resolution.
 
-```cantrip
-// Define error types for different subsystems
-record IoError { message: String; }
-record ParseError { line: usize; message: String; }
-record NetworkError { code: i32; message: String; }
-
-// Create specialized Result aliases
-type IoResult<T> = Result<T, IoError>
-type ParseResult<T> = Result<T, ParseError>
-type NetworkResult<T> = Result<T, NetworkError>
-
-// Functions use domain-specific result types
-function read_file(path: String): IoResult<String>
-    uses io.read
-{
-    // Implementation
-    ...
-}
-
-function parse_config(content: String): ParseResult<Config> {
-    // Implementation
-    ...
-}
-
-function fetch_data(url: String): NetworkResult<String>
-    uses io.network
-{
-    // Implementation
-    ...
-}
-
-// Usage clearly indicates error context
-let config_result = read_file("config.txt")
-    .and_then(|content| parse_config(content))
-```
-
-**Explanation:** Specialized Result types make error handling more explicit and self-documenting. The function signature immediately tells you what kind of errors to expect.
-
-#### 2.9.7.4 API Evolution with Type Aliases
-
-**Pattern:** Use type aliases to create stable public APIs that can evolve internally.
-
-```cantrip
-// Public API (stable)
-pub type ConnectionId = u64
-
-// Internal implementation (can change)
-record Connection {
-    id: ConnectionId
-    socket: TcpStream
-    buffer: Vec<u8>
-}
-
-pub function connect(addr: String) => Result<ConnectionId, Error> {
-    // Create connection
-    let conn = Connection {
-        id: generate_id(),
-        socket: TcpStream::connect(addr)?,
-        buffer: Vec::new()
-    }
-
-    // Store connection and return ID
-    store_connection(conn)
-    Ok(conn.id)
-}
-
-pub function send(id: ConnectionId, data: Vec<u8>) => Result<(), Error> {
-    let conn = get_connection(id)?
-    conn.socket.write(data)?
-    Ok(())
-}
-
-// Later, can change ConnectionId implementation without breaking API
-// pub type ConnectionId = (u64, u32)  // Add generation counter
-// pub type ConnectionId = Uuid         // Switch to UUID
-```
-
-**Explanation:** The public API uses `ConnectionId`, allowing internal representation to change without breaking client code. This is more flexible than exposing the concrete type directly.
+**Implementation Note 2:** Debuggers may show aliased types by their underlying representation, not the alias name. This is implementation-dependent.
 
 ---
 
-**Previous**: [Function Types](../PART_D_Abstraction/08_FunctionTypes.md) | **Next**: [Self Type](10_SelfType.md)
+**Previous**: [Map Types](../PART_D_Abstraction/08_MapTypes.md) | **Next**: [Self Type](10_SelfType.md)

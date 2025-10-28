@@ -1,4 +1,4 @@
-# Part II: Type System - §2.1 Primitive Types
+# Chapter 2: Type System - §2.1 Primitive Types
 
 **Section**: §2.1 | **Part**: Type System (Part II)
 **Previous**: [Type System Introduction](../00_Introduction.md) | **Next**: [Product Types](../PART_B_Composite/02_ProductTypes.md)
@@ -10,6 +10,7 @@
 This section specifies Cantrip's primitive types, which form the foundation of the type system. Primitive types are built into the language and cannot be defined by users.
 
 **Primitive type categories:**
+
 - **Integer types** (§2.1.1): Fixed-width signed and unsigned integers
 - **Floating-point types** (§2.1.2): IEEE 754 binary floating-point numbers
 - **Boolean type** (§2.1.3): Two-valued logic (`true`, `false`)
@@ -21,13 +22,13 @@ This section specifies Cantrip's primitive types, which form the foundation of t
 
 ## 2.1.1 Integer Types
 
-## 5.1 Integer Types
 
 ##### 2.1.1.1 Overview
 
 **Key innovation/purpose:** Explicit integer sizes enable precise control over memory layout, numeric ranges, and FFI interoperability, essential for systems programming.
 
 **When to use integer types:**
+
 - Counting, indexing, and iteration (prefer `usize` for indices)
 - Arithmetic computations with known ranges
 - Bit manipulation and low-level operations
@@ -36,12 +37,14 @@ This section specifies Cantrip's primitive types, which form the foundation of t
 - Performance-critical numeric code
 
 **When NOT to use integer types:**
+
 - Arbitrary-precision arithmetic → use BigInt library
 - Fractional numbers → use floating-point types (§2.1.1)
 - Boolean flags → use `bool` type (§2.1.1)
 - Text/characters → use `char` or string types
 
 **Relationship to other features:**
+
 - **Default integer type**: Integer literals without suffix default to `i32`
 - **Overflow behavior**: Debug mode panics, release mode wraps (two's complement)
 - **Type inference**: Context-sensitive (function signatures, annotations)
@@ -53,6 +56,7 @@ This section specifies Cantrip's primitive types, which form the foundation of t
 #### Concrete Syntax
 
 **Type syntax:**
+
 ```ebnf
 IntType     ::= SignedInt | UnsignedInt
 SignedInt   ::= "i8" | "i16" | "i32" | "i64" | "isize"
@@ -60,6 +64,7 @@ UnsignedInt ::= "u8" | "u16" | "u32" | "u64" | "usize"
 ```
 
 **Literal syntax:**
+
 ```ebnf
 IntLiteral  ::= DecLiteral TypeSuffix?
               | HexLiteral TypeSuffix?
@@ -81,6 +86,7 @@ BinDigit    ::= [0-1]
 ```
 
 **Examples:**
+
 ```cantrip
 // Decimal literals
 let a: i32 = 42
@@ -100,70 +106,21 @@ let bin: u8 = 0b1010_1010
 #### Abstract Syntax
 
 **Types:**
+
 ```
 τ ::= i8 | i16 | i32 | i64 | isize      (signed integers)
     | u8 | u16 | u32 | u64 | usize      (unsigned integers)
 ```
 
 **Values:**
+
 ```
 v ::= n    (integer value)
 ```
 
-#### Basic Examples
-
-**Integer literals in various bases:**
-```cantrip
-// Decimal (base 10)
-let decimal: i32 = 42
-let negative: i16 = -128
-
-// Hexadecimal (base 16)
-let hex: u32 = 0xDEAD_BEEF
-let small_hex: u8 = 0xFF
-
-// Octal (base 8)
-let octal: i16 = 0o755
-
-// Binary (base 2)
-let binary: u8 = 0b1010_1010
-```
-
-**Explanation:** Integer literals can be written in decimal, hexadecimal (0x prefix), octal (0o prefix), or binary (0b prefix) notation. Underscores can be used as visual separators for readability and are ignored by the compiler.
-
-**Type annotations and inference:**
-```cantrip
-// Explicit type annotation
-let age: u8 = 30
-let population: u64 = 8_000_000_000
-
-// Type suffix
-let small = 100u8
-let large = 1_000_000u64
-
-// Default inference (i32)
-let default = 42  // Inferred as i32
-```
-
-**Explanation:** Integer types can be specified via explicit type annotations, type suffixes on literals, or inferred from context. Without explicit specification, integer literals default to `i32`.
-
-**Basic arithmetic operations:**
-```cantrip
-let a: i32 = 10
-let b: i32 = 3
-
-let sum = a + b        // 13
-let diff = a - b       // 7
-let product = a * b    // 30
-let quotient = a / b   // 3 (integer division)
-let remainder = a % b  // 1
-```
-
-**Explanation:** Integer types support standard arithmetic operations. Division truncates toward zero, and modulo preserves the sign of the left operand.
-
 ##### 2.1.1.3 Static Semantics
 
-#### Well-Formedness Rules
+###### Well-Formedness Rules
 
 ```
 [WF-Int-Type]
@@ -198,11 +155,13 @@ n ∈ ⟦T⟧    (n fits in range of T)
 ```
 
 **Type inference priority:**
+
 1. Explicit suffix (highest priority): `42u64` → `u64`
 2. Context from annotation: `let x: u8 = 42` → `u8`
 3. Default type: `let x = 42` → `i32` (lowest priority)
 
 **Examples:**
+
 ```cantrip
 let x = 42           // Type: i32 (default)
 let y: u8 = 42       // Type: u8 (context)
@@ -216,18 +175,18 @@ let w: i8 = 200      // ERROR E5101: 200 doesn't fit in i8 range [-128, 127]
 
 For each integer type T, the value set ⟦T⟧ is defined as:
 
-| Type | Value Set ⟦T⟧ | Min Value | Max Value | Size | Align |
-|------|---------------|-----------|-----------|------|-------|
-| `i8` | ℤ ∩ [-2⁷, 2⁷-1] | -128 | 127 | 1 byte | 1 byte |
-| `i16` | ℤ ∩ [-2¹⁵, 2¹⁵-1] | -32,768 | 32,767 | 2 bytes | 2 bytes |
-| `i32` | ℤ ∩ [-2³¹, 2³¹-1] | -2,147,483,648 | 2,147,483,647 | 4 bytes | 4 bytes |
-| `i64` | ℤ ∩ [-2⁶³, 2⁶³-1] | -9,223,372,036,854,775,808 | 9,223,372,036,854,775,807 | 8 bytes | 8 bytes |
-| `isize` | ℤ ∩ [-2ⁿ⁻¹, 2ⁿ⁻¹-1] | Platform-dependent | Platform-dependent | Platform | Platform |
-| `u8` | ℕ ∩ [0, 2⁸-1] | 0 | 255 | 1 byte | 1 byte |
-| `u16` | ℕ ∩ [0, 2¹⁶-1] | 0 | 65,535 | 2 bytes | 2 bytes |
-| `u32` | ℕ ∩ [0, 2³²-1] | 0 | 4,294,967,295 | 4 bytes | 4 bytes |
-| `u64` | ℕ ∩ [0, 2⁶⁴-1] | 0 | 18,446,744,073,709,551,615 | 8 bytes | 8 bytes |
-| `usize` | ℕ ∩ [0, 2ⁿ-1] | 0 | Platform-dependent | Platform | Platform |
+| Type    | Value Set ⟦T⟧       | Min Value                  | Max Value                  | Size     | Align    |
+| ------- | ------------------- | -------------------------- | -------------------------- | -------- | -------- |
+| `i8`    | ℤ ∩ [-2⁷, 2⁷-1]     | -128                       | 127                        | 1 byte   | 1 byte   |
+| `i16`   | ℤ ∩ [-2¹⁵, 2¹⁵-1]   | -32,768                    | 32,767                     | 2 bytes  | 2 bytes  |
+| `i32`   | ℤ ∩ [-2³¹, 2³¹-1]   | -2,147,483,648             | 2,147,483,647              | 4 bytes  | 4 bytes  |
+| `i64`   | ℤ ∩ [-2⁶³, 2⁶³-1]   | -9,223,372,036,854,775,808 | 9,223,372,036,854,775,807  | 8 bytes  | 8 bytes  |
+| `isize` | ℤ ∩ [-2ⁿ⁻¹, 2ⁿ⁻¹-1] | Platform-dependent         | Platform-dependent         | Platform | Platform |
+| `u8`    | ℕ ∩ [0, 2⁸-1]       | 0                          | 255                        | 1 byte   | 1 byte   |
+| `u16`   | ℕ ∩ [0, 2¹⁶-1]      | 0                          | 65,535                     | 2 bytes  | 2 bytes  |
+| `u32`   | ℕ ∩ [0, 2³²-1]      | 0                          | 4,294,967,295              | 4 bytes  | 4 bytes  |
+| `u64`   | ℕ ∩ [0, 2⁶⁴-1]      | 0                          | 18,446,744,073,709,551,615 | 8 bytes  | 8 bytes  |
+| `usize` | ℕ ∩ [0, 2ⁿ-1]       | 0                          | Platform-dependent         | Platform | Platform |
 
 Where n = pointer width (32 or 64 bits depending on target architecture).
 
@@ -240,12 +199,14 @@ All integer types implement the `Copy` trait:
 ```
 
 **Semantics:**
+
 - Integers pass by permission (reference-like) by default
 - The `.copy()` method creates an explicit duplicate when needed
 - Small size (1-8 bytes) makes copying cheap when explicitly requested
 - Assignment creates permission bindings, not copies
 
 **Example:**
+
 ```cantrip
 let x: i32 = 42
 let y = x           // y binds to x's value, both usable (permission binding)
@@ -272,6 +233,7 @@ let result = double(x)  // x passed by permission, still usable after
 #### Evaluation Rules
 
 **Literal evaluation:**
+
 ```
 [E-Int]
 ────────────────
@@ -349,6 +311,7 @@ Alignment: 8 bytes
 **Two's complement representation (signed):**
 
 For signed integer n of bit-width w:
+
 ```
 If n ≥ 0: binary representation of n
 If n < 0: binary representation of 2^w + n
@@ -363,6 +326,7 @@ Example (i8):
 **Byte order:**
 
 Cantrip follows the platform's native byte order:
+
 - **Little-endian** (x86, x86-64, ARM64): Least significant byte first
 - **Big-endian** (some RISC architectures): Most significant byte first
 
@@ -396,6 +360,7 @@ Release mode (wrapping):
 ```
 
 **Examples:**
+
 ```cantrip
 // u8: range [0, 255]
 let x: u8 = 255
@@ -473,158 +438,21 @@ let result = min / -1  // Would be 128, which overflows i8
 // Release: result = -128 (wraps)
 ```
 
-##### 2.1.1.5 Examples and Patterns
-
-#### Type Annotation and Inference
-
-**Explicit types:**
-```cantrip
-let age: u8 = 30
-let population: u64 = 8_000_000_000
-let temperature: i16 = -40
-```
-
-**Type inference from context:**
-```cantrip
-function calculate(x: f32): f32 {
-    x * 2.0
-}
-
-let numbers: Vec<i64> = Vec.new()
-numbers.push(42)  // 42 inferred as i64
-
-function process(bytes: [u8; 4]) { ... }
-process([1, 2, 3, 4])  // Literals inferred as u8
-```
-
-#### Safe Integer Operations
-
-**Checked arithmetic:**
-```cantrip
-function safe_add(a: u32, b: u32): Option<u32> {
-    a.checked_add(b)
-}
-
-match safe_add(u32::MAX, 1) {
-    Some(result) -> println("Result: {result}"),
-    None -> println("Overflow detected"),
-}
-```
-
-**Saturating arithmetic (clamps at bounds):**
-```cantrip
-function bounded_increment(counter: u8): u8 {
-    counter.saturating_add(1)
-}
-
-let x: u8 = 255
-assert!(bounded_increment(x) == 255)  // Clamps at max
-```
-
-**Wrapping arithmetic (explicit wrap-around):**
-```cantrip
-function hash_combine(h1: u64, h2: u64): u64 {
-    h1.wrapping_mul(31).wrapping_add(h2)
-}
-```
-
-#### Bit Manipulation
-
-**Bitwise operations:**
-```cantrip
-let a: u8 = 0b1010_1010
-let b: u8 = 0b1100_0011
-
-let and = a & b         // 0b1000_0010
-let or  = a | b         // 0b1110_1011
-let xor = a ^ b         // 0b0110_1001
-let not = !a            // 0b0101_0101
-
-// Bit shifts
-let left = a << 2       // 0b1010_1000 (logical shift)
-let right = a >> 2      // 0b0010_1010 (logical for unsigned)
-
-// Signed right shift (arithmetic)
-let neg: i8 = -64       // 0b1100_0000
-let arith = neg >> 2    // 0b1111_0000 (-16, sign-extended)
-```
-
-#### Type Conversions
-
-**Explicit casts:**
-```cantrip
-let a: i32 = 42
-let b: i64 = a as i64       // Widening cast (safe)
-
-let large: i64 = 1_000_000
-let small: i32 = large as i32  // Narrowing cast (truncates high bits)
-
-// Sign conversions
-let signed: i32 = -1
-let unsigned: u32 = signed as u32  // Bit pattern reinterpretation
-// unsigned = 4294967295 (0xFFFFFFFF)
-```
-
-**Safe conversions:**
-```cantrip
-function safe_downcast(x: i64): Option<i32> {
-    if x >= i32::MIN as i64 && x <= i32::MAX as i64 {
-        Some(x as i32)
-    } else {
-        None
-    }
-}
-
-// Or using TryFrom trait
-use std::convert::TryFrom
-
-let x: i64 = 42
-let y = i32::try_from(x)?  // Returns Result<i32, Error>
-```
-
-#### Platform-Specific Code
-
-**Using isize/usize:**
-```cantrip
-// Array indexing (always use usize)
-function get_element<T>(arr: [T], index: usize): Option<T>
-    where T: Copy
-{
-    if index < arr.len() {
-        Some(arr[index])
-    } else {
-        None
-    }
-}
-
-// Pointer arithmetic (use isize for offsets)
-function offset_ptr<T>(ptr: *T, offset: isize): *T {
-    unsafe {
-        ptr.offset(offset)
-    }
-}
-
-// Memory sizes and alignments (use usize)
-let size: usize = std::mem::size_of::<MyStruct>()
-let align: usize = std::mem::align_of::<MyStruct>()
-```
-
 ---
 
 **Parent**: [Primitive Types](01_PrimitiveTypes.md) | **Next**: [Floating-Point Types](01b_FloatingPoint.md)
-
 
 ---
 
 ## 2.1.2 Floating-Point Types
 
-## 5.2 Floating-Point Types
 
 ##### 2.1.2.1 Overview
 
 **Key innovation/purpose:** IEEE 754-compliant floating-point provides standardized, hardware-accelerated real number approximations with well-defined behavior for special values (±∞, NaN).
 
 **When to use floating-point:**
+
 - Scientific and engineering calculations
 - Graphics and game development (positions, transforms)
 - Financial calculations (with appropriate precision considerations)
@@ -632,12 +460,14 @@ let align: usize = std::mem::align_of::<MyStruct>()
 - Approximate real number representations
 
 **When NOT to use floating-point:**
+
 - Exact decimal arithmetic → use fixed-point or decimal types
 - Integers → use integer types (§2.1.2)
 - Equality comparisons → use epsilon-based comparisons
 - Cryptographic operations → require exact integer arithmetic
 
 **Relationship to other features:**
+
 - **Default float type**: Float literals default to `f64`
 - **Special values**: ±0, ±∞, NaN with IEEE 754 semantics
 - **NaN propagation**: Operations with NaN produce NaN
@@ -649,11 +479,13 @@ let align: usize = std::mem::align_of::<MyStruct>()
 #### Concrete Syntax
 
 **Type syntax:**
+
 ```ebnf
 FloatType ::= "f32" | "f64"
 ```
 
 **Literal syntax:**
+
 ```ebnf
 FloatLiteral ::= DecFloatLit TypeSuffix?
                | DecLiteral Exponent TypeSuffix?
@@ -665,6 +497,7 @@ TypeSuffix   ::= "f32" | "f64"
 ```
 
 **Examples:**
+
 ```cantrip
 // Basic floating-point literals
 let pi: f64 = 3.14159
@@ -685,11 +518,13 @@ let large: f64 = 299_792_458.0  // Speed of light (m/s)
 #### Abstract Syntax
 
 **Types:**
+
 ```
 τ ::= f32 | f64
 ```
 
 **Values:**
+
 ```
 v ::= f    (floating-point value, including ±0, ±∞, NaN)
 ```
@@ -730,6 +565,7 @@ T ∈ {f32, f64}
 ```
 
 **Examples:**
+
 ```cantrip
 let x = 3.14         // Type: f64 (default)
 let y: f32 = 3.14    // Type: f32 (context)
@@ -742,10 +578,10 @@ let z = 3.14f32      // Type: f32 (suffix)
 
 Cantrip floating-point types conform to IEEE 754-2008:
 
-| Type | Format | Sign bits | Exponent bits | Mantissa bits | Total bits |
-|------|--------|-----------|---------------|---------------|------------|
-| `f32` | binary32 | 1 | 8 | 23 | 32 |
-| `f64` | binary64 | 1 | 11 | 52 | 64 |
+| Type  | Format   | Sign bits | Exponent bits | Mantissa bits | Total bits |
+| ----- | -------- | --------- | ------------- | ------------- | ---------- |
+| `f32` | binary32 | 1         | 8             | 23            | 32         |
+| `f64` | binary64 | 1         | 11            | 52            | 64         |
 
 **Theorem 5.2.2 (Value Set):**
 
@@ -762,10 +598,12 @@ Cantrip floating-point types conform to IEEE 754-2008:
 ```
 
 **Precision:**
+
 - `f32`: ~7 decimal digits of precision
 - `f64`: ~15-17 decimal digits of precision
 
 **Range:**
+
 - `f32`: ±1.18 × 10⁻³⁸ to ±3.40 × 10³⁸
 - `f64`: ±2.23 × 10⁻³⁰⁸ to ±1.80 × 10³⁰⁸
 
@@ -774,6 +612,7 @@ Cantrip floating-point types conform to IEEE 754-2008:
 #### Evaluation Rules
 
 **Literal evaluation:**
+
 ```
 [E-Float]
 ────────────────
@@ -805,6 +644,7 @@ f₁ ≠ 0
 #### Memory Representation
 
 **f32 memory layout (4 bytes):**
+
 ```
 IEEE 754 single-precision:
 ┌─┬────────┬───────────────────────┐
@@ -820,6 +660,7 @@ Components:
 ```
 
 **f64 memory layout (8 bytes):**
+
 ```
 IEEE 754 double-precision:
 ┌─┬───────────┬────────────────────────────────────────────────┐
@@ -880,158 +721,31 @@ NaN == x = false
 1.0 / -0.0 = -∞
 ```
 
-##### 2.1.2.5 Examples and Patterns
-
-#### Safe Floating-Point Comparison
-
-**Epsilon-based comparison:**
-```cantrip
-function approx_equal(a: f64, b: f64, epsilon: f64): bool {
-    (a - b).abs() < epsilon
-}
-
-const EPSILON: f64 = 1e-10
-
-let x = 0.1 + 0.2
-let y = 0.3
-
-// Direct comparison unreliable due to rounding:
-assert!(x != y)  // May fail due to floating-point precision
-
-// Use epsilon comparison:
-assert!(approx_equal(x, y, EPSILON))
-```
-
-**Relative epsilon comparison:**
-```cantrip
-function relative_eq(a: f64, b: f64, epsilon: f64): bool {
-    let abs_diff = (a - b).abs()
-    let largest = a.abs().max(b.abs())
-    abs_diff <= largest * epsilon
-}
-```
-
-#### Handling Special Values
-
-**Check for special values:**
-```cantrip
-function safe_compute(x: f64): Option<f64> {
-    if x.is_nan() {
-        None  // NaN detected
-    } else if x.is_infinite() {
-        None  // Infinity detected
-    } else if x.is_finite() {
-        Some(compute(x))  // Normal value
-    } else {
-        None
-    }
-}
-
-function classify(x: f64): str {
-    if x.is_nan() { "NaN" }
-    else if x.is_infinite() {
-        if x > 0.0 { "+Infinity" } else { "-Infinity" }
-    }
-    else if x == 0.0 {
-        if x.is_sign_positive() { "+0" } else { "-0" }
-    }
-    else if x.is_normal() { "Normal" }
-    else { "Subnormal" }
-}
-```
-
-#### Mathematical Operations
-
-**Common mathematical functions:**
-```cantrip
-let x: f64 = 2.0
-
-// Exponential and logarithmic
-let exp_x = x.exp()           // e^x
-let ln_x = x.ln()             // natural log
-let log10_x = x.log10()       // base-10 log
-let log2_x = x.log2()         // base-2 log
-
-// Trigonometric
-let sin_x = x.sin()
-let cos_x = x.cos()
-let tan_x = x.tan()
-let atan2_y_x = y.atan2(x)    // arctangent of y/x
-
-// Power and roots
-let sqrt_x = x.sqrt()         // square root
-let cbrt_x = x.cbrt()         // cube root
-let pow_x_y = x.powf(y)       // x^y
-
-// Rounding
-let floor_x = x.floor()       // round down
-let ceil_x = x.ceil()         // round up
-let round_x = x.round()       // round to nearest
-let trunc_x = x.trunc()       // truncate toward zero
-```
-
-#### Type Conversions
-
-**Float-to-float:**
-```cantrip
-let x: f64 = 3.14159265358979323846
-let y: f32 = x as f32  // Precision loss: 3.1415927
-```
-
-**Float-to-integer:**
-```cantrip
-let f: f64 = 3.7
-let i: i32 = f as i32  // Truncates: i = 3
-
-// Saturating conversion
-let large: f64 = 1e100
-let saturated: i32 = large as i32  // i32::MAX (saturates)
-
-let neg_large: f64 = -1e100
-let saturated_neg: i32 = neg_large as i32  // i32::MIN
-
-// NaN/Infinity conversion
-let nan: f64 = 0.0 / 0.0
-let nan_int: i32 = nan as i32  // 0 (implementation-defined)
-
-let inf: f64 = 1.0 / 0.0
-let inf_int: i32 = inf as i32  // i32::MAX (saturates)
-```
-
-**Integer-to-float:**
-```cantrip
-let i: i64 = 123456789
-let f: f32 = i as f32  // May lose precision for large integers
-
-// Exact conversion (if in range)
-let small: i32 = 42
-let exact: f64 = small as f64  // 42.0 (exact)
-```
-
-
 ---
 
 ## 2.1.3 Boolean Type
 
-## 5.3 Boolean Type
 
 ##### 2.1.3.1 Overview
 
 **Key innovation/purpose:** `bool` provides type-safe two-valued logic with short-circuit evaluation for conditional expressions, essential for control flow and predicate logic.
 
 **When to use bool:**
+
 - Conditional control flow (if, while, match guards)
 - Logical predicates and assertions
 - Boolean flags and state indicators
 - Function return values for yes/no questions
 
 **When NOT to use bool:**
+
 - Multiple states → use enums (§9)
 - Optional presence → use `Option<T>`
 - Numeric values → use integer types (§2.1.3)
 - Bitwise operations on multiple flags → use integer bit masks
 
 **Relationship to other features:**
+
 - **Control flow**: Boolean expressions control `if`, `while`, `match` guards
 - **Short-circuit evaluation**: `&&` and `||` operators short-circuit
 - **Pattern matching**: `true` and `false` are patterns
@@ -1043,12 +757,14 @@ let exact: f64 = small as f64  // 42.0 (exact)
 #### Concrete Syntax
 
 **Type and literal syntax:**
+
 ```ebnf
 BoolType    ::= "bool"
 BoolLiteral ::= "true" | "false"
 ```
 
 **Examples:**
+
 ```cantrip
 let flag: bool = true
 let is_valid = false
@@ -1061,11 +777,13 @@ if flag {
 #### Abstract Syntax
 
 **Type:**
+
 ```
 τ ::= bool
 ```
 
 **Values:**
+
 ```
 v ::= true | false
 ```
@@ -1113,6 +831,7 @@ bool : Copy
 ```
 
 **Semantics:**
+
 - Booleans pass by permission (reference-like) by default
 - The `.copy()` method creates an explicit duplicate when needed
 - Single-byte size makes copying trivial when explicitly requested
@@ -1129,6 +848,7 @@ align(bool) = 1 byte
 #### Evaluation Rules
 
 **Literal evaluation:**
+
 ```
 [E-Bool-True]
 ────────────────────────
@@ -1226,6 +946,7 @@ Logical NOT (¬):
 ```
 
 **Examples:**
+
 ```cantrip
 // Short-circuit prevents division by zero
 let safe = (y != 0) && (x / y > 10)
@@ -1243,177 +964,17 @@ true == false  = false
 true != false  = true
 ```
 
-##### 2.1.3.5 Examples and Patterns
-
-#### Conditional Logic
-
-**If expressions:**
-```cantrip
-let x = 42
-let result = if x > 0 {
-    "positive"
-} else if x < 0 {
-    "negative"
-} else {
-    "zero"
-}
-```
-
-**Match with boolean:**
-```cantrip
-let is_valid: bool = check_input()
-
-match is_valid {
-    true -> process_data(),
-    false -> show_error(),
-}
-```
-
-#### Logical Predicates
-
-**Predicate functions:**
-```cantrip
-function is_even(n: i32): bool {
-    n % 2 == 0
-}
-
-function is_prime(n: u64): bool {
-    if n < 2 { return false }
-    if n == 2 { return true }
-    if n % 2 == 0 { return false }
-
-    let limit = (n as f64).sqrt() as u64
-    for i in (3..=limit).step_by(2) {
-        if n % i == 0 { return false }
-    }
-    true
-}
-
-function is_palindrome(s: str): bool {
-    s == s.chars().rev().collect::<String>()
-}
-```
-
-#### Boolean Combinations
-
-**Complex conditions:**
-```cantrip
-function is_leap_year(year: i32): bool {
-    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
-}
-
-function in_range(value: i32, min: i32, max: i32): bool {
-    value >= min && value <= max
-}
-
-function is_valid_username(name: str): bool {
-    let len = name.len()
-    len >= 3 && len <= 20 && name.chars().all(|c| c.is_alphanumeric() || c == '_')
-}
-```
-
-#### Loop Conditions
-
-**While loops:**
-```cantrip
-let mut running: bool = true
-let mut count = 0
-
-while running {
-    count += 1
-    if count >= 10 {
-        running = false
-    }
-}
-```
-
-**Loop with break:**
-```cantrip
-let mut found: bool = false
-
-loop {
-    let item = get_next_item()
-    if item == target {
-        found = true
-        break
-    }
-    if item == null {
-        break
-    }
-}
-```
-
-#### Assertions and Contracts
-
-**Runtime assertions:**
-```cantrip
-function divide(x: f64, y: f64): f64
-    must y != 0.0
-{
-    assert!(y != 0.0, "division by zero")
-    x / y
-}
-
-function process_valid_data(data: [u8])
-    must data.len() > 0
-    must data[0] == MAGIC_BYTE
-    will result.is_valid()
-{
-    assert!(!data.is_empty())
-    assert_eq!(data[0], MAGIC_BYTE)
-    // ...
-}
-```
-
-#### Boolean Flags
-
-**State flags:**
-```cantrip
-record ConnectionState {
-    connected: bool
-    authenticated: bool
-    encrypted: bool
-
-    procedure is_ready(self: ConnectionState): bool {
-        self.connected && self.authenticated && self.encrypted
-    }
-
-    procedure can_send_data(self: ConnectionState): bool {
-        self.connected && self.encrypted
-    }
-}
-```
-
-**When to use enum instead:**
-
-```cantrip
-// BAD: Many related booleans
-record FileState {
-    is_open: bool
-    is_closed: bool
-    is_error: bool
-}  // Mutually exclusive states → should be enum!
-
-// GOOD: Use enum for mutually exclusive states
-enum FileState {
-    Open,
-    Closed,
-    Error(String),
-}
-```
-
-
 ---
 
 ## 2.1.4 Character Type
 
-## 5.4 Character Type
 
 ##### 2.1.4.1 Overview
 
 **Key innovation/purpose:** `char` provides Unicode-correct character handling by representing Unicode scalar values (not bytes or code units), ensuring text processing correctness for international text.
 
 **When to use char:**
+
 - Single Unicode characters (grapheme clusters may require strings)
 - Character-by-character text processing
 - Unicode codepoint manipulation
@@ -1421,12 +982,14 @@ enum FileState {
 - Text parsing and lexical analysis
 
 **When NOT to use char:**
+
 - Text strings → use `str` or `String` types
 - Byte data → use `u8` type
 - ASCII-only data → use `u8` with appropriate validation
 - Grapheme clusters (user-perceived characters) → use string libraries
 
 **Relationship to other features:**
+
 - **UTF-32 encoding**: Each `char` is 4 bytes (one Unicode scalar value)
 - **No type inference**: Character literals always have type `char`
 - **Unicode correctness**: Surrogate pairs (U+D800-U+DFFF) are invalid
@@ -1438,6 +1001,7 @@ enum FileState {
 #### Concrete Syntax
 
 **Type and literal syntax:**
+
 ```ebnf
 CharType    ::= "char"
 CharLiteral ::= "'" CharContent "'"
@@ -1451,6 +1015,7 @@ UnicodeEscape ::= "\\u{" HexDigit+ "}"
 ```
 
 **Examples:**
+
 ```cantrip
 let letter: char = 'A'           // U+0041 (Latin capital A)
 let emoji: char = '🚀'            // U+1F680 (Rocket)
@@ -1464,11 +1029,13 @@ let unicode: char = '\u{1F600}'  // U+1F600 (grinning face emoji)
 #### Abstract Syntax
 
 **Type:**
+
 ```
 τ ::= char
 ```
 
 **Values:**
+
 ```
 v ::= 'c'    (character literal)
 ```
@@ -1504,6 +1071,7 @@ let c2: char = '🚀'    // Type: char (explicit annotation)
 ```
 
 **Invalid characters:**
+
 ```cantrip
 // ERROR E5401: Invalid Unicode scalar value (surrogate pair)
 // let invalid: char = '\u{D800}';  // U+D800 is in surrogate range
@@ -1522,6 +1090,7 @@ Total valid values: 1,112,064 codepoints
 ```
 
 **Excluded range (surrogate pairs):**
+
 ```
 [U+D800, U+DFFF] = 2,048 invalid codepoints
 ```
@@ -1540,6 +1109,7 @@ char : Copy
 ```
 
 **Semantics:**
+
 - Characters pass by permission (reference-like) by default
 - The `.copy()` method creates an explicit duplicate when needed
 - Fixed 4-byte size makes copying inexpensive when explicitly requested
@@ -1549,6 +1119,7 @@ char : Copy
 #### Evaluation Rules
 
 **Literal evaluation:**
+
 ```
 [E-Char]
 ────────────────
@@ -1556,6 +1127,7 @@ char : Copy
 ```
 
 **Character comparison:**
+
 ```
 [E-Char-Comparison]
 ⟨c₁, σ⟩ ⇓ ⟨v₁, σ'⟩    ⟨c₂, σ'⟩ ⇓ ⟨v₂, σ''⟩
@@ -1610,6 +1182,7 @@ Character comparison uses Unicode scalar value ordering:
 ```
 
 **Formal property:**
+
 ```
 ∀ c₁, c₂ : char. c₁ < c₂ ⟺ codepoint(c₁) < codepoint(c₂)
 ```
@@ -1632,6 +1205,7 @@ let invalid: Option<char> = char::from_u32(0xD800) // None (surrogate)
 ```
 
 **Type rules for conversions:**
+
 ```
 [T-Char-To-U32]
 Γ ⊢ c : char
@@ -1644,211 +1218,17 @@ let invalid: Option<char> = char::from_u32(0xD800) // None (surrogate)
 Γ ⊢ char::from_u32(n) : Option<char>    (runtime validation)
 ```
 
-##### 2.1.4.5 Examples and Patterns
-
-#### Character Processing
-
-**ASCII checking:**
-```cantrip
-function is_ascii_letter(ch: char): bool {
-    (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
-}
-
-function is_ascii_digit(ch: char): bool {
-    ch >= '0' && ch <= '9'
-}
-
-function is_ascii_whitespace(ch: char): bool {
-    ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r'
-}
-```
-
-**Character classification (Unicode-aware):**
-```cantrip
-function is_letter(ch: char): bool {
-    ch.is_alphabetic()
-}
-
-function is_numeric(ch: char): bool {
-    ch.is_numeric()
-}
-
-function is_whitespace(ch: char): bool {
-    ch.is_whitespace()
-}
-
-// Examples:
-assert!(is_letter('A'));      // Latin
-assert!(is_letter('中'));     // Chinese
-assert!(is_letter('Ω'));      // Greek
-assert!(is_numeric('5'));     // ASCII digit
-assert!(is_numeric('५'));     // Devanagari digit (U+096B)
-assert!(is_whitespace(' '));  // Space
-assert!(is_whitespace('\u{00A0}'));  // Non-breaking space
-```
-
-#### Case Conversion
-
-**Simple ASCII case conversion:**
-```cantrip
-function to_uppercase_ascii(ch: char): char {
-    if ch >= 'a' && ch <= 'z' {
-        match char::from_u32((ch as u32) - 32) {
-            Option.Some(upper) => upper,
-            Option.None => ch,  // Shouldn't happen for valid ASCII
-        }
-    } else {
-        ch
-    }
-}
-
-function to_lowercase_ascii(ch: char): char {
-    if ch >= 'A' && ch <= 'Z' {
-        match char::from_u32((ch as u32) + 32) {
-            Option.Some(lower) => lower,
-            Option.None => ch,  // Shouldn't happen for valid ASCII
-        }
-    } else {
-        ch
-    }
-}
-```
-
-**Unicode case conversion:**
-```cantrip
-function to_uppercase_unicode(ch: char): char {
-    // Note: Unicode case conversion typically provided by standard library
-    // This is conceptual - actual implementation would use stdlib functions
-    match ch.to_uppercase_chars() {
-        Option.Some(chars) => chars.first_or(ch),
-        Option.None => ch,
-    }
-}
-
-// Examples:
-assert_eq!(to_uppercase_unicode('a'), 'A');
-assert_eq!(to_uppercase_unicode('ß'), 'S');  // German sharp s
-assert_eq!(to_uppercase_unicode('i'), 'I');  // But Turkish would be İ
-```
-
-#### Character Iteration
-
-**Iterating over string characters:**
-```cantrip
-function count_vowels(text: str): usize {
-    let mut count = 0
-    for ch in text.chars() {
-        match ch {
-            'a' | 'e' | 'i' | 'o' | 'u' |
-            'A' | 'E' | 'I' | 'O' | 'U' => count += 1,
-            _ => {}
-        }
-    }
-    count
-}
-
-function first_uppercase(text: str): Option<char> {
-    text.chars().find(|&c| c.is_uppercase())
-}
-```
-
-#### Codepoint Manipulation
-
-**Working with codepoints:**
-```cantrip
-function codepoint_range(start: char, end: char): Vec<char> {
-    let start_code = start as u32
-    let end_code = end as u32
-
-    (start_code..=end_code)
-        .filter_map(|code| char::from_u32(code))
-        .collect()
-}
-
-// Generate ASCII letters
-let lowercase = codepoint_range('a', 'z')
-assert_eq!(lowercase.len(), 26)
-
-function is_emoji(ch: char): bool {
-    let code = ch as u32
-    // Simplified emoji range check
-    (code >= 0x1F600 && code <= 0x1F64F) ||  // Emoticons
-    (code >= 0x1F300 && code <= 0x1F5FF) ||  // Misc Symbols and Pictographs
-    (code >= 0x1F680 && code <= 0x1F6FF)     // Transport and Map
-}
-```
-
-#### Pattern Matching
-
-**Character patterns:**
-```cantrip
-function classify_char(ch: char): str {
-    match ch {
-        'a'..='z' => "lowercase letter",
-        'A'..='Z' => "uppercase letter",
-        '0'..='9' => "digit",
-        ' ' | '\t' | '\n' | '\r' => "whitespace",
-        '!' | '?' | '.' | ',' => "punctuation",
-        _ => "other"
-    }
-}
-
-function hex_to_digit(ch: char): Option<u8> {
-    match ch {
-        '0'..='9' => Some((ch as u32 - '0' as u32) as u8),
-        'a'..='f' => Some((ch as u32 - 'a' as u32 + 10) as u8),
-        'A'..='F' => Some((ch as u32 - 'A' as u32 + 10) as u8),
-        _ => None
-    }
-}
-```
-
-#### Important Distinctions
-
-**Char vs. Grapheme vs. Byte:**
-
-```cantrip
-// char: Single Unicode scalar value
-let char_e_acute: char = 'é'  // U+00E9 (single codepoint)
-
-// Grapheme: User-perceived character (may be multiple codepoints)
-let grapheme_e_acute: str = "é"  // Could be U+0065 + U+0301 (e + combining acute)
-
-// Byte: Raw UTF-8 byte
-let bytes: [u8] = "é".as_bytes()  // [0xC3, 0xA9] in UTF-8
-
-// Important: char != byte count
-let rocket: char = '🚀'           // 4 bytes UTF-32, single char
-let rocket_str: str = "🚀"        // 4 bytes UTF-8 encoding
-assert_eq!(rocket_str.len(), 4)   // Byte length
-assert_eq!(rocket_str.chars().count(), 1)  // Character count
-```
-
-**When char is insufficient:**
-
-```cantrip
-// Combining characters (grapheme clusters)
-let flag: str = "🇺🇸"  // Two chars: U+1F1FA + U+1F1F8 (regional indicators)
-assert_eq!(flag.chars().count(), 2)  // Two scalar values
-// Use grapheme library for user-perceived character count
-
-// Emoji with skin tone modifiers
-let hand: str = "👋🏽"  // Two chars: U+1F44B + U+1F3FD
-assert_eq!(hand.chars().count(), 2)
-```
-
-
 ---
 
 ## 2.1.5 Never Type
 
-## 5.5 Never Type
 
 ##### 2.1.5.1 Overview
 
 **Key innovation/purpose:** The never type enables the compiler to verify that certain code paths diverge (never return), supporting type-safe control flow analysis and exhaustiveness checking.
 
 **When to use never type:**
+
 - Functions that never return (call `exit`, `panic`, infinite loops)
 - Unreachable branches in control flow
 - Type-level proof of impossibility
@@ -1856,11 +1236,13 @@ assert_eq!(hand.chars().count(), 2)
 - Error types for infallible operations
 
 **When NOT to use never type:**
+
 - Functions that might not return → use `Option<T>` or `Result<T, E>`
 - Empty enums → use explicit empty enum type
 - Functions with side effects that return () → use unit type `()`
 
 **Relationship to other features:**
+
 - **Bottom type**: `! <: τ` for all types τ (universal subtyping)
 - **Control flow**: Compiler knows code after `!` is unreachable
 - **Pattern matching**: `!` patterns prove exhaustiveness
@@ -1871,22 +1253,24 @@ assert_eq!(hand.chars().count(), 2)
 #### Concrete Syntax
 
 **Type syntax:**
+
 ```ebnf
 NeverType ::= "!"
 ```
 
 **Usage in function signatures:**
+
 ```cantrip
 function panic(message: str): !
     uses panic
 {
-    std::process::abort()
+    std.process::abort()
 }
 
 function exit(code: i32): !
     uses process.exit
 {
-    std::process::exit(code)
+    std.process::exit(code)
 }
 
 function infinite_loop(): ! {
@@ -1899,11 +1283,13 @@ function infinite_loop(): ! {
 #### Abstract Syntax
 
 **Type:**
+
 ```
 τ ::= !
 ```
 
 **Value:**
+
 ```
 (no values: ⟦!⟧ = ∅)
 ```
@@ -2016,20 +1402,23 @@ The never type has no runtime representation since values of this type never exi
 **Divergence categories:**
 
 1. **Panic**: Abnormal termination
+
 ```cantrip
 function panic(msg: str): ! {
-    std::process::abort()
+    std.process::abort()
 }
 ```
 
 2. **Exit**: Normal process termination
+
 ```cantrip
 function exit(code: i32): ! {
-    std::process::exit(code)
+    std.process::exit(code)
 }
 ```
 
 3. **Infinite loop**: Non-terminating computation
+
 ```cantrip
 function serve_forever(): ! {
     loop {
@@ -2038,271 +1427,15 @@ function serve_forever(): ! {
 }
 ```
 
-##### 2.1.5.5 Examples and Patterns
-
-#### Functions That Never Return
-
-**Panic and error handling:**
-```cantrip
-function panic(message: str): !
-    uses panic
-{
-    std::eprintln("PANIC: {message}")
-    std::process::abort()
-}
-
-function unreachable(): ! {
-    panic("entered unreachable code")
-}
-
-function unimplemented(): ! {
-    panic("not yet implemented")
-}
-```
-
-**Process termination:**
-```cantrip
-function exit(code: i32): !
-    uses process.exit
-{
-    std::process::exit(code)
-}
-
-function fatal_error(error: Error): ! {
-    std::eprintln("Fatal error: {error}")
-    exit(1)
-}
-```
-
-**Infinite loops:**
-```cantrip
-function event_loop(): ! {
-    loop {
-        let event = wait_for_event()
-        process_event(event)
-    }
-}
-
-function server_main(port: u16): !
-    uses network.tcp
-{
-    let listener = match TcpListener::bind(port) {
-        Result.Ok(l) => l,
-        Result.Err(e) => panic("Failed to bind: {e}"),
-    }
-    
-    loop {
-        let conn = match listener.accept() {
-            Result.Ok(c) => c,
-            Result.Err(e) => {
-                log_error(e)
-                continue  // Skip failed connection
-            },
-        }
-        handle_connection(conn)
-    }
-}
-```
-
-#### Diverging Branches in Control Flow
-
-**Type compatibility:**
-
-Since `! <: τ` for all types, diverging branches are compatible with any expected return type:
-
-```cantrip
-function process(x: i32): i32 {
-    if x < 0 {
-        panic("negative value")  // Type: !, compiler knows this diverges
-        // No need for return or unreachable code here
-    } else {
-        x * 2  // Type: i32
-    }
-    // Both branches are compatible (! coerces to i32)
-}
-
-function safe_divide(x: i32, y: i32): i32 {
-    if y == 0 {
-        panic("division by zero")  // Type: !
-    }
-    x / y  // Compiler knows y != 0 here
-}
-```
-
-**In match expressions:**
-
-```cantrip
-enum NetworkResult {
-    Success(i32)
-    Pending
-    Error(String)
-}
-
-function extract_value(result: NetworkResult): i32 {
-    match result {
-        NetworkResult::Success(value) => value,           // Type: i32
-        NetworkResult::Pending => panic("called on pending result"),  // Type: !
-        NetworkResult::Error(msg) => panic("error: {msg}")           // Type: !
-    }
-    // All arms compatible (! coerces to i32)
-}
-```
-
-**Type compatibility examples:**
-
-```cantrip
-// Never type coerces to any type
-let x: i32 = if condition {
-    42                    // Type: i32
-} else {
-    panic("error")      // Type: !, coerces to i32
-}
-
-// Works in any position
-let y: String = match option {
-    Some(s) => s,        // Type: String
-    None => exit(1)     // Type: !, coerces to String
-}
-
-// Even in nested contexts
-let z: Vec<f64> = if valid {
-    vec![1.0, 2.0, 3.0]  // Type: Vec<f64>
-} else {
-    unimplemented()     // Type: !, coerces to Vec<f64>
-}
-```
-
-#### Unreachable Code Detection
-
-**Compiler verification:**
-
-```cantrip
-function example(x: i32): i32 {
-    if x > 0 {
-        return x
-    } else {
-        panic("x must be positive")
-    }
-    // Warning: unreachable code
-    // println("This is never executed")
-}
-
-function process_or_exit(data: Option<Data>): () {
-    let d = match data {
-        Some(d) => d,
-        None => exit(1)  // Type: !, compiler knows we don't continue
-    }
-    // Compiler knows d has type Data here
-    process(d)
-}
-```
-
-#### Exhaustiveness Proving
-
-**Empty enum (uninhabited type):**
-
-```cantrip
-enum Void {}  // No variants, uninhabited like !
-
-function absurd<T>(v: Void): T {
-    match v {
-        // No arms needed! Type Void has no values
-    }
-}
-
-// Proving unreachability
-function handle_infallible(result: Result<i32, Void>): i32 {
-    match result {
-        Result::Ok(x) => x,
-        Result::Err(v) => absurd(v)  // Proves this can't happen
-    }
-}
-```
-
-#### Type-Level Impossibility
-
-**Infallible conversions:**
-
-```cantrip
-contract TryFrom<T> {
-    type Error
-    procedure try_from(value: T): Result<Self, Self.Error>
-}
-
-// Infallible conversion uses Never for error type
-// u32 implements TryFrom<u8>:
-modal u32: TryFrom<u8> {
-    type Error = !  // Can never fail
-
-    procedure try_from(value: u8): Result<u32, !> {
-        Result::Ok(value as u32)  // Always succeeds
-    }
-}
-
-// Pattern matching on Result<T, !>
-let result: Result<u32, !> = u32::try_from(42u8)
-let value: u32 = match result {
-    Result::Ok(v) => v
-    // Result::Err case impossible (! has no values)
-}
-
-// Pattern matching handles the impossible case
-let value: u32 = match result {
-    Result.Ok(v) => v,
-    Result.Err(never) => match never {},  // Empty match - never type has no values
-}
-```
-
-#### Integration with Control Flow
-
-**Early returns and exits:**
-
-```cantrip
-function validate_and_process(input: str): i32 {
-    if input.is_empty() {
-        eprintln("Error: empty input")
-        exit(1)  // Type: !
-        // Compiler knows we never continue from here
-    }
-
-    if !input.is_ascii() {
-        panic("non-ASCII input")  // Type: !
-    }
-
-    // Compiler has proven input is non-empty and ASCII here
-    process_valid_input(input)
-}
-```
-
-**Exhaustiveness checking:**
-
-```cantrip
-enum Status {
-    Active
-    Inactive
-}
-
-function handle_status(status: Status): i32 {
-    match status {
-        Status::Active => 1,
-        Status::Inactive => panic("inactive status not supported")  // Type: !
-        // Exhaustive: all variants covered, even though one panics
-    }
-}
-```
-
-
----
-
 ## 2.1.6 String Types
 
-## 5.6 String Type
 
 ##### 2.1.6.1 Overview
 
 **Key innovation/purpose:** String provides a single, unified type for owned text data with automatic memory management and guaranteed UTF-8 validity, simplifying text handling compared to systems requiring explicit distinction between owned and borrowed string types.
 
 **When to use String:**
+
 - Text data that uses to be modified or grown
 - Owned text that must outlive its creation scope
 - Building strings dynamically (concatenation, formatting)
@@ -2311,6 +1444,7 @@ function handle_status(status: Status): i32 {
 - Log messages and error descriptions
 
 **When NOT to use String:**
+
 - Binary data without UTF-8 encoding → use `Vec<u8>`
 - Temporary views of existing text → use `str` (string slice)
 - Non-UTF-8 text encodings → use `Vec<u8>` with explicit encoding library
@@ -2318,23 +1452,26 @@ function handle_status(status: Status): i32 {
 - Static text that never changes → use string literals (`"text"` of type `str`)
 
 **Relationship to other features:**
+
 - **String slice (`str`)**: String literals have type `str`, which is an immutable view into UTF-8 data. String owns its data, while `str` borrows it.
 - **Permission system**: String follows standard permission rules - `own String` for ownership, `mut String` for mutable references, `String` for immutable references.
 - **Region system**: String lifetime is managed through lexical regions, not explicit lifetime parameters.
 - **`char` type**: String is composed of Unicode scalar values (U+0000 to U+D7FF and U+E000 to U+10FFFF), matching the `char` type representation.
 - **`Vec<u8>`**: String is internally a vector of UTF-8 bytes with validity enforcement.
-- **No borrow checker**: Multiple references to String are allowed; programmer will safety.
+- **Permission-based aliasing**: Multiple references to String are allowed; programmer manages safety.
 
 ##### 2.1.6.2 Syntax
 
 ###### 2.1.6.2.1 Concrete Syntax
 
 **Type syntax:**
+
 ```ebnf
 StringType ::= "String"
 ```
 
 **String literal syntax (produces `str` type):**
+
 ```ebnf
 StringLiteral  ::= '"' (EscapeSequence | ~["\\])* '"'
 EscapeSequence ::= "\\" [nrt\\'"0]
@@ -2343,6 +1480,7 @@ EscapeSequence ::= "\\" [nrt\\'"0]
 ```
 
 **Permission annotations:**
+
 ```ebnf
 OwnedString    ::= "own" "String"
 MutableString  ::= "mut" "String"
@@ -2351,6 +1489,7 @@ IsolatedString ::= "iso" "String"
 ```
 
 **Examples:**
+
 ```cantrip
 // Type annotations
 let message: own String = String.new()
@@ -2377,6 +1516,7 @@ function consume(own text: String) { ... }       // Takes ownership
 ###### 2.1.6.2.2 Abstract Syntax
 
 **Type representation:**
+
 ```
 τ ::= String                                    (String type)
     | own String                                (owned String)
@@ -2389,6 +1529,7 @@ String = record {
 ```
 
 **Value set:**
+
 ```
 ⟦String⟧ = { s | s = (ptr, len, cap),
              ptr : *u8,
@@ -2401,12 +1542,14 @@ where valid_utf8(bytes) ⟹ bytes form valid UTF-8 sequence
 ```
 
 **Components:**
+
 - **ptr**: Pointer to heap-allocated UTF-8 byte data
 - **len**: Current length in bytes (not characters)
 - **cap**: Allocated capacity in bytes
 - **Invariant**: `data` contains valid UTF-8 at all times
 
 **UTF-8 invariant (formal):**
+
 ```
 ∀ s : String. valid_utf8(s.data[0..s.len])
 
@@ -2419,63 +1562,6 @@ valid_utf8(bytes) ⟺
 where continuation(b) ⟺ b ∈ [0x80, 0xBF]
 ```
 
-###### 2.1.6.2.3 Basic Examples
-
-**Creating strings:**
-```cantrip
-// Empty string
-let empty: own String = String.new()
-assert!(empty.is_empty())
-assert!(empty.length() == 0)
-
-// From string literal
-let greeting: own String = String.from("Hello, world!")
-assert!(greeting.length() == 13)  // Length in bytes
-```
-
-**Explanation:** Strings are created either empty with `String.new()` or from a string literal using `String.from()`. Both require `uses alloc.heap;` effect permission.
-
-**Permission-based usage:**
-```cantrip
-function display(text: String)           // Immutable reference
-{
-    let len = text.length()             // Read-only operations
-    // text.push_str(" more")           // ERROR: cannot mutate
-}
-
-function append_suffix(text: mut String)  // Mutable reference
-    uses alloc.heap
-{
-    text.push_str(" - end")             // Can modify
-}
-
-function take_ownership(own text: String) // Owned
-{
-    // text is freed when function returns
-}
-
-let message: own String = String.from("start")
-display(message)                        // Pass by reference
-append_suffix(mut message)              // Pass mutable reference
-take_ownership(move message)            // Transfer ownership
-// message no longer accessible
-```
-
-**Explanation:** String follows Cantrip's permission system. Immutable references (no prefix) allow reading, mutable references (`mut`) allow modification, and ownership (`own`) allows both modification and destruction. Multiple references are allowed; programmer will safety.
-
-**Basic operations:**
-```cantrip
-let mut text: own String = String.from("Hello")
-
-// Query operations
-let len: usize = text.length()          // 5 bytes
-let empty: bool = text.is_empty()       // false
-
-// Modification (requires mut reference and alloc.heap)
-text.push_str(", world!")               // "Hello, world!"
-```
-
-**Explanation:** String provides methods for querying length and emptiness, and for growing the string by appending more text. Modification must both a mutable reference and the `alloc.heap` effect permission.
 
 ##### 2.1.6.3 Static Semantics
 
@@ -2484,6 +1570,7 @@ text.push_str(", world!")               // "Hello, world!"
 **Definition 2.1.6.2 (Well-Formed String):** The String type is well-formed in any context. String values must maintain the UTF-8 validity invariant.
 
 **[WF-String]** - String type is well-formed:
+
 ```
 ────────────────
 Γ ⊢ String : Type
@@ -2492,6 +1579,7 @@ text.push_str(", world!")               // "Hello, world!"
 **Explanation:** String is a built-in type available in all contexts without imports.
 
 **[WF-String-Owned]** - Owned string is well-formed:
+
 ```
 [WF-String-Owned]
 Γ ⊢ String : Type
@@ -2502,6 +1590,7 @@ text.push_str(", world!")               // "Hello, world!"
 **Explanation:** Owned String is the standard form for heap-allocated strings. The `own` permission indicates ownership of heap memory.
 
 **[WF-String-Mut]** - Mutable string reference:
+
 ```
 [WF-String-Mut]
 Γ ⊢ String : Type
@@ -2512,6 +1601,7 @@ text.push_str(", world!")               // "Hello, world!"
 **Explanation:** Mutable references to String allow modification operations like `push_str`. Multiple mutable references are permitted in Cantrip.
 
 **[WF-String-UTF8-Invariant]** - UTF-8 validity invariant:
+
 ```
 [WF-String-UTF8-Invariant]
 Γ ⊢ s : String
@@ -2524,6 +1614,7 @@ valid_utf8(s.ptr, s.len) = true
 ###### 2.1.6.3.2 Type Rules
 
 **[T-String-Literal-Conv]** - String literal conversion:
+
 ```
 [T-String-Literal-Conv]
 Γ ⊢ lit : str
@@ -2536,6 +1627,7 @@ valid_utf8(lit) = true
 **Explanation:** String literals have type `str` (immutable string slice). Converting to `String` allocates heap memory and copies the data.
 
 **Example:**
+
 ```cantrip
 function create_greeting(): own String
     uses alloc.heap
@@ -2546,6 +1638,7 @@ function create_greeting(): own String
 ```
 
 **[T-String-New]** - Empty string construction:
+
 ```
 [T-String-New]
 ────────────────────────────────
@@ -2556,6 +1649,7 @@ function create_greeting(): own String
 **Explanation:** Creating a new empty String allocates minimal heap storage and returns owned String.
 
 **Example:**
+
 ```cantrip
 function create_buffer(): own String
     uses alloc.heap
@@ -2565,6 +1659,7 @@ function create_buffer(): own String
 ```
 
 **[T-String-From-Slice]** - String from slice:
+
 ```
 [T-String-From-Slice]
 Γ ⊢ data : str
@@ -2577,6 +1672,7 @@ valid_utf8(data) = true
 **Explanation:** Construct String from any string slice. Allocates heap memory and copies the UTF-8 data.
 
 **Example:**
+
 ```cantrip
 function duplicate(text: str): own String
     uses alloc.heap
@@ -2586,6 +1682,7 @@ function duplicate(text: str): own String
 ```
 
 **[T-String-Method]** - String method invocation:
+
 ```
 [T-String-Method]
 Γ ⊢ s : String
@@ -2598,6 +1695,7 @@ method m has signature (String, T₁, ..., Tₙ) → U ! ε
 **Explanation:** Method calls on String follow standard method resolution. The receiver permission (String, mut String, own String) must match method signature.
 
 **Example:**
+
 ```cantrip
 let s: own String = String.from("hello")
 let n: usize = s.len()        // Method: len(self: String): usize
@@ -2605,6 +1703,7 @@ let empty: bool = s.is_empty() // Method: is_empty(self: String): bool
 ```
 
 **[T-String-Mut-Method]** - Mutable string method:
+
 ```
 [T-String-Mut-Method]
 Γ ⊢ s : own String
@@ -2617,6 +1716,7 @@ method m has signature (mut String, T₁, ..., Tₙ) → U ! ε
 **Explanation:** Mutable methods like `push_str` require mutable reference. Owned String can provide mutable access.
 
 **Example:**
+
 ```cantrip
 function append_text(text: str): own String
     uses alloc.heap
@@ -2628,6 +1728,7 @@ function append_text(text: str): own String
 ```
 
 **[T-String-Permission-Upcast]** - Permission compatibility:
+
 ```
 [T-String-Permission-Upcast]
 Γ ⊢ s : own String
@@ -2638,6 +1739,7 @@ function append_text(text: str): own String
 **Explanation:** Owned String can be passed as immutable reference without transferring ownership. This enables read-only access while retaining ownership.
 
 **Example:**
+
 ```cantrip
 function print(text: String) {
     // Read-only access to text
@@ -2654,6 +1756,7 @@ function example()
 ```
 
 **[T-String-Move]** - Ownership transfer:
+
 ```
 [T-String-Move]
 Γ ⊢ s : own String
@@ -2666,6 +1769,7 @@ function example()
 **Explanation:** Moving a String transfers ownership of heap buffer. Original binding becomes inaccessible after move.
 
 **Example:**
+
 ```cantrip
 function consume(own s: String) {
     // s destroyed here
@@ -2688,6 +1792,7 @@ function example()
 String does NOT implement the Copy trait. Assignment and parameter passing transfer ownership via move semantics.
 
 **Formal statement:**
+
 ```
 ∀s : String. s ∉ Copy
 ```
@@ -2695,6 +1800,7 @@ String does NOT implement the Copy trait. Assignment and parameter passing trans
 **Proof sketch:** String contains `own Vec<u8>` which owns heap memory. Copying would require deep copy of heap buffer, violating Copy trait semantics (bitwise copy). Therefore String is move-only.
 
 **Example:**
+
 ```cantrip
 let s1: own String = String.from("hello")
 let s2: own String = move s1  // Explicit move required
@@ -2709,6 +1815,7 @@ let s3: own String = s2.clone()  // Explicit clone for deep copy
 All String values satisfy the UTF-8 validity invariant. All String operations preserve this invariant.
 
 **Formal statement:**
+
 ```
 ∀s : String. valid_utf8(s.ptr, s.len) = true
 
@@ -2727,6 +1834,7 @@ alignof(String) = alignof(usize) = 8 bytes (on 64-bit systems)
 ```
 
 **Memory representation:**
+
 ```
 String {
     ptr: *u8,      // 8 bytes (64-bit pointer)
@@ -2739,15 +1847,16 @@ String {
 
 String interacts with the permission system as follows:
 
-| Permission | Syntax | Semantics | Operations Allowed |
-|------------|--------|-----------|-------------------|
-| Immutable | `String` | Borrowed reference | Read-only methods (len, is_empty, chars, etc.) |
-| Mutable | `mut String` | Mutable reference | Modification methods (push_str, clear, etc.) |
-| Owned | `own String` | Full ownership | All operations, destroyed at scope end |
+| Permission | Syntax       | Semantics          | Operations Allowed                             |
+| ---------- | ------------ | ------------------ | ---------------------------------------------- |
+| Immutable  | `String`     | Borrowed reference | Read-only methods (len, is_empty, chars, etc.) |
+| Mutable    | `mut String` | Mutable reference  | Modification methods (push_str, clear, etc.)   |
+| Owned      | `own String` | Full ownership     | All operations, destroyed at scope end         |
 
 **Note:** Unlike Rust, Cantrip permits multiple `mut String` references simultaneously. Programmer is responsible for ensuring safe usage.
 
 **Example:**
+
 ```cantrip
 function permissions_demo()
     uses alloc.heap
@@ -2792,6 +1901,7 @@ str → String  (via String.from(), must allocation)
 ```
 
 **Relationship rules:**
+
 ```
 [String-To-Slice]
 Γ ⊢ s : String
@@ -2805,6 +1915,7 @@ str → String  (via String.from(), must allocation)
 ```
 
 **Example:**
+
 ```cantrip
 function accepts_slice(text: str) {
     // Read-only access to text
@@ -2829,6 +1940,7 @@ function example()
 When an owned String goes out of scope, its heap memory is automatically deallocated.
 
 **Formal statement:**
+
 ```
 {s : own String}
 block { ... }
@@ -2836,6 +1948,7 @@ block { ... }
 ```
 
 **Operational semantics:**
+
 ```
 [E-String-Destroy]
 ⟨block, σ[s ↦ string_val(ptr, len, cap)]⟩ ⇓ ⟨v, σ'⟩
@@ -2844,6 +1957,7 @@ block { ... }
 ```
 
 **Example:**
+
 ```cantrip
 function automatic_cleanup()
     uses alloc.heap
@@ -2873,7 +1987,7 @@ len = byte_length("text")
 ⟨"text", σ⟩ ⇓ ⟨String{ptr: addr, len: len, cap: len}, σ⟩
 ```
 
-**Explanation:** String literals are embedded in the executable's read-only data section. The resulting String value is a fat pointer to this static memory. Since no heap allocation is performed, the store σ remains unchanged.
+**Explanation:** String literals are embedded in the executable's read-only data section. The resulting String value is a dense pointer to this static memory. Since no heap allocation is performed, the store σ remains unchanged.
 
 **String heap allocation:**
 
@@ -2970,6 +2084,7 @@ a ≤ b ≤ l
 **Explanation:** String slicing must occur at UTF-8 character boundaries. A byte index is a character boundary if it is 0, equal to the string length, or points to a byte that is not a UTF-8 continuation byte (i.e., not in range 0x80-0xBF). Invalid boundaries cause runtime panic.
 
 **Character boundary predicate:**
+
 ```
 is_char_boundary(ptr, idx) ⟺
     idx = 0 ∨
@@ -2981,7 +2096,7 @@ is_char_boundary(ptr, idx) ⟺
 
 **Record Layout:**
 
-The String type is represented as a fat pointer with three fields:
+The String type is represented as a dense pointer with three fields:
 
 ```
 String record layout (24 bytes on 64-bit):
@@ -2998,6 +2113,7 @@ Field Semantics:
 ```
 
 **Size and alignment:**
+
 ```
 sizeof(String)  = 24 bytes  (on 64-bit platforms)
                 = 12 bytes  (on 32-bit platforms)
@@ -3006,6 +2122,7 @@ alignof(String) = 8 bytes   (on 64-bit platforms)
 ```
 
 **Important distinctions:**
+
 - `len` represents byte length, not character count
 - `cap` represents allocated byte capacity
 - Character count must O(n) iteration over UTF-8 sequences
@@ -3031,6 +2148,7 @@ String {
 ```
 
 **Properties of literal strings:**
+
 - Immutable (stored in read-only memory)
 - Zero allocation cost (no heap usage)
 - Lifetime: 'static (valid for entire program execution)
@@ -3055,6 +2173,7 @@ String { ptr: ─┘, len: used_bytes, cap: total_allocated }
 ```
 
 **Example:**
+
 ```cantrip
 let mut s: own String = String.new()  // Allocate with DEFAULT_CAP
 s.push_str("Hello")                   // Append 5 bytes
@@ -3102,6 +2221,7 @@ For any String value `s = String{ptr: p, len: l, cap: c}`, the following invaria
 5. **Alignment:** `p` is aligned to 1-byte boundary (no alignment requirement for u8 arrays)
 
 **Proof sketch:**
+
 - Invariant (1) enforced by all String operations (construction, push, etc.)
 - Invariant (2) enforced by UTF-8 validation in String.from_utf8() and maintained by all operations
 - Invariants (3-4) enforced by allocator interface and String.new() semantics
@@ -3112,6 +2232,7 @@ For any String value `s = String{ptr: p, len: l, cap: c}`, the following invaria
 **Allocation strategy:**
 
 **String literals (zero-cost):**
+
 - Storage: Read-only data section (.rodata)
 - Allocation: None (embedded in executable)
 - Mutability: Immutable (any attempt to modify causes compiler error or runtime fault)
@@ -3119,6 +2240,7 @@ For any String value `s = String{ptr: p, len: l, cap: c}`, the following invaria
 - Cost: Zero runtime overhead
 
 **Owned strings (heap-allocated):**
+
 - Storage: Heap memory
 - Allocation: Dynamic via allocator (uses `alloc.heap`)
 - Mutability: Mutable if declared with `mut`
@@ -3134,6 +2256,7 @@ new_capacity = max(old_capacity × 2, required_size)
 ```
 
 **Example growth sequence:**
+
 ```
 Initial:     cap = 0,  len = 0
 After "Hi":  cap = 8,  len = 2   (allocated with DEFAULT_CAP)
@@ -3144,6 +2267,7 @@ After 1 more byte (len=17):  cap = 32, len = 17  (realloc: 16 × 2 = 32)
 ```
 
 **Amortized analysis:**
+
 - Individual push operations: O(1) amortized
 - Worst case (reallocation): O(n) where n = current length
 - Total cost of n pushes: O(n) amortized
@@ -3163,6 +2287,7 @@ function example()
 ```
 
 **Deallocation rule:**
+
 ```
 [E-String-Dealloc]
 ⟨{ let s: own String = e; body }, σ⟩ ⇓ ⟨v, σ'⟩
@@ -3185,11 +2310,12 @@ own String ────→ mut String  (pass as mutable reference)
 
 Region guarantees:
 • Multiple `mut String` references can coexist
-• Region system (not borrow checker) will lifetime safety
+• Region system ensures lifetime safety through escape analysis
 • All references must not outlive the region containing the owned data
 ```
 
 **Example:**
+
 ```cantrip
 function process(s1: mut String, s2: mut String)
     uses alloc.heap
@@ -3212,7 +2338,7 @@ String literal         O(1)               O(1) - static memory
 String.new()           O(1)               O(cap) - heap allocation
 push_str(s)            O(m) amortized     O(m) worst case (realloc)
                        where m = s.len
-s[a..b]                O(1)               O(1) - fat pointer creation
+s[a..b]                O(1)               O(1) - dense pointer creation
 s.chars()              O(n)               O(1) - iterator creation
 s.chars().count()      O(n)               O(1)
 validate_utf8(s)       O(n)               O(1)
@@ -3221,11 +2347,13 @@ where n = byte length of string
 ```
 
 **Memory overhead:**
+
 - String struct: 24 bytes (on 64-bit)
 - Heap allocation: len + (cap - len) bytes
 - Minimum overhead: 24 bytes + 0-16 bytes (DEFAULT_CAP)
 
 **Cache efficiency:**
+
 - UTF-8 data stored contiguously for excellent cache locality
 - Sequential iteration exhibits near-optimal cache behavior
 - Random character access must O(n) scan (UTF-8 is variable-width)
@@ -3239,6 +2367,7 @@ where n = byte length of string
 UTF-8 encodes Unicode scalar values (U+0000 to U+10FFFF, excluding surrogates U+D800-U+DFFF) using 1-4 bytes:
 
 **1-byte sequence (ASCII range: U+0000 to U+007F):**
+
 ```
 Byte pattern: 0xxxxxxx
 Range:        U+0000 to U+007F (0 to 127 decimal)
@@ -3246,6 +2375,7 @@ Bits:         7 bits for codepoint
 ```
 
 **Examples:**
+
 ```
 'A'   (U+0041) → [01000001]        → 0x41
 '0'   (U+0030) → [00110000]        → 0x30
@@ -3254,6 +2384,7 @@ Bits:         7 bits for codepoint
 ```
 
 **2-byte sequence (U+0080 to U+07FF):**
+
 ```
 Byte pattern: 110xxxxx 10xxxxxx
 Range:        U+0080 to U+07FF (128 to 2,047 decimal)
@@ -3261,6 +2392,7 @@ Bits:         11 bits for codepoint (5 + 6)
 ```
 
 **Examples:**
+
 ```
 '©'   (U+00A9) → [11000010 10101001] → 0xC2 0xA9
 'é'   (U+00E9) → [11000011 10101001] → 0xC3 0xA9
@@ -3268,6 +2400,7 @@ Bits:         11 bits for codepoint (5 + 6)
 ```
 
 **3-byte sequence (U+0800 to U+FFFF, excluding surrogates):**
+
 ```
 Byte pattern: 1110xxxx 10xxxxxx 10xxxxxx
 Range:        U+0800 to U+FFFF (2,048 to 65,535 decimal)
@@ -3276,6 +2409,7 @@ Bits:         16 bits for codepoint (4 + 6 + 6)
 ```
 
 **Examples:**
+
 ```
 '中'  (U+4E2D) → [11100100 10111000 10101101] → 0xE4 0xB8 0xAD
 '€'   (U+20AC) → [11100010 10000010 10101100] → 0xE2 0x82 0xAC
@@ -3283,6 +2417,7 @@ Bits:         16 bits for codepoint (4 + 6 + 6)
 ```
 
 **4-byte sequence (U+10000 to U+10FFFF):**
+
 ```
 Byte pattern: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
 Range:        U+10000 to U+10FFFF (65,536 to 1,114,111 decimal)
@@ -3290,6 +2425,7 @@ Bits:         21 bits for codepoint (3 + 6 + 6 + 6)
 ```
 
 **Examples:**
+
 ```
 '🦀'  (U+1F980) → [11110000 10011111 10100110 10000000] → 0xF0 0x9F 0xA6 0x80
 '🚀'  (U+1F680) → [11110000 10011111 10011010 10000000] → 0xF0 0x9F 0x9A 0x80
@@ -3299,6 +2435,7 @@ Bits:         21 bits for codepoint (3 + 6 + 6 + 6)
 **Invariant 5.6.1 (UTF-8 Validity):** All String values MUST contain valid UTF-8 at all times.
 
 **Formally:**
+
 ```
 �^?s : String. validate_utf8(s.as_bytes()) = true
 ```
@@ -3306,21 +2443,25 @@ Bits:         21 bits for codepoint (3 + 6 + 6 + 6)
 **Operations that maintain invariant:**
 
 1. **String literals (compiler validated):**
+
    ```cantrip
    let s = "Hello, �,-�O"  // Compiler will UTF-8 validity
    ```
 
 2. **String.new() (creates empty valid string):**
+
    ```cantrip
    let s = String.new()  // Empty string is trivially valid UTF-8
    ```
 
 3. **String.from_utf8() (validates or errors):**
+
    ```cantrip
    let s = String.from_utf8(bytes)?  // Returns Err if invalid
    ```
 
 4. **push_str(valid_string) (concatenation preserves validity):**
+
    ```cantrip
    s1.push_str(s2)  // If s1 and s2 valid, result is valid
    ```
@@ -3333,11 +2474,13 @@ Bits:         21 bits for codepoint (3 + 6 + 6 + 6)
 **Theorem 5.6.5 (UTF-8 Invariant Preservation):**
 
 If `s1` and `s2` are valid UTF-8 strings, then:
+
 1. `s1.push_str(s2)` produces a valid UTF-8 string
 2. `s1 + s2` (if concatenation operator exists) produces a valid UTF-8 string
 3. `s[a..b]` produces a valid UTF-8 string if `a` and `b` are character boundaries
 
 **Proof sketch:**
+
 1. Valid UTF-8 sequences concatenated produce a valid UTF-8 sequence
 2. Slicing at character boundaries preserves sequence validity
 3. No operation modifies the byte content except by appending valid UTF-8
@@ -3619,6 +2762,7 @@ decode_utf8_char(ptr: *u8) → (char, usize):
 **Note:** `from_u32_unchecked` is safe here because the String invariant guarantees valid UTF-8.
 
 **Example:**
+
 ```cantrip
 let s = "A©中🦀"
 for ch in s.chars() {
@@ -3637,13 +2781,14 @@ for byte in s.as_bytes() {
 
 **Definition 2.1.6.4 (String Permissions):** The `String` type interacts with Cantrip's Lexical Permission System through three permission modes: immutable reference (default), mutable reference (`mut`), and owned (`own`).
 
-**Philosophy:** Cantrip follows the Cyclone model, not Rust. Permissions control *access rights*, while regions control *lifetimes*. Multiple mutable references are allowed—programmer's responsibility to prevent aliasing bugs.
+**Philosophy:** Cantrip follows the Cyclone model, not Rust. Permissions control _access rights_, while regions control _lifetimes_. Multiple mutable references are allowed—programmer's responsibility to prevent aliasing bugs.
 
 ####### 2.1.6.6.1.1 Immutable Reference (Default)
 
 **Syntax:** `String` or `text: String`
 
 **Type rule:**
+
 ```
 [T-String-Ref]
 Γ ⊢ s : String    immutable(s)
@@ -3652,12 +2797,14 @@ for byte in s.as_bytes() {
 ```
 
 **Semantics:**
+
 - Can read string contents
 - Cannot modify contents
 - Cannot take ownership
-- Many references can coexist (no borrow checker)
+- Many references can coexist (permission-based model)
 
 **Operations allowed:**
+
 ```cantrip
 function get_length(s: String): usize {
     s.len()              // OK: reading
@@ -3673,6 +2820,7 @@ function compare(s1: String, s2: String): bool {
 ```
 
 **Operations prohibited:**
+
 ```cantrip
 function illegal_modify(s: String) {
     s.push_str("!")     // ERROR E3002: Cannot modify immutable reference
@@ -3681,6 +2829,7 @@ function illegal_modify(s: String) {
 ```
 
 **Example - Multiple references allowed:**
+
 ```cantrip
 function process_multiple(text: String)
     uses io.write
@@ -3695,6 +2844,7 @@ function process_multiple(text: String)
 ```
 
 **Formal semantics:**
+
 ```
 ⟦String⟧ = { reference to UTF-8 byte sequence }
 Operations: Read-only (len, char_at, slice, ==, <, etc.)
@@ -3706,6 +2856,7 @@ Aliasing: Unlimited
 **Syntax:** `mut String` or `text: mut String`
 
 **Type rule:**
+
 ```
 [T-String-Mut]
 Γ ⊢ s : String    mutable(s) = true
@@ -3714,11 +2865,13 @@ Aliasing: Unlimited
 ```
 
 **Semantics:**
+
 - Can read and modify string contents
 - Cannot take ownership (remains with caller)
 - Multiple `mut` references CAN coexist (programmer's responsibility!)
 
 **Operations allowed:**
+
 ```cantrip
 function modify_string(s: mut String) {
     s.push_str("!")           // OK: can append
@@ -3729,6 +2882,7 @@ function modify_string(s: mut String) {
 ```
 
 **Example - Basic mutation:**
+
 ```cantrip
 function append_exclamation(s: mut String) {
     s.push_str("!")
@@ -3760,7 +2914,7 @@ function example()
 {
     var text: own String = String.from("Hello")
 
-    // Both allowed simultaneously - NO borrow checker
+    // Both allowed simultaneously - permission-based aliasing
     modify1(mut text)
     modify2(mut text)
 
@@ -3770,6 +2924,7 @@ function example()
 ```
 
 **Aliasing responsibility:**
+
 ```cantrip
 // UNSAFE PATTERN - Programmer's responsibility to avoid!
 function dangerous_pattern()
@@ -3786,6 +2941,7 @@ function dangerous_pattern()
 ```
 
 **Formal semantics:**
+
 ```
 ⟦mut String⟧ = { mutable reference to UTF-8 byte sequence }
 Operations: Read, Write (push_str, clear, insert, remove, etc.)
@@ -3798,6 +2954,7 @@ Lifetime: Lexical scope
 **Syntax:** `own String`
 
 **Type rule:**
+
 ```
 [T-String-Own]
 Γ ⊢ e : String    copyable(String) = false
@@ -3806,12 +2963,14 @@ Lifetime: Lexical scope
 ```
 
 **Semantics:**
+
 - Full ownership of the string
 - Can read, modify, move, destroy
 - Automatically destroyed when scope ends (no memory leaks)
 - Exactly one owner (enforced by move semantics)
 
 **Operations - Full control:**
+
 ```cantrip
 function example()
     uses alloc.heap
@@ -3826,6 +2985,7 @@ function example()
 ```
 
 **Creating owned strings:**
+
 ```cantrip
 function create_greeting(): own String
     uses alloc.heap
@@ -3838,6 +2998,7 @@ function create_greeting(): own String
 ```
 
 **Automatic destruction:**
+
 ```cantrip
 function auto_cleanup()
     uses alloc.heap
@@ -3849,6 +3010,7 @@ function auto_cleanup()
 ```
 
 **Move semantics:**
+
 ```cantrip
 function consume_string(text: own String) {
     std.io.println(text)
@@ -3866,6 +3028,7 @@ function example()
 ```
 
 **Formal semantics:**
+
 ```
 ⟦own String⟧ = { unique pointer to UTF-8 byte sequence }
 Operations: Read, Write, Move, Destroy
@@ -3877,6 +3040,7 @@ Destruction: RAII-style cleanup
 ####### 2.1.6.6.1.4 Permission Transitions
 
 **Subtyping hierarchy:**
+
 ```
 [Sub-String-Permission]
 own String <: mut String <: String
@@ -3899,6 +3063,7 @@ consume(move s)   // s: own String (moved)
 ```
 
 **Complex example showing all transitions:**
+
 ```cantrip
 function demonstrate_permissions()
     uses alloc.heap, io.write
@@ -3927,6 +3092,7 @@ function demonstrate_permissions()
 **What Cantrip PREVENTS:**
 
 1. **Use-after-free** (regions enforce lifetime):
+
 ```cantrip
 function safe_example(): String {
     region temp {
@@ -3938,6 +3104,7 @@ function safe_example(): String {
 ```
 
 2. **Double-free** (one owner only):
+
 ```cantrip
 function safe_example()
     uses alloc.heap
@@ -3949,6 +3116,7 @@ function safe_example()
 ```
 
 3. **Memory leaks** (automatic destruction):
+
 ```cantrip
 function safe_example()
     uses alloc.heap
@@ -3961,6 +3129,7 @@ function safe_example()
 **What Cantrip does NOT prevent (programmer's responsibility):**
 
 1. **Aliasing bugs** (multiple `mut` refs allowed):
+
 ```cantrip
 // ALLOWED but potentially dangerous
 var text = String.from("data")
@@ -3969,6 +3138,7 @@ modify2(mut text)  // Could conflict with modify1
 ```
 
 2. **Data races** (no automatic synchronization):
+
 ```cantrip
 // Programmer must use proper synchronization for threads
 thread1.spawn(|| modify(mut shared_string))
@@ -3976,6 +3146,7 @@ thread2.spawn(|| modify(mut shared_string))  // Race condition!
 ```
 
 3. **Modification during iteration** (no iterator invalidation protection):
+
 ```cantrip
 var text = String.from("data")
 for c in text.chars() {
@@ -3984,12 +3155,14 @@ for c in text.chars() {
 ```
 
 **Error codes:**
+
 - `E3002` — Attempted modification of immutable reference
 - `E3004` — Use of moved value
 - `E8301` — Region-allocated value cannot escape scope
 
 **Design philosophy:**
-> Cantrip provides memory safety guarantees (no use-after-free, no leaks) without borrow checker complexity. Aliasing bugs are programmer's responsibility, trading strictness for simplicity.
+
+> Cantrip provides memory safety guarantees (no use-after-free, no leaks) through region-based escape analysis and permission tracking. Aliasing safety is managed through permissions and effects, trading compile-time restrictions for runtime flexibility.
 
 ###### 2.1.6.6.2 Region Integration
 
@@ -4000,6 +3173,7 @@ for c in text.chars() {
 ####### 2.1.6.6.2.1 Region Allocation Syntax
 
 **Basic syntax:**
+
 ```cantrip
 region name {
     let s: own String = String.new_in<name>()
@@ -4008,6 +3182,7 @@ region name {
 ```
 
 **Type rule:**
+
 ```
 [T-String-Region]
 Γ ⊢ region r active
@@ -4017,6 +3192,7 @@ region name {
 ```
 
 **Complete example:**
+
 ```cantrip
 function parse_file(path: String): Result<Data, Error>
     uses alloc.region, io.read
@@ -4041,16 +3217,17 @@ function parse_file(path: String): Result<Data, Error>
 
 **Standard allocation methods:**
 
-| Method | Signature | Allocation |
-|--------|-----------|------------|
-| `String.new()` | `() => own String` | Heap |
-| `String.new_in<'r>()` | `() => own String` | Region `'r` |
-| `String.from(s)` | `(str) => own String` | Heap |
-| `String.from_in<'r>(s)` | `(str) => own String` | Region `'r` |
-| `String.with_capacity(n)` | `(usize) => own String` | Heap |
+| Method                           | Signature               | Allocation  |
+| -------------------------------- | ----------------------- | ----------- |
+| `String.new()`                   | `() => own String`      | Heap        |
+| `String.new_in<'r>()`            | `() => own String`      | Region `'r` |
+| `String.from(s)`                 | `(str) => own String`   | Heap        |
+| `String.from_in<'r>(s)`          | `(str) => own String`   | Region `'r` |
+| `String.with_capacity(n)`        | `(usize) => own String` | Heap        |
 | `String.with_capacity_in<'r>(n)` | `(usize) => own String` | Region `'r` |
 
 **Example usage:**
+
 ```cantrip
 region temp {
     // Empty string in region
@@ -4067,6 +3244,7 @@ region temp {
 ####### 2.1.6.6.2.3 Lifetime Enforcement
 
 **Cannot escape region:**
+
 ```cantrip
 function bad_example(): own String
     uses alloc.region
@@ -4080,6 +3258,7 @@ function bad_example(): own String
 ```
 
 **Compiler error:**
+
 ```
 Error E8301: Value allocated in region 'temp' cannot escape region scope
   --> example.ct:5:9
@@ -4096,6 +3275,7 @@ Error E8301: Value allocated in region 'temp' cannot escape region scope
 ```
 
 **Correct pattern - convert to heap:**
+
 ```cantrip
 function safe_example(): own String
     uses alloc.region, alloc.heap
@@ -4109,6 +3289,7 @@ function safe_example(): own String
 ```
 
 **Type rule for escape prevention:**
+
 ```
 [Region-Escape]
 Γ ⊢ region r { e }    e : T    alloc(e, r)    e escapes r
@@ -4120,13 +3301,14 @@ ERROR E8301: Cannot return region-allocated value
 
 **Allocation comparison:**
 
-| Operation | Heap | Region | Speedup |
-|-----------|------|--------|---------|
-| Allocation | 50-100 cycles | 3-5 cycles | 10-20× |
-| Deallocation | O(n) frees | O(1) bulk | 100-1000× |
-| Cache locality | Scattered | Contiguous | 2-4× |
+| Operation      | Heap          | Region     | Speedup   |
+| -------------- | ------------- | ---------- | --------- |
+| Allocation     | 50-100 cycles | 3-5 cycles | 10-20×    |
+| Deallocation   | O(n) frees    | O(1) bulk  | 100-1000× |
+| Cache locality | Scattered     | Contiguous | 2-4×      |
 
 **Region allocation algorithm:**
+
 ```
 1. Check: current_page has space?
 2. Yes: bump pointer (3-5 cycles)
@@ -4136,6 +3318,7 @@ ERROR E8301: Cannot return region-allocated value
 ```
 
 **Memory layout:**
+
 ```
 Region: temp
 ├── Page 1 (4 KB)    [String1][String2][String3]▒▒▒▒
@@ -4148,18 +3331,21 @@ Region: temp
 ####### 2.1.6.6.2.5 Region vs Heap Decision
 
 **Use heap allocation (`String.new()`)** when:
+
 - String uses to outlive current function
 - String lifetime is unpredictable
 - Building long-lived data structures
 - String uses to be stored in persistent collections
 
 **Use region allocation (`String.new_in<r>()`)** when:
+
 - String only needed temporarily (within function/phase)
 - Batch processing many short-lived strings
 - Performance-critical code with many allocations
 - Parsing, lexing, or compilation phases
 
 **Decision flowchart:**
+
 ```
 Does string need to escape function?
 ├─ Yes → Use heap allocation
@@ -4171,6 +3357,7 @@ Does string need to escape function?
 ####### 2.1.6.6.2.6 Nested Regions
 
 **Regions support nesting (LIFO order):**
+
 ```cantrip
 function nested_example()
     uses alloc.region
@@ -4194,12 +3381,14 @@ function nested_example()
 ```
 
 **Region hierarchy rules:**
+
 1. Inner regions deallocate before outer (LIFO)
 2. Inner regions CAN access outer region values
 3. Outer regions CANNOT access inner region values
 4. Cannot return inner-region values to outer scopes
 
 **Formal semantics:**
+
 ```
 [Region-LIFO]
 r₂ nested in r₁
@@ -4215,6 +3404,7 @@ dealloc(r₂) <ʜᴀᴘᴘᴇɴs-ʙᴇғᴏʀᴇ> dealloc(r₁)
 ####### 2.1.6.6.2.7 Common Patterns
 
 **Pattern 1: Parsing with regions**
+
 ```cantrip
 function tokenize(source: String): Vec<Token>
     uses alloc.heap, alloc.region
@@ -4239,6 +3429,7 @@ function tokenize(source: String): Vec<Token>
 ```
 
 **Pattern 2: Request processing**
+
 ```cantrip
 function handle_request(request: Request): Response
     uses alloc.region, alloc.heap
@@ -4258,6 +3449,7 @@ function handle_request(request: Request): Response
 ```
 
 **Pattern 3: Batch string processing**
+
 ```cantrip
 function process_batch(items: Vec<String>): Vec<Result>
     uses alloc.region, alloc.heap
@@ -4285,6 +3477,7 @@ function process_batch(items: Vec<String>): Vec<Result>
 ```
 
 **Pattern 4: Compilation phases**
+
 ```cantrip
 function compile(source: String): Program
     uses alloc.region, alloc.heap
@@ -4319,6 +3512,7 @@ impl String {
 ```
 
 **Example:**
+
 ```cantrip
 function example()
     uses alloc.heap, alloc.region
@@ -4343,6 +3537,7 @@ function example()
 ####### 2.1.6.6.2.9 Permissions Still Apply
 
 **Regions control lifetime, not access:**
+
 ```cantrip
 function example()
     uses alloc.region
@@ -4363,11 +3558,13 @@ function example()
 ```
 
 **Key insight:**
+
 - **Permissions** control WHO can do WHAT (read/write/move)
 - **Regions** control WHEN memory is freed (scope-based)
 - These are orthogonal concerns in Cantrip
 
 **Error codes:**
+
 - `E8301` — Region-allocated value cannot escape region scope
 - `E8302` — Region reference lifetime violation
 - `E8303` — Invalid region nesting
@@ -4379,6 +3576,7 @@ String provides a comprehensive API for construction, access, modification, and 
 ####### 2.1.6.6.3.1 Construction Operations
 
 **Empty string creation:**
+
 ```cantrip
 function String.new(): own String
     uses alloc.heap
@@ -4387,6 +3585,7 @@ function String.new(): own String
 Creates an empty String with zero length. May allocate minimal capacity.
 
 **Example:**
+
 ```cantrip
 function create_buffer(): own String
     uses alloc.heap
@@ -4396,6 +3595,7 @@ function create_buffer(): own String
 ```
 
 **From UTF-8 bytes (validated):**
+
 ```cantrip
 function String.from_utf8(bytes: [u8]): Result<own String, Utf8Error>
     uses alloc.heap
@@ -4404,6 +3604,7 @@ function String.from_utf8(bytes: [u8]): Result<own String, Utf8Error>
 Constructs a String from a byte array, validating UTF-8 encoding. Returns error if bytes are invalid UTF-8.
 
 **Example:**
+
 ```cantrip
 function parse_bytes(data: [u8]): Result<own String, Utf8Error>
     uses alloc.heap
@@ -4419,6 +3620,7 @@ let err = String.from_utf8(invalid_bytes)  // Err(Utf8Error)
 ```
 
 **From UTF-8 bytes (unchecked):**
+
 ```cantrip
 function String.from_utf8_unchecked(bytes: [u8]): own String
     uses alloc.heap
@@ -4427,6 +3629,7 @@ function String.from_utf8_unchecked(bytes: [u8]): own String
 Constructs a String from bytes without validation. **Unsafe**: Violates UTF-8 invariant if bytes are invalid.
 
 **Example:**
+
 ```cantrip
 // ONLY use if you KNOW bytes are valid UTF-8
 function trusted_conversion(validated_bytes: [u8]): own String
@@ -4439,6 +3642,7 @@ function trusted_conversion(validated_bytes: [u8]): own String
 **Warning:** Using `from_utf8_unchecked` with invalid UTF-8 creates undefined behavior. Use `from_utf8` unless performance is critical and data is pre-validated.
 
 **From string slice:**
+
 ```cantrip
 function String.from(slice: str): own String
     uses alloc.heap
@@ -4447,6 +3651,7 @@ function String.from(slice: str): own String
 Constructs a String by copying data from a string slice. Allocation required for heap storage.
 
 **Example:**
+
 ```cantrip
 function duplicate_literal(): own String
     uses alloc.heap
@@ -4457,6 +3662,7 @@ function duplicate_literal(): own String
 ```
 
 **With initial capacity:**
+
 ```cantrip
 function String.with_capacity(cap: usize): own String
     uses alloc.heap
@@ -4465,6 +3671,7 @@ function String.with_capacity(cap: usize): own String
 Creates an empty String with pre-allocated capacity. Useful for avoiding reallocations when final size is known.
 
 **Example:**
+
 ```cantrip
 function build_large_string(parts: [str]): own String
     uses alloc.heap
@@ -4481,6 +3688,7 @@ function build_large_string(parts: [str]): own String
 ```
 
 **Region-allocated string:**
+
 ```cantrip
 function String.new_in<'r>(): own String
     uses alloc.region
@@ -4489,6 +3697,7 @@ function String.new_in<'r>(): own String
 Creates an empty String allocated in the specified region instead of the heap. String lifetime is bound to the region.
 
 **Example:**
+
 ```cantrip
 function temporary_strings(): own String
     uses alloc.heap, alloc.region
@@ -4507,6 +3716,7 @@ function temporary_strings(): own String
 ####### 2.1.6.6.3.2 Access Operations (Immutable)
 
 **Get byte length:**
+
 ```cantrip
 function len(self: String): usize
 ```
@@ -4514,12 +3724,14 @@ function len(self: String): usize
 Returns the length of the String in bytes (NOT characters). O(1) operation.
 
 **Example:**
+
 ```cantrip
 let s: own String = String.from("Hello🦀")
 assert!(s.len() == 10)  // 5 ASCII bytes + 4 byte emoji
 ```
 
 **Check if empty:**
+
 ```cantrip
 function is_empty(self: String): bool
 ```
@@ -4527,6 +3739,7 @@ function is_empty(self: String): bool
 Returns `true` if the String contains zero bytes. Equivalent to `self.len() == 0`.
 
 **Example:**
+
 ```cantrip
 let empty: own String = String.new()
 assert!(empty.is_empty())
@@ -4536,6 +3749,7 @@ assert!(!non_empty.is_empty())
 ```
 
 **Get capacity:**
+
 ```cantrip
 function capacity(self: String): usize
 ```
@@ -4543,6 +3757,7 @@ function capacity(self: String): usize
 Returns the allocated capacity in bytes. Capacity is always greater than or equal to length.
 
 **Example:**
+
 ```cantrip
 let s: own String = String.with_capacity(100)
 assert!(s.capacity() >= 100)
@@ -4550,6 +3765,7 @@ assert!(s.len() == 0)
 ```
 
 **Convert to str slice:**
+
 ```cantrip
 function as_str(self: String): str
 ```
@@ -4557,6 +3773,7 @@ function as_str(self: String): str
 Returns a string slice view of the String's contents. Zero-copy operation.
 
 **Example:**
+
 ```cantrip
 function print_text(text: str) {
     println(text)
@@ -4572,6 +3789,7 @@ function example()
 ```
 
 **Get bytes:**
+
 ```cantrip
 function as_bytes(self: String): [u8]
 ```
@@ -4579,6 +3797,7 @@ function as_bytes(self: String): [u8]
 Returns a byte slice view of the String's UTF-8 data. Zero-copy operation.
 
 **Example:**
+
 ```cantrip
 let s: own String = String.from("ABC")
 let bytes: [u8] = s.as_bytes()
@@ -4590,6 +3809,7 @@ assert!(bytes[2] == 67)  // 'C'
 ####### 2.1.6.6.3.3 Modification Operations (Requires own or mut)
 
 **Append string:**
+
 ```cantrip
 function push_str(self: mut String, s: str)
     uses alloc.heap
@@ -4598,6 +3818,7 @@ function push_str(self: mut String, s: str)
 Appends a string slice to the end of the String. May reallocate if capacity is insufficient.
 
 **Example:**
+
 ```cantrip
 function concatenate(a: str, b: str): own String
     uses alloc.heap
@@ -4609,6 +3830,7 @@ function concatenate(a: str, b: str): own String
 ```
 
 **Append character:**
+
 ```cantrip
 function push(self: mut String, ch: char)
     uses alloc.heap
@@ -4617,6 +3839,7 @@ function push(self: mut String, ch: char)
 Appends a Unicode scalar value to the String. Character is encoded as UTF-8 (1-4 bytes).
 
 **Example:**
+
 ```cantrip
 let mut s: own String = String.from("Hello")
 s.push(' ')
@@ -4625,6 +3848,7 @@ assert!(s.as_str() == "Hello 🦀")
 ```
 
 **Insert string at position:**
+
 ```cantrip
 function insert_str(self: mut String, idx: usize, s: str)
     uses alloc.heap
@@ -4635,6 +3859,7 @@ function insert_str(self: mut String, idx: usize, s: str)
 Inserts a string slice at the specified byte index. May reallocate. Index must be at a UTF-8 character boundary.
 
 **Example:**
+
 ```cantrip
 let mut s: own String = String.from("HelloWorld")
 s.insert_str(5, ", ")  // Index 5 is after "Hello"
@@ -4645,6 +3870,7 @@ assert!(s.as_str() == "Hello, World")
 ```
 
 **Remove range:**
+
 ```cantrip
 function remove(self: mut String, start: usize, end: usize)
     must start <= end
@@ -4656,6 +3882,7 @@ function remove(self: mut String, start: usize, end: usize)
 Removes characters in the byte range [start, end). Indices must be at UTF-8 character boundaries.
 
 **Example:**
+
 ```cantrip
 let mut s: own String = String.from("Hello, World!")
 s.remove(5, 7)  // Remove ", "
@@ -4663,6 +3890,7 @@ assert!(s.as_str() == "HelloWorld!")
 ```
 
 **Clear all contents:**
+
 ```cantrip
 function clear(self: mut String)
 ```
@@ -4670,6 +3898,7 @@ function clear(self: mut String)
 Removes all characters from the String, setting length to 0. Capacity is unchanged.
 
 **Example:**
+
 ```cantrip
 let mut s: own String = String.from("temporary")
 let old_cap: usize = s.capacity()
@@ -4680,6 +3909,7 @@ assert!(s.capacity() == old_cap)  // Capacity preserved
 ```
 
 **Truncate to length:**
+
 ```cantrip
 function truncate(self: mut String, new_len: usize)
     must new_len <= self.len()
@@ -4689,6 +3919,7 @@ function truncate(self: mut String, new_len: usize)
 Shortens the String to the specified byte length. `new_len` must be at a character boundary.
 
 **Example:**
+
 ```cantrip
 let mut s: own String = String.from("Hello, World!")
 s.truncate(5)  // Keep only "Hello"
@@ -4696,6 +3927,7 @@ assert!(s.as_str() == "Hello")
 ```
 
 **Reserve additional capacity:**
+
 ```cantrip
 function reserve(self: mut String, additional: usize)
     uses alloc.heap
@@ -4704,6 +3936,7 @@ function reserve(self: mut String, additional: usize)
 Reserves capacity for at least `additional` more bytes. May reallocate if current capacity is insufficient.
 
 **Example:**
+
 ```cantrip
 function build_string(parts: [str]): own String
     uses alloc.heap
@@ -4724,6 +3957,7 @@ function build_string(parts: [str]): own String
 ####### 2.1.6.6.3.4 View Operations (Zero-Copy)
 
 **Slice to str:**
+
 ```cantrip
 function slice(self: String, start: usize, end: usize): str
     must start <= end
@@ -4735,6 +3969,7 @@ function slice(self: String, start: usize, end: usize): str
 Returns a string slice view of the byte range [start, end). Zero-copy operation. Indices must be at UTF-8 character boundaries.
 
 **Example:**
+
 ```cantrip
 let s: own String = String.from("Hello, World!")
 let hello: str = s.slice(0, 5)  // "Hello"
@@ -4742,6 +3977,7 @@ let world: str = s.slice(7, 12) // "World"
 ```
 
 **Split by delimiter:**
+
 ```cantrip
 function split(self: String, delimiter: str): Iterator<str>
     must !delimiter.is_empty()
@@ -4750,6 +3986,7 @@ function split(self: String, delimiter: str): Iterator<str>
 Returns an iterator over substrings separated by the delimiter. Delimiter is not included in results.
 
 **Example:**
+
 ```cantrip
 let s: own String = String.from("one,two,three")
 let parts: [str] = s.split(",").collect()
@@ -4760,6 +3997,7 @@ assert!(parts[2] == "three")
 ```
 
 **Get lines:**
+
 ```cantrip
 function lines(self: String): Iterator<str>
 ```
@@ -4767,6 +4005,7 @@ function lines(self: String): Iterator<str>
 Returns an iterator over lines (substrings separated by `\n` or `\r\n`). Line terminators are not included in results.
 
 **Example:**
+
 ```cantrip
 let doc: own String = String.from("Line 1\nLine 2\nLine 3")
 for line in doc.lines() {
@@ -4779,6 +4018,7 @@ for line in doc.lines() {
 ```
 
 **Trim whitespace:**
+
 ```cantrip
 function trim(self: String): str
 ```
@@ -4786,6 +4026,7 @@ function trim(self: String): str
 Returns a string slice with leading and trailing whitespace removed. Zero-copy operation.
 
 **Example:**
+
 ```cantrip
 let s: own String = String.from("  hello  ")
 let trimmed: str = s.trim()
@@ -4795,6 +4036,7 @@ assert!(trimmed == "hello")
 ####### 2.1.6.6.3.5 Iteration Operations
 
 **Iterate bytes:**
+
 ```cantrip
 function bytes(self: String): Iterator<u8>
 ```
@@ -4802,6 +4044,7 @@ function bytes(self: String): Iterator<u8>
 Returns an iterator over the String's bytes. Each byte is yielded individually.
 
 **Example:**
+
 ```cantrip
 let s: own String = String.from("ABC")
 for byte in s.bytes() {
@@ -4810,6 +4053,7 @@ for byte in s.bytes() {
 ```
 
 **Iterate characters:**
+
 ```cantrip
 function chars(self: String): Iterator<char>
 ```
@@ -4817,6 +4061,7 @@ function chars(self: String): Iterator<char>
 Returns an iterator over Unicode scalar values (characters). Multi-byte UTF-8 sequences are decoded.
 
 **Example:**
+
 ```cantrip
 let s: own String = String.from("Hello🦀")
 for ch in s.chars() {
@@ -4827,6 +4072,7 @@ for ch in s.chars() {
 ####### 2.1.6.6.3.6 Comparison Operations
 
 **Equality (bytes):**
+
 ```cantrip
 function equals(self: String, other: String): bool
 ```
@@ -4834,6 +4080,7 @@ function equals(self: String, other: String): bool
 Returns `true` if both Strings contain identical byte sequences. Equivalent to `==` operator.
 
 **Example:**
+
 ```cantrip
 let a: own String = String.from("hello")
 let b: own String = String.from("hello")
@@ -4844,6 +4091,7 @@ assert!(!a.equals(c))
 ```
 
 **Lexicographic comparison:**
+
 ```cantrip
 function compare(self: String, other: String): Ordering
 ```
@@ -4851,6 +4099,7 @@ function compare(self: String, other: String): Ordering
 Compares Strings lexicographically by byte values. Returns `Less`, `Equal`, or `Greater`.
 
 **Example:**
+
 ```cantrip
 let a: own String = String.from("apple")
 let b: own String = String.from("banana")
@@ -4863,6 +4112,7 @@ match a.compare(b) {
 ```
 
 **Starts with prefix:**
+
 ```cantrip
 function starts_with(self: String, prefix: str): bool
 ```
@@ -4870,6 +4120,7 @@ function starts_with(self: String, prefix: str): bool
 Returns `true` if the String begins with the specified prefix.
 
 **Example:**
+
 ```cantrip
 let s: own String = String.from("https://example.com")
 assert!(s.starts_with("https://"))
@@ -4877,6 +4128,7 @@ assert!(!s.starts_with("http://"))
 ```
 
 **Ends with suffix:**
+
 ```cantrip
 function ends_with(self: String, suffix: str): bool
 ```
@@ -4884,6 +4136,7 @@ function ends_with(self: String, suffix: str): bool
 Returns `true` if the String ends with the specified suffix.
 
 **Example:**
+
 ```cantrip
 let filename: own String = String.from("document.txt")
 assert!(filename.ends_with(".txt"))
@@ -4945,6 +4198,7 @@ function nth_char_naive(s: String, n: usize): Option<char> {
 **Rationale:**
 
 By prohibiting `s[i]`, Cantrip makes performance characteristics explicit:
+
 - Byte iteration: `s.bytes()` - clearly O(1) per byte
 - Character iteration: `s.chars()` - clearly must decoding
 - Slicing: `s.slice(start, end)` - must explicit boundary indices
@@ -4967,6 +4221,7 @@ function process_bytes(s: String) {
 **Performance:** O(1) per byte (direct array access).
 
 **Use cases:**
+
 - Binary protocol parsing
 - ASCII-only processing
 - Byte-level validation
@@ -4993,6 +4248,7 @@ assert!(count_chars(s) == 6)  // 5 ASCII + 1 emoji
 **Performance:** O(n) to traverse entire string. Getting the nth character must O(n) scan.
 
 **Example: Finding nth character:**
+
 ```cantrip
 function nth_char(s: String, n: usize): Option<char> {
     let mut iter = s.chars()
@@ -5058,6 +4314,7 @@ let world: str = s.slice(9, 14) // "World"
 **Character boundary rules:**
 
 A byte index is a valid character boundary if:
+
 1. It equals 0 or `s.len()`, OR
 2. The byte at that index is NOT a UTF-8 continuation byte (0x80-0xBF)
 
@@ -5267,167 +4524,6 @@ function good_grapheme()
 
 **Explanation:** Unicode allows multiple representations of the same visual character. `chars()` counts code points, not graphemes (user-perceived characters). For accurate user-visible character counts, use Unicode segmentation libraries.
 
-##### 2.1.6.7 Examples and Patterns
-
-###### 2.1.6.7.1 Basic String Usage
-
-Simple string creation and manipulation:
-
-```cantrip
-function greet(name: str): own String
-    uses alloc.heap
-{
-    let mut msg: own String = String.from("Hello, ")
-    msg.push_str(name)
-    msg.push('!')
-    msg  // Return owned string
-}
-
-function example()
-    uses alloc.heap
-{
-    let greeting: own String = greet("Alice")
-    println(greeting)  // "Hello, Alice!"
-}
-```
-
-**Explanation:** Build a greeting by starting with a base string, appending the name, and adding punctuation. The function returns owned String for the caller to use.
-
-###### 2.1.6.7.2 String Building with Regions
-
-Efficient string construction using temporary region allocation:
-
-```cantrip
-record Data {
-    items: [Item]
-}
-
-record Item {
-    name_val: str
-}
-
-impl Item {
-    function name(self: Item): str {
-        self.name_val
-    }
-}
-
-function format_report(data: Data): own String
-    uses alloc.heap, alloc.region
-{
-    region temp {
-        let mut parts: own Vec<str> = Vec.new_in<temp>()
-
-        // Build parts in temporary region
-        for item in data.items {
-            let mut s: own String = String.new_in<temp>()
-            s.push_str("Item: ")
-            s.push_str(item.name())
-            parts.push(s.as_str())
-        }
-
-        // Join into final heap string
-        let mut result: own String = String.new()
-        for part in parts {
-            result.push_str(part)
-            result.push_str("\n")
-        }
-
-        result  // Heap-allocated, escapes region
-    }  // All temporary strings freed here
-}
-```
-
-**Explanation:** Temporary strings are allocated in a region to avoid heap fragmentation. The final result is built on the heap before the region ends, allowing it to escape. All temporary allocations are freed in bulk when the region ends.
-
-###### 2.1.6.7.3 String Parsing Pattern
-
-Parse and validate structured string input:
-
-```cantrip
-record Email {
-    local: str
-    domain: str
-}
-
-enum ParseError {
-    Empty,
-    InvalidFormat,
-    MissingPart,
-}
-
-function parse_email(input: String): Result<Email, ParseError> {
-    if input.is_empty() {
-        return Err(ParseError::Empty)
-    }
-
-    // Split by @ symbol
-    let mut parts = input.split("@")
-    let parts_vec: [str] = parts.collect()
-
-    if parts_vec.len() != 2 {
-        return Err(ParseError::InvalidFormat)
-    }
-
-    let local: str = parts_vec[0]
-    let domain: str = parts_vec[1]
-
-    if local.is_empty() || domain.is_empty() {
-        return Err(ParseError::MissingPart)
-    }
-
-    Ok(Email { local, domain })
-}
-
-function example()
-    uses alloc.heap
-{
-    let addr: own String = String.from("user@example.com")
-
-    match parse_email(addr) {
-        Ok(email) => println("Local: {}, Domain: {}", email.local, email.domain),
-        Err(ParseError::Empty) => println("Empty email"),
-        Err(ParseError::InvalidFormat) => println("Invalid format"),
-        Err(ParseError::MissingPart) => println("Missing part"),
-    }
-}
-```
-
-**Explanation:** Validates email format by splitting on `@` and checking component counts. Uses Result type to return either parsed Email or specific error. No allocation needed for parsing (uses str slices).
-
-###### 2.1.6.7.4 Zero-Copy String Processing
-
-Process strings without allocation using string slices:
-
-```cantrip
-function count_words(text: String): usize {
-    let mut count: usize = 0
-
-    for line in text.lines() {
-        for word in line.split(" ") {
-            let trimmed: str = word.trim()
-            if !trimmed.is_empty() {
-                count = count + 1
-            }
-        }
-    }
-
-    count
-}
-
-function example()
-    uses alloc.heap
-{
-    let doc: own String = String.from("Hello world\nHow are you\n\nFine thanks")
-    let words: usize = count_words(doc)
-    println("Word count: {words}")  // 6
-}
-```
-
-**Explanation:** All operations (`lines()`, `split()`, `trim()`) return `str` slices that borrow from the original String. No heap allocation occurs during processing, making this efficient for large texts.
-
-
-
 ---
 
 ## 2.1.7 Built-In Sum Types
@@ -5443,6 +4539,7 @@ Cantrip provides two fundamental sum types that are so pervasive they are consid
 **Key innovation/purpose:** `Option<T>` provides type-safe optional values, eliminating null pointer errors by making the absence of a value explicit in the type system.
 
 **When to use Option<T>:**
+
 - Values that may or may not be present
 - Function returns that may have no meaningful result
 - Nullable fields in data structures
@@ -5450,12 +4547,14 @@ Cantrip provides two fundamental sum types that are so pervasive they are consid
 - Configuration values with defaults
 
 **When NOT to use Option<T>:**
+
 - Error conditions with diagnostic information → use `Result<T, E>`
 - Boolean flags → use `bool` directly
 - Collections that may be empty → use empty collection
 - Values that are always present → use `T` directly
 
 **Relationship to other features:**
+
 - **Pattern matching**: Option must be matched exhaustively
 - **Pointer types**: `Option<Ptr<T>>` uses niche optimization (null = None)
 - **Permissions**: Option wraps permissions: `Option<own T>`, `Option<mut T>`
@@ -5464,6 +4563,7 @@ Cantrip provides two fundamental sum types that are so pervasive they are consid
 #### Syntax
 
 **Type definition (conceptual - actually built-in):**
+
 ```cantrip
 enum Option<T> {
     Some(T),
@@ -5472,6 +4572,7 @@ enum Option<T> {
 ```
 
 **Construction:**
+
 ```cantrip
 // Create Some variant
 let some_value: Option<i32> = Option.Some(42)
@@ -5481,6 +4582,7 @@ let no_value: Option<i32> = Option.None
 ```
 
 **Pattern matching:**
+
 ```cantrip
 match some_value {
     Option.Some(x) => println("Got value: {x}"),
@@ -5521,6 +4623,7 @@ match some_value {
 #### Memory Representation
 
 **Standard layout:**
+
 ```
 Option<T>:
 ┌──────────────┬──────────────────────┐
@@ -5533,6 +4636,7 @@ Alignment: max(alignof(T), alignof(discriminant))
 ```
 
 **Niche optimization (for non-nullable pointers):**
+
 ```
 Option<Ptr<T>@Exclusive>:
 ┌──────────────┐
@@ -5572,41 +4676,6 @@ if let Option.Some(x) = optional_value {
 
 **Note:** Standard library (Part XII) provides utility procedures for common operations (checking presence, extracting with defaults, etc.), but pattern matching is the idiomatic Cantrip approach for Option handling.
 
-#### Examples
-
-**Search returning Option:**
-```cantrip
-procedure find_first_positive(numbers: [i32]): Option<i32> {
-    for n in numbers {
-        if n > 0 {
-            return Option.Some(n)
-        }
-    }
-    Option.None
-}
-
-// Usage
-let result = find_first_positive([−1, −2, 3, 4])
-match result {
-    Option.Some(value) => println("Found: {value}"),
-    Option.None => println("No positive numbers"),
-}
-```
-
-**Optional fields:**
-```cantrip
-record Config {
-    port: u16,
-    host: String,
-    tls_cert: Option<String>,  // May or may not have TLS
-}
-
-let config = Config {
-    port: 8080,
-    host: "localhost",
-    tls_cert: Option.None,  // No TLS
-}
-```
 
 ### 2.1.7.2 Result<T, E>
 
@@ -5615,6 +4684,7 @@ let config = Config {
 **Key innovation/purpose:** `Result<T, E>` provides type-safe error handling without exceptions, making errors explicit in function signatures and enabling exhaustive error checking through pattern matching.
 
 **When to use Result<T, E>:**
+
 - Operations that can fail with error information
 - I/O operations (file, network)
 - Parsing and validation
@@ -5622,12 +4692,14 @@ let config = Config {
 - Any fallible computation needing error details
 
 **When NOT to use Result<T, E>:**
+
 - Logic errors that should never happen → use `must` preconditions or `panic`
 - Simple presence/absence → use `Option<T>`
 - Control flow without errors → use enums
 - Errors that should terminate → use `panic` or `exit`
 
 **Relationship to other features:**
+
 - **Contract system**: Result integrates with effects and postconditions
 - **Pattern matching**: Result must be matched exhaustively
 - **Error propagation**: Natural composition through match or helper methods
@@ -5636,6 +4708,7 @@ let config = Config {
 #### Syntax
 
 **Type definition (conceptual - actually built-in):**
+
 ```cantrip
 enum Result<T, E> {
     Ok(T),
@@ -5644,6 +4717,7 @@ enum Result<T, E> {
 ```
 
 **Construction:**
+
 ```cantrip
 // Success case
 let success: Result<i32, String> = Result.Ok(42)
@@ -5653,6 +4727,7 @@ let failure: Result<i32, String> = Result.Err("computation failed")
 ```
 
 **Pattern matching:**
+
 ```cantrip
 match success {
     Result.Ok(value) => println("Success: {value}"),
@@ -5704,6 +4779,7 @@ Effects include all potential error-producing effects
 #### Memory Representation
 
 **Standard layout:**
+
 ```
 Result<T, E>:
 ┌──────────────┬──────────────────────────────────┐
@@ -5716,6 +4792,7 @@ Alignment: max(alignof(T), alignof(E), alignof(discriminant))
 ```
 
 **Example sizes:**
+
 ```
 Result<i32, String>:
   - Discriminant: 1 byte
@@ -5765,84 +4842,6 @@ procedure process_file(path: String): Result<Data, Error>
 
 **Note:** Standard library (Part XII) may provide utility procedures for result composition, but explicit pattern matching is the idiomatic Cantrip approach for error handling.
 
-#### Examples
-
-**File operations:**
-```cantrip
-procedure read_config(path: String): Result<Config, Error>
-    uses io.read, alloc.heap
-{
-    match std.fs.read_to_string(path) {
-        Result.Ok(contents) => {
-            match parse_config(contents) {
-                Result.Ok(config) => Result.Ok(config),
-                Result.Err(e) => Result.Err(e),
-            }
-        },
-        Result.Err(e) => Result.Err(e),
-    }
-}
-```
-
-**Parsing with Result:**
-```cantrip
-procedure parse_port(s: String): Result<u16, ParseError>
-    will match result {
-        Result.Ok(port) => port >= 0 && port <= 65535,
-        Result.Err(_) => true
-    }
-{
-    match s.parse::<u16>() {
-        Result.Ok(n) if n <= 65535 => Result.Ok(n),
-        Result.Ok(_) => Result.Err(ParseError.OutOfRange),
-        Result.Err(_) => Result.Err(ParseError.InvalidFormat),
-    }
-}
-```
-
-**Type aliases for domain-specific Results:**
-```cantrip
-type IoResult<T> = Result<T, IoError>
-type ParseResult<T> = Result<T, ParseError>
-
-procedure read_file(path: String): IoResult<String>
-    uses io.read, alloc.heap
-{
-    std.fs.read_to_string(path)
-}
-```
-
-#### Integration with Contracts
-
-**Postconditions with Result:**
-```cantrip
-procedure safe_divide(a: f64, b: f64): Result<f64, String>
-    will match result {
-        Result.Ok(v) => v == a / b && b != 0.0,
-        Result.Err(_) => b == 0.0
-    }
-{
-    if b == 0.0 {
-        Result.Err("division by zero")
-    } else {
-        Result.Ok(a / b)
-    }
-}
-```
-
-**Effects with Result:**
-```cantrip
-procedure fetch_data(url: String): Result<Data, NetworkError>
-    uses network.http, alloc.heap
-    will match result {
-        Result.Ok(data) => data.is_valid(),
-        Result.Err(_) => true
-    }
-{
-    // Implementation
-}
-```
-
 ### 2.1.7.3 Design Rationale
 
 **Why are Option and Result primitives?**
@@ -5856,6 +4855,7 @@ procedure fetch_data(url: String): Result<Data, NetworkError>
 **Why not exceptions?**
 
 Cantrip uses Result<T, E> instead of exceptions because:
+
 - **Explicit in types**: Function signatures show they can fail
 - **Exhaustive handling**: Compiler enforces error checking
 - **Composable**: Easy to chain fallible operations
@@ -5865,6 +4865,7 @@ Cantrip uses Result<T, E> instead of exceptions because:
 **Why not built-in `?` operator?**
 
 Cantrip doesn't have Rust's `?` operator because:
+
 - **Explicit over implicit**: Pattern matching makes control flow visible
 - **Simpler language**: One less special case operator
 - **Methods suffice**: `and_then` and `map` provide composition
@@ -5875,24 +4876,75 @@ However, library or macro support for error propagation patterns is expected.
 ### 2.1.7.4 Comparison with Other Approaches
 
 **Cantrip vs Rust:**
+
 - **Same**: Option and Result as primary mechanisms
 - **Different**: No `?` operator (yet), explicit pattern matching
-- **Different**: Permission system (not borrow checker) affects ownership transfer
+- **Different**: Permission system with region-based escape analysis affects ownership transfer
 
 **Cantrip vs Java/C++:**
+
 - **Cantrip**: Type-safe Option/Result with exhaustiveness checking
 - **Java/C++**: Exceptions with no compile-time checking, nullable types
 
 **Cantrip vs Go:**
+
 - **Cantrip**: Result<T, E> with type-safe errors
 - **Go**: (T, error) tuple with convention-based checking
 
 **Cantrip vs Haskell:**
+
 - **Similar**: Maybe/Either monads map to Option/Result
 - **Different**: Cantrip uses explicit match, Haskell uses `do` notation
 
 ---
 
+## 2.1.8 Related Sections
+
+- See §2.2 for [Product Types](../PART_B_Composite/02_ProductTypes.md) - combining primitives into tuples and records
+- See §2.3 for [Sum Types](../PART_B_Composite/03_SumTypes.md) - Option<T> and Result<T, E> as sum types
+- See §2.4 for [Collection Types](../PART_B_Composite/04_CollectionTypes.md) - arrays and slices of primitive types
+- See §2.5 for [Pointers](../PART_C_References/05_Pointers.md) - references to primitive values
+- See §2.7 for [Generics](../PART_D_Abstraction/07_Generics.md) - generic types parameterized over primitives
+- See Part III (Permissions) for permission semantics with primitive types
+- See Part IV (Regions) for region-based allocation of String and heap types
+- See Part V (Effects) for effect tracking with heap-allocating types (String)
+- **Examples**: See [01_PrimitiveExamples.md](../Examples/01_PrimitiveExamples.md) for practical usage patterns
+
+## 2.1.9 Notes and Warnings
+
+**Note 1 (Integer Overflow):** Integer overflow wraps in release mode (two's complement) but panics in debug mode. Use checked arithmetic methods (`checked_add`, `checked_mul`, etc.) for overflow detection in release builds.
+
+**Note 2 (Default Integer Type):** Unsuffixed integer literals default to `i32`. Use type suffixes (`42u64`) or type annotations (`: u16`) for other integer types.
+
+**Note 3 (Platform-Dependent Sizes):** Types `isize` and `usize` are pointer-sized (32-bit on 32-bit platforms, 64-bit on 64-bit platforms). Use these for array indexing and memory offsets.
+
+**Note 4 (Floating-Point Precision):** `f32` provides ~7 decimal digits of precision; `f64` provides ~15 decimal digits. Use `f64` by default unless memory/performance constraints require `f32`.
+
+**Note 5 (NaN Behavior):** Floating-point NaN values do not compare equal to themselves (`NaN != NaN`). Use `.is_nan()` method to check for NaN. NaN propagates through most arithmetic operations.
+
+**Note 6 (Character vs String):** `char` represents a single Unicode scalar value (4 bytes), while `str` represents UTF-8 encoded text (variable bytes per character). A grapheme cluster (user-perceived character) may require multiple `char` values.
+
+**Note 7 (String Heap Allocation):** `String` type requires heap allocation (effect `alloc.heap`). Use `str` slices when possible to avoid allocations. String literals have type `str` (borrowed string slice).
+
+**Note 8 (UTF-8 Invariant):** All `String` and `str` values maintain UTF-8 validity as a type invariant. Invalid UTF-8 cannot be constructed through safe operations. Unsafe operations that violate this invariant cause undefined behavior.
+
+**Note 9 (Never Type Divergence):** Functions returning `Never` (`!`) never return normally—they must loop forever, panic, or exit. The `Never` type can coerce to any other type, enabling uniform error handling in match arms.
+
+**Warning 1 (Integer Division by Zero):** Division by zero panics at runtime for integer types. Use checked division (`checked_div`) or explicit zero checks for fallible division.
+
+**Warning 2 (Floating-Point Equality):** Avoid direct equality comparisons with floating-point types due to rounding errors. Use epsilon-based comparisons or relative tolerance checks.
+
+**Warning 3 (String Indexing):** Strings cannot be indexed by position (`s[i]` is invalid) because UTF-8 encoding has variable-width characters. Use `.chars()` iterator or byte slicing (unsafe for invalid boundaries).
+
+**Warning 4 (Option/Result Unwrapping):** Methods like `Option.unwrap()` and `Result.unwrap()` panic if the value is `None` or `Err`. Use pattern matching or fallible unwrapping methods (`unwrap_or`, `unwrap_or_else`) for safer handling.
+
+**Performance Note 1 (Copy Trait):** All primitive types except `String` implement the `Copy` trait and have trivial copy semantics. Copying is automatic when passing by value.
+
+**Performance Note 2 (String Cloning):** Cloning `String` requires heap allocation and memory copying. Prefer passing `str` slices by reference when ownership transfer is not needed.
+
+**Implementation Note 1 (Niche Optimization):** `Option<T>` uses niche optimization for types with unused bit patterns (e.g., `Option<&T>` has same size as `&T` using null for `None`). Similarly optimized for `Option<bool>`, non-zero integers, etc.
+
+**Implementation Note 2 (Result Size):** `Result<T, E>` has size `max(sizeof(T), sizeof(E)) + discriminant`. Use small error types or boxed errors (`Result<T, Box<E>>`) to reduce size overhead.
 
 ---
 

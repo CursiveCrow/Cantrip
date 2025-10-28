@@ -1,4 +1,4 @@
-# Part II: Type System - §2.2 Product Types
+# Chapter 2: Type System - §2.2 Product Types
 
 **Section**: §2.2 | **Part**: Type System (Part II)
 **Previous**: [Primitive Types](../PART_A_Primitives/01_PrimitiveTypes.md) | **Next**: [Sum Types](03_SumTypes.md)
@@ -26,6 +26,7 @@ Product types combine multiple values into a single composite value. Cantrip pro
 **Key innovation/purpose:** Tuples provide lightweight, anonymous product types for temporary grouping of heterogeneous values without the ceremony of defining a record type. They are essential for multiple return values and destructuring patterns.
 
 **When to use tuples:**
+
 - Multiple return values from functions
 - Temporary grouping of related but heterogeneous data
 - Destructuring in pattern matching
@@ -33,12 +34,14 @@ Product types combine multiple values into a single composite value. Cantrip pro
 - Function arguments that naturally group together
 
 **When NOT to use tuples:**
+
 - Complex data structures with many fields → use records (§8)
 - Data that benefits from named fields → use records
 - Homogeneous collections → use arrays (§6)
 - Long-lived data structures (tuples lack semantic meaning)
 
 **Relationship to other features:**
+
 - **Records**: Tuples are anonymous records with positional access (`.0`, `.1`) instead of named fields
 - **Pattern matching**: Tuples support destructuring patterns
 - **Type inference**: Tuple types are inferred from their elements
@@ -49,6 +52,7 @@ Product types combine multiple values into a single composite value. Cantrip pro
 ##### 2.2.1.2.1 Concrete Syntax
 
 **Concrete Syntax:**
+
 ```ebnf
 TupleType    ::= "(" Type ("," Type)* ")"
                | "(" ")"                     // Unit type
@@ -59,6 +63,7 @@ TuplePattern ::= "(" Pattern ("," Pattern)* ")"
 ```
 
 **Examples:**
+
 ```cantrip
 // Tuple types and literals
 let pair: (i32, str) = (42, "answer")
@@ -75,6 +80,7 @@ let ((a, b), label) = nested
 ```
 
 **Unit type (0-tuple):**
+
 ```cantrip
 let unit: () = ()  // Type and value both written as ()
 
@@ -85,6 +91,7 @@ function print_message(msg: str): () {
 ```
 
 The unit type `()` is a special case of tuples with zero elements. It represents "no value" and is used for:
+
 - Functions that perform side effects but return nothing meaningful
 - Empty states in enums
 - Placeholder in generic contexts
@@ -92,6 +99,7 @@ The unit type `()` is a special case of tuples with zero elements. It represents
 ##### 2.2.1.2.2 Abstract Syntax
 
 **Tuples:**
+
 ```
 τ ::= (τ₁, ..., τₙ)  (tuple type)
     | ()             (unit type)
@@ -103,36 +111,12 @@ e ::= (e₁, ..., eₙ)  (tuple literal)
 p ::= (p₁, ..., pₙ)  (tuple pattern)
 ```
 
-##### 2.2.1.2.3 Basic Examples
-
-**Multiple return values:**
-```cantrip
-function divide_with_remainder(x: i32, y: i32): (i32, i32)
-    must y != 0
-{
-    (x / y, x % y)
-}
-
-let (quotient, remainder) = divide_with_remainder(17, 5)
-// quotient = 3, remainder = 2
-```
-
-**Coordinate systems:**
-```cantrip
-// 2D point
-let point: (f64, f64) = (3.0, 4.0)
-let distance = ((point.0 * point.0) + (point.1 * point.1)).sqrt()
-
-// RGB color
-let color: (u8, u8, u8) = (255, 128, 0)
-let (r, g, b) = color
-```
-
 #### 2.2.1.3 Static Semantics
 
 ##### 2.2.1.3.1 Well-Formedness Rules
 
 **Tuple type well-formedness:**
+
 ```
 [WF-Tuple]
 Γ ⊢ T₁ : Type    ...    Γ ⊢ Tₙ : Type
@@ -149,6 +133,7 @@ let (r, g, b) = color
 ##### 2.2.1.3.2 Type Rules
 
 **Tuple literal typing:**
+
 ```
 [T-Tuple]
 Γ ⊢ e₁ : T₁    ...    Γ ⊢ eₙ : Tₙ
@@ -159,6 +144,7 @@ let (r, g, b) = color
 **Explanation:** A tuple literal has tuple type when each element expression has the corresponding component type.
 
 **Example:**
+
 ```cantrip
 let x: i32 = 42
 let y: str = "hello"
@@ -166,6 +152,7 @@ let pair = (x, y)  // Type: (i32, str)
 ```
 
 **Tuple projection typing:**
+
 ```
 [T-Tuple-Proj]
 Γ ⊢ e : (T₁, ..., Tₙ)
@@ -177,6 +164,7 @@ i ∈ [0, n)
 **Explanation:** Accessing the i-th field of a tuple (0-indexed) yields the type of that field.
 
 **Example:**
+
 ```cantrip
 let pair: (i32, str) = (42, "answer")
 let first = pair.0   // Type: i32
@@ -184,6 +172,7 @@ let second = pair.1  // Type: str
 ```
 
 **Unit type:**
+
 ```
 [T-Unit]
 ────────────────
@@ -193,6 +182,7 @@ let second = pair.1  // Type: str
 **Explanation:** The unit value `()` has unit type `()`.
 
 **Tuple pattern typing:**
+
 ```
 [T-Tuple-Pattern]
 Γ ⊢ p₁ : T₁ ⇝ Γ₁    ...    Γ ⊢ pₙ : Tₙ ⇝ Γₙ
@@ -203,6 +193,7 @@ let second = pair.1  // Type: str
 **Explanation:** A tuple pattern matches a tuple type when each sub-pattern matches the corresponding component type. The resulting context is the union of all sub-pattern contexts.
 
 **Example:**
+
 ```cantrip
 let (x, y) = (42, "hello")
 // Pattern (x, y) : (i32, str) ⇝ {x: i32, y: str}
@@ -213,6 +204,7 @@ let (x, y) = (42, "hello")
 **Property 7.1 (Tuple Type Uniqueness):**
 
 For any expression `(e₁, ..., eₙ)`, if it is well-typed, it has exactly one type:
+
 ```
 ∀e₁...eₙ. (∃T. Γ ⊢ (e₁, ..., eₙ) : T) ⇒ (∃!T₁...Tₙ. T = (T₁, ..., Tₙ))
 ```
@@ -220,6 +212,7 @@ For any expression `(e₁, ..., eₙ)`, if it is well-typed, it has exactly one 
 **Property 7.2 (Tuple Type Decomposition):**
 
 A tuple type determines the types of its components:
+
 ```
 Γ ⊢ e : (T₁, ..., Tₙ) ⇒ ∀i ∈ [0, n). Γ ⊢ e.i : Tᵢ
 ```
@@ -249,6 +242,7 @@ process((100, true))  // 100 inferred as i64
 ##### 2.2.1.4.1 Evaluation Rules
 
 **Tuple evaluation:**
+
 ```
 [E-Tuple]
 ⟨e₁, σ⟩ ⇓ ⟨v₁, σ₁⟩    ...    ⟨eₙ, σₙ₋₁⟩ ⇓ ⟨vₙ, σₙ⟩
@@ -261,6 +255,7 @@ process((100, true))  // 100 inferred as i64
 ```
 
 **Tuple projection evaluation:**
+
 ```
 [E-Tuple-Proj]
 ⟨e, σ⟩ ⇓ ⟨(v₀, ..., vₙ₋₁), σ'⟩
@@ -270,6 +265,7 @@ i < n
 ```
 
 **Formal semantics:**
+
 ```
 ⟦(v₁, ..., vₙ)⟧ = (⟦v₁⟧, ..., ⟦vₙ⟧)  (tuple value)
 ⟦(v₁, ..., vₙ).i⟧ = ⟦vᵢ⟧              (projection)
@@ -278,6 +274,7 @@ i < n
 ##### 2.2.1.4.2 Memory Representation
 
 **Tuple layout:**
+
 ```
 (T₁, T₂, T₃) memory layout:
 ┌────┬───┬────┬───┬────┐
@@ -286,18 +283,21 @@ i < n
 ```
 
 **Properties:**
+
 - Each field aligned to its type's alignment
 - Padding inserted between fields to maintain alignment
 - Total size rounded up to tuple's alignment
 - Fields ordered as declared (no reordering optimization)
 
 **Alignment calculation:**
+
 ```
 align((T₁, ..., Tₙ)) = max(align(T₁), ..., align(Tₙ))
 size((T₁, ..., Tₙ)) = aligned_sum(size(T₁), ..., size(Tₙ))
 ```
 
 **Examples:**
+
 ```cantrip
 // (u8, u32, u16) on typical 64-bit system
 // align(u8) = 1, align(u32) = 4, align(u16) = 2
@@ -317,6 +317,7 @@ size((T₁, ..., Tₙ)) = aligned_sum(size(T₁), ..., size(Tₙ))
 ```
 
 **Unit type:**
+
 ```
 () memory layout:
 (no memory allocated, zero-sized type)
@@ -341,12 +342,14 @@ Tuples implement Copy ⟺ all fields implement Copy
 ```
 
 **Parameter Passing:**
+
 - All tuples pass by permission by default (like all types)
 - `.copy()` available for Copy-capable tuples
 - Non-Copy tuples require explicit `move` for ownership transfer
 - **Partial moves**: Not allowed—tuples move as a complete unit
 
 **Example:**
+
 ```cantrip
 // Copy-capable tuple
 let point: (i32, i32) = (10, 20)
@@ -388,6 +391,7 @@ Memory overhead:     Padding for alignment (no discriminant tag)
 ##### 2.2.1.5.1 Parameter Passing and Copy Capability
 
 **Tuples:**
+
 - `(T₁, ..., Tₙ)` implements Copy if all Tᵢ implement Copy
 - All tuples pass by permission regardless of Copy capability
 - Explicit `.copy()` for Copy-capable tuples
@@ -416,158 +420,6 @@ Tuples are **invariant** in their type parameters:
 
 **Rationale:** Allowing covariance would violate type safety in mutable contexts.
 
-#### 2.2.1.6 Examples and Patterns
-
-##### 2.2.1.6.1 Multiple Return Values
-
-**Error handling (before Result enum):**
-```cantrip
-function parse_number(s: str): (Option<i32>, str) {
-    if let Some(n) = try_parse(s) {
-        (Some(n), "")
-    } else {
-        (None, "invalid number")
-    }
-}
-
-let (result, error) = parse_number("123")
-match result {
-    Some(n) => println("Parsed: {n}"),
-    None => println("Error: {error}"),
-}
-```
-
-**Splitting operations:**
-```cantrip
-function split_at_first_space(s: str): (str, str) {
-    if let Some(index) = s.find(' ') {
-        (s[..index], s[index + 1..])
-    } else {
-        (s, "")
-    }
-}
-
-let (first_word, rest) = split_at_first_space("hello world")
-```
-
-##### 2.2.1.6.2 Temporary Grouping
-
-**Function arguments:**
-```cantrip
-function distance(p1: (f64, f64), p2: (f64, f64)): f64 {
-    let dx = p2.0 - p1.0
-    let dy = p2.1 - p1.1
-    (dx * dx + dy * dy).sqrt()
-}
-
-let d = distance((0.0, 0.0), (3.0, 4.0))  // 5.0
-```
-
-**Swapping values:**
-```cantrip
-function swap<T>(a: T, b: T): (T, T) {
-    (b, a)
-}
-
-let (x, y) = swap(10, 20)  // x = 20, y = 10
-```
-
-##### 2.2.1.6.3 Nested Tuples
-
-**Complex structures:**
-```cantrip
-// Before parsing into proper records
-let person: (str, i32, (str, str)) =
-    ("Alice", 30, ("alice@example.com", "+1-555-0123"))
-
-let (name, age, (email, phone)) = person
-```
-
-**Matrix operations:**
-```cantrip
-function matrix_multiply(
-    a: ((f64, f64), (f64, f64)),
-    b: ((f64, f64), (f64, f64))
-): ((f64, f64), (f64, f64)) {
-    // 2x2 matrix multiplication
-    let ((a11, a12), (a21, a22)) = a
-    let ((b11, b12), (b21, b22)) = b
-    (
-        (a11 * b11 + a12 * b21, a11 * b12 + a12 * b22),
-        (a21 * b11 + a22 * b21, a21 * b12 + a22 * b22),
-    )
-}
-```
-
-##### 2.2.1.6.4 Pattern Matching
-
-**Destructuring in match:**
-```cantrip
-function classify_point(p: (i32, i32)): str {
-    match p {
-        (0, 0) => "origin",
-        (0, _) => "on y-axis",
-        (_, 0) => "on x-axis",
-        (x, y) if x == y => "on diagonal",
-        (x, y) if x > 0 && y > 0 => "quadrant I",
-        _ => "other",
-    }
-}
-```
-
-**Nested destructuring:**
-```cantrip
-let data: ((i32, i32), (i32, i32)) = ((1, 2), (3, 4))
-
-match data {
-    ((0, 0), _) => println("First point is origin"),
-    (_, (0, 0)) => println("Second point is origin"),
-    ((x1, y1), (x2, y2)) => {
-        println("Points: ({x1}, {y1}) and ({x2}, {y2})")
-    }
-}
-```
-
-##### 2.2.1.6.5 When to Prefer Records
-
-**Bad (tuple with unclear meaning):**
-```cantrip
-function get_user_info(): (str, i32, str, bool) {
-    ("Alice", 30, "alice@example.com", true)
-}
-
-let info = get_user_info()
-let name = info.0     // What is .0?
-let age = info.1      // What is .1?
-let email = info.2    // What is .2?
-let active = info.3   // What is .3?
-```
-
-**Good (use a record instead):**
-```cantrip
-record UserInfo {
-    name: str
-    age: i32
-    email: str
-    active: bool
-}
-
-function get_user_info(): UserInfo {
-    UserInfo {
-        name: "Alice",
-        age: 30,
-        email: "alice@example.com",
-        active: true,
-    }
-}
-
-let info = get_user_info()
-let name = info.name    // Clear semantic meaning
-```
-
-**Rule of thumb:** If a tuple has more than 3 elements or will be used in multiple places, use a record instead.
-
-
 ---
 
 **Definition 8.1 (Record):** A record is a labeled Cartesian product of its fields. Formally, if `R { f₁: T₁; …; fₙ: Tₙ }` then `⟦R⟧ ≅ T₁ × … × Tₙ` with named projections `fᵢ : R → Tᵢ`. Records provide procedures (see §13.7) within their definition; inheritance is not part of the model—use traits and composition.
@@ -579,6 +431,7 @@ let name = info.name    // Clear semantic meaning
 **Key innovation/purpose:** Records provide named product types with procedures, enabling data encapsulation and object-oriented programming without inheritance complexity.
 
 **When to use records:**
+
 - Structured data with named fields
 - Data that benefits from semantic field names
 - Types requiring associated procedures (methods)
@@ -587,6 +440,7 @@ let name = info.name    // Clear semantic meaning
 - When you need encapsulation and visibility control
 
 **When NOT to use records:**
+
 - Simple heterogeneous groupings → use tuples (§7)
 - Discriminated unions → use enums (§9)
 - Homogeneous collections → use arrays (§6) or Vec<T>
@@ -594,6 +448,7 @@ let name = info.name    // Clear semantic meaning
 - Very small data (2-3 fields) without procedures → consider tuples
 
 **Relationship to other features:**
+
 - **Tuples**: Records are like tuples with named fields instead of positional access
 - **Traits**: Records implement traits for polymorphic behavior
 - **Generics**: Records can be generic over type parameters
@@ -606,6 +461,7 @@ let name = info.name    // Clear semantic meaning
 ##### 2.2.2.2.1 Concrete Syntax
 
 **Record declaration:**
+
 ```ebnf
 RecordDecl   ::= "record" Ident GenericParams? "{" FieldList "}"
 FieldList    ::= Field (";" Field)* ";"?
@@ -615,6 +471,7 @@ GenericParams ::= "<" TypeParam ("," TypeParam)* ">"
 ```
 
 **Record construction:**
+
 ```ebnf
 RecordExpr   ::= Ident "{" FieldInit ("," FieldInit)* ","? "}"
 FieldInit    ::= Ident ":" Expr
@@ -622,11 +479,13 @@ FieldInit    ::= Ident ":" Expr
 ```
 
 **Field access:**
+
 ```ebnf
 FieldAccess  ::= Expr "." Ident
 ```
 
 **Examples:**
+
 ```cantrip
 record Point {
     x: f64
@@ -646,51 +505,24 @@ let x_coord = origin.x
 ##### 2.2.2.2.2 Abstract Syntax
 
 **Record types:**
+
 ```
 τ ::= record Name { f₁: τ₁; ...; fₙ: τₙ }    (record type)
     | Name                                     (record type reference)
 ```
 
 **Record expressions:**
+
 ```
 e ::= Name { f₁: e₁, ..., fₙ: eₙ }            (record literal)
     | e.f                                      (field access)
 ```
 
 **Record patterns:**
+
 ```
 p ::= Name { f₁: p₁, ..., fₙ: pₙ }            (record pattern)
     | Name { f₁, ..., fₙ }                     (shorthand pattern)
-```
-
-##### 2.2.2.2.3 Basic Examples
-
-**Simple record:**
-```cantrip
-record Point {
-    x: f64
-    y: f64
-}
-
-let p = Point { x: 3.0, y: 4.0 }
-let distance = ((p.x * p.x) + (p.y * p.y)).sqrt()
-```
-
-**Field shorthand:**
-```cantrip
-let x = 3.0
-let y = 4.0
-let point = Point { x, y }  // Equivalent to Point { x: x, y: y }
-```
-
-**Generic record:**
-```cantrip
-record Pair<T, U> {
-    first: T
-    second: U
-}
-
-let pair = Pair { first: 42, second: "hello" }
 ```
 
 #### 2.2.2.3 Static Semantics
@@ -698,6 +530,7 @@ let pair = Pair { first: 42, second: "hello" }
 ##### 2.2.2.3.1 Well-Formedness Rules
 
 **Record declaration:**
+
 ```
 [WF-Record]
 Γ ⊢ T₁ : Type    ...    Γ ⊢ Tₙ : Type
@@ -707,6 +540,7 @@ fields f₁, ..., fₙ are distinct
 ```
 
 **Generic record:**
+
 ```
 [WF-Generic-Record]
 Γ, α₁ : Type, ..., αₘ : Type ⊢ T₁ : Type    ...    Γ ⊢ Tₙ : Type
@@ -718,6 +552,7 @@ fields f₁, ..., fₙ are distinct
 ##### 2.2.2.3.2 Type Rules
 
 **Record construction:**
+
 ```
 [T-Record]
 record Name { f₁: T₁; ...; fₙ: Tₙ } in Γ
@@ -727,6 +562,7 @@ record Name { f₁: T₁; ...; fₙ: Tₙ } in Γ
 ```
 
 **Field access:**
+
 ```
 [T-Field]
 Γ ⊢ e : record S    field f : T in S
@@ -735,6 +571,7 @@ record Name { f₁: T₁; ...; fₙ: Tₙ } in Γ
 ```
 
 **Record pattern:**
+
 ```
 [T-Record-Pattern]
 record Name { f₁: T₁; ...; fₙ: Tₙ }
@@ -748,6 +585,7 @@ record Name { f₁: T₁; ...; fₙ: Tₙ }
 **Theorem 8.1 (Structural Typing):**
 
 Records with identical field names and types are distinct types:
+
 ```
 record A { x: i32; y: i32 } ≠ record B { x: i32; y: i32 }
 ```
@@ -757,6 +595,7 @@ Cantrip uses nominal typing for records, not structural typing.
 **Theorem 8.2 (Copy Capability):**
 
 A record implements `Copy` if and only if all its fields implement `Copy`:
+
 ```
 record R { f₁: T₁; ...; fₙ: Tₙ } : Copy
 ⟺
@@ -768,6 +607,7 @@ T₁ : Copy ∧ ... ∧ Tₙ : Copy
 **Theorem 8.3 (Alignment and Size):**
 
 For record R with fields f₁: T₁, ..., fₙ: Tₙ:
+
 ```
 align(R) = max(align(T₁), ..., align(Tₙ))
 size(R) = aligned_sum(size(T₁), ..., size(Tₙ), align(R))
@@ -780,6 +620,7 @@ where aligned_sum accounts for padding between fields.
 ##### 2.2.2.4.1 Evaluation Rules
 
 **Record construction:**
+
 ```
 [E-Record]
 ⟨e₁, σ⟩ ⇓ ⟨v₁, σ₁⟩    ...    ⟨eₙ, σₙ₋₁⟩ ⇓ ⟨vₙ, σₙ⟩
@@ -788,6 +629,7 @@ where aligned_sum accounts for padding between fields.
 ```
 
 **Field access:**
+
 ```
 [E-Field]
 ⟨e, σ⟩ ⇓ ⟨Name { f₁: v₁, ..., fᵢ: vᵢ, ..., fₙ: vₙ }, σ'⟩
@@ -816,6 +658,7 @@ Total: 12 bytes (rounded to alignment of 4)
 ```
 
 **Layout calculation:**
+
 ```
 layout(record R) = {
     size = ∑ᵢ size(fᵢ) + padding
@@ -859,6 +702,7 @@ consume_entity(move e1)  // Explicit move
 **Definition 8.2 (Procedure):** A procedure is a method with an explicit `self` parameter defined within a record.
 
 **Syntax:**
+
 ```cantrip
 record TypeName {
     // fields
@@ -873,6 +717,7 @@ record TypeName {
 ```
 
 **Type rule:**
+
 ```
 [T-Procedure]
 procedure m : Self => T => U in record S
@@ -882,11 +727,13 @@ procedure m : Self => T => U in record S
 ```
 
 **Procedure call desugaring:**
+
 ```
 obj.procedure(args) ≡ Type::procedure(obj, args)
 ```
 
 **Example:**
+
 ```cantrip
 record Point {
     x: f64
@@ -914,6 +761,7 @@ record Point {
 ##### 2.2.2.6.1 Memory Layout Control
 
 **C-compatible layout:**
+
 ```cantrip
 [[repr(C)]]
 record Vector3 {
@@ -925,6 +773,7 @@ record Vector3 {
 ```
 
 **Formal semantics:**
+
 ```
 [[repr(C)]] ⟹ {
     fields laid out in declaration order
@@ -935,6 +784,7 @@ record Vector3 {
 ```
 
 **Packed layout (no padding):**
+
 ```cantrip
 [[repr(packed)]]
 record NetworkHeader {
@@ -948,6 +798,7 @@ record NetworkHeader {
 **Warning:** Packed layouts can cause unaligned access, which may be undefined behavior on some architectures.
 
 **Explicit alignment:**
+
 ```cantrip
 [[repr(align(64))]]
 record CacheLine {
@@ -959,6 +810,7 @@ record CacheLine {
 ##### 2.2.2.6.2 Structure-of-Arrays
 
 **Attribute:**
+
 ```cantrip
 [[soa]]
 record Particle {
@@ -969,6 +821,7 @@ record Particle {
 ```
 
 **Compiler transformation:**
+
 ```cantrip
 // Generates:
 record ParticleSOA {
@@ -990,146 +843,10 @@ record ParticleSOA {
 ```
 
 **Benefits:**
+
 - Better cache locality for iterating over specific fields
 - SIMD optimization opportunities
 - Useful for game engines and data-intensive applications
-
-#### 2.2.2.7 Examples and Patterns
-
-##### 2.2.2.7.1 Basic Data Modeling
-
-**Domain object:**
-```cantrip
-public record User {
-    public id: u64
-    public name: String
-    public email: String
-    private password_hash: String
-
-    procedure new(name: String, email: String, password: String): own User
-        uses alloc.heap, crypto.hash
-    {
-        own User {
-            id: generate_id(),
-            name,
-            email,
-            password_hash: hash_password(password),
-        }
-    }
-
-    procedure verify_password(self: User, password: String): bool
-        uses crypto.hash
-    {
-        hash_password(password) == self.password_hash
-    }
-}
-```
-
-##### 2.2.2.7.2 Builder Pattern
-
-**Builder for complex construction:**
-```cantrip
-record Config {
-    host: String
-    port: u16
-    timeout: Duration
-    retries: u32
-}
-
-record ConfigBuilder {
-    host: Option<String>
-    port: Option<u16>
-    timeout: Option<Duration>
-    retries: Option<u32>
-
-    procedure new(): own ConfigBuilder {
-        own ConfigBuilder {
-            host: None,
-            port: None,
-            timeout: None,
-            retries: None,
-        }
-    }
-
-    procedure host(self: mut ConfigBuilder, host: String): mut ConfigBuilder {
-        self.host = Some(host)
-        self
-    }
-
-    procedure port(self: mut ConfigBuilder, port: u16): mut ConfigBuilder {
-        self.port = Some(port)
-        self
-    }
-
-    procedure build(self: ConfigBuilder): Result<Config, Error> {
-        Ok(Config {
-            host: self.host.ok_or("host required")?,
-            port: self.port.unwrap_or(8080),
-            timeout: self.timeout.unwrap_or(Duration.seconds(30)),
-            retries: self.retries.unwrap_or(3),
-        })
-    }
-}
-```
-
-##### 2.2.2.7.3 Newtype Pattern
-
-**Type safety through wrapping:**
-```cantrip
-record UserId(u64) {
-    procedure new(id: u64): UserId {
-        UserId(id)
-    }
-
-    procedure as_u64(self: UserId): u64 {
-        self.0
-    }
-}
-
-record PostId(u64)
-
-// Compiler prevents mixing UserId and PostId
-function get_user(id: UserId): User { ... }
-
-let user_id = UserId.new(42)
-let post_id = PostId.new(42)
-
-get_user(user_id)  // OK
-// get_user(post_id)  // ERROR: type mismatch
-```
-
-##### 2.2.2.7.4 Composition Over Inheritance
-
-**Using records and traits:**
-```cantrip
-trait Drawable {
-    function draw(self: Self, canvas: Canvas)
-        uses render.draw
-}
-
-record Circle: Drawable {
-    center: Point
-    radius: f64
-
-    procedure draw(self: Self, canvas: Canvas)
-        uses render.draw
-    {
-        canvas.draw_circle(self.center, self.radius)
-    }
-}
-
-record Rectangle: Drawable {
-    top_left: Point
-    width: f64
-    height: f64
-
-    procedure draw(self: Self, canvas: Canvas)
-        uses render.draw
-    {
-        canvas.draw_rect(self.top_left, self.width, self.height)
-    }
-}
-```
 
 #### 2.2.2.8 Tuple Structs
 
@@ -1138,6 +855,7 @@ record Rectangle: Drawable {
 ##### 2.2.2.8.1 Syntax
 
 **Grammar:**
+
 ```ebnf
 TupleStruct     ::= "record" Ident GenericParams? "(" TypeList ")" ";"
 TypeList        ::= Type ("," Type)* ","?
@@ -1146,6 +864,7 @@ TupleFieldAccess ::= Expr "." IntLiteral
 ```
 
 **Examples:**
+
 ```cantrip
 // Basic tuple structs
 record Point2D(f64, f64)
@@ -1168,18 +887,21 @@ let y = p.1  // Second field
 ##### 2.2.2.8.2 Abstract Syntax
 
 **Tuple struct types:**
+
 ```
 τ ::= record Name(τ₁, ..., τₙ)    (tuple struct type)
     | Name                         (tuple struct type reference)
 ```
 
 **Tuple struct expressions:**
+
 ```
 e ::= Name(e₁, ..., eₙ)            (tuple struct construction)
     | e.n                          (positional field access, n ∈ ℕ)
 ```
 
 **Tuple struct patterns:**
+
 ```
 p ::= Name(p₁, ..., pₙ)            (tuple struct pattern)
 ```
@@ -1187,6 +909,7 @@ p ::= Name(p₁, ..., pₙ)            (tuple struct pattern)
 ##### 2.2.2.8.3 Well-Formedness Rules
 
 **[WF-TupleStruct] Tuple Struct Declaration:**
+
 ```
 [WF-TupleStruct]
 Γ ⊢ T₁ : Type    ...    Γ ⊢ Tₙ : Type
@@ -1207,6 +930,7 @@ record Point(f64, f64)
 ```
 
 **[WF-TupleStruct-Generic] Generic Tuple Struct:**
+
 ```
 [WF-TupleStruct-Generic]
 Γ, α₁ : Type, ..., αₖ : Type ⊢ T₁ : Type    ...    Γ, α₁ : Type, ..., αₖ : Type ⊢ Tₙ : Type
@@ -1230,6 +954,7 @@ let r: Result<String, Error> = Result(true, "ok", error_val)
 ##### 2.2.2.8.4 Type Rules
 
 **[T-TupleStruct-Cons] Tuple Struct Construction:**
+
 ```
 [T-TupleStruct-Cons]
 record Name(T₁, ..., Tₙ) declared
@@ -1248,6 +973,7 @@ let p = Point3D(1.0, 2.0, 3.0)  // ✓ Correct types
 ```
 
 **[T-TupleStruct-Field] Positional Field Access:**
+
 ```
 [T-TupleStruct-Field]
 record Name(T₁, ..., Tₙ) declared
@@ -1270,6 +996,7 @@ let blue = c.2   // ✓ u8
 ```
 
 **[T-TupleStruct-Nominal] Nominal Typing:**
+
 ```
 [T-TupleStruct-Nominal]
 record A(T₁, ..., Tₙ) declared
@@ -1298,6 +1025,7 @@ function feet_to_meters(f: Feet) => Meters {
 ```
 
 **[T-TupleStruct-Pattern] Pattern Matching:**
+
 ```
 [T-TupleStruct-Pattern]
 record Name(T₁, ..., Tₙ) declared
@@ -1325,6 +1053,7 @@ assert(x == 5 && y == 10)
 ```
 
 **[T-TupleStruct-Method] Methods on Tuple Structs:**
+
 ```
 [T-TupleStruct-Method]
 record Name(T₁, ..., Tₙ) {
@@ -1352,6 +1081,7 @@ assert(v.length() == 5.0)
 ```
 
 **[T-TupleStruct-Trait] Trait Implementation:**
+
 ```
 [T-TupleStruct-Trait]
 record Name(T₁, ..., Tₙ): Trait {
@@ -1375,6 +1105,7 @@ println("{}", id)  // Output: User#42
 ```
 
 **[T-TupleStruct-Generic-Inst] Generic Instantiation:**
+
 ```
 [T-TupleStruct-Generic-Inst]
 record Name<α₁, ..., αₖ>(T₁, ..., Tₙ) declared
@@ -1397,6 +1128,7 @@ let p: Pair<i32, String> = Pair(1, "one")
 ```
 
 **[T-TupleStruct-Mutability] Mutable Field Access:**
+
 ```
 [T-TupleStruct-Mutability]
 record Name(T₁, ..., Tₙ) declared
@@ -1428,6 +1160,7 @@ Alignment: max(align(T₁), align(T₂), ..., align(Tₙ))
 ```
 
 **Memory layout:**
+
 ```
 Tuple Struct Name(T₁, T₂, T₃):
 ┌───────────┬───────────┬───────────┐
@@ -1437,6 +1170,7 @@ Tuple Struct Name(T₁, T₂, T₃):
 ```
 
 **Example:**
+
 ```cantrip
 record Point(f64, f64)
 // Size: 16 bytes (2 × 8 bytes)
@@ -1463,16 +1197,16 @@ record CacheAligned(i32)  // 64-byte alignment
 
 ##### 2.2.2.8.6 Comparison: Tuple Structs vs. Tuples vs. Named Records
 
-| Feature | Tuple `(T₁, T₂)` | Tuple Struct `record Name(T₁, T₂)` | Named Record `record Name { a: T₁; b: T₂ }` |
-|---------|------------------|-----------------------------------|---------------------------------------------|
-| **Type identity** | Structural | Nominal | Nominal |
-| **Field access** | `.0`, `.1` | `.0`, `.1` | `.a`, `.b` |
-| **Type safety** | Weak (structural) | Strong (nominal) | Strong (nominal) |
-| **Semantic meaning** | Generic grouping | Domain-specific type | Domain-specific type |
-| **Trait impls** | Cannot add custom | Can add custom | Can add custom |
-| **Methods** | No | Yes (inline) | Yes (inline) |
-| **Readability** | Low (positional) | Medium (positional) | High (named fields) |
-| **Use case** | Temporary data | Newtype pattern, wrappers | Complex data structures |
+| Feature              | Tuple `(T₁, T₂)`  | Tuple Struct `record Name(T₁, T₂)` | Named Record `record Name { a: T₁; b: T₂ }` |
+| -------------------- | ----------------- | ---------------------------------- | ------------------------------------------- |
+| **Type identity**    | Structural        | Nominal                            | Nominal                                     |
+| **Field access**     | `.0`, `.1`        | `.0`, `.1`                         | `.a`, `.b`                                  |
+| **Type safety**      | Weak (structural) | Strong (nominal)                   | Strong (nominal)                            |
+| **Semantic meaning** | Generic grouping  | Domain-specific type               | Domain-specific type                        |
+| **Trait impls**      | Cannot add custom | Can add custom                     | Can add custom                              |
+| **Methods**          | No                | Yes (inline)                       | Yes (inline)                                |
+| **Readability**      | Low (positional)  | Medium (positional)                | High (named fields)                         |
+| **Use case**         | Temporary data    | Newtype pattern, wrappers          | Complex data structures                     |
 
 **When to use each:**
 
@@ -1480,142 +1214,7 @@ record CacheAligned(i32)  // 64-byte alignment
 - **Tuple Structs** `record Name(T₁, T₂)`: Newtype pattern, type safety for similar types, simple wrappers
 - **Named Records** `record Name { f₁: T₁; f₂: T₂ }`: Complex data structures with many fields, public APIs
 
-##### 2.2.2.8.7 Examples and Patterns
-
-**Pattern 1: Newtype Pattern (Type Safety)**
-
-```cantrip
-// Prevent mixing similar types
-record UserId(u64)
-record ProductId(u64)
-record OrderId(u64)
-
-function get_user(id: UserId) => User { ... }
-function get_product(id: ProductId) => Product { ... }
-
-let user_id = UserId(12345)
-let product_id = ProductId(67890)
-
-get_user(user_id)      // ✓ Correct
-// get_user(product_id) // ✗ ERROR: type mismatch
-```
-
-**Pattern 2: Unit Wrapping**
-
-```cantrip
-// Wrap primitive types with units
-record Meters(f64) {
-    procedure to_feet(self: Self): f64 {
-        self.0 * 3.28084
-    }
-}
-
-record Seconds(f64)
-record Kilograms(f64)
-
-function calculate_velocity(distance: Meters, time: Seconds) => f64 {
-    distance.0 / time.0  // Meters per second
-}
-
-let d = Meters(100.0)
-let t = Seconds(10.0)
-let velocity = calculate_velocity(d, t)  // ✓ Type-safe
-```
-
-**Pattern 3: Validated Types**
-
-```cantrip
-// Wrap types with validation
-record Email(String) {
-    procedure new(s: String): Result<Email, String> {
-        if s.contains('@') && s.len() > 3 {
-            Result::Ok(Email(s))
-        } else {
-            Result::Err("Invalid email format")
-        }
-    }
-
-    procedure domain(self: Self): String {
-        let parts = self.0.split('@')
-        parts[1]
-    }
-}
-
-// Usage
-match Email::new("user@example.com") {
-    Result::Ok(email) => println("Domain: {}", email.domain()),
-    Result::Err(err) => println("Error: {}", err)
-}
-```
-
-**Pattern 4: Smart Pointers and Wrappers**
-
-```cantrip
-// Generic wrapper with additional behavior
-record Rc<T>(Arc<T>) {  // Reference-counted pointer
-    procedure new(value: T): Rc<T> {
-        Rc(Arc::new(value))
-    }
-
-    procedure get(self: Self): T
-        where T: Clone
-    {
-        (*self.0).clone()
-    }
-}
-
-let shared = Rc::new(42)
-let value = shared.get()
-```
-
-**Pattern 5: Index Types (Type-Safe Indexing)**
-
-```cantrip
-// Strongly-typed indices
-record UserIndex(usize)
-record ProductIndex(usize)
-
-record Database<T> {
-    items: Vec<T>
-
-    procedure get_user(self: Self, idx: UserIndex): Option<T> {
-        self.items.get(idx.0)
-    }
-
-    procedure get_product(self: Self, idx: ProductIndex): Option<T> {
-        self.items.get(idx.0)
-    }
-}
-
-let users: Database<User> = Database { items: vec![...] }
-let idx = UserIndex(0)
-let user = users.get_user(idx)  // ✓ Type-safe indexing
-```
-
-**Pattern 6: Phantom Types (Compile-Time State)**
-
-```cantrip
-// Use tuple structs with phantom type parameters
-record PhantomData<T>(())
-
-record TypedId<T> {
-    id: u64
-    _phantom: PhantomData<T>
-
-    procedure new(id: u64): TypedId<T> {
-        TypedId { id: id, _phantom: PhantomData(()) }
-    }
-}
-
-// Usage
-let user_id: TypedId<User> = TypedId::new(123)
-let product_id: TypedId<Product> = TypedId::new(456)
-
-// ✗ ERROR: cannot assign TypedId<Product> to TypedId<User>
-// let x: TypedId<User> = product_id
-```
-
-##### 2.2.2.8.8 Type Properties
+##### 2.2.2.8.7 Type Properties
 
 **Theorem 8.1 (Tuple Struct Nominality):** Tuple structs with identical field types are distinct types. For any tuple structs `record A(T)` and `record B(T)`, `A ≠ B` implies `A ≢ B`.
 
@@ -1633,6 +1232,47 @@ let product_id: TypedId<Product> = TypedId::new(456)
 
 **Proof sketch:** A tuple struct `Name(T₁, ..., Tₙ)` has exactly one variant. A pattern `Name(p₁, ..., pₙ)` is exhaustive if all patterns `pᵢ` are exhaustive for their respective types `Tᵢ`. ∎
 
+---
+
+### 2.2.3 Related Sections
+
+- See §2.1 for [Primitive Types](../PART_A_Primitives/01_PrimitiveTypes.md) - product types combine primitive types
+- See §2.3 for [Sum Types](03_SumTypes.md) - duality with product types (∧ vs ∨)
+- See §2.4 for [Collection Types](04_CollectionTypes.md) - arrays and slices are homogeneous products
+- See §2.6 for [Traits](../PART_D_Abstraction/06_Traits.md) - records implement traits for polymorphic behavior
+- See §2.7 for [Generics](../PART_D_Abstraction/07_Generics.md) - generic product types (Pair<T, U>)
+- See Part III for [Permission System](../../03_Permissions/) - permissions apply to product types
+- See §13 for [Pattern Matching](../../13_PatternMatching/) - destructuring tuples and records
+- See §18 for [Procedures](../../18_Procedures/) - record methods and procedures
+- **Examples**: See [02_ProductExamples.md](../Examples/02_ProductExamples.md) for practical usage patterns
+
+### 2.2.4 Notes and Warnings
+
+**Note 2.2.1:** Tuples use structural typing (two tuples with the same component types are interchangeable), while records and tuple structs use nominal typing (distinct type identities).
+
+**Note 2.2.2:** The unit type `()` is both a type and a value. It represents "no data" and is used for procedures that perform effects without returning meaningful values.
+
+**Note 2.2.3:** All product types (tuples, records, tuple structs) implement Copy if and only if all their fields implement Copy. Regardless of Copy capability, all types pass by permission.
+
+**Note 2.2.4:** Tuple structs provide a lightweight alternative to full records when you need nominal typing without named fields. They are ideal for the newtype pattern.
+
+**Performance Note 2.2.1:** Product types have zero runtime overhead for field access. All projections (`.0`, `.field_name`) compile to direct offset calculations.
+
+**Performance Note 2.2.2:** The compiler may optimize tuple construction and destructuring, especially in cases like `let (a, b) = (b, a)` which can become register swaps.
+
+**Performance Note 2.2.3:** Records with #[repr(C)] guarantee C-compatible layout at the cost of disabling field reordering optimizations.
+
+**Warning 2.2.1:** Tuples with more than 3-4 fields become hard to understand. Use records instead for clarity and maintainability.
+
+**Warning 2.2.2:** Packed records (#[repr(packed)]) can cause unaligned memory access, which is undefined behavior on some architectures. Use with caution.
+
+**Warning 2.2.3:** Partial moves are not allowed for product types. A tuple or record moves as a complete unit, not field-by-field.
+
+**Warning 2.2.4:** Field order in tuples and records matters for memory layout. Reordering fields can change padding and total size.
+
+**Implementation Note 2.2.1:** Pattern matching on product types is exhaustive checking. The compiler ensures all fields are accounted for in patterns.
+
+**Implementation Note 2.2.2:** Structure-of-Arrays (#[soa]) is a compiler transformation that reorganizes data layout for cache efficiency in data-intensive applications.
 
 ---
 

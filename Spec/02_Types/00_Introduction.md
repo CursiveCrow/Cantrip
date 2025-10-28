@@ -1,4 +1,4 @@
-# Part II: Type System - §0. Type System Foundations
+# Chapter 2: Type System - §0. Type System Foundations
 
 **Section**: §0 | **Part**: Type System (Part II)
 **Next**: [Primitive Types](PART_A_Primitives/01_PrimitiveTypes.md)
@@ -6,6 +6,7 @@
 ---
 
 **Definition 0.1 (Type System):** The Cantrip type system is a static, nominally-typed system with parametric polymorphism, subtyping, and dependent state types. Formally, the type system consists of:
+
 - A set of types **T**
 - Typing judgments **Γ ⊢ e : τ**
 - A subtyping relation **<:**
@@ -15,8 +16,8 @@ The type system will memory safety, prevents undefined behavior, and enables zer
 
 ## 0. Type System Foundations
 
-
 **Note:** The type system specification has been reorganized into five parts (A-E) for better navigation:
+
 - **Part A**: Primitive Types (§2.1)
 - **Part B**: Composite Types (§2.2-§2.4)
 - **Part C**: Reference Types (§2.5)
@@ -29,7 +30,8 @@ See the organizational structure below for complete details.
 
 ### 0.1 Overview and Philosophy
 
-**Key innovations/purpose:** Cantrip's type system provides a rigorous foundation for safe systems programming by combining:
+**Purpose:** Cantrip's type system provides a rigorous foundation for safe systems programming by combining:
+
 - **Nominal typing** for user-defined types with **structural typing** for built-in composite types
 - **Zero-cost abstractions** through monomorphization (no runtime type information)
 - **State machines as first-class types** (modals) for lifecycle and protocol verification
@@ -38,17 +40,20 @@ See the organizational structure below for complete details.
 **Design principles:**
 
 1. **Type Safety** — Well-typed programs do not exhibit undefined behavior
+
    - No null pointer dereferences
    - No buffer overflows
    - No use-after-free
    - No data races (via permission system)
 
 2. **Expressiveness** — Rich type system for encoding invariants
+
    - State-dependent types (modals)
    - Refinement types (contracts)
    - Effect tracking (purity, I/O, allocation)
 
 3. **Performance** — No runtime overhead for type checking
+
    - All types resolved at compile time
    - Monomorphization generates specialized code
    - Zero-cost abstractions through static dispatch
@@ -59,6 +64,7 @@ See the organizational structure below for complete details.
    - Trait composition (multiple trait bounds)
 
 **Relationship to other features:**
+
 - **Permissions (Part III):** Every type has an associated permission (own, mut, imm)
 - **Effects (Part IV):** Functions are typed by their effect signatures
 - **Contracts (Part V):** Types can have invariants and pre/post-conditions
@@ -104,7 +110,7 @@ Cantrip Type System (T)
 │   │   │
 │   │   └── Collection Types
 │   │       ├── Arrays: [τ; n] (fixed-size, stack-allocated) (§2.4 or §2.6)
-│   │       └── Slices: [τ] (dynamically-sized view, fat pointer) (§2.4 or §2.6)
+│   │       └── Slices: [τ] (dynamically-sized view, dense pointer) (§2.4 or §2.6)
 │   │           ├── Immutable slices: [τ] (Copy)
 │   │           └── Mutable slices: [mut τ] [TO BE SPECIFIED]
 │   │
@@ -146,6 +152,7 @@ Cantrip Type System (T)
 ```
 
 **Type classification:**
+
 - **Sized types:** Types with compile-time known size (most types)
 - **Unsized types (DSTs):** Dynamically-sized types: [T], str
 - **Zero-sized types (ZSTs):** Types with size 0: (), !, unit-only enums
@@ -296,6 +303,7 @@ arr[0] = Dog { };  // Write Dog to array of Cats! UNSOUND!
 #### 0.3.4 Type Equivalence
 
 **Definition 0.5 (Type Equivalence):** Two types are equivalent (τ₁ ≡ τ₂) if they denote the same set of values. Type equivalence is computed after:
+
 1. Type alias expansion
 2. Generic type parameter substitution
 3. Normalization of associated types
@@ -351,6 +359,7 @@ Point ≢ Vector    (different names ⟹ different types)
 ```
 
 **Justification:** Nominal typing for user types enables:
+
 - Stronger abstraction boundaries
 - Different trait implementations for identical structures
 - Newtype pattern for type safety
@@ -358,6 +367,7 @@ Point ≢ Vector    (different names ⟹ different types)
 #### 0.3.5 Well-Formedness Rules
 
 **Definition 0.6 (Well-Formed Type):** A type τ is well-formed in context Γ (written `Γ ⊢ τ : Type`) if:
+
 1. All type names are in scope
 2. All type variables are bound
 3. Generic types are applied to the correct number of arguments
@@ -600,25 +610,28 @@ Steps:
 
 **Theorem 0.1 (Type Safety):** If `∅ ⊢ e : τ` and `⟨e, σ⟩ ⇓ ⟨v, σ'⟩`, then `∅ ⊢ v : τ`.
 
-*Informal proof:* By structural induction on the derivation of `⟨e, σ⟩ ⇓ ⟨v, σ'⟩`, using the Progress and Preservation lemmas.
+_Informal proof:_ By structural induction on the derivation of `⟨e, σ⟩ ⇓ ⟨v, σ'⟩`, using the Progress and Preservation lemmas.
 
 **Theorem 0.2 (Progress):** If `∅ ⊢ e : τ`, then either:
+
 1. e is a value, or
 2. There exists e', σ' such that `⟨e, σ⟩ → ⟨e', σ'⟩`
 
-*Informal proof:* Well-typed expressions do not get stuck. By induction on the typing derivation, every non-value expression has a reduction rule.
+_Informal proof:_ Well-typed expressions do not get stuck. By induction on the typing derivation, every non-value expression has a reduction rule.
 
 **Theorem 0.3 (Preservation):** If `Γ ⊢ e : τ` and `⟨e, σ⟩ → ⟨e', σ'⟩`, then `Γ ⊢ e' : τ`.
 
-*Informal proof:* Type is preserved during evaluation. By case analysis on reduction rules and inversion of typing derivations.
+_Informal proof:_ Type is preserved during evaluation. By case analysis on reduction rules and inversion of typing derivations.
 
 **Theorem 0.4 (Soundness):** The Cantrip type system is sound: well-typed programs do not exhibit undefined behavior.
 
-*Informal proof:* Follows from Progress and Preservation. If `∅ ⊢ e : τ`, then evaluation either:
+_Informal proof:_ Follows from Progress and Preservation. If `∅ ⊢ e : τ`, then evaluation either:
+
 1. Terminates with a value v of type τ, or
 2. Diverges (infinite loop, but no undefined behavior)
 
 **Corollary 0.5 (Memory Safety):** Well-typed programs do not:
+
 - Dereference null pointers (except in unsafe code)
 - Access out-of-bounds array elements (runtime checks inserted)
 - Use deallocated memory (prevented by permission system)
@@ -626,18 +639,19 @@ Steps:
 
 **Theorem 0.6 (Parametricity):** For polymorphic functions `f : ∀α. τ`, the behavior of f is uniform across all instantiations of α. The function cannot inspect or depend on the concrete type.
 
-*Informal proof:* Generic functions are parametric—they cannot perform type-based branching or inspect type tags at runtime (no runtime type information in Cantrip).
+_Informal proof:_ Generic functions are parametric—they cannot perform type-based branching or inspect type tags at runtime (no runtime type information in Cantrip).
 
 **Theorem 0.7 (Decidability):** Type checking in Cantrip is decidable.
 
-*Informal proof:* The type checking algorithm terminates for all inputs:
+_Informal proof:_ The type checking algorithm terminates for all inputs:
+
 1. Type synthesis recursively descends expression structure (finite)
 2. Constraint solving terminates (occurs check prevents infinite unification)
 3. Trait resolution uses coherence rules (unique implementations)
 
 **Theorem 0.8 (Principal Types):** Every well-typed expression has a principal type (most general type).
 
-*Note:* This holds for the core type system. Extensions like higher-order trait bounds may affect principal types.
+_Note:_ This holds for the core type system. Extensions like higher-order trait bounds may affect principal types.
 
 ### 0.5 Integration with Other Systems
 
@@ -654,6 +668,7 @@ imm T     Immutable borrow (shareable, not movable)
 ```
 
 Example:
+
 ```cantrip
 let x: own String = String.new();   // Owned
 var y: mut String = String.new();   // Mutable owned
@@ -752,6 +767,7 @@ trait Copy {
 ```
 
 **Semantics:**
+
 - Copy types CAN be copied explicitly via `.copy()` method
 - Copy does NOT change parameter passing behavior
 - All parameters pass by permission regardless of Copy status
@@ -766,7 +782,7 @@ i32 : Copy
 
 [Copy-Slice]
 ─────────────
-[T] : Copy    (fat pointer is always Copy, regardless of T)
+[T] : Copy    (dense pointer is always Copy, regardless of T)
 
 [Copy-Tuple]
 T₁ : Copy    ...    Tₙ : Copy
@@ -786,12 +802,14 @@ R : Copy
 ```
 
 **Non-Copy types:**
+
 - Heap-allocated types (String, Vec<T>, Ptr<T>@Exclusive)
 - Types with custom drop logic
 - Types containing non-Copy fields
 - Types with interior mutability
 
 **Example:**
+
 ```cantrip
 // Copy-capable type
 let x: i32 = 42
@@ -830,64 +848,65 @@ print(s)  // s passed by permission, still usable after
 
 This table tracks the completeness of the type system specification:
 
-| Type Category | Section | Status | Priority |
-|---------------|---------|--------|----------|
-| **Type System Foundations** | §0 | ✅ **COMPLETE** | ✅ P0 |
-| Primitive Types | §5 | ✅ Complete | - |
-| - Integer Types | §5.1 | ✅ Specified | - |
-| - Floating-Point Types | §5.2 | ✅ Specified | - |
-| - Boolean and Character | §5.3 | ✅ Specified | - |
-| - **String Types** | §5.4 | ✅ **COMPLETE** | ✅ P0 |
-| Arrays | §6 | ✅ **COMPLETE** | ✅ |
-| - Fixed-size arrays | §6.1-6.3 | ✅ Specified | - |
-| - **Mutable slices** | §6.7 | ✅ **COMPLETE** | ✅ P1 |
-| Tuples | §7 | ⚠️ Minor gaps | 🟢 P2 |
-| - Tuple types | §7.1 | ✅ Specified | - |
-| - Unit type | §7.2 | ✅ Specified | - |
-| - **Subtyping rules** | §7.3 | ⚠️ Needs proof | 🟢 P2 |
-| Records | §8 | ✅ **COMPLETE** | ✅ |
-| - Named records | §8.1-8.7 | ✅ Specified | - |
-| - **Tuple structs** | §8.8 | ✅ **COMPLETE** | ✅ P1 |
-| - Procedures | §8.5 | ✅ Specified | - |
-| Enums | §9 | ✅ **COMPLETE** | ✅ |
-| - Enum syntax | §9.1-9.2 | ✅ Specified | - |
-| - Pattern matching | §9.3 | ✅ Specified | - |
-| - **Memory layout** | §9.4.2 | ✅ **COMPLETE** | ✅ P1 |
-| - **Discriminant size** | §9.4.4 | ✅ **COMPLETE** | ✅ P1 |
-| Traits | §10 | ⚠️ Needs object safety | 🟡 P1 |
-| - Trait definitions | §10.1 | ✅ Specified | - |
-| - Trait implementations | §10.2 | ✅ Specified | - |
-| - **Object safety** | §10.6 | ❌ **NOT SPECIFIED** | 🟡 P1 |
-| - **Trait objects** | §10.7 | ⚠️ Mentioned, not formal | 🟡 P1 |
-| Generics | §11 | ⚠️ Needs lifetimes | 🟡 P1 |
-| - Type parameters | §11.1 | ✅ Specified | - |
-| - Const generics | §11.5 | ✅ Specified | - |
-| - **Lifetime parameters** | §11.6 | ❌ **NOT SPECIFIED** | 🟡 P1 |
-| - **Associated type bounds** | §11.7 | ❌ **NOT SPECIFIED** | 🟢 P2 |
-| Modals | §12 | ⚠️ Needs construction | 🟡 P1 |
-| - State machines | §12.1 | ✅ Specified | - |
-| - Transitions | §12.2 | ✅ Specified | - |
-| - **Initial state & construction** | §12.3 | ❌ **NOT SPECIFIED** | 🟡 P1 |
-| - **Generic modals** | §12.4 | ❌ **NOT SPECIFIED** | 🟢 P2 |
-| **Pointer Types** | §9 | ✅ **COMPLETE** | ✅ P0 |
-| - Safe pointers (Ptr<T>@State) | §9.2-9.4 | ✅ Specified | - |
-| - Raw pointers (*T, *mut T) | §9.2-9.4 | ✅ Specified | - |
-| - Pointer arithmetic | §9.4 | ✅ Specified | - |
-| - Null pointers | §9.5 | ✅ Specified | - |
-| **Function Types** | §10 | ✅ **COMPLETE** | ✅ P0 |
-| - Function pointers (fn) | §10.2-10.3 | ✅ Specified | - |
-| - Closures | §10.5 | ✅ Specified | - |
-| - Procedure types | §10.6 | ✅ Specified | - |
-| **Type Aliases** | §11 | ✅ **COMPLETE** | ✅ P0 |
-| - Transparent aliases | §11.2-11.3 | ✅ Specified | - |
-| - Newtype pattern | §11.5 | ✅ Specified | - |
-| **Marker Traits** | - | ⚠️ **PARTIAL** | 🟢 P2 |
-| - Copy | §0.6 | ✅ **COMPLETE** | ✅ P0 |
-| - Clone | - | ❌ **NOT SPECIFIED** | 🟢 P2 |
-| - Send, Sync | - | ❌ **NOT SPECIFIED** | 🟢 P2 |
-| - Sized, Unsize | - | ❌ **NOT SPECIFIED** | 🟢 P2 |
+| Type Category                      | Section    | Status                   | Priority |
+| ---------------------------------- | ---------- | ------------------------ | -------- |
+| **Type System Foundations**        | §0         | ✅ **COMPLETE**          | ✅ P0    |
+| Primitive Types                    | §5         | ✅ Complete              | -        |
+| - Integer Types                    | §5.1       | ✅ Specified             | -        |
+| - Floating-Point Types             | §5.2       | ✅ Specified             | -        |
+| - Boolean and Character            | §5.3       | ✅ Specified             | -        |
+| - **String Types**                 | §5.4       | ✅ **COMPLETE**          | ✅ P0    |
+| Arrays                             | §6         | ✅ **COMPLETE**          | ✅       |
+| - Fixed-size arrays                | §6.1-6.3   | ✅ Specified             | -        |
+| - **Mutable slices**               | §6.7       | ✅ **COMPLETE**          | ✅ P1    |
+| Tuples                             | §7         | ⚠️ Minor gaps            | 🟢 P2    |
+| - Tuple types                      | §7.1       | ✅ Specified             | -        |
+| - Unit type                        | §7.2       | ✅ Specified             | -        |
+| - **Subtyping rules**              | §7.3       | ⚠️ Needs proof           | 🟢 P2    |
+| Records                            | §8         | ✅ **COMPLETE**          | ✅       |
+| - Named records                    | §8.1-8.7   | ✅ Specified             | -        |
+| - **Tuple structs**                | §8.8       | ✅ **COMPLETE**          | ✅ P1    |
+| - Procedures                       | §8.5       | ✅ Specified             | -        |
+| Enums                              | §9         | ✅ **COMPLETE**          | ✅       |
+| - Enum syntax                      | §9.1-9.2   | ✅ Specified             | -        |
+| - Pattern matching                 | §9.3       | ✅ Specified             | -        |
+| - **Memory layout**                | §9.4.2     | ✅ **COMPLETE**          | ✅ P1    |
+| - **Discriminant size**            | §9.4.4     | ✅ **COMPLETE**          | ✅ P1    |
+| Traits                             | §10        | ⚠️ Needs object safety   | 🟡 P1    |
+| - Trait definitions                | §10.1      | ✅ Specified             | -        |
+| - Trait implementations            | §10.2      | ✅ Specified             | -        |
+| - **Object safety**                | §10.6      | ❌ **NOT SPECIFIED**     | 🟡 P1    |
+| - **Trait objects**                | §10.7      | ⚠️ Mentioned, not formal | 🟡 P1    |
+| Generics                           | §11        | ⚠️ Needs lifetimes       | 🟡 P1    |
+| - Type parameters                  | §11.1      | ✅ Specified             | -        |
+| - Const generics                   | §11.5      | ✅ Specified             | -        |
+| - **Lifetime parameters**          | §11.6      | ❌ **NOT SPECIFIED**     | 🟡 P1    |
+| - **Associated type bounds**       | §11.7      | ❌ **NOT SPECIFIED**     | 🟢 P2    |
+| Modals                             | §12        | ⚠️ Needs construction    | 🟡 P1    |
+| - State machines                   | §12.1      | ✅ Specified             | -        |
+| - Transitions                      | §12.2      | ✅ Specified             | -        |
+| - **Initial state & construction** | §12.3      | ❌ **NOT SPECIFIED**     | 🟡 P1    |
+| - **Generic modals**               | §12.4      | ❌ **NOT SPECIFIED**     | 🟢 P2    |
+| **Pointer Types**                  | §9         | ✅ **COMPLETE**          | ✅ P0    |
+| - Safe pointers (Ptr<T>@State)     | §9.2-9.4   | ✅ Specified             | -        |
+| - Raw pointers (*T, *mut T)        | §9.2-9.4   | ✅ Specified             | -        |
+| - Pointer arithmetic               | §9.4       | ✅ Specified             | -        |
+| - Null pointers                    | §9.5       | ✅ Specified             | -        |
+| **Function Types**                 | §10        | ✅ **COMPLETE**          | ✅ P0    |
+| - Function pointers (fn)           | §10.2-10.3 | ✅ Specified             | -        |
+| - Closures                         | §10.5      | ✅ Specified             | -        |
+| - Procedure types                  | §10.6      | ✅ Specified             | -        |
+| **Type Aliases**                   | §11        | ✅ **COMPLETE**          | ✅ P0    |
+| - Transparent aliases              | §11.2-11.3 | ✅ Specified             | -        |
+| - Newtype pattern                  | §11.5      | ✅ Specified             | -        |
+| **Marker Traits**                  | -          | ⚠️ **PARTIAL**           | 🟢 P2    |
+| - Copy                             | §0.6       | ✅ **COMPLETE**          | ✅ P0    |
+| - Clone                            | -          | ❌ **NOT SPECIFIED**     | 🟢 P2    |
+| - Send, Sync                       | -          | ❌ **NOT SPECIFIED**     | 🟢 P2    |
+| - Sized, Unsize                    | -          | ❌ **NOT SPECIFIED**     | 🟢 P2    |
 
 **Legend:**
+
 - ✅ **COMPLETE**: Fully specified with formal semantics
 - ⚠️ **PARTIAL**: Specified but with gaps or unclear areas
 - ❌ **MISSING**: Not specified at all
@@ -896,6 +915,7 @@ This table tracks the completeness of the type system specification:
 - 🟢 **P2**: Nice to have
 
 **Summary:**
+
 - **Complete**: 28 sections (62%)
 - **Partial**: 9 sections (20%)
 - **Missing**: 8 sections (18%)
@@ -903,6 +923,7 @@ This table tracks the completeness of the type system specification:
 
 **Critical gaps (P0):**
 ✅ All P0 (Critical) items have been completed!
+
 1. ✅ String types (str vs String) - §5.4 Complete
 2. ✅ Function types (fn, closures) - §10 Complete
 3. ✅ Type aliases (type Name = T) - §11 Complete

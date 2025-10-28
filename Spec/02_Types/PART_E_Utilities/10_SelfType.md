@@ -1,4 +1,4 @@
-# Part II: Type System - §2.10. Self Type
+# Chapter 2: Type System - §2.10. Self Type
 
 **Section**: §2.10 | **Part**: Type System (Part II)
 **Previous**: [Type Aliases](09_TypeAliases.md) | **Next**: [Part III: Expressions](../../03_Expressions/00_Introduction.md)
@@ -14,6 +14,7 @@
 **Key innovation/purpose:** The `Self` type provides a first-class way to refer to "the type being implemented" without repeating complex type names. It reduces verbosity, improves maintainability, and enables cleaner generic implementations. The `$` parameter syntax provides syntactic sugar for `self: Self` with permission modifiers.
 
 **When to use Self:**
+
 - Constructor procedures returning the implementing type
 - Method parameters that accept the same type
 - Associated type bounds and constraints
@@ -22,11 +23,13 @@
 - Contract implementations with type-dependent signatures
 
 **When NOT to use Self:**
+
 - Outside of type definitions (records, modals, contracts) → no enclosing type context
 - When you need a different related type → use explicit type
 - In static procedures without `self` parameter → explicit type is clearer
 
 **Relationship to other features:**
+
 - **Records (§4):** `Self` is valid within procedure definitions in records
 - **Generics (§7):** `Self` carries generic parameters from the type definition
 - **Procedures (§10.6):** The `$` syntax desugars to `self: Permission Self`
@@ -38,11 +41,13 @@
 #### 2.10.2.1 Concrete Syntax
 
 **Self type syntax:**
+
 ```ebnf
 SelfType ::= "Self"
 ```
 
 **Self parameter syntax (shorthand):**
+
 ```ebnf
 SelfParam ::= Permission? "$"
 
@@ -50,6 +55,7 @@ Permission ::= "own" | "mut" | ε
 ```
 
 **Examples:**
+
 ```cantrip
 record Counter {
     value: i32
@@ -80,6 +86,7 @@ record Counter {
 ```
 
 **Desugaring:**
+
 ```cantrip
 // $ desugars to self: Self with appropriate permission
 
@@ -97,6 +104,7 @@ procedure consume(self: own Self): i32
 ```
 
 **Explicit type override:**
+
 ```cantrip
 record Counter {
     value: i32
@@ -117,6 +125,7 @@ record Counter {
 #### 2.10.2.2 Abstract Syntax
 
 **Type representation:**
+
 ```
 τ ::= Self                           (self type reference)
     | ...
@@ -129,6 +138,7 @@ Within context record T<α₁, ..., αₙ> { ... }:
 ```
 
 **Parameter representation:**
+
 ```
 param ::= self : π Self              (explicit self parameter)
         | π $                        (self parameter shorthand)
@@ -142,6 +152,7 @@ Desugaring:
 ```
 
 **Scope rules:**
+
 ```
 Self is valid in context Γ iff:
   - Γ contains a type definition: record T { ... } or modal T { ... }
@@ -151,70 +162,12 @@ Self is valid in context Γ iff:
 Outside these contexts, Self is undefined.
 ```
 
-#### 2.10.2.3 Basic Examples
-
-**Constructor pattern:**
-```cantrip
-record Counter {
-    value: i32
-
-    procedure new(initial: i32): own Self {
-        own Self { value: initial }
-    }
-}
-
-// Equivalent to:
-record Counter {
-    value: i32
-
-    procedure new(initial: i32): own Counter {
-        own Counter { value: initial }
-    }
-}
-```
-
-**Method with self parameter:**
-```cantrip
-record Counter {
-    value: i32
-
-    procedure get($): i32 {
-        $.value
-    }
-}
-
-// Equivalent to:
-record Counter {
-    value: i32
-
-    procedure get(self: Counter): i32 {
-        self.value
-    }
-}
-```
-
-**Generic implementation:**
-```cantrip
-record Stack<T> {
-    items: Vec<T>
-
-    procedure new(): own Self {
-        // Self ≡ Stack<T>
-        own Self { items: Vec.new() }
-    }
-
-    procedure push(mut $, item: T) {
-        // $ : mut Self ≡ mut Stack<T>
-        $.items.push(item)
-    }
-}
-```
-
 ### 2.10.3 Static Semantics
 
 #### 2.10.3.1 Well-Formedness Rules
 
 **[WF-Self] Self type in type definition:**
+
 ```
 [WF-Self]
 record T { ... } in Γ  (or modal T { ... })
@@ -226,6 +179,7 @@ record T { ... } in Γ  (or modal T { ... })
 **Explanation:** Within a record or modal definition for type T, `Self` is a well-formed type equivalent to T.
 
 **[WF-Self-Generic] Self type in generic type definition:**
+
 ```
 [WF-Self-Generic]
 record T<α₁, ..., αₙ> { ... } in Γ
@@ -237,6 +191,7 @@ record T<α₁, ..., αₙ> { ... } in Γ
 **Explanation:** In generic type definitions, `Self` includes all type parameters.
 
 **[WF-Self-Invalid] Self outside type definition context:**
+
 ```
 [WF-Self-Invalid]
 no record, modal, trait, or contract definition in Γ
@@ -247,6 +202,7 @@ no record, modal, trait, or contract definition in Γ
 **Explanation:** `Self` is only valid within type definitions (records, modals, traits, contracts).
 
 **[WF-SelfParam] Self parameter shorthand:**
+
 ```
 [WF-SelfParam]
 record T { procedure m(π $, ...) { ... } } in Γ
@@ -262,6 +218,7 @@ record T { procedure m(π $, ...) { ... } } in Γ
 #### 2.10.3.2 Type Rules
 
 **[T-Self] Self type equivalence:**
+
 ```
 [T-Self]
 record T { ... } in Γ  (or modal T { ... })
@@ -273,6 +230,7 @@ record T { ... } in Γ  (or modal T { ... })
 **Explanation:** `Self` is definitionally equal to the enclosing type.
 
 **[T-SelfAccess] Self parameter access:**
+
 ```
 [T-SelfAccess]
 record T { procedure m(π $, ...) { ... body ... } }
@@ -285,6 +243,7 @@ $ appears in body
 **Explanation:** Within method body, `$` refers to the self parameter with appropriate permission.
 
 **[T-SelfField] Field access through $:**
+
 ```
 [T-SelfField]
 record T { procedure m($, ...) { ... $.field ... } }
@@ -296,6 +255,7 @@ record T { procedure m($, ...) { ... $.field ... } }
 **Explanation:** Field access through `$` works like any self parameter.
 
 **[T-SelfReturn] Returning Self:**
+
 ```
 [T-SelfReturn]
 record T { procedure m(...): Self { ... return e ... } }
@@ -307,6 +267,7 @@ record T { procedure m(...): Self { ... return e ... } }
 **Explanation:** Expressions of type T can be returned where Self is expected.
 
 **[T-SelfParam-Permission] Permission on self parameter:**
+
 ```
 [T-SelfParam-Permission]
 record T { procedure m(π $, ...) { ... } }
@@ -346,6 +307,7 @@ own $ ≡ self : own Self
 **Property 12.1 (Generic Preservation):**
 
 In generic type definitions, `Self` carries all type parameters:
+
 ```
 record Pair<T, U> { ... }
   Self ≡ Pair<T, U>
@@ -354,6 +316,7 @@ record Pair<T, U> { ... }
 **Property 12.2 (Permission Independence):**
 
 `Self` can be used with any permission:
+
 ```cantrip
 own Self    // Owned self type
 mut Self    // Mutable self type
@@ -365,6 +328,7 @@ Self        // Immutable self type (default)
 #### 2.10.4.1 Evaluation Rules
 
 **[E-SelfType] Self type resolution:**
+
 ```
 [E-SelfType]
 record T { ... } at compile time
@@ -376,6 +340,7 @@ Self ⇝ T    (compile-time substitution)
 **Explanation:** `Self` is resolved to the concrete type at compile time. No runtime representation.
 
 **[E-SelfParam] Self parameter evaluation:**
+
 ```
 [E-SelfParam]
 record T { procedure m($, ...) { body } }
@@ -388,6 +353,7 @@ obj.m(args)
 **Explanation:** The `$` parameter is bound to the receiver object at call time.
 
 **[E-SelfField] Field access through $:**
+
 ```
 [E-SelfField]
 record T { procedure m($, ...) { ... $.field ... } }
@@ -400,6 +366,7 @@ obj : T with field : v
 **Explanation:** Field access through `$` evaluates to the field value of the self object.
 
 **[E-SelfConstruct] Constructing Self:**
+
 ```
 [E-SelfConstruct]
 record T { procedure new(...): own Self { own Self { fields } } }
@@ -452,6 +419,7 @@ Counter_get:
 ```
 
 **Memory layout (identical to explicit self):**
+
 ```
 Stack frame for method call:
 ┌─────────────────────────────┐
@@ -497,6 +465,7 @@ let v2 = v1.clone()         // Returns own Vec<i32>
 ```
 
 **Evaluation trace:**
+
 ```
 v1.clone()
 ⇝ Vec<i32>::clone(v1)
@@ -505,130 +474,50 @@ v1.clone()
 ⇝ Vec<i32> { data: [...], len: 5, cap: 8 }
 ```
 
-### 2.10.5 Examples and Patterns
+## 2.10.5 Related Sections
 
-#### 2.10.5.1 Builder Pattern
+- See §2.2 for [Product Types](../PART_B_Composite/02_ProductTypes.md) - records using Self in constructors and methods
+- See §2.3 for [Sum Types](../PART_B_Composite/03_SumTypes.md) - enums using Self in variant constructors
+- See §2.6 for [Traits](../PART_D_Abstraction/06_Traits.md) - Self in trait definitions for type-generic implementations
+- See §2.7 for [Generics](../PART_D_Abstraction/07_Generics.md) - Self with generic type parameters
+- See §2.8 for [Map Types](../PART_D_Abstraction/08_MapTypes.md) - the $ (self) parameter in methods
+- See Part VI (Procedures) for method definitions and self parameter semantics
+- See Part III (Permissions) for permission annotations on self parameters
+- **Examples**: See [10_SelfTypeExamples.md](../Examples/10_SelfTypeExamples.md) for practical Self type patterns
 
-```cantrip
-record RequestBuilder {
-    url: String
-    method: String
-    headers: Vec<(String, String)>
+## 2.10.6 Notes and Warnings
 
-    procedure new(url: String): own Self {
-        own Self {
-            url,
-            method: String.from("GET"),
-            headers: Vec.new(),
-        }
-    }
+**Note 1 (Context-Dependent):** Self always refers to the enclosing type definition context (record, enum, trait). It cannot be used outside these contexts.
 
-    procedure method(mut $, m: String): mut Self {
-        $.method = m
-        mut $  // Return self for chaining
-    }
+**Note 2 ($ Shorthand):** The `$` symbol is syntactic sugar for `self: Permission Self`, providing concise method syntax. `$` expands to `self: Self`, `mut $` to `self: mut Self`, etc.
 
-    procedure header(mut $, key: String, value: String): mut Self {
-        $.headers.push((key, value))
-        mut $
-    }
+**Note 3 (Generic Self):** In generic types, Self includes all type parameters. In `Stack<T>`, Self means `Stack<T>`, not just `Stack`.
 
-    procedure build(own $): Request {
-        Request {
-            url: $.url,
-            method: $.method,
-            headers: $.headers,
-        }
-    }
-}
+**Note 4 (Constructor Pattern):** Return type `own Self` is idiomatic for constructors, allowing type inference and easier refactoring.
 
-// Usage
-let request = RequestBuilder.new("https://api.example.com")
-    .method("POST")
-    .header("Content-Type", "application/json")
-    .build()
-```
+**Note 5 (Trait Self):** In trait definitions, Self represents the type that will attach the trait, enabling generic trait implementations.
 
-#### 2.10.5.2 Generic Container
+**Note 6 (Permission Flexibility):** Self can appear with any permission: `own Self`, `mut Self`, or plain `Self` (immutable).
 
-```cantrip
-record Stack<T> {
-    items: Vec<T>
+**Note 7 (Return Self):** Methods returning Self enable method chaining (builder pattern): `obj.method1().method2().method3()`.
 
-    procedure new(): own Self {
-        own Self { items: Vec.new() }
-    }
+**Note 8 (Associated Types):** In traits with associated types, Self can interact with those types: `Self::AssociatedType`.
 
-    procedure push(mut $, item: T) {
-        $.items.push(item)
-    }
+**Warning 1 (Not a Type Parameter):** Self is NOT a generic type parameter - it's a keyword that refers to the enclosing type. It cannot be constrained with trait bounds directly.
 
-    procedure pop(mut $): Option<T> {
-        $.items.pop()
-    }
+**Warning 2 (Context Required):** Using Self outside of record/enum/trait definitions is a compile error. Self requires an enclosing type context.
 
-    procedure peek($): Option<T>
-        must T: Copy
-    {
-        $.items.last()
-    }
+**Warning 3 (No Type Alias):** You cannot create type aliases for Self: `type Alias = Self` is invalid because Self's meaning changes based on context.
 
-    procedure from_vec(items: Vec<T>): own Self {
-        own Self { items }
-    }
+**Warning 4 (Method Calls):** When calling methods returning Self, the actual concrete type is returned, not some abstract Self type. Type inference resolves Self to the concrete type.
 
-    procedure merge(mut $, other: own Self) {
-        $.items.extend(other.items)
-    }
-}
-```
+**Performance Note 1 (Zero Cost):** Self is resolved at compile time. There is no runtime overhead compared to using the explicit type name.
 
-#### 2.10.5.3 Trait Implementation
+**Performance Note 2 (Monomorphization):** For generic types, Self participates in monomorphization - separate code generated for each concrete instantiation.
 
-```cantrip
-contract Clone {
-    procedure clone($): own Self
-}
+**Implementation Note 1 ($ Desugaring):** The `$` parameter is purely syntactic sugar. Compilers desugar it to `self: Permission Self` during parsing.
 
-record Vec<T>: Clone where T: Clone {
-    data: *T
-    len: usize
-    cap: usize
-
-    procedure clone($): own Self {
-        var cloned = Vec.with_capacity($.len())
-        for item in $ {
-            cloned.push(item.clone())
-        }
-        own cloned
-    }
-}
-```
-
-#### 2.10.5.4 Associated Constructor
-
-```cantrip
-record Counter {
-    value: i32
-
-    procedure zero(): own Self {
-        own Self { value: 0 }
-    }
-
-    procedure from_value(n: i32): own Self {
-        own Self { value: n }
-    }
-
-    procedure max(): own Self {
-        own Self { value: i32.MAX }
-    }
-}
-
-// Usage
-let c1 = Counter.zero()
-let c2 = Counter.from_value(42)
-let c3 = Counter.max()
-```
+**Implementation Note 2 (IDE Support):** Code editors and IDEs should show the concrete type when hovering over Self for better developer experience.
 
 ---
 

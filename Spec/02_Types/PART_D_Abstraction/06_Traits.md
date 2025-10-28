@@ -1,4 +1,4 @@
-# Part II: Type System - §2.6. Traits
+# Chapter 2: Type System - §2.6. Traits
 
 **Section**: §2.6 | **Part**: Type System (Part II)
 **Previous**: [Pointers](../PART_C_References/05_Pointers.md) | **Next**: [Generics](07_Generics.md)
@@ -14,6 +14,7 @@
 **Key innovation/purpose:** Traits enable code reuse through composition rather than inheritance. A trait provides concrete procedure implementations that can be attached to any compatible type, similar to mixins or default interface implementations. This promotes horizontal composition and reduces code duplication.
 
 **When to use traits:**
+
 - Sharing common implementations across multiple unrelated types
 - Providing utility procedures that work generically
 - Composing behavior from reusable building blocks
@@ -22,6 +23,7 @@
 - Building layered abstractions through composition
 
 **When NOT to use traits:**
+
 - Abstract contracts without implementation → use protocols (§TBD)
 - Type-specific behavior that doesn't generalize → use regular procedures
 - Simple data containers → use records (§8)
@@ -29,6 +31,7 @@
 - When inheritance semantics are needed → Cantrip uses composition instead
 
 **Relationship to other features:**
+
 - **Records (§8):** Can attach traits to gain procedures
 - **Enums (§9):** Can attach traits to gain procedures
 - **Generics (§7):** Traits use `Self` as a generic type parameter
@@ -37,6 +40,7 @@
 - **Self Type (§12):** Traits use `Self` to refer to the attaching type
 
 **Trait vs Protocol:**
+
 - **Trait** = concrete implementation you attach (mixin)
 - **Protocol** = abstract behavioral contract you fulfill (interface)
 
@@ -45,6 +49,7 @@
 #### 2.6.2.1 Concrete Syntax
 
 **Trait declaration:**
+
 ```ebnf
 TraitDecl    ::= "public"? "trait" Ident GenericParams? RequiredMethods? "{" TraitProcedure* "}"
 RequiredMethods ::= "requires" "{" ProcedureSignature+ "}"
@@ -52,6 +57,7 @@ TraitProcedure ::= "procedure" Ident "(" ParamList ")" (":" Type)? NeedsClause? 
 ```
 
 **Trait attachment:**
+
 ```ebnf
 RecordDecl   ::= "record" Ident GenericParams? AttachClause? "{" Fields "}"
 AttachClause ::= "attach" TraitList
@@ -59,6 +65,7 @@ TraitList    ::= Ident ("," Ident)*
 ```
 
 **Examples:**
+
 ```cantrip
 // Trait providing concrete implementations
 trait Debug {
@@ -116,6 +123,7 @@ record Point attach Debug, Clone {
 #### 2.6.2.2 Abstract Syntax
 
 **Trait declaration:**
+
 ```
 D ::= trait I must {sig₁, ..., sigₖ} { m₁ = e₁; ...; mₙ = eₙ }
 
@@ -127,6 +135,7 @@ where:
 ```
 
 **Trait attachment:**
+
 ```
 D ::= record T attach {I₁, ..., Iₙ} { fields }
 
@@ -139,6 +148,7 @@ Desugars to:
 ```
 
 **Trait composition:**
+
 ```
 record T attach {I₁, I₂} { ... }
 
@@ -152,10 +162,11 @@ With `Self` in each trait substituted by `T`:
 #### 2.6.2.3 Basic Examples
 
 **Example 1: Simple trait**
+
 ```cantrip
 trait Identifiable {
     procedure id($): u64 {
-        std::ptr::addr_of($) as u64
+        std.ptr.addr_of($) as u64
     }
 
     procedure is_same($, other: Self): bool {
@@ -175,6 +186,7 @@ println("{}", c1.is_same(c2))      // false (different objects)
 ```
 
 **Example 2: Trait requiring procedures**
+
 ```cantrip
 trait Comparable
     must {
@@ -216,19 +228,20 @@ println("{}", p1.equals(p2))        // false (from trait)
 ```
 
 **Example 3: Trait with effects**
+
 ```cantrip
 trait Serializable {
     procedure save($, path: String): Result<(), Error>
         uses io.write, alloc.heap
     {
         let data = $.to_json()
-        std::fs::write(path, data)
+        std.fs.write(path, data)
     }
 
     procedure load(path: String): Result<own Self, Error>
         uses io.read, alloc.heap
     {
-        let data = std::fs::read(path)?
+        let data = std.fs.read(path)?
         Self::from_json(data)
     }
 }
@@ -257,6 +270,7 @@ record Config attach Serializable {
 #### 2.6.3.1 Well-Formedness Rules
 
 **[WF-Trait] Well-formed trait:**
+
 ```
 [WF-Trait]
 procedures m₁, ..., mₙ well-formed
@@ -270,6 +284,7 @@ trait I must {sig₁, ..., sigₖ} { m₁, ..., mₙ } well-formed
 **Explanation:** A trait is well-formed if all its procedures type-check with `Self` as a type variable, all required signatures are valid, and there are no name conflicts.
 
 **[WF-TraitAttach] Well-formed trait attachment:**
+
 ```
 [WF-TraitAttach]
 record T { fields } well-formed
@@ -283,6 +298,7 @@ record T attach {I₁, ..., Iₙ} { fields } well-formed
 **Explanation:** A type can attach traits if it provides all required procedures and there are no naming conflicts.
 
 **[WF-RequiredProc] Required procedure satisfaction:**
+
 ```
 [WF-RequiredProc]
 trait I must { procedure m(Self, τ₁, ..., τₙ): τ }
@@ -295,6 +311,7 @@ T satisfies requirement for I
 **Explanation:** Types must provide procedures matching required signatures.
 
 **[WF-NoConflict] No procedure name conflicts:**
+
 ```
 [WF-NoConflict]
 record T attach {I₁, I₂} { ... }
@@ -310,6 +327,7 @@ no conflict
 #### 2.6.3.2 Type Rules
 
 **[T-TraitProc] Trait procedure typing:**
+
 ```
 [T-TraitProc]
 trait I { procedure m(Self, τ₁, ..., τₙ): τ { body } }
@@ -321,6 +339,7 @@ trait I { procedure m(Self, τ₁, ..., τₙ): τ { body } }
 **Explanation:** Trait procedures type-check with `Self` as an abstract type parameter.
 
 **[T-AttachProc] Attached procedure typing:**
+
 ```
 [T-AttachProc]
 trait I { procedure m($, params): τ { body } }
@@ -332,6 +351,7 @@ record T attach I { fields }
 **Explanation:** When a trait is attached, its procedures become available on the type with `Self` substituted.
 
 **[T-ProcCall] Procedure call via trait:**
+
 ```
 [T-ProcCall]
 record T attach I { ... }
@@ -344,6 +364,7 @@ trait I { procedure m($): τ }
 **Explanation:** Procedures from attached traits are callable on values of the type.
 
 **[T-RequiredProc] Required procedure call:**
+
 ```
 [T-RequiredProc]
 trait I must { procedure req($): τ }
@@ -421,6 +442,7 @@ Each type has exactly one set of attached trait procedures. There is no ambiguit
 #### 2.6.4.1 Evaluation Rules
 
 **[E-TraitProc] Trait procedure call:**
+
 ```
 [E-TraitProc]
 record T attach I { ... }
@@ -434,6 +456,7 @@ trait I { procedure m($, params): τ { body } }
 **Explanation:** Calling a trait procedure evaluates the trait's implementation with `Self` bound to the concrete type.
 
 **[E-RequiredProc] Required procedure dispatch:**
+
 ```
 [E-RequiredProc]
 record T attach I { procedure req($): τ { body_T } }
@@ -550,6 +573,7 @@ c.add(3)
 #### 2.6.5.1 Utility Traits
 
 **Example: Debug trait**
+
 ```cantrip
 trait Debug {
     procedure type_name(): String {
@@ -801,15 +825,15 @@ trait Container {
 
 ### 2.6.7 Trait vs Protocol Comparison
 
-| Aspect | Trait | Protocol |
-|--------|-------|----------|
-| **Nature** | Concrete implementation (mixin) | Abstract contract (interface) |
-| **Provides** | Working code | Signatures only |
-| **Keyword** | `trait` with implementations | `protocol` (to be defined) |
-| **Relationship** | "attach" to types | "implement" by types |
-| **Purpose** | Code reuse through composition | Define behavioral requirements |
-| **Required procs** | Can require some procedures | All procedures are required |
-| **Examples** | `Debug`, `Clone`, `Default` | `Comparable`, `Serializable` (contracts) |
+| Aspect             | Trait                           | Protocol                                 |
+| ------------------ | ------------------------------- | ---------------------------------------- |
+| **Nature**         | Concrete implementation (mixin) | Abstract contract (interface)            |
+| **Provides**       | Working code                    | Signatures only                          |
+| **Keyword**        | `trait` with implementations    | `protocol` (to be defined)               |
+| **Relationship**   | "attach" to types               | "implement" by types                     |
+| **Purpose**        | Code reuse through composition  | Define behavioral requirements           |
+| **Required procs** | Can require some procedures     | All procedures are required              |
+| **Examples**       | `Debug`, `Clone`, `Default`     | `Comparable`, `Serializable` (contracts) |
 
 **Example showing both:**
 
@@ -840,6 +864,47 @@ record Shape : Drawable attach Cacheable {
     ...
 }
 ```
+
+---
+
+## 2.6.8 Related Sections
+
+- See §2.1 for [Primitive Types](../PART_A_Primitives/01_PrimitiveTypes.md) - traits can be attached to primitive type wrappers
+- See §2.2 for [Product Types](../PART_B_Composite/02_ProductTypes.md) - records as primary recipients of trait attachments
+- See §2.3 for [Sum Types](../PART_B_Composite/03_SumTypes.md) - enums can attach traits
+- See §2.7 for [Generics](07_Generics.md) - traits use Self type and generic parameters
+- See §2.10 for [Self Type](../PART_E_Utilities/10_SelfType.md) - the Self keyword in trait definitions
+- See Part VI (Procedures) for procedure definitions and trait methods
+- See Part VIII (Modules) for trait visibility and imports
+- **Examples**: See [06_TraitExamples.md](../Examples/06_TraitExamples.md) for practical trait patterns
+
+## 2.6.9 Notes and Warnings
+
+**Note 1 (Trait as Mixin):** Traits provide concrete implementations (mixins), not abstract interfaces. For abstract contracts, use protocols (when available) or trait bounds on generic parameters.
+
+**Note 2 (Self Type):** The `Self` keyword in trait definitions refers to the type that will attach the trait. It enables generic implementations that work across all attaching types.
+
+**Note 3 (Trait Attachment):** Types attach traits using `attach TraitName` syntax. Multiple traits can be attached by separating with commas: `attach Trait1, Trait2, Trait3`.
+
+**Note 4 (No Override):** When a type attaches a trait, it gains all trait procedures. Types cannot selectively override individual trait procedures - it's all or nothing.
+
+**Note 5 (Trait Bounds):** Generic type parameters can require traits: `procedure foo<T: Display>(value: T)` requires T to have Display trait attached.
+
+**Note 6 (Composition Over Inheritance):** Cantrip uses trait composition instead of class inheritance. Complex behaviors are built by composing multiple simple traits rather than creating deep inheritance hierarchies.
+
+**Warning 1 (Name Conflicts):** If a type defines a procedure with the same name as an attached trait's procedure, there is a name conflict. Cantrip resolves this through explicit qualification or reports a compilation error.
+
+**Warning 2 (Coherence):** Trait implementations must follow coherence rules - you can only attach a trait to a type if you defined either the trait or the type in your crate. This prevents conflicting attachments from multiple libraries.
+
+**Warning 3 (No Partial Attachment):** You cannot attach only some procedures from a trait. Attachment is all-or-nothing - the entire trait implementation comes with attachment.
+
+**Performance Note 1 (Static Dispatch):** Trait procedures attached to concrete types use static dispatch (direct function calls). No runtime overhead compared to regular procedures.
+
+**Performance Note 2 (Monomorphization):** When traits are used with generic parameters, the compiler generates specialized code for each concrete type, enabling full optimization with zero abstraction cost.
+
+**Implementation Note 1 (Trait Objects):** While this specification covers trait attachment to types, Cantrip may support trait objects (dynamic dispatch) through separate mechanisms. See implementation documentation.
+
+**Implementation Note 2 (Standard Traits):** The standard library provides fundamental traits like `Copy`, `Clone`, `Debug`, `Display`, `Default` that types commonly attach for standard behaviors.
 
 ---
 

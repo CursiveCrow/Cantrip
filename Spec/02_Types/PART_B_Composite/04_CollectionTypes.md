@@ -1,11 +1,11 @@
-# Part II: Type System - §2.4. Arrays and Slices
+# Chapter 2: Type System - §2.4. Arrays and Slices
 
 **Section**: §2.4 | **Part**: Type System (Part II)
 **Previous**: [Sum Types](03_SumTypes.md) | **Next**: [Pointers](../PART_C_References/05_Pointers.md)
 
 ---
 
-**Definition 6.1 (Arrays and Slices):** Arrays are fixed-size, contiguous sequences of homogeneous elements: `[T; n] = { (v₁, ..., vₙ) | ∀i ∈ [0, n). vᵢ : T }`. Slices are dynamically-sized views into contiguous data, implemented as fat pointers: `[T] = { (ptr, len) | ptr : *T, len : usize }`.
+**Definition 6.1 (Arrays and Slices):** Arrays are fixed-size, contiguous sequences of homogeneous elements: `[T; n] = { (v₁, ..., vₙ) | ∀i ∈ [0, n). vᵢ : T }`. Slices are dynamically-sized views into contiguous data, implemented as dense pointers: `[T] = { (ptr, len) | ptr : *T, len : usize }`.
 
 ## 2.4. Arrays and Slices
 
@@ -14,6 +14,7 @@
 **Key innovation/purpose:** Arrays and slices provide memory-efficient, predictable data layout for homogeneous collections. Arrays are stack-allocated with compile-time known size, while slices enable dynamic views without heap allocation.
 
 **When to use arrays:**
+
 - Fixed-size collections with compile-time known length
 - Stack-allocated buffers
 - Embedded systems with no dynamic allocation
@@ -21,17 +22,20 @@
 - Performance-critical code where size is known
 
 **When to use slices:**
+
 - Function parameters that accept any array size
 - Dynamic views into existing data
 - Substring/subarray operations without copying
 - Iterating over portions of arrays
 
 **When NOT to use arrays/slices:**
+
 - Heterogeneous data → use tuples (§7) or records (§8)
 - Growable collections → use Vec<T> (standard library)
 - Discriminated unions → use enums (§9)
 
 **Relationship to other features:**
+
 - **Memory layout**: Contiguous, predictable layout essential for FFI and performance
 - **Type inference**: Array and slice types can be inferred from literals and context
 - **Pattern matching**: Arrays support destructuring patterns
@@ -43,6 +47,7 @@
 #### 2.4.2.1 Concrete Syntax
 
 **Array Syntax:**
+
 ```ebnf
 ArrayType    ::= "[" Type ";" IntLiteral "]"
 ArrayLiteral ::= "[" Expr ("," Expr)* "]"
@@ -51,6 +56,7 @@ ArrayIndex   ::= Expr "[" Expr "]"
 ```
 
 **Slice Syntax:**
+
 ```ebnf
 SliceType  ::= "[" Type "]"
 SliceRange ::= Expr "[" Range "]"
@@ -59,6 +65,7 @@ Range      ::= Expr? ".." Expr?        // start..end (exclusive)
 ```
 
 **Range semantics:**
+
 ```
 arr[a..b]   = { arr[i] | a ≤ i < b }
 arr[a..=b]  = { arr[i] | a ≤ i ≤ b }
@@ -70,6 +77,7 @@ arr[..]     = arr[0..len(arr)]
 #### 2.4.2.2 Abstract Syntax
 
 **Arrays:**
+
 ```
 τ ::= [τ; n]         (array type)
 e ::= [e₁, ..., eₙ]  (array literal)
@@ -78,6 +86,7 @@ e ::= [e₁, ..., eₙ]  (array literal)
 ```
 
 **Slices:**
+
 ```
 τ ::= [τ]            (slice type)
 e ::= e[e₁..e₂]      (slice range)
@@ -87,42 +96,12 @@ e ::= e[e₁..e₂]      (slice range)
     | e[..]          (full slice)
 ```
 
-#### 2.4.2.3 Basic Examples
-
-**Array examples:**
-```cantrip
-// Array types
-let numbers: [i32; 5] = [1, 2, 3, 4, 5]
-let zeros: [i32; 100] = [0; 100]  // Repeat: [value; count]
-let matrix: [[f64; 3]; 3]          // Nested arrays
-
-// Array indexing
-let first = numbers[0]             // 1
-let third = numbers[2]             // 3
-```
-
-**Slice examples:**
-```cantrip
-let arr = [1, 2, 3, 4, 5]
-
-// Exclusive range (..): excludes end index
-let slice: [i32] = arr[1..4]   // [2, 3, 4] (indices 1, 2, 3)
-
-// Inclusive range (..=): includes end index
-let inclusive: [i32] = arr[1..=4]  // [2, 3, 4, 5] (indices 1, 2, 3, 4)
-
-// Partial ranges
-let all: [i32] = arr[..]       // [1, 2, 3, 4, 5]
-let from: [i32] = arr[2..]     // [3, 4, 5]
-let to: [i32] = arr[..3]       // [1, 2, 3]
-let to_incl: [i32] = arr[..=3] // [1, 2, 3, 4]
-```
-
 ### 2.4.3 Static Semantics
 
 #### 2.4.3.1 Well-Formedness Rules
 
 **Array well-formedness:**
+
 ```
 [WF-Array]
 Γ ⊢ T : Type    n > 0
@@ -141,6 +120,7 @@ let to_incl: [i32] = arr[..=3] // [1, 2, 3, 4]
 ```
 
 **Slice well-formedness:**
+
 ```
 [WF-Slice]
 Γ ⊢ T : Type
@@ -163,6 +143,7 @@ start ≤ end < n
 #### 2.4.3.2 Type Rules
 
 **Array type rules:**
+
 ```
 [T-Array-Index]
 Γ ⊢ arr : [T; n]
@@ -183,6 +164,7 @@ i < n
 ```
 
 **Slice type rules:**
+
 ```
 [T-Slice]
 Γ ⊢ arr : [T; n]
@@ -213,6 +195,7 @@ start ≤ end < n
 ```
 
 **Array type inference:**
+
 ```
 [Infer-Array-Homogeneous]
 Γ ⊢ e₁ : T₁    ...    Γ ⊢ eₙ : Tₙ
@@ -222,12 +205,14 @@ T = unify(T₁, ..., Tₙ)
 ```
 
 **Example:**
+
 ```cantrip
 let arr = [1, 2, 3]        // Inferred: [i32; 3]
-let mixed = [1, 2u64, 3]   // ERROR: cannot unify i32 and u64
+let mixed = [1, 2u64, 3]   // ERROR E2301: type mismatch in array literal: expected i32, found u64
 ```
 
 **Contextual type inference:**
+
 ```cantrip
 let arr: [u8; 3] = [1, 2, 3]    // Literals inferred as u8 from context
 function process(data: [f32; 4]) { ... }
@@ -236,7 +221,8 @@ process([1.0, 2.0, 3.0, 4.0])   // Literals inferred as f32
 
 **Bounds checking:**
 
-*Static bounds checking (when possible):*
+_Static bounds checking (when possible):_
+
 ```
 [T-Array-Index-Static]
 Γ ⊢ arr : [T; n]
@@ -247,6 +233,7 @@ i is a compile-time constant
 ```
 
 **Runtime bounds checking:**
+
 ```
 [T-Array-Index-Dynamic]
 Γ ⊢ arr : [T; n]
@@ -257,6 +244,7 @@ i is not a compile-time constant
 ```
 
 **Example:**
+
 ```cantrip
 let arr = [1, 2, 3, 4, 5]
 let x = arr[2]           // Static: guaranteed in bounds
@@ -279,12 +267,12 @@ offset(element i) = i × size(T)
 
 **Theorem 6.2 (Slice Representation):**
 
-Slices are fat pointers with fixed size independent of the viewed data:
+Slices are dense pointers with fixed size independent of the viewed data:
 
 ```
 size([T]) = size(*T) + size(usize) = 2 × word_size
 align([T]) = word_size
-layout = { ptr: *T, len: usize }  (fat pointer)
+layout = { ptr: *T, len: usize }  (dense pointer)
 ```
 
 The slice itself is always 16 bytes on 64-bit systems (8 bytes pointer + 8 bytes length), regardless of the data it views.
@@ -297,12 +285,14 @@ The slice itself is always 16 bytes on 64-bit systems (8 bytes pointer + 8 bytes
 ```
 
 **Semantics:**
+
 - Arrays pass by permission by default (like all types)
 - `.copy()` method performs element-wise bitwise copy for Copy-capable arrays
-- Slices always implement Copy (copying the fat pointer descriptor, not underlying data)
+- Slices always implement Copy (copying the dense pointer descriptor, not underlying data)
 - Slice `.copy()` duplicates the (ptr, len) pair, creating another view of same data
 
 **Example:**
+
 ```cantrip
 // Array parameter - pass by permission
 procedure sum(arr: [i32; 5]): i32 {
@@ -326,6 +316,7 @@ let copy_of_numbers = numbers.copy()  // Element-wise copy
 #### 2.4.4.1 Evaluation Rules
 
 **Array literal evaluation:**
+
 ```
 [E-Array]
 ⟨e₁, σ⟩ ⇓ ⟨v₁, σ₁⟩    ...    ⟨eₙ, σₙ₋₁⟩ ⇓ ⟨vₙ, σₙ⟩
@@ -339,6 +330,7 @@ let copy_of_numbers = numbers.copy()  // Element-wise copy
 ```
 
 **Array indexing evaluation:**
+
 ```
 [E-Array-Index]
 ⟨arr, σ⟩ ⇓ ⟨[v₀, ..., vₙ₋₁], σ'⟩
@@ -356,6 +348,7 @@ k ≥ n
 ```
 
 **Slice creation evaluation:**
+
 ```
 [E-Slice]
 ⟨arr, σ⟩ ⇓ ⟨[v₀, ..., vₙ₋₁], σ'⟩
@@ -383,6 +376,7 @@ a > b ∨ b > n
 ```
 
 **Slice indexing evaluation:**
+
 ```
 [E-Slice-Index]
 ⟨slice, σ⟩ ⇓ ⟨(ptr, len), σ'⟩
@@ -395,6 +389,7 @@ k < len
 #### 2.4.4.2 Memory Representation
 
 **Array layout:**
+
 ```
 [T; n] memory layout:
 ┌────┬────┬────┬────┬────┐
@@ -404,6 +399,7 @@ k < len
 ```
 
 **Properties:**
+
 - Contiguous memory
 - No padding between elements
 - Element i at offset: `i × size(T)`
@@ -411,6 +407,7 @@ k < len
 - Alignment: `align(T)`
 
 **Example:**
+
 ```cantrip
 // [i32; 4] layout (assuming size(i32) = 4, align(i32) = 4)
 // Offset:  0    4    8    12
@@ -421,20 +418,23 @@ k < len
 ```
 
 **Slice layout:**
+
 ```
-[T] memory layout (fat pointer):
+[T] memory layout (dense pointer):
 ┌─────────────┬─────────────┐
 │ ptr: *T     │ len: usize  │
 └─────────────┴─────────────┘
 ```
 
 **Properties:**
+
 - Size: `2 × word_size` (typically 16 bytes on 64-bit)
 - Alignment: `word_size`
 - Does NOT contain the actual data
 - Points to data owned by array or other container
 
 **Example:**
+
 ```cantrip
 // On 64-bit system:
 // [i32] layout:
@@ -459,9 +459,10 @@ Arrays and slices provide memory-safe access through compile-time and runtime bo
 - **All arrays** pass by permission (reference-like) regardless of Copy capability
 - **Copy-capable arrays** can be explicitly copied with `.copy()` method
 - **Non-Copy arrays** require explicit `move` for ownership transfer
-- **Slices** always Copy-capable (fat pointer), pass by permission by default
+- **Slices** always Copy-capable (dense pointer), pass by permission by default
 
 **Example:**
+
 ```cantrip
 let arr: [i32; 3] = [1, 2, 3]
 procedure process(a: [i32; 3]) { ... }
@@ -480,6 +481,7 @@ Sequential access:   Cache-friendly due to contiguous layout
 ```
 
 **Example - bounds check elimination:**
+
 ```cantrip
 // Compiler can prove i < 5 for all iterations
 for i in 0..5 {
@@ -523,9 +525,9 @@ let slice: [i32] = arr[..]
 
 // Slices pass by permission like everything else
 procedure process(s: [i32]) { ... }
-process(slice)  // Permission to fat pointer
+process(slice)  // Permission to dense pointer
 
-// Explicit copy duplicates fat pointer (cheap)
+// Explicit copy duplicates dense pointer (cheap)
 let slice2 = slice.copy()  // Copies (ptr, len), NOT data
 // Both slice and slice2 view same data
 
@@ -548,6 +550,7 @@ Arrays and slices are **invariant** in their type parameter:
 **Rationale:** Allowing covariance would violate type safety in mutable contexts.
 
 **Example:**
+
 ```cantrip
 // This would be unsound if allowed:
 let arr: [own String; 3] = [...]
@@ -566,6 +569,7 @@ Arrays can be implicitly coerced to slices in certain contexts:
 ```
 
 **Example:**
+
 ```cantrip
 function process(data: [i32]) {
     // ...
@@ -575,111 +579,14 @@ let arr: [i32; 5] = [1, 2, 3, 4, 5]
 process(arr)  // OK: [i32; 5] coerces to [i32]
 ```
 
-### 2.4.6 Examples and Patterns
+### 2.4.5 Mutable Slices
 
-#### 2.4.6.1 Array Patterns
+**Definition 6.2 (Mutable Slice):** A mutable slice `[mut T]` is a dynamically-sized view into contiguous mutable data, allowing in-place modification of elements. Like immutable slices, mutable slices are dense pointers `(ptr: *mut T, len: usize)`, but require `mut` permission to create and use.
 
-**Stack-allocated buffer:**
-```cantrip
-function process_batch(items: [Item; 32]) {
-    // Fixed-size processing, no heap allocation
-    for item in items {
-        process(item)
-    }
-}
-```
-
-**Compile-time known sizes:**
-```cantrip
-const BUFFER_SIZE: usize = 4096
-let buffer: [u8; BUFFER_SIZE] = [0; BUFFER_SIZE]
-```
-
-**Multidimensional arrays:**
-```cantrip
-// 3x3 matrix
-let matrix: [[f64; 3]; 3] = [
-    [1.0, 0.0, 0.0],
-    [0.0, 1.0, 0.0],
-    [0.0, 0.0, 1.0],
-]
-
-let element = matrix[1][2]  // 0.0
-```
-
-#### 2.4.6.2 Slice Patterns
-
-**Function parameters (prefer slices over arrays):**
-```cantrip
-// Good: accepts any size
-function sum(numbers: [i32]): i32 {
-    let mut total = 0
-    for n in numbers {
-        total += n
-    }
-    total
-}
-
-// Can call with any array size:
-sum([1, 2, 3])         // OK
-sum([1, 2, 3, 4, 5])   // OK
-```
-
-**Slicing arrays:**
-```cantrip
-let data = [1, 2, 3, 4, 5, 6, 7, 8]
-
-// Exclusive ranges (..)
-let first_half = data[..4]     // [1, 2, 3, 4] (indices 0..4, excludes 4)
-let second_half = data[4..]    // [5, 6, 7, 8] (indices 4..8)
-let middle = data[2..6]        // [3, 4, 5, 6] (indices 2..6, excludes 6)
-
-// Inclusive ranges (..=)
-let first_four = data[..=3]    // [1, 2, 3, 4] (indices 0..=3, includes 3)
-let last_four = data[4..=7]    // [5, 6, 7, 8] (indices 4..=7, includes 7)
-let middle_incl = data[2..=5]  // [3, 4, 5, 6] (indices 2..=5, includes 5)
-```
-
-**Window operations:**
-```cantrip
-function sliding_window(data: [i32], size: usize) {
-    for i in 0..(data.len() - size + 1) {
-        let window = data[i..(i + size)]
-        process_window(window)
-    }
-}
-```
-
-#### 2.4.6.3 Performance Patterns
-
-**Avoiding copies with slices:**
-```cantrip
-// Bad: copies array on each call
-function bad_process(data: [i32; 1000]) {
-    // ...
-}
-
-// Good: passes view without copying
-function good_process(data: [i32]) {
-    // ...
-}
-```
-
-**Zero-cost abstraction:**
-```cantrip
-// Iterator over slice elements
-function sum_efficient(numbers: [i32]): i32 {
-    numbers.iter().sum()  // No bounds checks in tight loop
-}
-```
-
-### 2.4.7 Mutable Slices
-
-**Definition 6.2 (Mutable Slice):** A mutable slice `[mut T]` is a dynamically-sized view into contiguous mutable data, allowing in-place modification of elements. Like immutable slices, mutable slices are fat pointers `(ptr: *mut T, len: usize)`, but require `mut` permission to create and use.
-
-#### 2.4.7.1 Syntax
+#### 2.4.5.1 Syntax
 
 **Grammar:**
+
 ```ebnf
 MutSliceType ::= "[" "mut" Type "]"
 MutSliceRange ::= MutExpr "[" Range "]"
@@ -687,6 +594,7 @@ MutSliceIndex ::= MutExpr "[" Expr "]"
 ```
 
 **Examples:**
+
 ```cantrip
 // Mutable slice types
 let mut arr = [1, 2, 3, 4, 5]
@@ -700,9 +608,10 @@ var numbers = [0; 100]
 let view: [mut i32] = numbers[10..20]
 ```
 
-#### 2.4.7.2 Type Rules
+#### 2.4.5.2 Type Rules
 
 **[T-MutSlice] Mutable Slice Creation:**
+
 ```
 [T-MutSlice]
 Γ ⊢ arr : mut [T; n]    (mutable array)
@@ -717,13 +626,14 @@ start ≤ end ≤ n
 
 ```cantrip
 let arr = [1, 2, 3, 4, 5]           // Immutable array
-// let s: [mut i32] = arr[1..3]     // ✗ ERROR: cannot borrow as mutable
+// let s: [mut i32] = arr[1..3]     // ✗ ERROR: cannot create mutable slice from immutable array
 
 var mut_arr = [1, 2, 3, 4, 5]       // Mutable array
 let s: [mut i32] = mut_arr[1..3]   // ✓ Mutable slice
 ```
 
 **[T-MutSliceIndex] Mutable Slice Indexing:**
+
 ```
 [T-MutSliceIndex]
 Γ ⊢ slice : [mut T]
@@ -747,6 +657,7 @@ assert(slice[1] == 25)
 ```
 
 **[T-MutSliceAssign] Mutable Slice Assignment:**
+
 ```
 [T-MutSliceAssign]
 Γ ⊢ slice : [mut T]
@@ -770,6 +681,7 @@ assert(data == [1, 100, 200, 300, 5])
 ```
 
 **[T-MutSliceIter] Mutable Slice Iteration:**
+
 ```
 [T-MutSliceIter]
 Γ ⊢ slice : [mut T]
@@ -792,6 +704,7 @@ assert(numbers == [2, 4, 6, 8, 10])
 ```
 
 **[T-SlicePermission] Permission Requirements:**
+
 ```
 [T-SlicePermission]
 Γ ⊢ arr : π [T; n]
@@ -817,6 +730,7 @@ let mut_slice: [mut i32] = mut_arr[1..3]  // ✓ Mutable slice
 ```
 
 **[T-MutSliceSplit] Mutable Slice Splitting:**
+
 ```
 [T-MutSliceSplit]
 Γ ⊢ slice : [mut T]
@@ -842,6 +756,7 @@ assert(arr == [10, 2, 3, 40, 5, 6])
 ```
 
 **[T-MutSliceNonOverlap] Non-Overlapping Guarantee:**
+
 ```
 [T-MutSliceNonOverlap]
 Γ ⊢ arr : mut [T; n]
@@ -869,6 +784,7 @@ slice2[0] = 40
 ```
 
 **[T-MutSliceCoercion] Array to Mutable Slice Coercion:**
+
 ```
 [T-MutSliceCoercion]
 Γ ⊢ arr : mut [T; n]
@@ -890,7 +806,7 @@ double_elements(numbers)  // ✓ Coerces [i32; 5] to [mut i32]
 assert(numbers == [2, 4, 6, 8, 10])
 ```
 
-#### 2.4.7.3 Memory Representation
+#### 2.4.5.3 Memory Representation
 
 Mutable slices have the same memory representation as immutable slices:
 
@@ -904,6 +820,7 @@ Alignment: align(usize) = 8 bytes on 64-bit
 **Key difference:** The pointer type is `*mut T` (mutable raw pointer) instead of `*const T`.
 
 **Memory layout:**
+
 ```
 Mutable Slice [mut T]:
 ┌─────────────────┬─────────────────┐
@@ -915,9 +832,10 @@ Mutable Slice [mut T]:
        [T₀, T₁, T₂, ..., Tₙ₋₁]
 ```
 
-#### 2.4.7.4 Operational Behavior
+#### 2.4.5.4 Operational Behavior
 
 **In-place modification:**
+
 ```cantrip
 var data = [1, 2, 3, 4, 5]
 let slice: [mut i32] = data[1..4]
@@ -931,16 +849,17 @@ assert(data == [1, 2, 100, 4, 5])
 
 **Mutable vs. Immutable slices:**
 
-| Feature | Immutable Slice `[T]` | Mutable Slice `[mut T]` |
-|---------|----------------------|------------------------|
-| **Pointer type** | `*const T` | `*mut T` |
-| **Permission** | `imm` or `own` | `mut` required |
-| **Modification** | Read-only | Can modify elements |
-| **Aliasing** | Multiple immutable slices allowed | Only one mutable slice or multiple immutable |
-| **Copy trait** | ✓ Implements Copy | ✓ Implements Copy |
-| **Size** | 16 bytes (64-bit) | 16 bytes (64-bit) |
+| Feature          | Immutable Slice `[T]`             | Mutable Slice `[mut T]`                      |
+| ---------------- | --------------------------------- | -------------------------------------------- |
+| **Pointer type** | `*const T`                        | `*mut T`                                     |
+| **Permission**   | `imm` or `own`                    | `mut` required                               |
+| **Modification** | Read-only                         | Can modify elements                          |
+| **Aliasing**     | Multiple immutable slices allowed | Only one mutable slice or multiple immutable |
+| **Copy trait**   | ✓ Implements Copy                 | ✓ Implements Copy                            |
+| **Size**         | 16 bytes (64-bit)                 | 16 bytes (64-bit)                            |
 
 **Permission rules:**
+
 ```cantrip
 var arr = [1, 2, 3, 4, 5]
 
@@ -956,123 +875,7 @@ let ms: [mut i32] = arr[..]
 // let bad_mut: [mut i32] = arr[3..5]  // ✗ ERROR: already borrowed mutably
 ```
 
-#### 2.4.7.5 Examples and Patterns
-
-**Pattern 1: In-place transformation**
-
-```cantrip
-function normalize(values: [mut f64]) {
-    let max = values.iter().fold(0.0, |acc, &x| if x > acc { x } else { acc })
-    if max > 0.0 {
-        for v in values.iter_mut() {
-            *v /= max
-        }
-    }
-}
-
-var data = [10.0, 20.0, 30.0, 40.0]
-normalize(data)
-assert(data == [0.25, 0.5, 0.75, 1.0])
-```
-
-**Pattern 2: Partitioning**
-
-```cantrip
-function partition<T>(slice: [mut T], pred: fn(T) => bool) => usize
-    where T: Copy
-{
-    let mut left = 0
-    let mut right = slice.len() - 1
-
-    while left < right {
-        if pred(slice[left]) {
-            left += 1
-        } else {
-            // Swap with right
-            let temp = slice[left]
-            slice[left] = slice[right]
-            slice[right] = temp
-            right -= 1
-        }
-    }
-
-    left  // Return partition point
-}
-
-var numbers = [1, 2, 3, 4, 5, 6, 7, 8]
-let pivot = partition(numbers, |x| x % 2 == 0)
-// Even numbers moved to front
-```
-
-**Pattern 3: Parallel mutable access**
-
-```cantrip
-function swap_halves(data: [mut i32]) {
-    let mid = data.len() / 2
-    let (left, right) = data.split_at_mut(mid)
-
-    // Can modify both halves independently (non-overlapping)
-    for i in 0..left.len() {
-        let temp = left[i]
-        left[i] = right[i]
-        right[i] = temp
-    }
-}
-
-var arr = [1, 2, 3, 4, 5, 6]
-swap_halves(arr)
-assert(arr == [4, 5, 6, 1, 2, 3])
-```
-
-**Pattern 4: Accumulation with mutation**
-
-```cantrip
-function running_sum(values: [mut i32]) {
-    if values.len() == 0 {
-        return
-    }
-
-    for i in 1..values.len() {
-        values[i] += values[i - 1]
-    }
-}
-
-var data = [1, 2, 3, 4, 5]
-running_sum(data)
-assert(data == [1, 3, 6, 10, 15])  // Cumulative sum
-```
-
-**Pattern 5: Safe mutable windowing**
-
-```cantrip
-function smooth(data: [mut f64], window_size: usize) {
-    if data.len() < window_size || window_size == 0 {
-        return
-    }
-
-    let mut temp = Vec::with_capacity(data.len())
-
-    // Copy original values
-    for &x in data.iter() {
-        temp.push(x)
-    }
-
-    // Apply smoothing
-    for i in 0..(data.len() - window_size + 1) {
-        let mut sum = 0.0
-        for j in 0..window_size {
-            sum += temp[i + j]
-        }
-        data[i] = sum / (window_size as f64)
-    }
-}
-
-var signal = [1.0, 5.0, 2.0, 8.0, 3.0]
-smooth(signal, 3)
-// Applies moving average smoothing
-```
-
-#### 2.4.7.6 Type Properties
+#### 2.4.5.5 Type Properties
 
 **Theorem 6.1 (Mutable Slice Safety):** Mutable slices preserve memory safety through permission checking. At most one mutable slice to overlapping memory can exist at any time.
 
@@ -1083,6 +886,33 @@ smooth(signal, 3)
 **Theorem 6.2 (Non-Overlapping Split):** Split operations like `split_at_mut` produce non-overlapping slices that can be safely used simultaneously.
 
 **Proof sketch:** The split operation divides the slice into disjoint ranges `[0..mid)` and `[mid..len)`. Since these ranges don't overlap, multiple mutable accesses are safe. ∎
+
+---
+
+### 2.4.6 Related Sections
+
+- See §2.1 for [Primitive Types](../PART_A_Primitives/01_PrimitiveTypes.md) - arrays use primitive element types
+- See §2.2 for [Product Types](02_ProductTypes.md) - arrays can contain tuples and records
+- See §2.3 for [Sum Types](03_SumTypes.md) - arrays can contain enums
+- See §2.7 for [Generics](../PART_D_Abstraction/07_Generics.md) - generic collections over array/slice types
+- Compare with Vec<T> in standard library for dynamic arrays
+- See Part V (Effects) for effect tracking with array/slice operations
+- See Part III (Permissions) for permission semantics with mutable slices
+- **Examples**: See [04_CollectionExamples.md](../Examples/04_CollectionExamples.md) for practical usage patterns
+
+### 2.4.7 Notes and Warnings
+
+**Note 2.4.1:** Array sizes must be compile-time constants. For runtime-sized collections, use Vec<T> from the standard library.
+
+**Note 2.4.2:** Slices are views, not owned data. They cannot outlive the data they reference. The region system enforces this automatically.
+
+**Performance Note 2.4.1:** Array indexing performs bounds checking by default. For performance-critical loops where bounds are statically known, the compiler can eliminate checks through loop analysis.
+
+**Performance Note 2.4.2:** Slices have zero overhead compared to raw pointers with manual length tracking. The dense pointer representation (ptr + len) is the same size as separate variables.
+
+**Warning 2.4.1:** Creating a slice from an array does NOT copy data - it creates a view. Modifying the array affects the slice and vice versa (for mutable slices).
+
+**Implementation Note 2.4.1:** Array-to-slice coercion is a zero-cost conversion. No code is generated; the compiler simply adjusts the type.
 
 ---
 

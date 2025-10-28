@@ -1,7 +1,7 @@
-# Part II: Type System - §2.7. Generics and Parametric Polymorphism
+# Chapter 2: Type System - §2.7. Generics and Parametric Polymorphism
 
 **Section**: §2.7 | **Part**: Type System (Part II)
-**Previous**: [Traits](06_Traits.md) | **Next**: [Function Types](08_FunctionTypes.md)
+**Previous**: [Traits](06_Traits.md) | **Next**: [Map Types](08_MapTypes.md)
 
 ---
 
@@ -14,6 +14,7 @@
 **Key innovation/purpose:** Generics enable writing code once that works with multiple types, providing type-safe abstraction without runtime overhead through compile-time monomorphization.
 
 **When to use generics:**
+
 - Collections (Vec<T>, HashMap<K, V>, etc.)
 - Functions that work with multiple types identically
 - Data structures that hold values of any type
@@ -23,6 +24,7 @@
 - Library code requiring broad applicability
 
 **When NOT to use generics:**
+
 - When working with a single known type → use concrete types
 - When types need different implementations → use enums with pattern matching
 - When you need a closed set of variants → use enums explicitly
@@ -30,6 +32,7 @@
 - When monomorphization bloat is a concern → use enums instead
 
 **Relationship to other features:**
+
 - **Traits**: Provide bounds for generic type parameters
 - **Monomorphization**: Generics compiled to specialized code for each instantiation
 - **Type inference**: Generic parameters often inferred from context
@@ -41,6 +44,7 @@
 #### 2.7.2.1 Concrete Syntax
 
 **Generic function:**
+
 ```ebnf
 GenericFunction ::= "function" Ident GenericParams ParamList (":" Type)? WhereClauses? ContractClauses? Block
 GenericParams   ::= "<" TypeParam ("," TypeParam)* ">"
@@ -53,16 +57,19 @@ WhereClause     ::= Type ":" Bound ("+" Bound)*
 ```
 
 **Generic record:**
+
 ```ebnf
 GenericRecord   ::= "record" Ident GenericParams "{" FieldList "}"
 ```
 
 **Generic enum:**
+
 ```ebnf
 GenericEnum     ::= "enum" Ident GenericParams "{" VariantList "}"
 ```
 
 **Examples:**
+
 ```cantrip
 function identity<T>(x: T): T {
     x
@@ -86,17 +93,20 @@ enum Option<T> {
 #### 2.7.2.2 Abstract Syntax
 
 **Generic function types:**
+
 ```
 τ ::= ∀α. τ    (universal quantification)
 ```
 
 **Generic type application:**
+
 ```
 e ::= e[τ]     (type application)
 τ ::= T⟨τ₁, ..., τₙ⟩    (generic type instantiation)
 ```
 
 **Type schemes:**
+
 ```
 σ ::= ∀α₁...αₙ. τ    (polytype/type scheme)
 ```
@@ -104,6 +114,7 @@ e ::= e[τ]     (type application)
 #### 2.7.2.3 Basic Examples
 
 **Generic identity:**
+
 ```cantrip
 function identity<T>(x: T): T {
     x
@@ -114,6 +125,7 @@ let b = identity("hello")   // T = str, returns "hello"
 ```
 
 **Generic container:**
+
 ```cantrip
 record Container<T> {
     value: T
@@ -128,6 +140,7 @@ let str_cont = Container { value: "hello" }
 #### 2.7.3.1 Well-Formedness Rules
 
 **Generic function:**
+
 ```
 [WF-Generic-Fun]
 Γ, α₁ : Type, ..., αₙ : Type ⊢ body : τ
@@ -136,6 +149,7 @@ let str_cont = Container { value: "hello" }
 ```
 
 **Generic record:**
+
 ```
 [WF-Generic-Record]
 Γ, α₁ : Type, ..., αₘ : Type ⊢ fields well-formed
@@ -144,6 +158,7 @@ let str_cont = Container { value: "hello" }
 ```
 
 **Type parameter bounds:**
+
 ```
 [WF-Bounded-Param]
 Γ ⊢ B₁ : Trait    ...    Γ ⊢ Bₙ : Trait
@@ -154,6 +169,7 @@ let str_cont = Container { value: "hello" }
 #### 2.7.3.2 Type Rules
 
 **Type instantiation:**
+
 ```
 [T-Inst]
 Γ ⊢ e : ∀α. τ
@@ -163,6 +179,7 @@ let str_cont = Container { value: "hello" }
 ```
 
 **Bounded instantiation:**
+
 ```
 [T-Bounded-Inst]
 Γ ⊢ e : ∀α : B. τ
@@ -173,6 +190,7 @@ U : B    (U satisfies bound B)
 ```
 
 **Generic type construction:**
+
 ```
 [T-Generic-Type]
 Γ ⊢ T : Type → ... → Type    (n parameters)
@@ -182,6 +200,7 @@ U : B    (U satisfies bound B)
 ```
 
 **Where clause checking:**
+
 ```
 [T-Where]
 Γ, T : Type, T : C₁, ..., T : Cₙ ⊢ body : U
@@ -194,22 +213,27 @@ U : B    (U satisfies bound B)
 **Theorem 11.1 (Parametricity):**
 
 Generic functions cannot inspect or depend on the specific type of their parameters:
+
 ```
 ∀α. f : α → β
 ```
+
 The implementation of f must work uniformly for all types α.
 
 **Theorem 11.2 (Monomorphization):**
 
 Every generic instantiation produces a distinct specialized function:
+
 ```
 f<i32> ≠ f<String>
 ```
+
 Each instantiation is compiled separately with no shared code.
 
 **Theorem 11.3 (Type Substitution):**
 
 Type substitution preserves well-typedness:
+
 ```
 If Γ, α : Type ⊢ e : τ and Γ ⊢ U : Type
 Then Γ ⊢ e[α ↦ U] : τ[α ↦ U]
@@ -220,6 +244,7 @@ Then Γ ⊢ e[α ↦ U] : τ[α ↦ U]
 **Purpose:** Type bounds constrain generic type parameters to types that satisfy specific trait requirements.
 
 **Syntax:**
+
 ```cantrip
 function serialize<T>(value: T): String
     where T: Serialize + Clone
@@ -230,6 +255,7 @@ function serialize<T>(value: T): String
 ```
 
 **Type rule:**
+
 ```
 [T-Bounds]
 Γ ⊢ T : B₁    ...    Γ ⊢ T : Bₙ
@@ -238,6 +264,7 @@ function serialize<T>(value: T): String
 ```
 
 **Example with multiple bounds:**
+
 ```cantrip
 function process<T, U>(data: T): U
     where
@@ -267,6 +294,7 @@ Generates specialized function f_ConcreteType
 ```
 
 **Generic value construction:**
+
 ```
 [E-Generic-Record]
 ⟨e₁, σ⟩ ⇓ ⟨v₁, σ₁⟩    ...    ⟨eₙ, σₙ₋₁⟩ ⇓ ⟨vₙ, σₙ⟩
@@ -302,6 +330,7 @@ function max_String(a: String, b: String): String { ... }
 ```
 
 **No runtime overhead:**
+
 - All type parameters resolved at compile time
 - No type tags or vtables
 - Direct function calls (no indirection)
@@ -320,6 +349,7 @@ let c = identity("hello")  // Calls identity_str
 ```
 
 **Trade-off:**
+
 - **Benefit**: Zero runtime overhead, maximum performance
 - **Cost**: Increased binary size (code bloat for many instantiations)
 
@@ -330,6 +360,7 @@ let c = identity("hello")  // Calls identity_str
 **Purpose:** Const generics allow types and functions to be parameterized by compile-time constants (e.g., array lengths, matrix dimensions).
 
 **Syntax:**
+
 ```ebnf
 ConstParam     ::= "const" Ident ":" ConstType
 ConstType      ::= "usize" | "u8" | "u16" | "u32" | "u64" | "isize" | "i8" | "i16" | "i32" | "i64" | "bool"
@@ -338,6 +369,7 @@ ConstExpr      ::= literal | arithmetic | sizeof(T) | alignof(T)
 ```
 
 **Type rules:**
+
 ```
 [T-Const-Generic]
 Γ, N : const usize ⊢ e : τ
@@ -352,6 +384,7 @@ ConstExpr      ::= literal | arithmetic | sizeof(T) | alignof(T)
 ```
 
 **Examples:**
+
 ```cantrip
 // Function parameterized by a const length N
 function process<T, const N: usize>(data: [T; N]): T {
@@ -386,6 +419,7 @@ record RingBuffer<T, const CAP: usize> {
 **Const expression evaluation:**
 
 Const arguments must be evaluable at compile time:
+
 ```cantrip
 const SIZE: usize = 10
 
@@ -405,6 +439,7 @@ let buf4: RingBuffer<i32, n>  // ERROR
 ```
 
 **Diagnostics:**
+
 - `E9310` — Non-constant used where const generic argument required
 - `E9311` — Const expression not evaluable at compile time
 
@@ -419,218 +454,55 @@ type F = function<T>(f: function<U>(U) => U): T
 
 Generics are first-order only.
 
-### 2.7.6 Examples and Patterns
+---
 
-#### 2.7.6.1 Generic Collections
+## 2.7.7 Related Sections
 
-**Vec implementation sketch:**
-```cantrip
-record Vec<T> {
-    data: own [T]
-    length: usize
-    capacity: usize
+- See §2.1 for [Primitive Types](../PART_A_Primitives/01_PrimitiveTypes.md) - primitive types as generic parameters
+- See §2.2 for [Product Types](../PART_B_Composite/02_ProductTypes.md) - generic tuples and records
+- See §2.3 for [Sum Types](../PART_B_Composite/03_SumTypes.md) - generic enums (Option<T>, Result<T,E>)
+- See §2.4 for [Collection Types](../PART_B_Composite/04_CollectionTypes.md) - generic array and slice operations
+- See §2.6 for [Traits](06_Traits.md) - trait bounds on generic parameters
+- See §2.8 for [Map Types](08_MapTypes.md) - generic map/dictionary types
+- See §2.9 for [Type Aliases](../PART_E_Utilities/09_TypeAliases.md) - aliasing generic types
+- See Part VI (Procedures) for generic function definitions
+- See Part VII (Contracts) for generic contracts and where clauses
+- **Examples**: See [07_GenericExamples.md](../Examples/07_GenericExamples.md) for practical generic patterns
 
-    procedure new(): own Vec<T>
-        uses alloc.heap
-    {
-        own Vec {
-            data: own [],
-            length: 0,
-            capacity: 0,
-        }
-    }
+## 2.7.8 Notes and Warnings
 
-    procedure push(self: mut Vec<T>, value: T)
-        uses alloc.heap
-    {
-        if self.length == self.capacity {
-            self.grow()
-        }
-        self.data[self.length] = value
-        self.length += 1
-    }
+**Note 1 (Monomorphization):** Generics are compiled through monomorphization - the compiler generates specialized code for each concrete type used. This provides zero-cost abstraction but increases binary size.
 
-    procedure get(self: Vec<T>, index: usize): Option<T>
-        where T: Copy
-    {
-        if index < self.length {
-            Some(self.data[index])
-        } else {
-            None
-        }
-    }
-}
-```
+**Note 2 (Type Inference):** Generic type parameters are often inferred from usage context. Explicit turbofish syntax `function::<Type>()` can specify types when inference fails.
 
-#### 2.7.6.2 Generic Option and Result
+**Note 3 (Trait Bounds):** Generic parameters can be constrained with trait bounds: `<T: Display + Clone>` requires T to have both Display and Clone traits attached.
 
-**Option type:**
-```cantrip
-enum Option<T> {
-    Some(T),
-    None,
+**Note 4 (Where Clauses):** Complex bounds use where clauses for readability: `where T: Display, U: Clone`. Where clauses appear after parameter list.
 
-    procedure map<U>(self: Option<T>, f: map(T) => U): Option<U> {
-        match self {
-            Option.Some(value) => Option.Some(f(value)),
-            Option.None => Option.None,
-        }
-    }
+**Note 5 (Lifetime Parameters):** Generics can include lifetime parameters (Part IV) alongside type parameters: `<'a, T>` where 'a is a lifetime and T is a type.
 
-    procedure unwrap_or(self: Option<T>, default: T): T {
-        match self {
-            Option.Some(value) => value,
-            Option.None => default,
-        }
-    }
-}
-```
+**Note 6 (Const Generics):** Compile-time constant parameters enable array sizes and other compile-time values: `<T, const SIZE: usize>`.
 
-**Result type:**
-```cantrip
-enum Result<T, E> {
-    Ok(T),
-    Err(E),
+**Note 7 (No Higher-Kinded Types):** Cantrip generics are first-order only. You cannot abstract over type constructors (no `F<T>` where F itself is a generic parameter).
 
-    procedure map<U>(self: Result<T, E>, f: map(T) => U): Result<U, E> {
-        match self {
-            Result.Ok(value) => Result.Ok(f(value)),
-            Result.Err(error) => Result.Err(error),
-        }
-    }
+**Note 8 (Associated Types):** Traits can define associated types that act as type members, providing an alternative to generic parameters in some cases.
 
-    procedure and_then<U>(
-        self: Result<T, E>,
-        f: map(T) => Result<U, E>
-    ): Result<U, E> {
-        match self {
-            Result.Ok(value) => f(value),
-            Result.Err(error) => Result.Err(error),
-        }
-    }
-}
-```
+**Warning 1 (Binary Bloat):** Excessive generic instantiations increase binary size. Each unique concrete type generates separate code. Consider using dynamic dispatch or enums for many variants.
 
-#### 2.7.6.3 Generic Algorithms
+**Warning 2 (Orphan Rules):** You can only implement traits for generic types if you defined either the trait or the generic type in your crate (coherence/orphan rules).
 
-**Sorting with trait bounds:**
-```cantrip
-function bubble_sort<T>(arr: [mut T])
-    where T: Comparable<T> + Copy
-{
-    let n = arr.len()
-    for i in 0..n {
-        for j in 0..(n - i - 1) {
-            if arr[j].compare(arr[j + 1]) > 0 {
-                let temp = arr[j]
-                arr[j] = arr[j + 1]
-                arr[j + 1] = temp
-            }
-        }
-    }
-}
+**Warning 3 (Recursive Bounds):** Avoid overly complex recursive trait bounds that make type checking difficult. Keep bounds simple and composable.
 
-let mut numbers = [64, 34, 25, 12, 22, 11, 90]
-bubble_sort(numbers)
-```
+**Warning 4 (Type Inference Failures):** Complex generic code may require explicit type annotations when the compiler cannot infer types. Use turbofish syntax or variable type annotations.
 
-**Generic map function:**
-```cantrip
-function map<T, U>(items: [T], f: function(T): U): Vec<U>
-    uses alloc.heap
-{
-    let mut result = Vec.new()
-    for item in items {
-        result.push(f(item))
-    }
-    result
-}
+**Performance Note 1 (Zero Cost):** Properly used generics have zero runtime cost compared to hand-written specialized code. The compiler generates the same machine code.
 
-let numbers = [1, 2, 3, 4, 5]
-let doubled = map(numbers, function(x) { x * 2 })
-```
+**Performance Note 2 (Inline Optimization):** Generic functions are excellent candidates for inlining across specializations, enabling aggressive optimization.
 
-#### 2.7.6.4 Generic Builder Pattern
+**Implementation Note 1 (Default Type Parameters):** Generic types may support default type parameters: `record Foo<T = i32>` where T defaults to i32 if not specified.
 
-**Type-safe builder:**
-```cantrip
-record RequestBuilder<T> {
-    url: String
-    method: HttpMethod
-    body: Option<T>
-
-    procedure new(url: String): own RequestBuilder<T> {
-        own RequestBuilder {
-            url,
-            method: HttpMethod.GET,
-            body: None,
-        }
-    }
-
-    procedure method(self: mut RequestBuilder<T>, method: HttpMethod): mut RequestBuilder<T> {
-        self.method = method
-        self
-    }
-
-    procedure body<U>(self: RequestBuilder<T>, body: U): RequestBuilder<U> {
-        RequestBuilder {
-            url: self.url,
-            method: self.method,
-            body: Some(body),
-        }
-    }
-
-    procedure build(self: RequestBuilder<T>): Request<T>
-        where T: Serialize
-    {
-        Request {
-            url: self.url,
-            method: self.method,
-            body: self.body,
-        }
-    }
-}
-```
-
-#### 2.7.6.5 Const Generic Arrays
-
-**Fixed-size buffer:**
-```cantrip
-record FixedBuffer<T, const SIZE: usize> {
-    data: [T; SIZE]
-    len: usize
-
-    procedure new(): FixedBuffer<T, SIZE>
-        where T: Default
-    {
-        FixedBuffer {
-            data: [T::default(); SIZE],
-            len: 0,
-        }
-    }
-
-    procedure push(self: mut FixedBuffer<T, SIZE>, value: T): Result<(), Error>
-        must self.len < SIZE
-    {
-        if self.len >= SIZE {
-            return Err(Error.new("Buffer full"))
-        }
-        self.data[self.len] = value
-        self.len += 1
-        Ok(())
-    }
-
-    procedure capacity(self: FixedBuffer<T, SIZE>): usize {
-        SIZE
-    }
-}
-
-// Usage:
-let mut buffer: FixedBuffer<i32, 10> = FixedBuffer.new()
-buffer.push(42)
-assert(buffer.capacity() == 10)
-```
+**Implementation Note 2 (Generic Limits):** Compilers may impose practical limits on generic parameter counts and nesting depth to ensure reasonable compilation times.
 
 ---
 
-**Previous**: [Traits](06_Traits.md) | **Next**: [Function Types](08_FunctionTypes.md)
+**Previous**: [Traits](06_Traits.md) | **Next**: [Map Types](08_MapTypes.md)

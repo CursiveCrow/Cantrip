@@ -1,4 +1,4 @@
-# Part II: Type System - §2.3 Sum Types
+# Chapter 2: Type System - §2.3 Sum Types
 
 **Section**: §2.3 | **Part**: Type System (Part II)
 **Previous**: [Product Types](02_ProductTypes.md) | **Next**: [Collection Types](04_CollectionTypes.md)
@@ -26,6 +26,7 @@ Sum types (also called tagged unions or variant types) represent values that can
 **Key innovation/purpose:** Enums provide type-safe discriminated unions, enabling exhaustive pattern matching and making illegal states unrepresentable.
 
 **When to use enums:**
+
 - Representing values that can be one of several distinct alternatives
 - State machines with discrete states
 - Error handling (Result<T, E> pattern)
@@ -35,12 +36,14 @@ Sum types (also called tagged unions or variant types) represent values that can
 - Protocol implementations with different message formats
 
 **When NOT to use enums:**
+
 - Data with multiple independent boolean flags → use records with bool fields
 - Hierarchical type relationships → use traits
 - When all variants share common structure → consider records
 - Extensible type families → use traits with multiple implementing types
 
 **Relationship to other features:**
+
 - **Pattern matching**: Enums require exhaustive pattern matching for type safety
 - **Generics**: Enums can be generic (e.g., `Option<T>`, `Result<T, E>`)
 - **Records**: Enum variants can contain record-like data
@@ -52,6 +55,7 @@ Sum types (also called tagged unions or variant types) represent values that can
 #### 2.3.1.2.1 Concrete Syntax
 
 **Enum declaration:**
+
 ```ebnf
 EnumDecl     ::= "enum" Ident GenericParams? "{" VariantList "}"
 VariantList  ::= Variant ("," Variant)* ","?
@@ -64,6 +68,7 @@ RecordFields ::= Field ("," Field)*
 ```
 
 **Pattern matching:**
+
 ```ebnf
 Match        ::= "match" Expr "{" MatchArm ("," MatchArm)* ","? "}"
 MatchArm     ::= Pattern ("if" Expr)? "->" Expr
@@ -74,6 +79,7 @@ Pattern      ::= Ident "." Ident                     // Unit pattern
 ```
 
 **Examples:**
+
 ```cantrip
 enum Status {
     Active,
@@ -97,12 +103,14 @@ enum Message {
 #### 2.3.1.2.2 Abstract Syntax
 
 **Enum types:**
+
 ```
 τ ::= enum E { V₁(τ₁), ..., Vₙ(τₙ) }    (enum type)
     | E                                   (enum type reference)
 ```
 
 **Enum expressions:**
+
 ```
 e ::= E.Vᵢ                               (unit variant)
     | E.Vᵢ(e)                            (tuple variant)
@@ -110,6 +118,7 @@ e ::= E.Vᵢ                               (unit variant)
 ```
 
 **Pattern syntax:**
+
 ```
 p ::= E.Vᵢ                               (unit pattern)
     | E.Vᵢ(p)                            (tuple pattern)
@@ -117,44 +126,12 @@ p ::= E.Vᵢ                               (unit pattern)
     | _                                  (wildcard)
 ```
 
-#### 2.3.1.2.3 Basic Examples
-
-**Simple enum:**
-```cantrip
-enum Direction {
-    North,
-    South,
-    East,
-    West,
-}
-
-let dir = Direction.North
-```
-
-**Enum with data:**
-```cantrip
-enum Option<T> {
-    Some(T),
-    None,
-}
-
-let some_value: Option<i32> = Option.Some(42)
-let no_value: Option<i32> = Option.None
-```
-
-**Pattern matching:**
-```cantrip
-match some_value {
-    Option.Some(x) => println("Value: {x}"),
-    Option.None => println("No value"),
-}
-```
-
 ### 2.3.1.3 Static Semantics
 
 #### 2.3.1.3.1 Well-Formedness Rules
 
 **Enum declaration:**
+
 ```
 [WF-Enum]
 Γ ⊢ T₁ : Type    ...    Γ ⊢ Tₙ : Type
@@ -164,6 +141,7 @@ variants V₁, ..., Vₙ are distinct
 ```
 
 **Generic enum:**
+
 ```
 [WF-Generic-Enum]
 Γ, α₁ : Type, ..., αₘ : Type ⊢ T₁ : Type    ...    Γ ⊢ Tₙ : Type
@@ -175,6 +153,7 @@ variants V₁, ..., Vₙ are distinct
 #### 2.3.1.3.2 Type Rules
 
 **Enum variant construction:**
+
 ```
 [T-Enum-Unit]
 enum E { ..., V, ... } well-formed
@@ -195,6 +174,7 @@ enum E { ..., V { f₁: T₁, ..., fₙ: Tₙ }, ... } well-formed
 ```
 
 **Pattern matching:**
+
 ```
 [T-Match]
 Γ ⊢ e : E
@@ -206,6 +186,7 @@ patterns {p₁, ..., pₙ} exhaustive for E
 ```
 
 **Pattern typing:**
+
 ```
 [T-Pattern-Unit]
 enum E { ..., V, ... }
@@ -232,6 +213,7 @@ enum E { ..., V { f₁: T₁, ..., fₙ: Tₙ }, ... }
 **Definition 9.2 (Exhaustive Patterns):** A set of patterns is exhaustive if every possible value matches at least one pattern.
 
 **Algorithm:**
+
 ```
 exhaustive(patterns, enum E { V₁, ..., Vₙ }) = {
     1. Collect all constructors {V₁, ..., Vₙ} of enum E
@@ -243,6 +225,7 @@ exhaustive(patterns, enum E { V₁, ..., Vₙ }) = {
 ```
 
 **Example:**
+
 ```cantrip
 enum Status {
     Active,
@@ -271,6 +254,7 @@ function incomplete(status: Status): str {
 **Theorem 9.2 (Discriminant Uniqueness):**
 
 Each variant has a unique discriminant value:
+
 ```
 ∀ i ≠ j. discriminant(Vᵢ) ≠ discriminant(Vⱼ)
 ```
@@ -293,6 +277,7 @@ match number {
 ```
 
 **Type rule:**
+
 ```
 [T-Pattern-Literal]
 ────────────────────────────────────────────
@@ -313,6 +298,7 @@ match point {
 ```
 
 **Type rule:**
+
 ```
 [T-Pattern-Tuple]
 Γ ⊢ p₁ : T₁ ⇝ Γ₁    ...    Γ ⊢ pₙ : Tₙ ⇝ Γₙ
@@ -333,6 +319,7 @@ match person {
 ```
 
 **Type rule:**
+
 ```
 [T-Pattern-Record]
 record R { f₁: T₁, ..., fₙ: Tₙ }
@@ -354,6 +341,7 @@ match value {
 ```
 
 **Type rule:**
+
 ```
 [T-Pattern-Guard]
 Γ ⊢ p : T ⇝ Γ'
@@ -377,6 +365,7 @@ The wildcard `_` matches any value without binding:
 #### 2.3.1.4.1 Evaluation Rules
 
 **Enum variant construction:**
+
 ```
 [E-Enum-Unit]
 ────────────────────────────────────────────
@@ -394,6 +383,7 @@ The wildcard `_` matches any value without binding:
 ```
 
 **Pattern matching evaluation:**
+
 ```
 [E-Match-First]
 ⟨e, σ⟩ ⇓ ⟨v, σ'⟩
@@ -413,6 +403,7 @@ match(p₁, v) = None    // Pattern doesn't match
 #### 2.3.1.4.2 Memory Representation
 
 **Enum layout:**
+
 ```
 enum Layout = {
     discriminant: usize,    // Tag (variant index)
@@ -425,6 +416,7 @@ enum Layout = {
 ```
 
 **Size calculation:**
+
 ```
 size(enum E { V₁(T₁), ..., Vₙ(Tₙ) }) =
     size(discriminant) + max(size(T₁), ..., size(Tₙ)) + padding
@@ -433,6 +425,7 @@ align(enum E) = max(align(discriminant), align(T₁), ..., align(Tₙ))
 ```
 
 **Example:**
+
 ```cantrip
 enum Message {
     Quit,                      // size = 0
@@ -465,6 +458,7 @@ let code: u16 = HttpStatus.Ok as u16  // 200
 ```
 
 **Type rule for discriminant:**
+
 ```
 [T-Discriminant]
 enum E { V₁ = n₁, ..., Vₖ = nₖ }
@@ -477,6 +471,7 @@ E as IntType valid
 **Discriminant sizing:** The compiler automatically selects the smallest integer type that can represent all variants.
 
 **Default discriminant type selection:**
+
 ```
 Number of variants  | Discriminant type | Size
 --------------------|-------------------|------
@@ -515,6 +510,7 @@ enum LargeEnum {
 **Discriminant value constraints:**
 
 When explicitly specifying discriminant values, they must:
+
 1. Fit within the discriminant type
 2. Be unique across all variants
 3. Not exceed the maximum value for the chosen representation
@@ -718,15 +714,15 @@ discriminant type = IntType
 
 **Layout attributes summary:**
 
-| Attribute | Effect |
-|-----------|--------|
-| `#[repr(u8)]` | Force u8 discriminant (max 256 variants) |
-| `#[repr(u16)]` | Force u16 discriminant (max 65536 variants) |
-| `#[repr(u32)]` | Force u32 discriminant |
-| `#[repr(u64)]` | Force u64 discriminant |
-| `#[repr(C)]` | C-compatible layout (discriminant + union) |
-| `#[repr(C, u32)]` | C-compatible with explicit discriminant size |
-| `#[repr(transparent)]` | Single-variant enum, same layout as payload |
+| Attribute              | Effect                                       |
+| ---------------------- | -------------------------------------------- |
+| `#[repr(u8)]`          | Force u8 discriminant (max 256 variants)     |
+| `#[repr(u16)]`         | Force u16 discriminant (max 65536 variants)  |
+| `#[repr(u32)]`         | Force u32 discriminant                       |
+| `#[repr(u64)]`         | Force u64 discriminant                       |
+| `#[repr(C)]`           | C-compatible layout (discriminant + union)   |
+| `#[repr(C, u32)]`      | C-compatible with explicit discriminant size |
+| `#[repr(transparent)]` | Single-variant enum, same layout as payload  |
 
 **Transparent representation:**
 
@@ -818,126 +814,6 @@ enum Opcode {
 // Explicit values for protocol compatibility
 ```
 
-### 2.3.1.5 Examples and Patterns
-
-#### 2.3.1.5.1 Option Type Pattern
-
-**Standard Option implementation:**
-```cantrip
-enum Option<T> {
-    Some(T),
-    None,
-}
-
-function divide(x: i32, y: i32): Option<i32> {
-    if y == 0 {
-        Option.None
-    } else {
-        Option.Some(x / y)
-    }
-}
-
-match divide(10, 2) {
-    Option.Some(result) => println("Result: {result}"),
-    Option.None => println("Division by zero"),
-}
-```
-
-#### 2.3.1.5.2 Result Type Pattern
-
-**Error handling:**
-```cantrip
-enum Result<T, E> {
-    Ok(T),
-    Err(E),
-}
-
-function parse_number(s: str): Result<i32, String> {
-    if let Some(n) = try_parse(s) {
-        Result.Ok(n)
-    } else {
-        Result.Err("invalid number")
-    }
-}
-
-match parse_number("123") {
-    Result.Ok(n) => println("Parsed: {n}"),
-    Result.Err(error) => println("Error: {error}"),
-}
-```
-
-#### 2.3.1.5.3 State Machine Pattern
-
-**Enum-based state machine:**
-```cantrip
-enum ConnectionState {
-    Disconnected,
-    Connecting { started_at: DateTime },
-    Connected { session_id: String, connected_at: DateTime },
-    Error { message: String },
-}
-
-function handle_state(state: ConnectionState): ConnectionState {
-    match state {
-        ConnectionState.Disconnected => {
-            ConnectionState.Connecting { started_at: DateTime.now() }
-        },
-        ConnectionState.Connecting { started_at } => {
-            if should_timeout(started_at) {
-                ConnectionState.Error { message: "connection timeout" }
-            } else {
-                state  // Keep trying
-            }
-        },
-        ConnectionState.Connected { .. } => state,
-        ConnectionState.Error { .. } => ConnectionState.Disconnected,
-    }
-}
-```
-
-#### 2.3.1.5.4 Message Passing Pattern
-
-**Protocol messages:**
-```cantrip
-enum Request {
-    Get { key: String },
-    Set { key: String, value: String },
-    Delete { key: String },
-    List,
-}
-
-enum Response {
-    Value(String),
-    Ok,
-    NotFound,
-    Error(String),
-}
-
-function handle_request(req: Request): Response {
-    match req {
-        Request.Get { key } => {
-            if let Some(value) = lookup(key) {
-                Response.Value(value)
-            } else {
-                Response.NotFound
-            }
-        },
-        Request.Set { key, value } => {
-            store(key, value)
-            Response.Ok
-        },
-        Request.Delete { key } => {
-            remove(key)
-            Response.Ok
-        },
-        Request.List => {
-            Response.Value(list_keys().join(","))
-        },
-    }
-}
-```
-
-
 ---
 
 **Definition 8.5.1 (Union):** A union is an untagged sum type where all variants occupy the same memory location. Formally, if `union U { f₁: T₁, ..., fₙ: Tₙ }` then `⟦U⟧ = T₁ ⊔ ... ⊔ Tₙ` where ⊔ denotes overlapping union (not disjoint sum), with `size(U) = max(size(T₁), ..., size(Tₙ))` and no runtime discriminant. The active variant is tracked by the programmer, making unions inherently unsafe.
@@ -949,6 +825,7 @@ function handle_request(req: Request): Response {
 **Key innovation/purpose:** Unions provide C-compatible untagged sum types for FFI interoperability, enabling direct mapping to C union types without discriminant overhead while maintaining explicit safety boundaries through the effect system.
 
 **When to use unions:**
+
 - Foreign Function Interface (FFI) with C code requiring unions
 - Hardware register access with multiple interpretations
 - Memory-constrained systems requiring space optimization
@@ -957,6 +834,7 @@ function handle_request(req: Request): Response {
 - Network protocol implementations matching C structures
 
 **When NOT to use unions:**
+
 - Pure Cantrip code (use enums for type-safe tagged unions)
 - When discriminant overhead is acceptable (use enums)
 - General variant types (use enums with pattern matching)
@@ -964,6 +842,7 @@ function handle_request(req: Request): Response {
 - Public APIs in Cantrip libraries (prefer type-safe alternatives)
 
 **Relationship to other features:**
+
 - **Records (§8)**: Unions are like records but with overlapping storage
 - **Enums (§9)**: Enums are tagged unions with discriminants; unions are untagged
 - **Permissions (Part III)**: Unions support all permissions (own, mut, immutable, iso)
@@ -973,6 +852,7 @@ function handle_request(req: Request): Response {
 - **Memory layout**: Uses `[[repr(C)]]` for C-compatible layout
 
 **Safety model:**
+
 - Unions are **inherently unsafe** - reading wrong variant is undefined behavior
 - All field access requires `unsafe.union` effect
 - Recommended: wrap unions in records with explicit tag fields (see §8.5.7.1)
@@ -983,6 +863,7 @@ function handle_request(req: Request): Response {
 #### 2.3.2.2.1 Concrete Syntax
 
 **Union declaration:**
+
 ```ebnf
 UnionDecl    ::= "union" Ident GenericParams? "{" FieldList "}"
 FieldList    ::= Field (Newline Field)* Newline?
@@ -992,17 +873,20 @@ GenericParams ::= "<" TypeParam ("," TypeParam)* ">"
 ```
 
 **Union construction:**
+
 ```ebnf
 UnionExpr    ::= Ident "{" FieldInit "}"
 FieldInit    ::= Ident ":" Expr
 ```
 
 **Variant access:**
+
 ```ebnf
 VariantAccess ::= Expr "." Ident
 ```
 
 **Examples:**
+
 ```cantrip
 // Simple union
 union Value {
@@ -1039,23 +923,27 @@ procedure get_int(v: Value): i32
 #### 2.3.2.2.2 Abstract Syntax
 
 **Union types:**
+
 ```
 τ ::= union U { f₁: τ₁, ..., fₙ: τₙ }    (union type)
     | U                                   (union type reference)
 ```
 
 **Union expressions:**
+
 ```
 e ::= U { f: e }                          (union literal, single variant)
     | e.f                                 (variant access, unsafe)
 ```
 
 **Union patterns:**
+
 ```
 p ::= U { f: p }                          (union pattern, limited support)
 ```
 
 **Memory representation:**
+
 ```
 ⟦union U { f₁: T₁, ..., fₙ: Tₙ }⟧ = {
     storage: max(⟦T₁⟧, ..., ⟦Tₙ⟧)      (all variants share storage)
@@ -1065,42 +953,12 @@ p ::= U { f: p }                          (union pattern, limited support)
 }
 ```
 
-#### 2.3.2.2.3 Basic Examples
-
-**Simple union:**
-```cantrip
-union IntOrFloat {
-    i: i32
-    f: f32
-}
-
-let value = IntOrFloat { i: 42 }
-
-// Accessing variant (unsafe)
-procedure read_int(v: IntOrFloat): i32
-    uses unsafe.union
-{
-    v.i
-}
-```
-
-**C-compatible union:**
-```cantrip
-[[repr(C)]]
-union Data {
-    integer: i32
-    floating: f64
-    bytes: [u8; 8]
-}
-
-let d = Data { floating: 3.14 }
-```
-
 ### 2.3.2.3 Static Semantics
 
 #### 2.3.2.3.1 Well-Formedness Rules
 
 **[WF-Union] Union Declaration:**
+
 ```
 [WF-Union]
 Γ ⊢ T₁ : Type    ...    Γ ⊢ Tₙ : Type
@@ -1130,6 +988,7 @@ union Data {
 ```
 
 **[WF-Union-Generic] Generic Union:**
+
 ```
 [WF-Union-Generic]
 Γ, α₁ : Type, ..., αₘ : Type ⊢ T₁ : Type    ...    Γ, α₁ : Type, ..., αₘ : Type ⊢ Tₙ : Type
@@ -1152,6 +1011,7 @@ let e2: Either<i32, String> = Either { right: String.from("hello") }
 ```
 
 **[WF-Union-ZST-Restriction] Zero-Sized Type Restriction:**
+
 ```
 [WF-Union-ZST-Restriction]
 union U { f₁: T₁, ..., fₙ: Tₙ }
@@ -1179,6 +1039,7 @@ union Mixed {
 #### 2.3.2.3.2 Type Rules
 
 **[T-Union-Construct] Union Construction:**
+
 ```
 [T-Union-Construct]
 union U { f₁: T₁, ..., fᵢ: Tᵢ, ..., fₙ: Tₙ } declared
@@ -1205,6 +1066,7 @@ let d3 = Data { s: String.from("hello") }  // ✓ String matches s variant
 ```
 
 **[T-Union-Single-Init] Single Variant Initialization:**
+
 ```
 [T-Union-Single-Init]
 union U { f₁: T₁, ..., fₙ: Tₙ }
@@ -1226,6 +1088,7 @@ union Data {
 ```
 
 **[T-Union-Access] Variant Access (Unsafe):**
+
 ```
 [T-Union-Access]
 union U { f₁: T₁, ..., fᵢ: Tᵢ, ..., fₙ: Tₙ }
@@ -1257,6 +1120,7 @@ procedure read_int(d: Data): i32
 ```
 
 **[T-Union-Safe-Access] Contract-Guarded Access:**
+
 ```
 [T-Union-Safe-Access]
 union U { f₁: T₁, ..., fᵢ: Tᵢ, ..., fₙ: Tₙ }
@@ -1292,6 +1156,7 @@ record Tagged {
 ```
 
 **[T-Union-Assign] Variant Assignment:**
+
 ```
 [T-Union-Assign]
 union U { f₁: T₁, ..., fᵢ: Tᵢ, ..., fₙ: Tₙ }
@@ -1319,6 +1184,7 @@ procedure update(d: mut Data)
 ```
 
 **[T-Union-Permission] Permission Application:**
+
 ```
 [T-Union-Permission]
 union U { f₁: T₁, ..., fₙ: Tₙ }
@@ -1342,6 +1208,7 @@ procedure isolate(data: iso Data) { }           // Isolated
 ```
 
 **[T-Union-Copy] Copy Semantics:**
+
 ```
 [T-Union-Copy]
 union U { f₁: T₁, ..., fₙ: Tₙ }
@@ -1376,6 +1243,7 @@ let d2 = d1  // Move
 ```
 
 **[T-Union-Move] Move Semantics:**
+
 ```
 [T-Union-Move]
 union U { f₁: T₁, ..., fₙ: Tₙ }
@@ -1404,6 +1272,7 @@ let d2 = d1  // Move entire union
 ```
 
 **[T-Union-Size] Size Calculation:**
+
 ```
 [T-Union-Size]
 union U { f₁: T₁, ..., fₙ: Tₙ }
@@ -1427,6 +1296,7 @@ union Data {
 ```
 
 **[T-Union-Repr-C] C-Compatible Layout:**
+
 ```
 [T-Union-Repr-C]
 [[repr(C)]]
@@ -1453,6 +1323,7 @@ union Value {
 ```
 
 **[T-Union-Nested] Nested Unions:**
+
 ```
 [T-Union-Nested]
 union U₁ { ... }
@@ -1478,6 +1349,7 @@ let o = Outer { inner: Inner { i: 42 } }
 ```
 
 **[T-Union-Generic-Inst] Generic Union Instantiation:**
+
 ```
 [T-Union-Generic-Inst]
 union U<α₁, ..., αₖ> { f₁: T₁, ..., fₙ: Tₙ } declared
@@ -1499,6 +1371,7 @@ let e2: Either<bool, f64> = Either { right: 3.14 }
 ```
 
 **[T-Union-Subtyping] No Structural Subtyping:**
+
 ```
 [T-Union-Subtyping]
 union U₁ { f₁: T₁, ..., fₙ: Tₙ }
@@ -1526,6 +1399,7 @@ let a = A { i: 42 }
 ```
 
 **[T-Union-Pattern] Limited Pattern Matching:**
+
 ```
 [T-Union-Pattern]
 union U { f₁: T₁, ..., fₙ: Tₙ }
@@ -1574,6 +1448,7 @@ Unions with identical variant names and types are distinct types. For any unions
 **Theorem 8.5.2 (Size Maximality):**
 
 For union U with variants of types T₁, ..., Tₙ:
+
 ```
 size(U) = max(size(T₁), ..., size(Tₙ))
 ```
@@ -1585,6 +1460,7 @@ size(U) = max(size(T₁), ..., size(Tₙ))
 **Theorem 8.5.3 (Copy Capability):**
 
 A union U implements Copy if and only if all variants implement Copy:
+
 ```
 union U { f₁: T₁, ..., fₙ: Tₙ } : Copy
 ⟺
@@ -1594,13 +1470,15 @@ T₁ : Copy ∧ ... ∧ Tₙ : Copy
 **Semantics:** Unions pass by permission by default. `.copy()` performs bitwise copy when all variants are Copy-capable.
 
 **Proof sketch:**
+
 - (⇒) If U is Copy, bitwise copy must be valid. Since any variant could be active, all must support bitwise copy, thus all Tᵢ : Copy.
 - (⇐) If all Tᵢ : Copy, bitwise copy is safe regardless of active variant, thus U : Copy.
-∎
+  ∎
 
 **Theorem 8.5.4 (Unsafe Access):**
 
 All union variant access is inherently unsafe without additional invariants:
+
 ```
 ∀ u : U, ∀ f : variant of U.
 access(u.f) is safe ⟺ f is the active variant
@@ -1613,6 +1491,7 @@ access(u.f) is safe ⟺ f is the active variant
 **Theorem 8.5.5 (Layout Compatibility):**
 
 For unions marked `[[repr(C)]]`, the memory layout matches the equivalent C union:
+
 ```
 [[repr(C)]] union U { f₁: T₁, ..., fₙ: Tₙ } in Cantrip
 ⟺
@@ -1624,6 +1503,7 @@ union U { T₁ f₁; ...; Tₙ fₙ; } in C
 **Theorem 8.5.6 (Zero Runtime Overhead):**
 
 Unions have zero abstraction cost compared to raw memory reinterpretation:
+
 ```
 cost(union U) = cost(reinterpret_cast in C++)
 ```
@@ -1635,6 +1515,7 @@ cost(union U) = cost(reinterpret_cast in C++)
 #### 2.3.2.4.1 Evaluation Rules
 
 **[E-Union-Construct] Union Construction:**
+
 ```
 [E-Union-Construct]
 ⟨e, σ⟩ ⇓ ⟨v, σ'⟩
@@ -1645,6 +1526,7 @@ cost(union U) = cost(reinterpret_cast in C++)
 **Explanation:** Union construction evaluates the initializer expression and stores it in the union's storage.
 
 **[E-Union-Access] Variant Access:**
+
 ```
 [E-Union-Access]
 ⟨e, σ⟩ ⇓ ⟨U { fᵢ: v }, σ'⟩
@@ -1655,6 +1537,7 @@ cost(union U) = cost(reinterpret_cast in C++)
 **Explanation:** Accessing variant fⱼ interprets the union's storage as type Tⱼ, regardless of which variant was initialized. If i ≠ j, this is undefined behavior.
 
 **[E-Union-Assign] Variant Assignment:**
+
 ```
 [E-Union-Assign]
 ⟨e₁, σ⟩ ⇓ ⟨u, σ₁⟩    u : mut U
@@ -1668,6 +1551,7 @@ cost(union U) = cost(reinterpret_cast in C++)
 #### 2.3.2.4.2 Memory Representation
 
 **Union memory layout:**
+
 ```
 union U { f₁: T₁, f₂: T₂, ..., fₙ: Tₙ }
 
@@ -1685,6 +1569,7 @@ Alignment: max(align(T₁), ..., align(Tₙ))
 ```
 
 **Example: Different-sized variants:**
+
 ```cantrip
 union Data {
     byte: u8       // size=1, align=1
@@ -1701,6 +1586,7 @@ Alignment: max(1, 4, 8) = 8 bytes
 ```
 
 **C-compatible layout:**
+
 ```cantrip
 [[repr(C)]]
 union CData {
@@ -1716,6 +1602,7 @@ Size: 8 bytes, Alignment: 8 bytes
 #### 2.3.2.4.3 Operational Behavior
 
 **Initialization and overwrites:**
+
 ```cantrip
 union Data {
     i: i32
@@ -1731,12 +1618,14 @@ d2.f = 3.14
 ```
 
 **Undefined behavior:**
+
 ```cantrip
 let d = Data { i: 42 }
 let x = d.f  // UB! Reading float when int was stored
 ```
 
 **Type punning (legal but unsafe):**
+
 ```cantrip
 union FloatPun {
     f: f32
@@ -1783,6 +1672,7 @@ procedure read_int(d: Data): i32
 ```
 
 **Effect hierarchy:**
+
 ```
 unsafe
 ├── unsafe.ptr        (raw pointer dereferencing)
@@ -1797,6 +1687,7 @@ ffi
 ```
 
 **Effect composition:**
+
 ```cantrip
 // FFI procedure using unions
 procedure call_c_function(): i32
@@ -1810,6 +1701,7 @@ procedure call_c_function(): i32
 #### 2.3.2.5.2 Contract-Based Safety
 
 **Pattern: Tagged union wrapper:**
+
 ```cantrip
 enum ValueKind { Integer, Floating }
 
@@ -1847,6 +1739,7 @@ record Value {
 #### 2.3.2.5.3 Permission System Integration
 
 **Unions support all permissions:**
+
 ```cantrip
 union Data {
     i: i32
@@ -1860,6 +1753,7 @@ procedure isolate(data: iso Data) { }        // Isolated
 ```
 
 **Copy semantics:**
+
 ```cantrip
 // Copy union (all variants Copy)
 union CopyData {
@@ -1899,6 +1793,7 @@ procedure process_batch(items: [Item]): Result
 #### 2.3.2.6.1 FFI Integration
 
 **C structure with embedded union:**
+
 ```cantrip
 // C: struct Event { uint32_t type; union { ... } data; }
 
@@ -1937,6 +1832,7 @@ procedure handle_event(event: Event)
 ```
 
 **Win32 LARGE_INTEGER:**
+
 ```cantrip
 // C: typedef union { struct { DWORD LowPart; LONG HighPart; }; LONGLONG QuadPart; } LARGE_INTEGER;
 
@@ -1966,6 +1862,7 @@ procedure get_performance_counter(): i64
 #### 2.3.2.6.2 Hardware Register Access
 
 **Memory-mapped I/O register:**
+
 ```cantrip
 [[repr(C)]]
 union ControlRegister {
@@ -1991,6 +1888,7 @@ procedure enable_device()
 #### 2.3.2.6.3 Type Punning and Bit Manipulation
 
 **Float/int conversion:**
+
 ```cantrip
 union FloatInt {
     f: f32
@@ -2012,6 +1910,7 @@ procedure is_nan(f: f32): bool
 ```
 
 **Endianness detection:**
+
 ```cantrip
 union EndianTest { value: u32, bytes: [u8; 4] }
 
@@ -2022,131 +1921,17 @@ procedure is_little_endian(): bool
 }
 ```
 
-### 2.3.2.7 Examples and Patterns
+### 2.3.2.7 Comparison to Alternatives
 
-#### 2.3.2.7.1 Pattern 1: Safe Tagged Union (Recommended)
-
-**Problem:** Need variant types with type safety.
-
-**Solution:** Wrap union in record with explicit tag field.
-
-```cantrip
-enum ValueTag { Int, Float }
-
-union ValueData {
-    i: i32
-    f: f32
-}
-
-record SafeValue {
-    tag: ValueTag
-    data: ValueData
-
-    procedure new_int(value: i32): own SafeValue {
-        own SafeValue { tag: ValueTag.Int, data: ValueData { i: value } }
-    }
-
-    procedure as_int(self: Self): Option<i32>
-        uses unsafe.union
-    {
-        match self.tag {
-            ValueTag.Int => Option.Some(self.data.i),
-            ValueTag.Float => Option.None,
-        }
-    }
-}
-
-// Usage: Tag ensures type-safe access
-let val = SafeValue.new_int(42)
-match val.as_int() {
-    Option.Some(n) => println("Value: {}", n),
-    Option.None => println("Not an int"),
-}
-```
-
-#### 2.3.2.7.2 Pattern 2: FFI Compatibility
-
-**Problem:** Need to call C API with union parameters.
-
-**Solution:** Define union with `[[repr(C)]]` matching C layout.
-
-```cantrip
-// C: typedef struct { int type; union { int i; float f; } value; } Variant;
-
-[[repr(C)]]
-record Variant {
-    type_id: i32
-    value: VariantValue
-}
-
-[[repr(C)]]
-union VariantValue {
-    i: i32
-    f: f32
-}
-
-extern "C" {
-    procedure process_variant(v: Variant): i32
-        uses ffi.call, unsafe.union
-}
-
-procedure call_c_api(value: i32): i32
-    uses ffi.call, unsafe.union
-{
-    let v = Variant { type_id: 1, value: VariantValue { i: value } }
-    process_variant(v)
-}
-```
-
-#### 2.3.2.7.3 Pattern 3: Space Optimization
-
-**Problem:** Need to store one of several types, minimize memory.
-
-**Solution:** Use union when only one variant is active at a time.
-
-```cantrip
-// Instead of:
-// enum Message {
-//     Text(String),       // 24 bytes + discriminant
-//     Number(i64),        // 8 bytes + discriminant
-//     Binary(Vec<u8>),    // 24 bytes + discriminant
-// }
-// Size: ~32 bytes
-
-// Space-optimized version:
-enum MessageType {
-    Text,
-    Number,
-    Binary,
-}
-
-union MessageData {
-    text: String        // 24 bytes
-    number: i64         // 8 bytes
-    binary: Vec<u8>     // 24 bytes
-}
-
-record Message {
-    type_tag: MessageType  // 1 byte
-    data: MessageData      // 24 bytes
-}
-// Size: ~32 bytes (similar, but more control)
-
-// Use when you have many instances and know the active type through
-// external invariants (e.g., protocol headers, state machines).
-```
-
-### 2.3.2.8 Comparison to Alternatives
-
-| Feature | Union | Enum | Record | Type Alias |
-|---------|-------|------|--------|------------|
-| **Memory layout** | Overlapping | Tagged + largest variant | Sequential | Transparent |
-| **Discriminant** | None | Automatic | N/A | N/A |
-| **Type safety** | Unsafe | Safe | Safe | Transparent |
-| **C FFI** | Perfect match | Tag overhead | Perfect match | Depends |
-| **Pattern matching** | Limited | Full support | Full support | Depends |
-| **Space efficiency** | max(variants) | discriminant + max(variants) | sum(fields) | Underlying type |
-| **Use case** | C interop, hardware | General variants | Structured data | Type branding |
+| Feature              | Union               | Enum                         | Record          | Type Alias      |
+| -------------------- | ------------------- | ---------------------------- | --------------- | --------------- |
+| **Memory layout**    | Overlapping         | Tagged + largest variant     | Sequential      | Transparent     |
+| **Discriminant**     | None                | Automatic                    | N/A             | N/A             |
+| **Type safety**      | Unsafe              | Safe                         | Safe            | Transparent     |
+| **C FFI**            | Perfect match       | Tag overhead                 | Perfect match   | Depends         |
+| **Pattern matching** | Limited             | Full support                 | Full support    | Depends         |
+| **Space efficiency** | max(variants)       | discriminant + max(variants) | sum(fields)     | Underlying type |
+| **Use case**         | C interop, hardware | General variants             | Structured data | Type branding   |
 
 **When to use each:**
 
@@ -2155,9 +1940,10 @@ record Message {
 - **Record**: Structured data with all fields present
 - **Type Alias**: Simple naming, no runtime representation
 
-### 2.3.2.9 Safety Guidelines
+### 2.3.2.8 Safety Guidelines
 
 **DO:**
+
 - ✓ Always wrap unions in records with explicit tag fields
 - ✓ Use contracts to document which variant is active
 - ✓ Declare `uses unsafe.union` for all variant access
@@ -2167,6 +1953,7 @@ record Message {
 - ✓ Document which variant is active in comments
 
 **DON'T:**
+
 - ✗ Access union variants without knowing which is active
 - ✗ Use unions for general variant types (use enums)
 - ✗ Assume unions are Copy unless all variants are Copy
@@ -2176,6 +1963,7 @@ record Message {
 - ✗ Ignore the `unsafe.union` effect requirement
 
 **Common pitfalls:**
+
 ```cantrip
 // ❌ BAD: No tag, no way to know active variant
 union Bad {
@@ -2200,7 +1988,6 @@ record Good {
 }
 ```
 
-
 ---
 
 **Definition 12.1 (Modal):** A modal is a type with an explicit finite state machine, where each state @Sᵢ can have different data fields and the compiler enforces valid state transitions. Formally, a modal M = (S, Σ, δ, s₀) where S is a finite set of states, Σ is the alphabet of procedures, δ: S × Σ → S is the transition function, and s₀ ∈ S is the initial state. Modals bring state machine verification into the type system, ensuring compile-time correctness for stateful resources and business logic.
@@ -2212,6 +1999,7 @@ record Good {
 **Key innovation/purpose:** Modals make state machines first-class types with compile-time verification, ensuring that state-dependent operations are only called in valid states and all state transitions are explicit and type-checked.
 
 **When to use modals:**
+
 - Resources with lifecycles (files, database connections, network sockets)
 - Stateful business logic (orders, shopping carts, payment flows)
 - Protocol implementations (TCP handshakes, authentication state)
@@ -2221,6 +2009,7 @@ record Good {
 - Transaction management (pending, committed, rolled back)
 
 **When NOT to use modals:**
+
 - Simple data with no state machine → use records (§8)
 - Discrete alternatives without transitions → use enums (§9)
 - Mathematical types (vectors, matrices, points) → use records
@@ -2229,6 +2018,7 @@ record Good {
 - When state doesn't affect available operations
 
 **Relationship to other features:**
+
 - **Records**: Modals extend records with state-dependent fields and procedures
 - **Enums**: Modals are like enums but with explicit transitions and state-dependent data
 - **Procedures**: Modal procedures specify state transitions via `@State` annotations
@@ -2241,6 +2031,7 @@ record Good {
 #### 2.3.3.2.1 Concrete Syntax
 
 **Modal declaration:**
+
 ```ebnf
 ModalDecl    ::= "modal" Ident GenericParams? "{" ModalItem* "}"
 ModalItem    ::= StateDecl | CommonDecl | ModalProcedure
@@ -2252,11 +2043,13 @@ StatePattern ::= Ident
 ```
 
 **State annotations:**
+
 ```ebnf
 StateAnnot   ::= Type "@" Ident
 ```
 
 **Examples:**
+
 ```cantrip
 modal File {
     state Closed {
@@ -2292,12 +2085,14 @@ modal File {
 #### 2.3.3.2.2 Abstract Syntax
 
 **Modal types:**
+
 ```
 τ ::= modal M { @S₁, ..., @Sₙ }    (modal type with states)
     | M@S                           (modal in specific state)
 ```
 
 **State machine:**
+
 ```
 M = (S, Σ, δ, s₀, Fields)
 where:
@@ -2309,55 +2104,9 @@ where:
 ```
 
 **Transition syntax:**
+
 ```
 δ ::= m@Sᵢ(...) => @Sⱼ { e }      (transition from Sᵢ to Sⱼ via m)
-```
-
-#### 2.3.3.2.3 Basic Examples
-
-**Simple lifecycle:**
-```cantrip
-modal Connection {
-    state Disconnected {
-        host: String
-        port: u16
-    }
-
-    state Connected {
-        host: String
-        port: u16
-        socket: TcpSocket
-    }
-
-    procedure connect@Disconnected() => @Connected
-        uses net.tcp
-    {
-        let socket = TcpSocket.connect(self.host, self.port)?
-        Connected {
-            host: self.host,
-            port: self.port,
-            socket: socket,
-        }
-    }
-
-    procedure disconnect@Connected() => @Disconnected
-        uses net.tcp
-    {
-        self.socket.close()
-        Disconnected {
-            host: self.host,
-            port: self.port,
-        }
-    }
-}
-```
-
-**Usage:**
-```cantrip
-let conn = Connection.new("localhost", 8080)  // Connection@Disconnected
-let conn = conn.connect()?                     // Connection@Connected
-let data = conn.read(1024)?                    // OK in Connected state
-let conn = conn.disconnect()                   // Back to Disconnected
 ```
 
 ### 2.3.3.3 Static Semantics
@@ -2365,6 +2114,7 @@ let conn = conn.disconnect()                   // Back to Disconnected
 #### 2.3.3.3.1 Well-Formedness Rules
 
 **Modal declaration:**
+
 ```
 [WF-Modal]
 ∀i. state @Sᵢ { fields } well-formed
@@ -2375,6 +2125,7 @@ modal M { @S₁, ..., @Sₙ; m₁, ..., mₖ } well-formed
 ```
 
 **State declaration:**
+
 ```
 [WF-State]
 Γ ⊢ T₁ : Type    ...    Γ ⊢ Tₙ : Type
@@ -2384,6 +2135,7 @@ state @S { f₁: T₁; ...; fₙ: Tₙ } well-formed
 ```
 
 **Modal procedure:**
+
 ```
 [WF-Modal-Procedure]
 modal M { ..., state @S₁, ..., state @S₂, ... }
@@ -2393,6 +2145,7 @@ procedure m@S₁(...) => @S₂ { body } well-formed
 ```
 
 **Reachability:**
+
 ```
 [WF-Reachability]
 modal M = (S, Σ, δ, s₀, Fields)
@@ -2402,6 +2155,7 @@ M satisfies reachability
 ```
 
 **Determinism:**
+
 ```
 [WF-Determinism]
 ∀ @S ∈ S, m ∈ Σ. |{@S' | δ(@S, m) = @S'}| ≤ 1
@@ -2412,6 +2166,7 @@ M is deterministic
 #### 2.3.3.3.2 Type Rules
 
 **State-annotated type:**
+
 ```
 [T-State-Type]
 Γ ⊢ M : modal
@@ -2421,6 +2176,7 @@ M is deterministic
 ```
 
 **Procedure invocation:**
+
 ```
 [T-Modal-Procedure]
 Γ ⊢ self : M@S₁
@@ -2431,6 +2187,7 @@ procedure m@S₁(...) => @S₂ in M
 ```
 
 **State transition:**
+
 ```
 [T-State-Transition]
 Γ, Σ ⊢ e : M@S₁
@@ -2441,6 +2198,7 @@ procedure m@S₁(...) => @S₂ in M
 ```
 
 **Invalid transition:**
+
 ```
 [T-Invalid-Transition]
 Γ ⊢ self : M@S₁
@@ -2451,6 +2209,7 @@ ERROR E10020: Procedure m not available in state @S₁
 ```
 
 **Field access (state-dependent):**
+
 ```
 [T-Modal-Field]
 Γ ⊢ self : M@S
@@ -2468,6 +2227,7 @@ ERROR E10021: Field f not available in state @S
 #### 2.3.3.3.3 State Invariants
 
 **State invariant declaration:**
+
 ```
 [T-State-Invariant]
 state @S {
@@ -2479,6 +2239,7 @@ invariant(@S) = P
 ```
 
 **Invariant preservation:**
+
 ```
 [T-Invariant-Preservation]
 procedure m@S₁(...) => @S₂
@@ -2490,6 +2251,7 @@ Transition preserves invariants
 ```
 
 **Example:**
+
 ```cantrip
 modal Account {
     state Active {
@@ -2518,6 +2280,7 @@ modal Account {
 #### 2.3.3.4.1 State Transitions
 
 **Transition evaluation:**
+
 ```
 [E-Modal-Transition]
 ⟨self, σ⟩ ⇓ ⟨v_self : M@S₁, σ₁⟩
@@ -2528,6 +2291,7 @@ procedure m@S₁(...) => @S₂ in M
 ```
 
 **State construction:**
+
 ```
 [E-State-Construction]
 ⟨e₁, σ⟩ ⇓ ⟨v₁, σ₁⟩    ...    ⟨eₙ, σₙ₋₁⟩ ⇓ ⟨vₙ, σₙ⟩
@@ -2556,6 +2320,7 @@ ERROR E10022: Linear value must be used exactly once
 ```
 
 **Example:**
+
 ```cantrip
 let file = File.new("data.txt")  // File@Closed
 let file2 = file   // Moves ownership
@@ -2582,6 +2347,7 @@ let file = file.close()           // Back to File@Closed
 **Modal memory representation:**
 
 A modal value consists of:
+
 1. **Discriminant** (which state)
 2. **Payload** (fields for that state)
 
@@ -2594,6 +2360,7 @@ Modal layout (similar to enum):
 ```
 
 **Size calculation:**
+
 ```
 size(modal M { @S₁, ..., @Sₙ }) =
     size(discriminant) + max(size(@S₁), ..., size(@Sₙ)) + padding
@@ -2602,6 +2369,7 @@ align(M) = max(align(discriminant), align(@S₁), ..., align(@Sₙ))
 ```
 
 **Example:**
+
 ```cantrip
 modal Example {
     state Small { x: u8; }           // 1 byte
@@ -2653,6 +2421,7 @@ function describe(conn: Connection) => str {
 ```
 
 **Type rule:**
+
 ```
 [T-Modal-Match]
 Γ ⊢ e : M
@@ -2709,6 +2478,7 @@ modal OrderProcessor {
 ```
 
 **Type rule:**
+
 ```
 [T-State-Union]
 procedure m@(@S₁ | ... | @Sₙ)(...) => @S
@@ -2722,6 +2492,7 @@ procedure m@(@S₁ | ... | @Sₙ)(...) => @S
 **Purpose:** Fields that exist in ALL states can be declared once in a `common` block.
 
 **Syntax:**
+
 ```cantrip
 modal HttpRequest {
     common {
@@ -2764,6 +2535,7 @@ function log_url2(req: HttpRequest@Sent) {
 ```
 
 **Formal semantics:**
+
 ```
 common fields ⊆ Fields(@S) for all @S ∈ states(M)
 ```
@@ -2786,6 +2558,7 @@ reachability(M = (S, Σ, δ, s₀)):
 ```
 
 **Example:**
+
 ```cantrip
 modal Protocol {
     state Init { }
@@ -2804,200 +2577,55 @@ modal Protocol {
 
 **Diagnostic:** `W10025` — States Error and Timeout are unreachable
 
-### 2.3.3.7 Examples and Patterns
+---
 
-#### 2.3.3.7.1 Resource Lifecycle Pattern
+### 2.3.4 Related Sections
 
-**File management:**
-```cantrip
-modal File {
-    common {
-        path: String
-    }
+- See §2.1 for [Primitive Types](../PART_A_Primitives/01_PrimitiveTypes.md) - sum types combine primitive types
+- See §2.2 for [Product Types](02_ProductTypes.md) - duality with sum types (∨ vs ∧)
+- See §2.5 for [Pointers](../PART_C_References/05_Pointers.md) - safe pointers use modal states (@Exclusive, @Shared, @Frozen)
+- See §2.6 for [Traits](../PART_D_Abstraction/06_Traits.md) - enums and modals implement traits
+- See §2.7 for [Generics](../PART_D_Abstraction/07_Generics.md) - generic sum types (Option<T>, Result<T, E>)
+- See Part V for [Effect System](../../05_Effects/) - modal transitions require effects
+- See §13 for [Pattern Matching](../../13_PatternMatching/) - exhaustive pattern matching on enums
+- See §17 for [Contracts](../../17_Contracts/) - state invariants and transition conditions
+- See §24 for [Unsafe](../../24_Unsafe/) - union field access requires unsafe.union effect
+- See §56-62 for [FFI](../../56_FFI/) - unions provide C-compatible untagged sum types
+- **Examples**: See [03_SumExamples.md](../Examples/03_SumExamples.md) for practical usage patterns
 
-    state Closed { }
+### 2.3.5 Notes and Warnings
 
-    state Open {
-        handle: FileHandle
-        mode: FileMode
-    }
+**Note 2.3.1:** Enums are safe tagged unions with compile-time exhaustiveness checking. Unions are unsafe untagged unions requiring manual tag management.
 
-    procedure open@Closed(mode: FileMode) => @Open
-        uses fs.open
-        must self.path.is_valid()
-        will result.mode == mode
-    {
-        let handle = fs::open(self.path, mode)?
-        Open { handle, mode }
-    }
+**Note 2.3.2:** Modals extend enums with explicit state machines and compile-time transition verification. Use modals when state transitions matter for correctness.
 
-    procedure read@Open(buf: [mut u8]) => @Open
-        uses fs.read
-        must self.mode.allows_read()
-    {
-        self.handle.read(buf)?
-        self
-    }
+**Note 2.3.3:** Enum discriminants are automatically assigned unless explicitly specified with `= value` syntax. Discriminant values can be accessed via `as` cast for unit-only enums.
 
-    procedure write@Open(data: [u8]) => @Open
-        uses fs.write
-        must self.mode.allows_write()
-    {
-        self.handle.write(data)?
-        self
-    }
+**Note 2.3.4:** Modals use linear state transfer - each procedure consumes the current state and produces the next state. State cannot be copied or duplicated.
 
-    procedure close@Open() => @Closed
-        uses fs.close
-    {
-        self.handle.close()
-        Closed { }
-    }
-}
-```
+**Performance Note 2.3.1:** Enum size is `size(discriminant) + max(variant sizes)` plus padding for alignment. The compiler uses the smallest discriminant type that can represent all variants.
 
-#### 2.3.3.7.2 Request-Response Pattern
+**Performance Note 2.3.2:** Unions have no discriminant overhead - size is `max(field sizes)`. Use unions only when external tags track the active variant.
 
-**HTTP client:**
-```cantrip
-modal HttpClient {
-    common {
-        url: String
-        timeout: Duration
-    }
+**Performance Note 2.3.3:** Modal state transitions compile to zero-cost abstractions. State checking and transition verification happen entirely at compile time.
 
-    state Ready { }
+**Warning 2.3.1:** Union field access without knowing the active variant causes undefined behavior. Always wrap unions in records with explicit tag fields.
 
-    state Sent {
-        request_id: u64
-        sent_at: DateTime
-    }
+**Warning 2.3.2:** Modals enforce linear state transfer. Attempting to use a modal value after a state transition causes a compile error.
 
-    state Completed {
-        request_id: u64
-        status: u16
-        body: Vec<u8>
-    }
+**Warning 2.3.3:** Pattern matching on enums must be exhaustive. Missing variants cause compile errors unless a wildcard `_` pattern is provided.
 
-    state Failed {
-        error: Error
-    }
+**Warning 2.3.4:** Unions containing non-Copy types (String, Vec) require careful manual management. Dropping the wrong variant causes undefined behavior.
 
-    procedure send@Ready(body: Vec<u8>) => @Sent
-        uses net.http
-    {
-        let id = http_send(self.url, body)?
-        Sent {
-            request_id: id,
-            sent_at: DateTime::now(),
-        }
-    }
+**Warning 2.3.5:** Modal state invariants are only as strong as the contracts you write. The compiler verifies transitions exist but cannot verify business logic correctness.
 
-    procedure poll@Sent() => @(Sent | Completed | Failed)
-        uses net.http
-    {
-        match http_poll(self.request_id) {
-            Poll::Pending => self,  // Stay in Sent
-            Poll::Ready(Ok(response)) => Completed {
-                request_id: self.request_id,
-                status: response.status,
-                body: response.body,
-            },
-            Poll::Ready(Err(e)) => Failed { error: e },
-        }
-    }
-}
-```
+**Implementation Note 2.3.1:** The exhaustiveness checker uses constructor-based analysis to ensure all enum variants are covered in pattern matches.
 
-#### 2.3.3.7.3 Multi-Stage Pipeline Pattern
+**Implementation Note 2.3.2:** Modal reachability analysis ensures all states can be reached from the initial state. Unreachable states generate warnings.
 
-**Data processing:**
-```cantrip
-modal DataProcessor {
-    state Raw {
-        data: Vec<u8>
-    }
-
-    state Validated {
-        data: Vec<u8>
-        schema: Schema
-    }
-
-    state Transformed {
-        records: Vec<Record>
-    }
-
-    state Aggregated {
-        summary: Summary
-    }
-
-    procedure validate@Raw(schema: Schema) => @Validated
-        must !self.data.is_empty()
-    {
-        schema.validate(&self.data)?
-        Validated {
-            data: self.data,
-            schema,
-        }
-    }
-
-    procedure transform@Validated() => @Transformed {
-        let records = self.schema.parse(&self.data)?
-        Transformed { records }
-    }
-
-    procedure aggregate@Transformed() => @Aggregated {
-        let summary = compute_summary(&self.records)
-        Aggregated { summary }
-    }
-}
-```
-
-#### 2.3.3.7.4 State Recovery Pattern
-
-**Error recovery:**
-```cantrip
-modal Transaction {
-    common {
-        id: u64
-        conn: DbConnection
-    }
-
-    state Active {
-        operations: Vec<Operation>
-    }
-
-    state Committed {
-        timestamp: DateTime
-    }
-
-    state RolledBack {
-        error: Error
-    }
-
-    procedure add_operation@Active(op: Operation) => @Active {
-        self.operations.push(op)
-        self
-    }
-
-    procedure commit@Active() => @(Committed | RolledBack) {
-        match self.conn.commit(&self.operations) {
-            Ok(timestamp) => Committed { timestamp },
-            Err(error) => {
-                self.conn.rollback()
-                RolledBack { error }
-            }
-        }
-    }
-
-    // Recovery: retry after rollback
-    procedure retry@RolledBack(new_ops: Vec<Operation>) => @Active {
-        Active { operations: new_ops }
-    }
-}
-```
-
+**Implementation Note 2.3.3:** Union safety requires the `unsafe.union` effect to be declared. This makes unsafe boundaries explicit and auditable.
 
 ---
 
 **Previous**: [Product Types](02_ProductTypes.md) | **Next**: [Collection Types](04_CollectionTypes.md)
+

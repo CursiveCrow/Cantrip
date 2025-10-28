@@ -1,11 +1,12 @@
 # Cantrip Language Specification - LLM Quick Reference
 
-**Version:** 1.3.0
+**Version:** 0.3
 **Date:** 2025-10-24
 **Purpose:** Token-efficient, complete reference for LLMs working with/extending Cantrip specification
 **Target Audience:** LLMs, AI assistants, automated tools
 
-**Recent Changes (v1.3.0):**
+**Recent Changes (v0.3.0):**
+
 - **SYNTAX CHANGE:** Semicolons now **OPTIONAL** (newlines terminate statements by default)
 - 4 simple continuation rules for multi-line expressions
 - Braces remain mandatory for blocks
@@ -13,12 +14,14 @@
 - Single-line multi-statement separation with semicolons still supported (e.g., `let x = 1; let y = 2`)
 
 **Previous Changes (v1.2.0):**
+
 - Unified loop syntax: ONE `loop` keyword for all iteration patterns
 - Loop verification: `by` (variant) and `with` (invariants) clauses
 - Break with values: `break expr` returns value from loop
 - Loop labels: `'label: loop` for nested loop control
 
 **Previous Changes (v1.1.0):**
+
 - Contract syntax updated: `needs`→`uses`, `requires`→`must`, `ensures`→`will`
 - Block syntax added for multiple contract conditions
 - Effects now comma-separated
@@ -41,11 +44,13 @@ Cantrip is a systems programming language with five core principles:
 ### 1.2 Safety Model
 
 **What Cantrip PREVENTS (✓):**
+
 - Use-after-free (region-based lifetimes)
 - Double-free (single ownership)
 - Memory leaks (RAII-style cleanup)
 
 **What Cantrip does NOT prevent (programmer's responsibility):**
+
 - Aliasing bugs (multiple mutable references allowed)
 - Data races (no automatic synchronization)
 - Iterator invalidation (no borrow checker)
@@ -89,15 +94,15 @@ Core Systems:
 
 ### 1.5 Comparison to Other Languages
 
-| Feature | Cantrip | Rust | Cyclone | ML |
-|---------|---------|------|---------|-----|
-| Ownership | ✓ | ✓ | ✓ | ✗ |
-| Borrow checker | ✗ | ✓ | ✗ | ✗ |
-| Regions | ✓ | ✗ | ✓ | ✗ |
-| Multiple mut refs | ✓ | ✗ | ✓ | N/A |
-| Formal semantics | ✓ | Informal | Formal | ✓ |
-| Effect system | ✓ | ✗ | ✗ | ✗ |
-| State machines | ✓ (modals) | ✗ | ✗ | ✗ |
+| Feature           | Cantrip    | Rust     | Cyclone | ML  |
+| ----------------- | ---------- | -------- | ------- | --- |
+| Ownership         | ✓          | ✓        | ✓       | ✗   |
+| Borrow checker    | ✗          | ✓        | ✗       | ✗   |
+| Regions           | ✓          | ✗        | ✓       | ✗   |
+| Multiple mut refs | ✓          | ✗        | ✓       | N/A |
+| Formal semantics  | ✓          | Informal | Formal  | ✓   |
+| Effect system     | ✓          | ✗        | ✗       | ✗   |
+| State machines    | ✓ (modals) | ✗        | ✗       | ✗   |
 
 **Key difference from Rust:** Cantrip allows multiple mutable references simultaneously (Cyclone model), trading compile-time aliasing guarantees for simpler ownership rules.
 
@@ -151,26 +156,27 @@ Value Types (τ)
 
 ### 2.2 Primitive Types
 
-| Type | Size | Align | Range | Copy | Default Literal |
-|------|------|-------|-------|------|-----------------|
-| `i8` | 1 | 1 | [-128, 127] | ✓ | — |
-| `i16` | 2 | 2 | [-32,768, 32,767] | ✓ | — |
-| `i32` | 4 | 4 | [-2³¹, 2³¹-1] | ✓ | `42` |
-| `i64` | 8 | 8 | [-2⁶³, 2⁶³-1] | ✓ | — |
-| `isize` | ptr | ptr | platform | ✓ | — |
-| `u8` | 1 | 1 | [0, 255] | ✓ | — |
-| `u16` | 2 | 2 | [0, 65,535] | ✓ | — |
-| `u32` | 4 | 4 | [0, 2³²-1] | ✓ | — |
-| `u64` | 8 | 8 | [0, 2⁶⁴-1] | ✓ | — |
-| `usize` | ptr | ptr | platform | ✓ | — |
-| `f32` | 4 | 4 | IEEE 754 | ✓ | — |
-| `f64` | 8 | 8 | IEEE 754 | ✓ | `3.14` |
-| `bool` | 1 | 1 | {true, false} | ✓ | — |
-| `char` | 4 | 4 | Unicode scalar | ✓ | — |
-| `String` | 24 | 8 | UTF-8 heap | ✗ | — |
-| `!` | 0 | 1 | ∅ (uninhabited) | ✗ | — |
+| Type     | Size | Align | Range             | Copy | Default Literal |
+| -------- | ---- | ----- | ----------------- | ---- | --------------- |
+| `i8`     | 1    | 1     | [-128, 127]       | ✓    | —               |
+| `i16`    | 2    | 2     | [-32,768, 32,767] | ✓    | —               |
+| `i32`    | 4    | 4     | [-2³¹, 2³¹-1]     | ✓    | `42`            |
+| `i64`    | 8    | 8     | [-2⁶³, 2⁶³-1]     | ✓    | —               |
+| `isize`  | ptr  | ptr   | platform          | ✓    | —               |
+| `u8`     | 1    | 1     | [0, 255]          | ✓    | —               |
+| `u16`    | 2    | 2     | [0, 65,535]       | ✓    | —               |
+| `u32`    | 4    | 4     | [0, 2³²-1]        | ✓    | —               |
+| `u64`    | 8    | 8     | [0, 2⁶⁴-1]        | ✓    | —               |
+| `usize`  | ptr  | ptr   | platform          | ✓    | —               |
+| `f32`    | 4    | 4     | IEEE 754          | ✓    | —               |
+| `f64`    | 8    | 8     | IEEE 754          | ✓    | `3.14`          |
+| `bool`   | 1    | 1     | {true, false}     | ✓    | —               |
+| `char`   | 4    | 4     | Unicode scalar    | ✓    | —               |
+| `String` | 24   | 8     | UTF-8 heap        | ✗    | —               |
+| `!`      | 0    | 1     | ∅ (uninhabited)   | ✗    | —               |
 
 **Platform-dependent sizes:**
+
 - 32-bit: `isize` = `i32`, `usize` = `u32`, pointers = 4 bytes
 - 64-bit: `isize` = `i64`, `usize` = `u64`, pointers = 8 bytes
 
@@ -179,6 +185,7 @@ Value Types (τ)
 **Definition:** String is a heap-allocated, growable, UTF-8 encoded text type.
 
 **Memory layout (64-bit):**
+
 ```
 String { ptr: *u8, len: usize, cap: usize }
 ┌────────────┬────────────┬────────────┐
@@ -190,6 +197,7 @@ Total: 24 bytes, alignment: 8 bytes
 **Invariant:** `valid_utf8(ptr[0..len]) = true` at all times
 
 **Key operations:**
+
 ```cantrip
 String.new() → own String               // uses alloc.heap
 String.from(s: str) → own String        // uses alloc.heap
@@ -316,6 +324,7 @@ T₁ → U₁ <: T₂ → U₂
 ### 2.6 Records
 
 **Syntax:**
+
 ```cantrip
 record Point {
     x: f64
@@ -330,6 +339,7 @@ record Point {
 ```
 
 **Memory layout:**
+
 ```
 record Point { x: f64; y: f64; }
 ┌────────────┬────────────┐
@@ -349,6 +359,7 @@ Total: 12 bytes (aligned to 4)
 ### 2.7 Enums (Sum Types)
 
 **Syntax:**
+
 ```cantrip
 enum Option<T> {
     Some(T),
@@ -368,6 +379,7 @@ enum Message {
 ```
 
 **Pattern matching (exhaustiveness checked):**
+
 ```cantrip
 match result {
     Result.Ok(value) → process(value),
@@ -376,6 +388,7 @@ match result {
 ```
 
 **Memory layout:**
+
 ```
 enum Layout = {
     discriminant: usize,    // Tag
@@ -393,6 +406,7 @@ Size = sizeof(discriminant) + max(sizeof(T₁), ..., sizeof(Tₙ)) + padding
 **Definition:** Modals are types with explicit finite state machines, where each state can have different data and the compiler enforces valid state transitions.
 
 **Syntax:**
+
 ```cantrip
 modal File {
     @Closed { path: String }
@@ -405,6 +419,7 @@ modal File {
 ```
 
 **Type-level state tracking:**
+
 ```cantrip
 let file: File@Closed = File.new("data.txt")
 let opened: File@Open = file.open()  // Type changes!
@@ -420,12 +435,12 @@ opened.read()    // OK: File@Open has read()
 
 ### 3.1 Four Permissions
 
-| Permission | Syntax | Semantics | Operations | Multiple Refs |
-|------------|--------|-----------|------------|---------------|
-| **Immutable** | `T` or `x: T` | Borrowed reference | Read-only (len, get, ==, <) | ✓ Unlimited |
-| **Mutable** | `mut T` | Mutable reference | Read + Write (push, clear) | ✓ Multiple allowed |
-| **Owned** | `own T` | Full ownership | All (read, write, move, destroy) | ✗ Exactly one |
-| **Isolated** | `iso T` | Isolated reference | Transfer-safe | Restricted |
+| Permission    | Syntax        | Semantics          | Operations                       | Multiple Refs      |
+| ------------- | ------------- | ------------------ | -------------------------------- | ------------------ |
+| **Immutable** | `T` or `x: T` | Borrowed reference | Read-only (len, get, ==, <)      | ✓ Unlimited        |
+| **Mutable**   | `mut T`       | Mutable reference  | Read + Write (push, clear)       | ✓ Multiple allowed |
+| **Owned**     | `own T`       | Full ownership     | All (read, write, move, destroy) | ✗ Exactly one      |
+| **Isolated**  | `iso T`       | Isolated reference | Transfer-safe                    | Restricted         |
 
 ### 3.2 Key Differences from Rust
 
@@ -450,6 +465,7 @@ Subtyping: own T <: mut T <: T
 ```
 
 **Example:**
+
 ```cantrip
 procedure read_only(text: String) { ... }      // Immutable
 procedure modify(text: mut String) { ... }     // Mutable
@@ -468,18 +484,21 @@ consume(move s)        // Transfer ownership, s unusable after
 The `Copy` trait marks types that CAN be cheaply copied with `.copy()` method:
 
 **Copy-capable types:**
+
 - All primitives: integers, floats, bool, char
 - Slices: [T] (fat pointer only, not underlying data)
 - Tuples/arrays of Copy types
 - Records where all fields are Copy
 
 **Non-Copy types:**
+
 - String (heap-allocated)
 - Vec<T> (heap-allocated)
 - Records containing non-Copy fields
 - All heap-allocated types
 
 **Parameter passing is uniform for all types:**
+
 ```cantrip
 // Primitives - pass by permission (NO automatic copy)
 let x: i32 = 42
@@ -502,6 +521,7 @@ consume(move s)  // s no longer usable after move
 ### 3.5 Safety Guarantees
 
 **What Cantrip PREVENTS (✓):**
+
 ```
 ✓ Use-after-free
     region temp {
@@ -521,6 +541,7 @@ consume(move s)  // s no longer usable after move
 ```
 
 **What Cantrip does NOT prevent (⚠ programmer's responsibility):**
+
 ```
 ⚠ Aliasing bugs
     var text = String.new()
@@ -550,6 +571,7 @@ Contracts specify function behavior through three components:
 3. **Postconditions** (will) — What must be true after execution
 
 **Syntax:**
+
 ```cantrip
 procedure divide(x: i32, y: i32): i32
     uses alloc.heap              // ← EFFECTS (part of contract)
@@ -563,6 +585,7 @@ procedure divide(x: i32, y: i32): i32
 **IMPORTANT:** Effects are NOT a separate system. They are a component of the contract system, specifying side effects and resource usage.
 
 **Effect Categories:**
+
 ```
 alloc.*         Memory allocation
   .heap         Heap allocation (malloc/free)
@@ -602,6 +625,7 @@ random          Non-determinism
 ```
 
 **Effect Syntax:**
+
 ```cantrip
 // Single effect
 uses alloc.heap
@@ -624,6 +648,7 @@ uses time.sleep(duration≤10ms)  // At most 10ms
 ```
 
 **Effect Checking:**
+
 ```
 Functions MUST declare all effects they perform:
 - Directly in body
@@ -633,6 +658,7 @@ effect(function) = effect(body) ∪ ⋃(effect(called_fn))
 ```
 
 **Example:**
+
 ```cantrip
 procedure write_log(message: String)
     uses fs.write, alloc.heap
@@ -652,6 +678,7 @@ procedure process_request(req: Request): Response
 ### 4.3 Preconditions (must)
 
 **Syntax:**
+
 ```cantrip
 procedure get<T>(arr: [T], idx: usize): T
     must idx < arr.len()
@@ -659,6 +686,7 @@ procedure get<T>(arr: [T], idx: usize): T
 ```
 
 **Multiple preconditions (conjunction):**
+
 ```cantrip
 procedure transfer(from: mut Account, to: mut Account, amount: u64)
     must {
@@ -670,6 +698,7 @@ procedure transfer(from: mut Account, to: mut Account, amount: u64)
 ```
 
 **Assertion language:**
+
 ```
 P, Q ::= true | false
        | e₁ == e₂ | e₁ != e₂
@@ -683,6 +712,7 @@ P, Q ::= true | false
 ### 4.4 Postconditions (will)
 
 **Syntax:**
+
 ```cantrip
 procedure increment(x: mut i32)
     will *x == @old(*x) + 1
@@ -698,10 +728,12 @@ procedure append<T>(vec: mut Vec<T>, item: T)
 ```
 
 **Special constructs:**
+
 - `@old(expr)` — Value of expression before function execution
 - `result` — Return value (in postcondition)
 
 **Example:**
+
 ```cantrip
 procedure divide(x: i32, y: i32): i32
     must y != 0
@@ -717,6 +749,7 @@ procedure divide(x: i32, y: i32): i32
 **Hoare triple:** `{P} e {Q}` means "If P holds before e, then Q holds after"
 
 **Verification rules:**
+
 ```
 [Hoare-Consequence]
 {P'} e {Q'}    P ⇒ P'    Q' ⇒ Q
@@ -762,15 +795,16 @@ procedure approximate(x: f64): f64
 
 ### 5.1 Three Allocation Strategies
 
-| Strategy | Location | Lifetime | Dealloc Cost | Allocation Cost | Use Case |
-|----------|----------|----------|--------------|-----------------|----------|
-| **Stack** | Stack | Automatic (scope) | O(1) | O(1) | Local variables |
-| **Heap** | Heap | Manual/RAII | O(1) per object | O(1) per object | Long-lived data |
-| **Region** | Heap (region) | Bulk (region end) | O(1) bulk | O(1) bump | Temporary batches |
+| Strategy   | Location      | Lifetime          | Dealloc Cost    | Allocation Cost | Use Case          |
+| ---------- | ------------- | ----------------- | --------------- | --------------- | ----------------- |
+| **Stack**  | Stack         | Automatic (scope) | O(1)            | O(1)            | Local variables   |
+| **Heap**   | Heap          | Manual/RAII       | O(1) per object | O(1) per object | Long-lived data   |
+| **Region** | Heap (region) | Bulk (region end) | O(1) bulk       | O(1) bump       | Temporary batches |
 
 ### 5.2 Region-Based Memory
 
 **Syntax:**
+
 ```cantrip
 region name {
     let s = String.new_in<name>()
@@ -779,11 +813,13 @@ region name {
 ```
 
 **Properties:**
+
 - **Cannot escape:** Values cannot outlive their region
 - **LIFO order:** Nested regions deallocate in reverse order
 - **O(1) free:** Entire region freed at once (vs. O(n) individual frees)
 
 **Example:**
+
 ```cantrip
 procedure parse_file(path: String): Result<Data, Error>
     uses alloc.region, io.read
@@ -800,6 +836,7 @@ procedure parse_file(path: String): Result<Data, Error>
 ```
 
 **Region Rules:**
+
 ```
 [Region-Escape]
 Γ ⊢ region r { e }    e : T    alloc(e, r)    e escapes r
@@ -815,6 +852,7 @@ dealloc(r₂) happens-before dealloc(r₁)
 ### 5.3 Memory Layouts
 
 **Primitives:**
+
 ```
 i8, u8, bool:  1 byte,  align 1
 i16, u16:      2 bytes, align 2
@@ -824,6 +862,7 @@ char:          4 bytes, align 4
 ```
 
 **String (fat pointer):**
+
 ```
 String { ptr: *u8, len: usize, cap: usize }
 ┌────────────┬────────────┬────────────┐
@@ -834,12 +873,14 @@ Total: 24 bytes (64-bit), alignment: 8
 ```
 
 **Array (contiguous):**
+
 ```
 [T; n] = n × sizeof(T) bytes
 [i32; 5] = 5 × 4 = 20 bytes
 ```
 
 **Tuple (with padding):**
+
 ```
 (u8, u32, u16)
 ┌──┬───────┬────────┬────┬──┐
@@ -849,6 +890,7 @@ Total: 12 bytes (aligned to 4)
 ```
 
 **Record (with padding):**
+
 ```
 record Example { a: u8; b: u32; c: u16; }
 ┌──┬───────┬────────┬────┬──┐
@@ -858,6 +900,7 @@ Total: 12 bytes, alignment: 4
 ```
 
 **Enum (tagged union):**
+
 ```
 enum Message {
     Quit,                    // 0 bytes payload
@@ -892,6 +935,7 @@ record CacheLine { data: [u8; 64]; }
 ### 6.1 Lexical Elements
 
 **Comments:**
+
 ```cantrip
 // Line comment
 /* Block comment */
@@ -900,6 +944,7 @@ record CacheLine { data: [u8; 64]; }
 ```
 
 **Identifiers:**
+
 ```
 Pattern: [a-zA-Z_][a-zA-Z0-9_]*
 Case-sensitive: Variable ≠ variable
@@ -907,6 +952,7 @@ Conventions: snake_case (vars), CamelCase (types), SCREAMING_SNAKE (consts)
 ```
 
 **Literals:**
+
 ```cantrip
 // Integer (default i32)
 42, 0xFF, 0b1010, 0o755, 1_000_000
@@ -927,6 +973,7 @@ true, false
 ```
 
 **Keywords (54 reserved):**
+
 ```
 abstract, as, async, await, break, by, case, comptime, const, continue,
 defer, effect, else, enum, exists, false, forall,
@@ -995,6 +1042,7 @@ UnOp ::= "-" | "!" | "*" | "&" | "mut"
 Cantrip has ONE loop construct (`loop`) that handles all iteration patterns.
 
 **Basic forms:**
+
 ```cantrip
 // Infinite loop
 loop { body }
@@ -1010,6 +1058,7 @@ loop item in collection { body }
 ```
 
 **With verification (optional):**
+
 ```cantrip
 // Termination metric (variant)
 loop condition by variant { body }
@@ -1030,6 +1079,7 @@ loop i in 0..n by n - i
 ```
 
 **Control flow:**
+
 ```cantrip
 break           // Exit loop (returns ())
 break value     // Exit with value
@@ -1045,6 +1095,7 @@ continue        // Next iteration
 ```
 
 **Key rules:**
+
 - `by expr` specifies decreasing termination metric
 - `with { inv1, inv2, ... }` specifies loop invariants (semicolon after closing brace is optional)
 - Pattern with `in` → for-style; expression without `in` → while-style
@@ -1247,6 +1298,7 @@ n, m, k ∈ ℕ          (natural numbers)
 ### 7.3 Operators
 
 **Set theory:**
+
 ```
 ∈  (element of)      x ∈ S
 ⊆  (subset)          A ⊆ B
@@ -1257,6 +1309,7 @@ n, m, k ∈ ℕ          (natural numbers)
 ```
 
 **Logic:**
+
 ```
 ∧  (and)        P ∧ Q
 ∨  (or)         P ∨ Q
@@ -1268,6 +1321,7 @@ n, m, k ∈ ℕ          (natural numbers)
 ```
 
 **Relations:**
+
 ```
 →  (maps to / reduces to)
 ⇒  (implies)
@@ -1290,6 +1344,7 @@ conclusion
 **Reading:** If all premises hold, then conclusion holds.
 
 **Example:**
+
 ```
 [T-Add]
 Γ ⊢ e₁ : T    Γ ⊢ e₂ : T    T ∈ NumericTypes
@@ -1341,7 +1396,7 @@ conclusion
 
 ### 8.1 Required Components (MUST appear in this order)
 
-```markdown
+````markdown
 # Part X: PartName - §N. Feature Name
 
 **Section**: §N | **Part**: PartName (Part X)
@@ -1358,11 +1413,13 @@ conclusion
 **Key innovation/purpose:** [One sentence explaining why this feature exists]
 
 **When to use [feature]:**
+
 - Use case 1 (when this is appropriate)
 - Use case 2
 - Use case 3
 
 **When NOT to use [feature]:**
+
 - Alternative 1 → use X instead
 - Alternative 2 → use Y instead
 
@@ -1373,11 +1430,14 @@ conclusion
 #### N.2.1 Concrete Syntax
 
 **Grammar:**
+
 ```ebnf
 [EBNF grammar rules]
 ```
+````
 
 **Syntax:**
+
 ```cantrip
 [Cantrip code examples showing syntax]
 ```
@@ -1385,11 +1445,13 @@ conclusion
 #### N.2.2 Abstract Syntax
 
 **Formal representation:**
+
 ```
 [Mathematical notation for abstract syntax]
 ```
 
 **Components:**
+
 - Component 1: Description
 - Component 2: Description
 
@@ -1417,6 +1479,7 @@ conclusion: construct is well-formed
 #### N.3.2 Type Rules
 
 **[T-Rule-Name] Description:**
+
 ```
 [T-Rule-Name]
 premises: type judgments for components
@@ -1445,6 +1508,7 @@ conclusion: type judgment for whole
 #### N.4.1 Evaluation Rules
 
 **[E-Rule-Name] Description:**
+
 ```
 [E-Rule-Name]
 evaluation premises
@@ -1458,6 +1522,7 @@ evaluation conclusion
 #### N.4.2 Memory Representation
 
 **Layout:**
+
 ```
 [Description/diagram of memory layout]
 ```
@@ -1482,6 +1547,7 @@ evaluation conclusion
 #### N.5.3 Algorithms
 
 **Algorithm N.1 (Name):**
+
 ```
 [Pseudocode or description of algorithm]
 ```
@@ -1515,6 +1581,7 @@ evaluation conclusion
 ---
 
 **Previous**: [PrevSection](link.md) | **Next**: [NextSection](link.md)
+
 ```
 
 ### 8.2 Numbering Scheme
@@ -1532,18 +1599,22 @@ evaluation conclusion
 ### 8.3 Rule Naming Conventions
 
 ```
-[WF-Feature]       Well-formedness rules
-[T-Feature-Op]     Type rules
-[E-Feature-Op]     Evaluation rules
-[Sub-Feature]      Subtyping rules
+
+[WF-Feature] Well-formedness rules
+[T-Feature-Op] Type rules
+[E-Feature-Op] Evaluation rules
+[Sub-Feature] Subtyping rules
+
 ```
 
 **Examples:**
 ```
-[WF-Record]        Record well-formedness
-[T-Record-Field]   Record field access typing
-[E-Record-Cons]    Record construction evaluation
-[Sub-Permission]   Permission subtyping
+
+[WF-Record] Record well-formedness
+[T-Record-Field] Record field access typing
+[E-Record-Cons] Record construction evaluation
+[Sub-Permission] Permission subtyping
+
 ```
 
 ---
@@ -1568,15 +1639,17 @@ String is the most complete type specification (91,766 characters, 3,143 lines).
 
 **Type rules to include:**
 ```
-[WF-TypeName]          Well-formedness
-[T-TypeName-Literal]   Literal construction
-[T-TypeName-New]       Constructor function
-[T-TypeName-Method]    Method invocation
-[T-TypeName-Field]     Field access (if applicable)
-[T-TypeName-Index]     Indexing (if applicable)
-[T-TypeName-Move]      Ownership transfer
-[Sub-TypeName]         Subtyping rules
+
+[WF-TypeName] Well-formedness
+[T-TypeName-Literal] Literal construction
+[T-TypeName-New] Constructor function
+[T-TypeName-Method] Method invocation
+[T-TypeName-Field] Field access (if applicable)
+[T-TypeName-Index] Indexing (if applicable)
+[T-TypeName-Move] Ownership transfer
+[Sub-TypeName] Subtyping rules
 ... (5-10+ more depending on complexity)
+
 ```
 
 ### 9.2 Integration Checklist
@@ -1618,44 +1691,52 @@ When adding new features, ensure integration with:
 
 **Pattern:**
 ```
-[T-Feature-Operation]  (descriptive name)
-Γ ⊢ e₁ : T₁    ...    Γ ⊢ eₙ : Tₙ    (premises: type judgments)
+
+[T-Feature-Operation] (descriptive name)
+Γ ⊢ e₁ : T₁ ... Γ ⊢ eₙ : Tₙ (premises: type judgments)
 additional_constraint₁
 additional_constraint₂
 ─────────────────────────────────────────────────
-Γ ⊢ operation(e₁, ..., eₙ) : U    (conclusion)
+Γ ⊢ operation(e₁, ..., eₙ) : U (conclusion)
+
 ```
 
 **Example:**
 ```
+
 [T-Vec-Push]
 Γ ⊢ vec : own Vec<T>
 Γ ⊢ item : T
 ─────────────────────────────────────
 Γ ⊢ vec.push(item) : () ! alloc.heap
+
 ```
 
 ### 9.4 Writing Evaluation Rules
 
 **Pattern:**
 ```
-[E-Feature-Operation]  (descriptive name)
+
+[E-Feature-Operation] (descriptive name)
 ⟨e₁, σ⟩ ⇓ ⟨v₁, σ₁⟩
 ...
 ⟨eₙ, σₙ₋₁⟩ ⇓ ⟨vₙ, σₙ⟩
 additional_constraints
 ─────────────────────────────────────
 ⟨operation(e₁, ..., eₙ), σ⟩ ⇓ ⟨result, σ'⟩
+
 ```
 
 **Example:**
 ```
+
 [E-Vec-Push]
 ⟨vec, σ⟩ ⇓ ⟨Vec{ptr: p, len: l, cap: c}, σ₁⟩
 ⟨item, σ₁⟩ ⇓ ⟨v, σ₂⟩
-l < c    (capacity check)
+l < c (capacity check)
 ─────────────────────────────────────────────────
 ⟨vec.push(item), σ⟩ ⇓ ⟨(), σ₂[p+l ↦ v, vec.len ↦ l+1]⟩
+
 ```
 
 ### 9.5 Common Pitfalls
@@ -1701,13 +1782,15 @@ l < c    (capacity check)
 
 **Current keywords:**
 ```
+
 abstract, as, async, await, break, by, case, comptime, const, continue,
 defer, effect, else, enum, exists, false, forall,
 if, import, internal, invariant, iso, let, loop,
 match, modal, module, move, must, mut, new, none, own, private,
 procedure, protected, public, record, ref, region, result,
 select, self, Self, state, static, trait, true, type, uses, var, where, will, with
-```
+
+````
 
 **Note:** `needs`, `requires`, and `ensures` were replaced by `uses`, `must`, and `will` in v1.1.0 but may still appear in legacy code.
 
@@ -1775,7 +1858,7 @@ record Vec<T> {
 record HashMap<K, V> {
     // Implementation details
 }
-```
+````
 
 ### 10.6 Common Type Traits
 
@@ -1806,20 +1889,20 @@ trait PartialOrd {
 
 ### 10.7 Effect Quick Reference
 
-| Effect | Meaning | Example |
-|--------|---------|---------|
-| `alloc.heap` | Heap allocation | `String.new()` |
-| `alloc.region` | Region allocation | `String.new_in<r>()` |
-| `io.read` | Read I/O | `stdin.read_line()` |
-| `io.write` | Write I/O | `println("text")` |
-| `fs.read` | File read | `std.fs.read_to_string()` |
-| `fs.write` | File write | `std.fs.write()` |
-| `net.read` | Network read | `socket.recv()` |
-| `net.write` | Network write | `socket.send()` |
-| `time.read` | Read time | `DateTime.now()` |
-| `thread.spawn` | Spawn thread | `thread.spawn(\|\| { ... })` |
-| `panic` | May panic | `unwrap()`, `expect()` |
-| `random` | Non-determinism | `rand.gen()` |
+| Effect         | Meaning           | Example                      |
+| -------------- | ----------------- | ---------------------------- |
+| `alloc.heap`   | Heap allocation   | `String.new()`               |
+| `alloc.region` | Region allocation | `String.new_in<r>()`         |
+| `io.read`      | Read I/O          | `stdin.read_line()`          |
+| `io.write`     | Write I/O         | `println("text")`            |
+| `fs.read`      | File read         | `std.fs.read_to_string()`    |
+| `fs.write`     | File write        | `std.fs.write()`             |
+| `net.read`     | Network read      | `socket.recv()`              |
+| `net.write`    | Network write     | `socket.send()`              |
+| `time.read`    | Read time         | `DateTime.now()`             |
+| `thread.spawn` | Spawn thread      | `thread.spawn(\|\| { ... })` |
+| `panic`        | May panic         | `unwrap()`, `expect()`       |
+| `random`       | Non-determinism   | `rand.gen()`                 |
 
 ---
 
@@ -1835,6 +1918,7 @@ This document provides:
 ✓ **Quick reference** — Type sizes, keywords, operators, error codes
 
 **Key Points:**
+
 1. **Semicolons are optional** — Newlines terminate statements (v1.3.0)
 2. **4 simple continuation rules** — Unclosed delimiters, trailing operators, leading dot, leading pipeline
 3. **Effects are part of contracts**, not a separate system
@@ -1845,6 +1929,7 @@ This document provides:
 8. **Always integrate**: permissions, effects, regions, formal semantics
 
 **Usage:** Reference this document when:
+
 - Writing new specification sections
 - Understanding existing semantics
 - Extending the type system
@@ -1852,6 +1937,7 @@ This document provides:
 - Verifying specification completeness
 
 **Updates:** This document should be updated whenever:
+
 - New language features are added
 - Specification structure changes
 - Key design decisions are revised
