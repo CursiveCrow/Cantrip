@@ -49,25 +49,25 @@ TuplePattern ::= "(" Pattern ("," Pattern)* ")"
 **Examples:**
 ```cantrip
 // Tuple types and literals
-let pair: (i32, str) = (42, "answer");
-let triple: (f64, f64, f64) = (1.0, 2.0, 3.0);
-let nested: ((i32, i32), str) = ((10, 20), "point");
+let pair: (i32, str) = (42, "answer")
+let triple: (f64, f64, f64) = (1.0, 2.0, 3.0)
+let nested: ((i32, i32), str) = ((10, 20), "point")
 
 // Tuple projection (field access by index)
-let first = pair.0;          // 42
-let second = pair.1;         // "answer"
+let first = pair.0          // 42
+let second = pair.1         // "answer"
 
 // Tuple destructuring
-let (x, y) = pair;
-let ((a, b), label) = nested;
+let (x, y) = pair
+let ((a, b), label) = nested
 ```
 
 **Unit type (0-tuple):**
 ```cantrip
-let unit: () = ();  // Type and value both written as ()
+let unit: () = ()  // Type and value both written as ()
 
 function print_message(msg: str): () {
-    std.io.println(msg);
+    std.io.println(msg)
     // Implicit return of ()
 }
 ```
@@ -101,19 +101,19 @@ function divide_with_remainder(x: i32, y: i32): (i32, i32)
     (x / y, x % y)
 }
 
-let (quotient, remainder) = divide_with_remainder(17, 5);
+let (quotient, remainder) = divide_with_remainder(17, 5)
 // quotient = 3, remainder = 2
 ```
 
 **Coordinate systems:**
 ```cantrip
 // 2D point
-let point: (f64, f64) = (3.0, 4.0);
-let distance = ((point.0 * point.0) + (point.1 * point.1)).sqrt();
+let point: (f64, f64) = (3.0, 4.0)
+let distance = ((point.0 * point.0) + (point.1 * point.1)).sqrt()
 
 // RGB color
-let color: (u8, u8, u8) = (255, 128, 0);
-let (r, g, b) = color;
+let color: (u8, u8, u8) = (255, 128, 0)
+let (r, g, b) = color
 ```
 
 ### 7.3 Static Semantics
@@ -148,9 +148,9 @@ let (r, g, b) = color;
 
 **Example:**
 ```cantrip
-let x: i32 = 42;
-let y: str = "hello";
-let pair = (x, y);  // Type: (i32, str)
+let x: i32 = 42
+let y: str = "hello"
+let pair = (x, y)  // Type: (i32, str)
 ```
 
 **Tuple projection typing:**
@@ -166,9 +166,9 @@ i ∈ [0, n)
 
 **Example:**
 ```cantrip
-let pair: (i32, str) = (42, "answer");
-let first = pair.0;   // Type: i32
-let second = pair.1;  // Type: str
+let pair: (i32, str) = (42, "answer")
+let first = pair.0   // Type: i32
+let second = pair.1  // Type: str
 ```
 
 **Unit type:**
@@ -192,7 +192,7 @@ let second = pair.1;  // Type: str
 
 **Example:**
 ```cantrip
-let (x, y) = (42, "hello");
+let (x, y) = (42, "hello")
 // Pattern (x, y) : (i32, str) ⇝ {x: i32, y: str}
 ```
 
@@ -217,8 +217,8 @@ A tuple type determines the types of its components:
 Tuple types are inferred component-wise without requiring unification. Each element can have a different type, determined independently:
 
 ```cantrip
-let tuple = (42, "hello", 3.14);  // Inferred: (i32, str, f64)
-let nested = ((1, 2), (3, 4));    // Inferred: ((i32, i32), (i32, i32))
+let tuple = (42, "hello", 3.14)  // Inferred: (i32, str, f64)
+let nested = ((1, 2), (3, 4))    // Inferred: ((i32, i32), (i32, i32))
 ```
 
 **Contextual Type Inference:**
@@ -226,10 +226,10 @@ let nested = ((1, 2), (3, 4));    // Inferred: ((i32, i32), (i32, i32))
 When a tuple appears in a context expecting a specific tuple type, that type information flows to the elements:
 
 ```cantrip
-let pair: (u32, f32) = (10, 3.5); // 10 inferred as u32, 3.5 as f32
+let pair: (u32, f32) = (10, 3.5) // 10 inferred as u32, 3.5 as f32
 
 function process(data: (i64, bool)) { ... }
-process((100, true));  // 100 inferred as i64
+process((100, true))  // 100 inferred as i64
 ```
 
 ### 7.4 Dynamic Semantics
@@ -322,15 +322,33 @@ Tuple operations are zero-cost abstractions with predictable evaluation:
 - **Field access**: Access via `.i` is a compile-time offset calculation with zero runtime overhead
 - **Pattern matching**: Tuple destructuring is optimized away by the compiler when possible
 
-**Copy vs Move semantics:**
+**Copy Capability:**
 
 ```
-Tuples are Copy ⟺ all fields are Copy
+Tuples implement Copy ⟺ all fields implement Copy
 ```
 
-- **Copy tuples**: Assignment and parameter passing perform bitwise copy of all fields
-- **Move tuples**: Ownership transfer, original binding becomes invalid
+**Parameter Passing:**
+- All tuples pass by permission by default (like all types)
+- `.copy()` available for Copy-capable tuples
+- Non-Copy tuples require explicit `move` for ownership transfer
 - **Partial moves**: Not allowed—tuples move as a complete unit
+
+**Example:**
+```cantrip
+// Copy-capable tuple
+let point: (i32, i32) = (10, 20)
+procedure distance(p: (i32, i32)): f64 { ... }
+distance(point)  // Permission, point still usable
+
+let copy = point.copy()  // Explicit copy if needed
+
+// Non-Copy tuple
+let record: (String, i32) = (String.new("test"), 42)
+process(record)  // Permission
+consume(move record)  // Explicit move
+// record no longer usable
+```
 
 **Pattern matching optimization:**
 
@@ -338,10 +356,10 @@ The compiler optimizes tuple construction and destructuring:
 
 ```cantrip
 // Intermediate tuple construction may be eliminated
-let (x, y) = compute_pair();  // Compiler may use two separate variables
+let (x, y) = compute_pair()  // Compiler may use two separate variables
 
 // Swap without temporary allocation
-let (a, b) = (b, a);  // Optimized to register swaps
+let (a, b) = (b, a)  // Optimized to register swaps
 ```
 
 **Performance characteristics:**
@@ -355,19 +373,24 @@ Memory overhead:     Padding for alignment (no discriminant tag)
 
 ### 7.5 Additional Properties
 
-#### 7.5.1 Copy vs Move Semantics
+#### 7.5.1 Parameter Passing and Copy Capability
 
 **Tuples:**
-- `(T₁, ..., Tₙ)` is Copy if all Tᵢ are Copy
-- Otherwise, tuples are moved
-- Destructuring a non-Copy tuple consumes it
+- `(T₁, ..., Tₙ)` implements Copy if all Tᵢ implement Copy
+- All tuples pass by permission regardless of Copy capability
+- Explicit `.copy()` for Copy-capable tuples
+- Explicit `move` for ownership transfer
 
 ```cantrip
-let pair1: (i32, f64) = (42, 3.14);
-let pair2 = pair1;  // Copy (both i32 and f64 are Copy)
+let pair1: (i32, f64) = (42, 3.14)
+procedure process(p: (i32, f64)) { ... }
+process(pair1)  // Permission, pair1 still usable
 
-let owned: (String, Vec<i32>) = (String::new(), Vec::new());
-let moved = owned;  // Move (String and Vec are not Copy)
+let pair2 = pair1.copy()  // Explicit copy
+
+let owned: (String, Vec<i32>) = (String.new(), Vec.new())
+process_owned(owned)  // Permission, owned still usable
+consume(move owned)  // Explicit move
 // owned is now unusable
 ```
 
@@ -395,10 +418,10 @@ function parse_number(s: str): (Option<i32>, str) {
     }
 }
 
-let (result, error) = parse_number("123");
+let (result, error) = parse_number("123")
 match result {
-    Some(n) -> println("Parsed: {n}"),
-    None -> println("Error: {error}"),
+    Some(n) => println("Parsed: {n}"),
+    None => println("Error: {error}"),
 }
 ```
 
@@ -412,7 +435,7 @@ function split_at_first_space(s: str): (str, str) {
     }
 }
 
-let (first_word, rest) = split_at_first_space("hello world");
+let (first_word, rest) = split_at_first_space("hello world")
 ```
 
 #### 7.6.2 Temporary Grouping
@@ -420,12 +443,12 @@ let (first_word, rest) = split_at_first_space("hello world");
 **Function arguments:**
 ```cantrip
 function distance(p1: (f64, f64), p2: (f64, f64)): f64 {
-    let dx = p2.0 - p1.0;
-    let dy = p2.1 - p1.1;
+    let dx = p2.0 - p1.0
+    let dy = p2.1 - p1.1
     (dx * dx + dy * dy).sqrt()
 }
 
-let d = distance((0.0, 0.0), (3.0, 4.0));  // 5.0
+let d = distance((0.0, 0.0), (3.0, 4.0))  // 5.0
 ```
 
 **Swapping values:**
@@ -434,7 +457,7 @@ function swap<T>(a: T, b: T): (T, T) {
     (b, a)
 }
 
-let (x, y) = swap(10, 20);  // x = 20, y = 10
+let (x, y) = swap(10, 20)  // x = 20, y = 10
 ```
 
 #### 7.6.3 Nested Tuples
@@ -443,9 +466,9 @@ let (x, y) = swap(10, 20);  // x = 20, y = 10
 ```cantrip
 // Before parsing into proper records
 let person: (str, i32, (str, str)) =
-    ("Alice", 30, ("alice@example.com", "+1-555-0123"));
+    ("Alice", 30, ("alice@example.com", "+1-555-0123"))
 
-let (name, age, (email, phone)) = person;
+let (name, age, (email, phone)) = person
 ```
 
 **Matrix operations:**
@@ -455,8 +478,8 @@ function matrix_multiply(
     b: ((f64, f64), (f64, f64))
 ): ((f64, f64), (f64, f64)) {
     // 2x2 matrix multiplication
-    let ((a11, a12), (a21, a22)) = a;
-    let ((b11, b12), (b21, b22)) = b;
+    let ((a11, a12), (a21, a22)) = a
+    let ((b11, b12), (b21, b22)) = b
     (
         (a11 * b11 + a12 * b21, a11 * b12 + a12 * b22),
         (a21 * b11 + a22 * b21, a21 * b12 + a22 * b22),
@@ -470,24 +493,24 @@ function matrix_multiply(
 ```cantrip
 function classify_point(p: (i32, i32)): str {
     match p {
-        (0, 0) -> "origin",
-        (0, _) -> "on y-axis",
-        (_, 0) -> "on x-axis",
-        (x, y) if x == y -> "on diagonal",
-        (x, y) if x > 0 && y > 0 -> "quadrant I",
-        _ -> "other",
+        (0, 0) => "origin",
+        (0, _) => "on y-axis",
+        (_, 0) => "on x-axis",
+        (x, y) if x == y => "on diagonal",
+        (x, y) if x > 0 && y > 0 => "quadrant I",
+        _ => "other",
     }
 }
 ```
 
 **Nested destructuring:**
 ```cantrip
-let data: ((i32, i32), (i32, i32)) = ((1, 2), (3, 4));
+let data: ((i32, i32), (i32, i32)) = ((1, 2), (3, 4))
 
 match data {
-    ((0, 0), _) -> println("First point is origin"),
-    (_, (0, 0)) -> println("Second point is origin"),
-    ((x1, y1), (x2, y2)) -> {
+    ((0, 0), _) => println("First point is origin"),
+    (_, (0, 0)) => println("Second point is origin"),
+    ((x1, y1), (x2, y2)) => {
         println("Points: ({x1}, {y1}) and ({x2}, {y2})")
     }
 }
@@ -501,20 +524,20 @@ function get_user_info(): (str, i32, str, bool) {
     ("Alice", 30, "alice@example.com", true)
 }
 
-let info = get_user_info();
-let name = info.0;     // What is .0?
-let age = info.1;      // What is .1?
-let email = info.2;    // What is .2?
-let active = info.3;   // What is .3?
+let info = get_user_info()
+let name = info.0     // What is .0?
+let age = info.1      // What is .1?
+let email = info.2    // What is .2?
+let active = info.3   // What is .3?
 ```
 
 **Good (use a record instead):**
 ```cantrip
 record UserInfo {
-    name: str;
-    age: i32;
-    email: str;
-    active: bool;
+    name: str
+    age: i32
+    email: str
+    active: bool
 }
 
 function get_user_info(): UserInfo {
@@ -526,8 +549,8 @@ function get_user_info(): UserInfo {
     }
 }
 
-let info = get_user_info();
-let name = info.name;    // Clear semantic meaning
+let info = get_user_info()
+let name = info.name    // Clear semantic meaning
 ```
 
 **Rule of thumb:** If a tuple has more than 3 elements or will be used in multiple places, use a record instead.

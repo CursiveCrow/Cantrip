@@ -12,6 +12,8 @@ This appendix catalogs all normative error codes referenced throughout the speci
 | E1004 | Invalid escape sequence | §2.4.4-5 |
 | E1005 | Invalid integer literal | §2.4.1 |
 | E1006 | Invalid float literal | §2.4.2 |
+| E1007 | Unclosed delimiter (expected closing `(`, `[`, `<`, or `{`) | §2 |
+| E1008 | Unexpected newline in expression | §2 |
 
 ## B.2 Name Resolution Errors (E20xx)
 

@@ -43,15 +43,15 @@ NeverType ::= "!"
 **Usage in function signatures:**
 ```cantrip
 function panic(message: str): !
-    uses panic;
+    uses panic
 {
-    std::process::abort();
+    std::process::abort()
 }
 
 function exit(code: i32): !
-    uses process.exit;
+    uses process.exit
 {
-    std::process::exit(code);
+    std::process::exit(code)
 }
 
 function infinite_loop(): ! {
@@ -183,14 +183,14 @@ The never type has no runtime representation since values of this type never exi
 1. **Panic**: Abnormal termination
 ```cantrip
 function panic(msg: str): ! {
-    std::process::abort();
+    std::process::abort()
 }
 ```
 
 2. **Exit**: Normal process termination
 ```cantrip
 function exit(code: i32): ! {
-    std::process::exit(code);
+    std::process::exit(code)
 }
 ```
 
@@ -198,7 +198,7 @@ function exit(code: i32): ! {
 ```cantrip
 function serve_forever(): ! {
     loop {
-        handle_request();
+        handle_request()
     }
 }
 ```
@@ -210,32 +210,32 @@ function serve_forever(): ! {
 **Panic and error handling:**
 ```cantrip
 function panic(message: str): !
-    uses panic;
+    uses panic
 {
-    std::eprintln("PANIC: {message}");
-    std::process::abort();
+    std::eprintln("PANIC: {message}")
+    std::process::abort()
 }
 
 function unreachable(): ! {
-    panic("entered unreachable code");
+    panic("entered unreachable code")
 }
 
 function unimplemented(): ! {
-    panic("not yet implemented");
+    panic("not yet implemented")
 }
 ```
 
 **Process termination:**
 ```cantrip
 function exit(code: i32): !
-    uses process.exit;
+    uses process.exit
 {
-    std::process::exit(code);
+    std::process::exit(code)
 }
 
 function fatal_error(error: Error): ! {
-    std::eprintln("Fatal error: {error}");
-    exit(1);
+    std::eprintln("Fatal error: {error}")
+    exit(1)
 }
 ```
 
@@ -243,16 +243,16 @@ function fatal_error(error: Error): ! {
 ```cantrip
 function event_loop(): ! {
     loop {
-        let event = wait_for_event();
-        process_event(event);
+        let event = wait_for_event()
+        process_event(event)
     }
 }
 
 function server_main(port: u16): ! {
-    let listener = TcpListener::bind(port).unwrap();
+    let listener = TcpListener::bind(port).unwrap()
     loop {
-        let conn = listener.accept().unwrap();
-        handle_connection(conn);
+        let conn = listener.accept().unwrap()
+        handle_connection(conn)
     }
 }
 ```
@@ -266,7 +266,7 @@ Since `! <: τ` for all types, diverging branches are compatible with any expect
 ```cantrip
 function process(x: i32): i32 {
     if x < 0 {
-        panic("negative value");  // Type: !, compiler knows this diverges
+        panic("negative value")  // Type: !, compiler knows this diverges
         // No need for return or unreachable code here
     } else {
         x * 2  // Type: i32
@@ -276,7 +276,7 @@ function process(x: i32): i32 {
 
 function safe_divide(x: i32, y: i32): i32 {
     if y == 0 {
-        panic("division by zero");  // Type: !
+        panic("division by zero")  // Type: !
     }
     x / y  // Compiler knows y != 0 here
 }
@@ -286,16 +286,16 @@ function safe_divide(x: i32, y: i32): i32 {
 
 ```cantrip
 enum NetworkResult {
-    Success(i32),
-    Pending,
-    Error(String),
+    Success(i32)
+    Pending
+    Error(String)
 }
 
 function extract_value(result: NetworkResult): i32 {
     match result {
-        NetworkResult::Success(value) -> value,           // Type: i32
-        NetworkResult::Pending -> panic("called on pending result"),  // Type: !
-        NetworkResult::Error(msg) -> panic("error: {msg}"),           // Type: !
+        NetworkResult::Success(value) => value,           // Type: i32
+        NetworkResult::Pending => panic("called on pending result"),  // Type: !
+        NetworkResult::Error(msg) => panic("error: {msg}")           // Type: !
     }
     // All arms compatible (! coerces to i32)
 }
@@ -308,21 +308,21 @@ function extract_value(result: NetworkResult): i32 {
 let x: i32 = if condition {
     42                    // Type: i32
 } else {
-    panic("error");      // Type: !, coerces to i32
-};
+    panic("error")      // Type: !, coerces to i32
+}
 
 // Works in any position
 let y: String = match option {
-    Some(s) -> s,        // Type: String
-    None -> exit(1),     // Type: !, coerces to String
-};
+    Some(s) => s,        // Type: String
+    None => exit(1)     // Type: !, coerces to String
+}
 
 // Even in nested contexts
 let z: Vec<f64> = if valid {
     vec![1.0, 2.0, 3.0]  // Type: Vec<f64>
 } else {
-    unimplemented();     // Type: !, coerces to Vec<f64>
-};
+    unimplemented()     // Type: !, coerces to Vec<f64>
+}
 ```
 
 #### Unreachable Code Detection
@@ -332,21 +332,21 @@ let z: Vec<f64> = if valid {
 ```cantrip
 function example(x: i32): i32 {
     if x > 0 {
-        return x;
+        return x
     } else {
-        panic("x must be positive");
+        panic("x must be positive")
     }
     // Warning: unreachable code
-    // println("This is never executed");
+    // println("This is never executed")
 }
 
 function process_or_exit(data: Option<Data>): () {
     let d = match data {
-        Some(d) -> d,
-        None -> exit(1),  // Type: !, compiler knows we don't continue
-    };
+        Some(d) => d,
+        None => exit(1)  // Type: !, compiler knows we don't continue
+    }
     // Compiler knows d has type Data here
-    process(d);
+    process(d)
 }
 ```
 
@@ -366,8 +366,8 @@ function absurd<T>(v: Void): T {
 // Proving unreachability
 function handle_infallible(result: Result<i32, Void>): i32 {
     match result {
-        Result::Ok(x) -> x,
-        Result::Err(v) -> absurd(v),  // Proves this can't happen
+        Result::Ok(x) => x,
+        Result::Err(v) => absurd(v)  // Proves this can't happen
     }
 }
 ```
@@ -378,14 +378,14 @@ function handle_infallible(result: Result<i32, Void>): i32 {
 
 ```cantrip
 contract TryFrom<T> {
-    type Error;
-    procedure try_from(value: T): Result<Self, Self.Error>;
+    type Error
+    procedure try_from(value: T): Result<Self, Self.Error>
 }
 
 // Infallible conversion uses Never for error type
 // u32 implements TryFrom<u8>:
 modal u32: TryFrom<u8> {
-    type Error = !;  // Can never fail
+    type Error = !  // Can never fail
 
     procedure try_from(value: u8): Result<u32, !> {
         Result::Ok(value as u32)  // Always succeeds
@@ -393,14 +393,14 @@ modal u32: TryFrom<u8> {
 }
 
 // Pattern matching on Result<T, !>
-let result: Result<u32, !> = u32::try_from(42u8);
+let result: Result<u32, !> = u32::try_from(42u8)
 let value: u32 = match result {
-    Result::Ok(v) -> v,
+    Result::Ok(v) => v
     // Result::Err case impossible (! has no values)
-};
+}
 
 // Or simply:
-let value: u32 = result.unwrap();  // Can't panic (no error possible)
+let value: u32 = result.unwrap()  // Can't panic (no error possible)
 ```
 
 #### Integration with Control Flow
@@ -410,13 +410,13 @@ let value: u32 = result.unwrap();  // Can't panic (no error possible)
 ```cantrip
 function validate_and_process(input: str): i32 {
     if input.is_empty() {
-        eprintln("Error: empty input");
-        exit(1);  // Type: !
+        eprintln("Error: empty input")
+        exit(1)  // Type: !
         // Compiler knows we never continue from here
     }
 
     if !input.is_ascii() {
-        panic("non-ASCII input");  // Type: !
+        panic("non-ASCII input")  // Type: !
     }
 
     // Compiler has proven input is non-empty and ASCII here
@@ -428,14 +428,14 @@ function validate_and_process(input: str): i32 {
 
 ```cantrip
 enum Status {
-    Active,
-    Inactive,
+    Active
+    Inactive
 }
 
 function handle_status(status: Status): i32 {
     match status {
-        Status::Active -> 1,
-        Status::Inactive -> panic("inactive status not supported"),  // Type: !
+        Status::Active => 1,
+        Status::Inactive => panic("inactive status not supported")  // Type: !
         // Exhaustive: all variants covered, even though one panics
     }
 }

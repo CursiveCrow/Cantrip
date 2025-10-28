@@ -60,15 +60,15 @@ Cantrip provides two complementary pointer systems, each designed for specific u
 **Safe by default:**
 ```cantrip
 // Normal code uses safe pointers
-let ptr: Ptr<i32>@Exclusive = Ptr.new(&x);
-let value = ptr.read();  // Compile-time safety checks
+let ptr: Ptr<i32>@Exclusive = Ptr.new(&x)
+let value = ptr.read()  // Compile-time safety checks
 ```
 
 **Unsafe escape hatch:**
 ```cantrip
 // Unsafe code explicitly marked
 function use_raw_ptr(raw: *i32): i32
-    uses unsafe.ptr;  // Effect declaration required
+    uses unsafe.ptr  // Effect declaration required
 {
     unsafe {  // Explicit unsafe block
         *raw  // Dereference only allowed here
@@ -291,47 +291,47 @@ Axiom (Effect Exclusion):
 
 ```cantrip
 // Heap-allocated safe pointer
-let x = 42;
-let ptr: Ptr<i32>@Exclusive = Ptr.new(&x);
-let value = ptr.read();  // uses read<i32>
-ptr.write(100);          // uses write<i32>
+let x = 42
+let ptr: Ptr<i32>@Exclusive = Ptr.new(&x)
+let value = ptr.read()  // uses read<i32>
+ptr.write(100)          // uses write<i32>
 
 // Region-allocated safe pointer
 region temp {
-    let data = vec![1, 2, 3];
-    let ptr: Ptr<Vec<i32>>@Exclusive = Ptr.new_in<temp>(&data);
+    let data = vec![1, 2, 3]
+    let ptr: Ptr<Vec<i32>>@Exclusive = Ptr.new_in<temp>(&data)
 
-    let value = ptr.read();  // OK
-    // return ptr;  // ❌ ERROR: Cannot escape region temp
+    let value = ptr.read()  // OK
+    // return ptr  // ❌ ERROR: Cannot escape region temp
 }
 
 // Sharing pointers
-let exclusive: Ptr<i32>@Exclusive = Ptr.new(&x);
-let (ptr1, ptr2) = exclusive.share();
+let exclusive: Ptr<i32>@Exclusive = Ptr.new(&x)
+let (ptr1, ptr2) = exclusive.share()
 // ptr1, ptr2: Ptr<i32>@Shared
 
-let v1 = ptr1.read();  // uses read<i32>
-let v2 = ptr2.read();  // uses read<i32>
-// ptr1.write(42);  // ❌ ERROR: @Shared has no write() method
+let v1 = ptr1.read()  // uses read<i32>
+let v2 = ptr2.read()  // uses read<i32>
+// ptr1.write(42)  // ❌ ERROR: @Shared has no write() method
 
 // Freezing pointers
-let frozen: Ptr<i32>@Frozen = exclusive.freeze();
-let frozen2 = frozen.clone();  // Can clone freely
-frozen.read();   // OK
-// frozen.write(42);  // ❌ ERROR: @Frozen has no write() method
+let frozen: Ptr<i32>@Frozen = exclusive.freeze()
+let frozen2 = frozen.clone()  // Can clone freely
+frozen.read()   // OK
+// frozen.write(42)  // ❌ ERROR: @Frozen has no write() method
 ```
 
 **Raw Pointers:**
 
 ```cantrip
 // Taking raw addresses (SAFE operation)
-let x = 42;
-let ptr: *i32 = &raw x;
-let ptr_mut: *mut i32 = &raw mut x;
+let x = 42
+let ptr: *i32 = &raw x
+let ptr_mut: *mut i32 = &raw mut x
 
 // Dereferencing (UNSAFE - must unsafe block)
 function read_raw(ptr: *i32): i32
-    uses unsafe.ptr;
+    uses unsafe.ptr
 {
     unsafe {
         *ptr  // Dereference only allowed in unsafe block
@@ -339,14 +339,14 @@ function read_raw(ptr: *i32): i32
 }
 
 // Null pointers
-let null_ptr: *i32 = null<i32>();
+let null_ptr: *i32 = null<i32>()
 if null_ptr == null<i32>() {
     // Handle null case
 }
 
 // Pointer arithmetic (UNSAFE)
 function next_element(ptr: *i32): *i32
-    uses unsafe.ptr;
+    uses unsafe.ptr
 {
     unsafe {
         ptr.add(1)  // Move to next i32
@@ -355,7 +355,7 @@ function next_element(ptr: *i32): *i32
 
 // Type casting (UNSAFE)
 function as_bytes(ptr: *i32): *u8
-    uses unsafe.ptr;
+    uses unsafe.ptr
 {
     unsafe {
         ptr.cast<u8>()
@@ -367,19 +367,19 @@ function as_bytes(ptr: *i32): *u8
 
 ```cantrip
 // Safe to raw (loses safety)
-let safe: Ptr<i32>@Exclusive = Ptr.new(&x);
+let safe: Ptr<i32>@Exclusive = Ptr.new(&x)
 
 unsafe {
-    let raw: *i32 = safe.as_raw();
+    let raw: *i32 = safe.as_raw()
     // raw has no safety guarantees
 }
 
 // Raw to safe (requires programmer verification)
 function wrap_raw(raw: *mut i32): Ptr<i32>@Exclusive
-    must raw != null<i32>();
-    must valid(raw);
-    must unique(raw);
-    uses unsafe.ptr;
+    must raw != null<i32>()
+    must valid(raw)
+    must unique(raw)
+    uses unsafe.ptr
 {
     unsafe {
         // Programmer MUST ensure:
@@ -395,20 +395,20 @@ function wrap_raw(raw: *mut i32): Ptr<i32>@Exclusive
 
 ```cantrip
 region temp {
-    var x = 42;
-    let ptr: Ptr<i32>@Exclusive = Ptr.new_in<temp>(&x);
+    var x = 42
+    let ptr: Ptr<i32>@Exclusive = Ptr.new_in<temp>(&x)
 
     {
         // Reading through pointer
-        let val = ptr.read();  // Acquires read<i32>
+        let val = ptr.read()  // Acquires read<i32>
 
         // Cannot mutate x while read effect active
-        // x = 100;  // ❌ ERROR: uses write<i32>, conflicts with read<i32>
+        // x = 100  // ❌ ERROR: uses write<i32>, conflicts with read<i32>
 
     } // read<i32> released
 
     // Now can write
-    x = 100;  // ✓ OK: no read<i32> active
+    x = 100  // ✓ OK: no read<i32> active
 }
 ```
 
@@ -1174,7 +1174,7 @@ Alignment: alignof(usize)
 **Key properties:**
 - Same size as machine word (platform-dependent)
 - `*T` and `*mut T` have identical layout (mutability is compile-time only)
-- No metadata (unlike fat pointers for slices/trait objects)
+- No metadata (unlike fat pointers for slices)
 - Direct memory address, no indirection
 
 **Null representation:**
@@ -1184,9 +1184,8 @@ null pointer = { addr: 0x0 }
 
 **Comparison with fat pointers:**
 ```
-Thin pointer (*T):        8 bytes (64-bit)
-Fat pointer ([T]):        16 bytes (ptr + len)
-Fat pointer (dyn Trait):  16 bytes (ptr + vtable)
+Thin pointer (*T):     8 bytes (64-bit)
+Fat pointer ([T]):     16 bytes (ptr + len)
 ```
 
 #### 9.4.3 Operational Behavior
@@ -1211,8 +1210,8 @@ valid(ptr.addr, σ) ⟺
 **1. Dereferencing null:**
 ```cantrip
 unsafe {
-    let ptr: *i32 = null<i32>();
-    let x = *ptr;  // ⚠️ UNDEFINED BEHAVIOR
+    let ptr: *i32 = null<i32>()
+    let x = *ptr  // ⚠️ UNDEFINED BEHAVIOR
 }
 ```
 
@@ -1224,10 +1223,10 @@ unsafe {
 **2. Out-of-bounds access:**
 ```cantrip
 unsafe {
-    let arr = [1, 2, 3];
-    let ptr = &raw arr[0];
-    let ptr2 = ptr.offset(10);  // Points outside array
-    let x = *ptr2;  // ⚠️ UNDEFINED BEHAVIOR
+    let arr = [1, 2, 3]
+    let ptr = &raw arr[0]
+    let ptr2 = ptr.offset(10)  // Points outside array
+    let x = *ptr2  // ⚠️ UNDEFINED BEHAVIOR
 }
 ```
 
@@ -1239,9 +1238,9 @@ unsafe {
 **3. Use-after-free:**
 ```cantrip
 unsafe {
-    let ptr = malloc(4);
-    free(ptr);
-    let x = *ptr;  // ⚠️ UNDEFINED BEHAVIOR (dangling pointer)
+    let ptr = malloc(4)
+    free(ptr)
+    let x = *ptr  // ⚠️ UNDEFINED BEHAVIOR (dangling pointer)
 }
 ```
 
@@ -1253,9 +1252,9 @@ unsafe {
 **4. Unaligned access:**
 ```cantrip
 unsafe {
-    let bytes: [u8; 8] = [0; 8];
-    let ptr: *u64 = (&raw bytes[1]).cast<u64>();
-    let x = *ptr;  // ⚠️ UNDEFINED BEHAVIOR (misaligned)
+    let bytes: [u8; 8] = [0; 8]
+    let ptr: *u64 = (&raw bytes[1]).cast<u64>()
+    let x = *ptr  // ⚠️ UNDEFINED BEHAVIOR (misaligned)
 }
 ```
 
@@ -1267,8 +1266,8 @@ unsafe {
 **5. Data races:**
 ```cantrip
 unsafe {
-    // Thread 1: *ptr_mut = 42;
-    // Thread 2: *ptr_mut = 100;
+    // Thread 1: *ptr_mut = 42
+    // Thread 2: *ptr_mut = 100
     // ⚠️ UNDEFINED BEHAVIOR (data race)
 }
 ```
@@ -1281,8 +1280,8 @@ concurrent_write(ptr.addr, σ₁) ∧ concurrent_access(ptr.addr, σ₂) ⟹ UB
 **6. Invalid pointer arithmetic:**
 ```cantrip
 unsafe {
-    let ptr: *i32 = null<i32>();
-    let ptr2 = ptr.add(1);  // ⚠️ UNDEFINED BEHAVIOR (arithmetic on null)
+    let ptr: *i32 = null<i32>()
+    let ptr2 = ptr.add(1)  // ⚠️ UNDEFINED BEHAVIOR (arithmetic on null)
 }
 ```
 
@@ -1333,7 +1332,7 @@ Safe pointers use Cantrip's `Option<T>` type to represent nullable pointers:
 ```cantrip
 // Safe nullable pointer
 function find_node(key: i32): Option<Ptr<Node>@Shared>
-    uses read<HashMap>;
+    uses read<HashMap>
 {
     match self.lookup(key) {
         Some(node) => Some(node),
@@ -1345,7 +1344,7 @@ function use_node() {
     match find_node(42) {
         Some(node) => {
             // Statically guaranteed: node is not null
-            let value = node.read().value;
+            let value = node.read().value
         }
         None => {
             // Explicitly handle absence
@@ -1390,18 +1389,18 @@ Raw pointers can be null and require manual checking:
 ```cantrip
 extern "C" {
     function malloc(size: usize): *mut u8
-        uses ffi.call, unsafe.ptr;
+        uses ffi.call, unsafe.ptr
 }
 
 function allocate_buffer(size: usize): Option<*mut u8>
-    uses ffi.call, unsafe.ptr;
+    uses ffi.call, unsafe.ptr
 {
     unsafe {
-        let ptr = malloc(size);
+        let ptr = malloc(size)
 
         // Manual null check required
         if ptr == null<u8>() {
-            return None;
+            return None
         }
 
         Some(ptr)
@@ -1426,11 +1425,11 @@ function allocate_buffer(size: usize): Option<*mut u8>
 
 ```cantrip
 unsafe {
-    let ptr: *mut i32 = get_pointer();
+    let ptr: *mut i32 = get_pointer()
 
     if ptr != null<i32>() {
         // Safe to dereference
-        *ptr = 42;
+        *ptr = 42
     }
 }
 ```
@@ -1447,12 +1446,12 @@ function ptr_to_option<T>(ptr: *T): Option<*T> {
 }
 
 unsafe {
-    let ptr: *i32 = c_function();
+    let ptr: *i32 = c_function()
 
     match ptr_to_option(ptr) {
         Some(p) => {
             // Use pointer
-            let value = *p;
+            let value = *p
         }
         None => {
             // Handle null case
@@ -1465,15 +1464,15 @@ unsafe {
 
 ```cantrip
 function process_ptr(ptr: *mut Data): Result<(), Error>
-    uses unsafe.ptr;
+    uses unsafe.ptr
 {
     unsafe {
         if ptr == null<Data>() {
-            return Err(Error::NullPointer);
+            return Err(Error::NullPointer)
         }
 
         // Proceed with non-null pointer
-        (*ptr).process();
+        (*ptr).process()
         Ok(())
     }
 }
@@ -1483,10 +1482,10 @@ function process_ptr(ptr: *mut Data): Result<(), Error>
 
 ```cantrip
 unsafe {
-    let ptr1: *Node = get_first();
+    let ptr1: *Node = get_first()
     if ptr1 == null<Node>() { return null<Node>(); }
 
-    let ptr2: *Node = (*ptr1).next;
+    let ptr2: *Node = (*ptr1).next
     if ptr2 == null<Node>() { return null<Node>(); }
 
     ptr2
@@ -1543,18 +1542,18 @@ Dereferencing a null pointer causes undefined behavior:
 
 ```cantrip
 unsafe {
-    let ptr: *i32 = null<i32>();
-    let x = *ptr;  // ⚠️ UNDEFINED BEHAVIOR
+    let ptr: *i32 = null<i32>()
+    let x = *ptr  // ⚠️ UNDEFINED BEHAVIOR
 }
 ```
 
 **Safe alternative using Option:**
 ```cantrip
-let ptr_opt: Option<Ptr<i32>@Shared> = None;
+let ptr_opt: Option<Ptr<i32>@Shared> = None
 
 match ptr_opt {
     Some(ptr) => {
-        let x = ptr.read();  // ✅ Safe - cannot be null
+        let x = ptr.read()  // ✅ Safe - cannot be null
     }
     None => {
         // Compile-time enforced handling
@@ -1574,20 +1573,20 @@ C: NULL  →  Cantrip: null<T>()
 extern "C" {
     // Returns NULL on failure
     function fopen(path: *u8, mode: *u8): *mut File
-        uses ffi.call, unsafe.ptr;
+        uses ffi.call, unsafe.ptr
 
     function fclose(file: *mut File)
-        uses ffi.call, unsafe.ptr;
+        uses ffi.call, unsafe.ptr
 }
 
 function open_file(path: &str): Result<*mut File, Error>
-    uses ffi.call, unsafe.ptr;
+    uses ffi.call, unsafe.ptr
 {
     unsafe {
-        let c_path = path.as_ptr();
-        let c_mode = "r".as_ptr();
+        let c_path = path.as_ptr()
+        let c_mode = "r".as_ptr()
 
-        let file = fopen(c_path, c_mode);
+        let file = fopen(c_path, c_mode)
 
         if file == null<File>() {
             Err(Error::OpenFailed)
@@ -1618,15 +1617,15 @@ function open_file(path: &str): Result<*mut File, Error>
 // C function that may return NULL
 extern "C" {
     function c_get_data(): *mut Data
-        uses ffi.call, unsafe.ptr;
+        uses ffi.call, unsafe.ptr
 }
 
 // Safe Cantrip wrapper
 function get_data(): Option<own Data>
-    uses ffi.call, unsafe.ptr, alloc.heap;
+    uses ffi.call, unsafe.ptr, alloc.heap
 {
     unsafe {
-        let ptr = c_get_data();
+        let ptr = c_get_data()
 
         if ptr == null<Data>() {
             None
@@ -1639,8 +1638,8 @@ function get_data(): Option<own Data>
 
 // Now safe code can use it without unsafe:
 match get_data() {
-    Some(data) => println!("Got: {}", data),
-    None => println!("No data available")
+    Some(data) => println("Got: {}", data),
+    None => println("No data available")
 }
 ```
 
@@ -1681,11 +1680,11 @@ match get_data() {
 **Example:**
 ```cantrip
 unsafe {
-    let x = [1, 2, 3];
-    let y = [4, 5, 6];
+    let x = [1, 2, 3]
+    let y = [4, 5, 6]
 
-    let px = &raw x[0];
-    let py = &raw y[0];
+    let px = &raw x[0]
+    let py = &raw y[0]
 
     // px has provenance of x allocation
     // px.offset(2) is within x's provenance (valid)
@@ -1701,31 +1700,31 @@ unsafe {
 ```cantrip
 #[repr(C)]
 record CStruct {
-    field1: i32;
-    field2: *u8;  // Raw pointer in C-compatible layout
+    field1: i32
+    field2: *u8  // Raw pointer in C-compatible layout
 }
 
 // Guaranteed to match C struct layout:
 // struct CStruct {
-//     int32_t field1;
-//     uint8_t* field2;
-// };
+//     int32_t field1
+//     uint8_t* field2
+// }
 ```
 
 **#[null_terminated] for C strings:**
 ```cantrip
-type CString = *u8;
+type CString = *u8
 
 function strlen(s: CString): usize
-    must s != null<u8>();
-    uses unsafe.ptr;
+    must s != null<u8>()
+    uses unsafe.ptr
 {
     unsafe {
-        var len = 0;
-        var ptr = s;
+        var len = 0
+        var ptr = s
         while *ptr != 0 {
-            len += 1;
-            ptr = ptr.add(1);
+            len += 1
+            ptr = ptr.add(1)
         }
         len
     }
@@ -1737,7 +1736,7 @@ function strlen(s: CString): usize
 For hardware access (memory-mapped I/O):
 ```cantrip
 function read_volatile<T>(ptr: *T): T
-    uses unsafe.ptr;
+    uses unsafe.ptr
 {
     unsafe {
         // Compiler must not optimize away or reorder this read
@@ -1746,21 +1745,21 @@ function read_volatile<T>(ptr: *T): T
 }
 
 function write_volatile<T>(ptr: *mut T, value: T)
-    uses unsafe.ptr;
+    uses unsafe.ptr
 {
     unsafe {
         // Compiler must not optimize away or reorder this write
-        @volatile *ptr = value;
+        @volatile *ptr = value
     }
 }
 
 // Example: Memory-mapped register
-const UART_DATA: *mut u8 = 0x4000_0000 as *mut u8;
+const UART_DATA: *mut u8 = 0x4000_0000 as *mut u8
 
 function send_uart_byte(byte: u8)
-    uses unsafe.ptr;
+    uses unsafe.ptr
 {
-    write_volatile(UART_DATA, byte);
+    write_volatile(UART_DATA, byte)
 }
 ```
 
@@ -1769,7 +1768,7 @@ function send_uart_byte(byte: u8)
 **Checking alignment:**
 ```cantrip
 function is_aligned<T>(ptr: *T): bool
-    uses unsafe.ptr;
+    uses unsafe.ptr
 {
     unsafe {
         (ptr as usize) % align_of::<T>() == 0
@@ -1781,7 +1780,7 @@ function is_aligned<T>(ptr: *T): bool
 ```cantrip
 #[repr(align(64))]
 record CacheLine {
-    data: [u8; 64];
+    data: [u8; 64]
 }
 
 // Pointers to CacheLine are guaranteed 64-byte aligned
@@ -1803,49 +1802,49 @@ record SelfRef {
     self_ptr: Ptr<Vec<u8>>@Frozen,
 
     procedure new(capacity: usize): own SelfRef
-        must capacity > 0;
-        will result.self_ptr points to result.data;
-        uses alloc.heap;
+        must capacity > 0
+        will result.self_ptr points to result.data
+        uses alloc.heap
     {
         var this = SelfRef {
             data: Vec.with_capacity(capacity),
             self_ptr: Ptr.new(&Vec.new()),  // Temporary
-        };
+        }
 
         // Create exclusive pointer to data
-        let temp_ptr: Ptr<Vec<u8>>@Exclusive = Ptr.new(&this.data);
+        let temp_ptr: Ptr<Vec<u8>>@Exclusive = Ptr.new(&this.data)
 
         // Freeze it permanently
-        this.self_ptr = temp_ptr.freeze();
+        this.self_ptr = temp_ptr.freeze()
 
         this
     }
 
     procedure get_via_ptr(self: SelfRef): Vec<u8>
-        uses read<Vec<u8>>;
+        uses read<Vec<u8>>
     {
         // Read through frozen pointer
         self.self_ptr.read()
     }
 
     procedure modify_directly(self: mut SelfRef, byte: u8)
-        uses write<Vec<u8>>;  // ❌ Conflicts with read if active!
+        uses write<Vec<u8>>  // ❌ Conflicts with read if active!
     {
-        self.data.push(byte);
+        self.data.push(byte)
     }
 }
 
 // Usage
-let s = SelfRef.new(1024);
+let s = SelfRef.new(1024)
 
 // Can read through pointer
 {
-    let data = s.get_via_ptr();  // Acquires read<Vec<u8>>
-    // s.modify_directly(42);  // ❌ ERROR: read<Vec<u8>> active
+    let data = s.get_via_ptr()  // Acquires read<Vec<u8>>
+    // s.modify_directly(42)  // ❌ ERROR: read<Vec<u8>> active
 } // read<Vec<u8>> released
 
 // Now can modify
-s.modify_directly(42);  // ✓ OK
+s.modify_directly(42)  // ✓ OK
 ```
 
 **Key insights:**
@@ -1860,35 +1859,35 @@ s.modify_directly(42);  // ✓ OK
 // C library interface
 extern "C" {
     function c_buffer_create(size: usize): *mut u8
-        uses ffi.call, unsafe.ptr;
+        uses ffi.call, unsafe.ptr
 
     function c_buffer_write(buf: *mut u8, offset: usize, data: *u8, len: usize): i32
-        uses ffi.call, unsafe.ptr;
+        uses ffi.call, unsafe.ptr
 
     function c_buffer_destroy(buf: *mut u8)
-        uses ffi.call, unsafe.ptr;
+        uses ffi.call, unsafe.ptr
 }
 
 // Safe Cantrip wrapper
 record Buffer {
-    ptr: *mut u8;
-    size: usize;
+    ptr: *mut u8
+    size: usize
 
     procedure new(size: usize): Result<own Buffer, Error>
-        uses ffi.call, unsafe.ptr;
+        uses ffi.call, unsafe.ptr
     {
         unsafe {
-            let ptr = c_buffer_create(size);
+            let ptr = c_buffer_create(size)
             if ptr == null<u8>() {
-                return Err(Error::AllocationFailed);
+                return Err(Error::AllocationFailed)
             }
             Ok(own Buffer { ptr, size })
         }
     }
 
     procedure write(self: mut Buffer, offset: usize, data: [u8]): Result<(), Error>
-        must offset + data.len() <= self.size;
-        uses ffi.call, unsafe.ptr;
+        must offset + data.len() <= self.size
+        uses ffi.call, unsafe.ptr
     {
         unsafe {
             let result = c_buffer_write(
@@ -1896,7 +1895,7 @@ record Buffer {
                 offset,
                 &raw data[0],
                 data.len()
-            );
+            )
             if result == 0 {
                 Ok(())
             } else {
@@ -1906,10 +1905,10 @@ record Buffer {
     }
 
     procedure destroy(self: own Buffer)
-        uses ffi.call, unsafe.ptr;
+        uses ffi.call, unsafe.ptr
     {
         unsafe {
-            c_buffer_destroy(self.ptr);
+            c_buffer_destroy(self.ptr)
         }
     }
 }
@@ -1920,15 +1919,15 @@ record Buffer {
 **Doubly-linked list with embedded pointers:**
 ```cantrip
 record Node<T> {
-    value: T;
-    next: *mut Node<T>;
-    prev: *mut Node<T>;
+    value: T
+    next: *mut Node<T>
+    prev: *mut Node<T>
 }
 
 record LinkedList<T> {
-    head: *mut Node<T>;
-    tail: *mut Node<T>;
-    len: usize;
+    head: *mut Node<T>
+    tail: *mut Node<T>
+    len: usize
 
     procedure new(): own LinkedList<T> {
         own LinkedList {
@@ -1939,50 +1938,57 @@ record LinkedList<T> {
     }
 
     procedure push_back(self: mut LinkedList<T>, value: T)
-        uses alloc.heap, unsafe.ptr;
+        uses alloc.heap, unsafe.ptr
     {
         unsafe {
-            // Allocate new node
-            let node = Box.new(Node {
+            // Allocate raw memory for new node
+            let node_ptr = malloc(size_of::<Node<T>>()) as *mut Node<T>
+
+            // Initialize the node in place
+            *node_ptr = Node {
                 value,
                 next: null<Node<T>>(),
                 prev: self.tail,
-            });
-            let node_ptr = Box.into_raw(node);
+            }
 
             // Link into list
             if self.tail != null<Node<T>>() {
-                (*self.tail).next = node_ptr;
+                (*self.tail).next = node_ptr
             } else {
-                self.head = node_ptr;
+                self.head = node_ptr
             }
 
-            self.tail = node_ptr;
-            self.len += 1;
+            self.tail = node_ptr
+            self.len += 1
         }
     }
 
     procedure pop_back(self: mut LinkedList<T>): Option<T>
-        uses unsafe.ptr;
+        uses unsafe.ptr
     {
         if self.tail == null<Node<T>>() {
-            return None;
+            return None
         }
 
         unsafe {
-            let tail_ptr = self.tail;
-            let node = Box.from_raw(tail_ptr);
+            let tail_ptr = self.tail
+
+            // Read the value before deallocating
+            let value = (*tail_ptr).value
 
             // Unlink from list
-            self.tail = node.prev;
+            self.tail = (*tail_ptr).prev
             if self.tail != null<Node<T>>() {
-                (*self.tail).next = null<Node<T>>();
+                (*self.tail).next = null<Node<T>>()
             } else {
-                self.head = null<Node<T>>();
+                self.head = null<Node<T>>()
             }
 
-            self.len -= 1;
-            Some(node.value)
+            // Free the node memory
+            free(tail_ptr as *mut u8)
+
+            self.len -= 1
+            Some(value)
         }
     }
 
@@ -1992,18 +1998,18 @@ record LinkedList<T> {
 }
 
 record LinkedListIter<T>: Iterator<T> {
-    current: *mut Node<T>;
+    current: *mut Node<T>
 
     procedure next(self: mut LinkedListIter<T>): Option<T>
-        uses unsafe.ptr;
+        uses unsafe.ptr
     {
         if self.current == null<Node<T>>() {
-            return None;
+            return None
         }
 
         unsafe {
-            let value = (*self.current).value;
-            self.current = (*self.current).next;
+            let value = (*self.current).value
+            self.current = (*self.current).next
             Some(value)
         }
     }
@@ -2015,81 +2021,81 @@ record LinkedListIter<T>: Iterator<T> {
 **Bump allocator for temporary allocations:**
 ```cantrip
 record MemoryPool {
-    base: *mut u8;
-    size: usize;
-    used: usize;
+    base: *mut u8
+    size: usize
+    used: usize
 
     procedure new(size: usize): Result<own MemoryPool, Error>
-        uses alloc.heap, unsafe.ptr;
+        uses alloc.heap, unsafe.ptr
     {
         unsafe {
-            let base = malloc(size);
+            let base = malloc(size)
             if base == null<u8>() {
-                return Err(Error::AllocationFailed);
+                return Err(Error::AllocationFailed)
             }
             Ok(own MemoryPool { base, size, used: 0 })
         }
     }
 
     procedure alloc<T>(self: mut MemoryPool): Option<*mut T>
-        must size_of::<T>() > 0;
-        must align_of::<T>() > 0;
-        uses unsafe.ptr;
+        must size_of::<T>() > 0
+        must align_of::<T>() > 0
+        uses unsafe.ptr
     {
         unsafe {
-            let size = size_of::<T>();
-            let align = align_of::<T>();
+            let size = size_of::<T>()
+            let align = align_of::<T>()
 
             // Align to T's alignment requirement
-            let aligned_used = (self.used + align - 1) & !(align - 1);
-            let new_used = aligned_used + size;
+            let aligned_used = (self.used + align - 1) & !(align - 1)
+            let new_used = aligned_used + size
 
             if new_used > self.size {
-                return None;  // Out of space
+                return None  // Out of space
             }
 
-            let ptr = self.base.add(aligned_used).cast<T>();
-            self.used = new_used;
+            let ptr = self.base.add(aligned_used).cast<T>()
+            self.used = new_used
             Some(ptr)
         }
     }
 
     procedure reset(self: mut MemoryPool) {
         // Reset used counter (doesn't free individual allocations)
-        self.used = 0;
+        self.used = 0
     }
 
     procedure destroy(self: own MemoryPool)
-        uses unsafe.ptr;
+        uses unsafe.ptr
     {
         unsafe {
-            free(self.base);
+            free(self.base)
         }
     }
 }
 
 // Usage example
 function process_batch(items: [Item])
-    uses alloc.heap, unsafe.ptr;
+    uses alloc.heap, unsafe.ptr
 {
-    let pool = MemoryPool.new(1024 * 1024)?;  // 1 MB pool
+    let pool = MemoryPool.new(1024 * 1024)?  // 1 MB pool
 
     region batch {
         for item in items {
             // Allocate from pool
-            let temp_data: *mut ProcessedData = pool.alloc()?;
+            let temp_data: *mut ProcessedData = pool.alloc()?
 
             unsafe {
                 // Initialize and use temp_data
-                *temp_data = process(item);
+                *temp_data = process(item)
                 // ... do work ...
             }
         }
         // All pool allocations freed at once
-        pool.reset();
+        pool.reset()
     }
 
-    pool.destroy();
+    pool.destroy()
 }
 ```
 

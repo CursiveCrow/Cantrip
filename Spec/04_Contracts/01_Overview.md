@@ -33,9 +33,9 @@ Effects declare what computational side effects a procedure may perform:
 
 ```cantrip
 procedure log(message: String)
-    uses io.write, alloc.heap;
+    uses io.write, alloc.heap
 {
-    println!("{}", message);
+    println("{}", message)
 }
 ```
 
@@ -51,7 +51,7 @@ Preconditions specify what must be true before a procedure executes:
 
 ```cantrip
 procedure divide(numerator: f64, denominator: f64): f64
-    must denominator != 0.0;
+    must denominator != 0.0
 {
     numerator / denominator
 }
@@ -69,9 +69,9 @@ Postconditions specify what must be true after a procedure executes:
 
 ```cantrip
 procedure increment(counter: mut i32): i32
-    will result == @old(counter) + 1;
+    will result == @old(counter) + 1
 {
-    counter += 1;
+    counter += 1
     counter
 }
 ```
@@ -88,11 +88,11 @@ Type constraints specify invariants that must hold for all instances of a type:
 
 ```cantrip
 record Percentage {
-    value: i32;
+    value: i32
 
     where {
         value >= 0,
-        value <= 100,
+        value <= 100
     }
 }
 ```
@@ -109,7 +109,7 @@ record Percentage {
 
 ```cantrip
 procedure name<Generics>(params): ReturnType
-    uses effect1, effect2, ...;
+    uses effect1, effect2, ...
     must {
         precondition1,
         precondition2,
@@ -129,7 +129,7 @@ procedure name<Generics>(params): ReturnType
 
 ```cantrip
 record TypeName<Generics> {
-    fields;
+    fields
 
     where {
         constraint1,
@@ -187,15 +187,15 @@ Contracts compose naturally through procedure calls:
 
 ```cantrip
 procedure helper(x: i32): i32
-    must x > 0;
-    will result > x;
+    must x > 0
+    will result > x
 {
     x + 1
 }
 
 procedure caller(y: i32): i32
-    must y > 5;        // Implies y > 0
-    will result > y;    // Transitively > 5
+    must y > 5        // Implies y > 0
+    will result > y    // Transitively > 5
 {
     helper(y)              // helper's contracts apply
 }
@@ -259,8 +259,8 @@ Some contracts are decidable at compile time (e.g., effect checking, const gener
 procedure safe_divide(a: f64, b: f64): Result<f64, String>
     will match result {
         Ok(v) => v == a / b,
-        Err(_) => b == 0.0,
-    };
+        Err(_) => b == 0.0
+    }
 {
     if b == 0.0 {
         Err("Division by zero")
@@ -273,8 +273,8 @@ procedure safe_divide(a: f64, b: f64): Result<f64, String>
 **Example 2: Array bounds**
 ```cantrip
 procedure get<T>(arr: [T], index: usize): T
-    must index < arr.len();
-    will result == arr[index];
+    must index < arr.len()
+    will result == arr[index]
 {
     arr[index]  // Safe: precondition ensures bounds
 }
@@ -283,17 +283,17 @@ procedure get<T>(arr: [T], index: usize): T
 **Example 3: Sorted insertion**
 ```cantrip
 record SortedVec<T: Ord> {
-    elements: Vec<T>;
+    elements: Vec<T>
 
     where {
-        is_sorted(elements),
+        is_sorted(elements)
     }
 
     procedure insert(mut $, item: T)
-        will is_sorted($.elements);
+        will is_sorted($.elements)
     {
-        let pos = $.elements.binary_search(&item).unwrap_or_else(|e| e);
-        $.elements.insert(pos, item);
+        let pos = $.elements.binary_search(item).unwrap_or_else(|e| e)
+        $.elements.insert(pos, item)
         // Postcondition automatically checked
     }
 }
@@ -302,14 +302,14 @@ record SortedVec<T: Ord> {
 **Example 4: Effect composition**
 ```cantrip
 procedure read_config(path: String): Result<Config, Error>
-    uses io.read, alloc.heap;
+    uses io.read, alloc.heap
 {
-    let contents = std::fs::read_to_string(path)?;  // uses io.read
+    let contents = std::fs::read_to_string(path)?  // uses io.read
     parse_config(contents)                           // uses alloc.heap
 }
 
 procedure parse_config(json: String): Result<Config, Error>
-    uses alloc.heap;
+    uses alloc.heap
 {
     // Parse JSON into Config
     ...

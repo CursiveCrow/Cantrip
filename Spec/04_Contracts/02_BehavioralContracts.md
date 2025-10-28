@@ -36,13 +36,13 @@
 ```cantrip
 contract Drawable {
     procedure draw($)
-        uses io.write;           // Abstract requirement
+        uses io.write           // Abstract requirement
 
     procedure bounds($): Rectangle
         will {                  // Abstract guarantee
             result.width >= 0.0,
-            result.height >= 0.0,
-        };
+            result.height >= 0.0
+        }
 
     // NO IMPLEMENTATIONS - contracts are purely abstract
 }
@@ -52,12 +52,12 @@ contract Drawable {
 ```cantrip
 trait DefaultRenderable {
     procedure render($) {         // Concrete implementation
-        println!("Rendering default");
+        println("Rendering default")
     }
 
     procedure render_with_color($, color: Color) {  // Concrete template
-        $.set_color(color);
-        $.render();
+        $.set_color(color)
+        $.render()
     }
 
     // ALL PROCEDURES HAVE BODIES - traits are concrete templates
@@ -99,8 +99,8 @@ contract ContractName {
 **Example:**
 ```cantrip
 contract Drawable {
-    procedure draw($);
-    procedure bounds($): Rectangle;
+    procedure draw($)
+    procedure bounds($): Rectangle
 }
 ```
 
@@ -113,8 +113,8 @@ contract Comparable {
         will {
             (result < 0) == ($ < other),
             (result == 0) == ($ == other),
-            (result > 0) == ($ > other),
-        };
+            (result > 0) == ($ > other)
+        }
 }
 ```
 
@@ -122,11 +122,11 @@ contract Comparable {
 ```cantrip
 contract Serializable {
     procedure serialize($): Result<String, Error>
-        uses alloc.heap;
+        uses alloc.heap
 
     procedure deserialize(data: String): Result<Self, Error>
-        must !data.is_empty();
-        uses alloc.heap;
+        must !data.is_empty()
+        uses alloc.heap
 }
 ```
 
@@ -150,11 +150,11 @@ record TypeName: ContractName {
 **Example:**
 ```cantrip
 record Point: Drawable {
-    x: f64;
-    y: f64;
+    x: f64
+    y: f64
 
     procedure draw($) {
-        println!("Point at ({}, {})", $.x, $.y);
+        println("Point at ({}, {})", $.x, $.y)
     }
 
     procedure bounds($): Rectangle {
@@ -191,14 +191,14 @@ Valid iff:
 ```cantrip
 contract Validator {
     procedure validate($, value: i32): bool
-        must value >= 0;
-        will result => value < 100;
+        must value >= 0
+        will result => value < 100
 }
 
 record StrictValidator: Validator {
     procedure validate($, value: i32): bool
-        must value >= -10;          // Weaker (accepts more inputs)
-        will result => value < 50;   // Stronger (better guarantee)
+        must value >= -10          // Weaker (accepts more inputs)
+        will result => value < 50   // Stronger (better guarantee)
     {
         value >= -10 && value < 50
     }
@@ -221,12 +221,12 @@ contract SubContract extends SuperContract {
 **Example:**
 ```cantrip
 contract Displayable {
-    procedure display($);
+    procedure display($)
 }
 
 contract Interactive extends Displayable {
-    procedure handle_click($, x: i32, y: i32);
-    procedure handle_key($, key: char);
+    procedure handle_click($, x: i32, y: i32)
+    procedure handle_key($, key: char)
 }
 ```
 
@@ -236,15 +236,15 @@ Contracts can extend multiple contracts:
 
 ```cantrip
 contract Serializable {
-    procedure serialize($): String;
+    procedure serialize($): String
 }
 
 contract Comparable {
-    procedure compare($, other: Self): i32;
+    procedure compare($, other: Self): i32
 }
 
 contract Storable extends Serializable, Comparable {
-    procedure id($): u64;
+    procedure id($): u64
 }
 ```
 
@@ -264,28 +264,28 @@ record T: C₂ requires:
 ```cantrip
 contract Shape {
     procedure area($): f64
-        will result >= 0.0;
+        will result >= 0.0
 }
 
 contract ColoredShape extends Shape {
-    procedure color($): Color;
-    procedure set_color(mut $, c: Color);
+    procedure color($): Color
+    procedure set_color(mut $, c: Color)
 }
 
 record Circle: ColoredShape {
-    radius: f64;
-    color: Color;
+    radius: f64
+    color: Color
 
     // Must implement Shape's requirements
     procedure area($): f64
-        will result >= 0.0;
+        will result >= 0.0
     {
         std::f64::consts::PI * $.radius * $.radius
     }
 
     // Plus ColoredShape's requirements
     procedure color($): Color { $.color }
-    procedure set_color(mut $, c: Color) { $.color = c; }
+    procedure set_color(mut $, c: Color) { $.color = c }
 }
 ```
 
@@ -298,12 +298,12 @@ Any type implementing a contract can be used where that contract is required.
 **Type syntax:**
 ```cantrip
 procedure process_drawable<T>(d: T) where T: Drawable {
-    d.draw();
+    d.draw()
 }
 
 procedure process_drawables<T>(items: Vec<T>) where T: Drawable {
     for item in items {
-        item.draw();
+        item.draw()
     }
 }
 ```
@@ -314,13 +314,13 @@ Contract-based polymorphism uses static dispatch (monomorphization):
 
 ```cantrip
 contract Processor {
-    procedure process($, data: &[u8]): Result<Vec<u8>, Error>
-        uses alloc.heap;
+    procedure process($, data: [u8]): Result<Vec<u8>, Error>
+        uses alloc.heap
 }
 
 procedure batch_process<T: Processor>(
     processor: T,
-    datasets: Vec<&[u8]>
+    datasets: Vec<[u8]>
 ): Vec<Result<Vec<u8>, Error>> {
     datasets.map(|data| processor.process(data))
 }
@@ -333,15 +333,15 @@ Type parameters can be bounded by contracts:
 
 ```cantrip
 record Container<T> where T: Serializable {
-    items: Vec<T>;
+    items: Vec<T>
 
     procedure save($, path: String): Result<(), Error>
-        uses io.write, alloc.heap;
+        uses io.write, alloc.heap
     {
         let data = $.items
             .iter()
             .map(|item| item.serialize())
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<Vec<_>, _>>()?
         std::fs::write(path, data.join("\n"))
     }
 }
@@ -355,21 +355,21 @@ Contracts can declare associated types that implementations must specify.
 
 ```cantrip
 contract Iterator {
-    type Item;
+    type Item
 
-    procedure next(mut $): Option<Self::Item>;
+    procedure next(mut $): Option<Self::Item>
 }
 
 record Range: Iterator {
-    current: i32;
-    end: i32;
+    current: i32
+    end: i32
 
-    type Item = i32;
+    type Item = i32
 
     procedure next(mut $): Option<i32> {
         if $.current < $.end {
-            let result = $.current;
-            $.current += 1;
+            let result = $.current
+            $.current += 1
             Some(result)
         } else {
             None
@@ -382,60 +382,62 @@ record Range: Iterator {
 
 ```cantrip
 contract Container {
-    type Element where Element: Clone;
+    type Element where Element: Clone
 
-    procedure get($, index: usize): Option<Self::Element>;
-    procedure set(mut $, index: usize, value: Self::Element);
+    procedure get($, index: usize): Option<Self::Element>
+    procedure set(mut $, index: usize, value: Self::Element)
 }
 ```
 
-### 2.7 Contract Object Types
+### 2.7 Implementing Contracts with Different Types
 
-For runtime polymorphism, contracts can be used as object types (with dynamic dispatch).
-
-#### 2.7.1 Contract Object Syntax
+When you need to work with different types implementing the same contract, use enums for explicit, zero-cost polymorphism:
 
 ```cantrip
 contract Logger {
     procedure log($, message: String)
-        uses io.write;
+        uses io.write
+}
+
+record FileLogger {
+    path: String
+
+    procedure log($, message: String) uses io.write {
+        // Write to file
+    }
+}
+
+record ConsoleLogger {
+    procedure log($, message: String) uses io.write {
+        println("{}", message)
+    }
+}
+
+// Explicit, zero-cost polymorphism with enums
+enum AnyLogger {
+    File(FileLogger),
+    Console(ConsoleLogger),
 }
 
 record Application {
-    logger: Box<dyn Logger>;  // Runtime polymorphic
+    logger: AnyLogger  // Explicit, zero-cost
 
-    procedure log_event($, event: String) {
-        $.logger.log(event);  // Dynamic dispatch
+    procedure log_event($, event: String)
+        uses io.write
+    {
+        match $.logger {
+            AnyLogger.File(l) => l.log(event),
+            AnyLogger.Console(l) => l.log(event),
+        }
     }
 }
 ```
 
-#### 2.7.2 Object Safety
-
-Not all contracts can be used as object types. A contract is object-safe if:
-- No associated types
-- No generic procedures
-- Self type appears only in receiver position
-- No `where Self: Sized` bounds
-
-```cantrip
-// Object-safe
-contract Drawable {
-    procedure draw($);
-    procedure bounds($): Rectangle;
-}
-
-// NOT object-safe (has associated type)
-contract Iterator {
-    type Item;
-    procedure next(mut $): Option<Self::Item>;
-}
-
-// NOT object-safe (generic procedure)
-contract Container {
-    procedure add<T>($, item: T);
-}
-```
+**Why enums instead of dynamic dispatch:**
+- Zero runtime cost (no vtables or indirection)
+- Explicit (you see all possible types)
+- Exhaustive checking (compiler ensures all cases handled)
+- Aligns with Cantrip's "explicit over implicit" philosophy
 
 ### 2.8 Coherence and Orphan Rules
 
@@ -471,7 +473,7 @@ Generic implementations must not overlap:
 
 ```cantrip
 contract Debug {
-    procedure debug($): String;
+    procedure debug($): String
 }
 
 // Note: Blanket implementations require language support
@@ -522,16 +524,16 @@ Contracts can require implementers to also implement other contracts:
 
 ```cantrip
 contract Eq {
-    procedure eq($, other: Self): bool;
+    procedure eq($, other: Self): bool
 }
 
 contract Ord where Self: Eq {
-    procedure cmp($, other: Self): Ordering;
+    procedure cmp($, other: Self): Ordering
 }
 
 // To implement Ord, must also implement Eq
 record Priority: Eq, Ord {
-    value: i32;
+    value: i32
 
     procedure eq($, other: Self): bool {
         $.value == other.value
@@ -589,61 +591,61 @@ A comprehensive example showing contracts, extension, and polymorphism:
 // Base contract
 contract Drawable {
     procedure draw($)
-        uses io.write;
+        uses io.write
 
     procedure bounds($): Rectangle
         will {
             result.width >= 0.0,
-            result.height >= 0.0,
-        };
+            result.height >= 0.0
+        }
 }
 
 // Extended contract
 contract Transformable extends Drawable {
-    procedure translate(mut $, dx: f64, dy: f64);
+    procedure translate(mut $, dx: f64, dy: f64)
     procedure scale(mut $, factor: f64)
-        must factor > 0.0;
+        must factor > 0.0
 }
 
 // Record implementing extended contract
 record Circle: Transformable {
-    x: f64;
-    y: f64;
-    radius: f64;
+    x: f64
+    y: f64
+    radius: f64
 
     where {
-        radius > 0.0,
+        radius > 0.0
     }
 
     procedure draw($)
-        uses io.write;
+        uses io.write
     {
-        println!("Circle at ({}, {}) with radius {}", $.x, $.y, $.radius);
+        println("Circle at ({}, {}) with radius {}", $.x, $.y, $.radius)
     }
 
     procedure bounds($): Rectangle
         will {
             result.width >= 0.0,
-            result.height >= 0.0,
-        };
+            result.height >= 0.0
+        }
     {
         Rectangle {
             x: $.x - $.radius,
             y: $.y - $.radius,
             width: $.radius * 2.0,
-            height: $.radius * 2.0,
+            height: $.radius * 2.0
         }
     }
 
     procedure translate(mut $, dx: f64, dy: f64) {
-        $.x += dx;
-        $.y += dy;
+        $.x += dx
+        $.y += dy
     }
 
     procedure scale(mut $, factor: f64)
-        must factor > 0.0;
+        must factor > 0.0
     {
-        $.radius *= factor;
+        $.radius *= factor
     }
 }
 
@@ -652,9 +654,9 @@ procedure render_shapes<T>(shapes: Vec<T>)
     where T: Drawable
 {
     for shape in shapes {
-        shape.draw();
-        let bounds = shape.bounds();
-        println!("  Bounds: {}x{}", bounds.width, bounds.height);
+        shape.draw()
+        let bounds = shape.bounds()
+        println("  Bounds: {}x{}", bounds.width, bounds.height)
     }
 }
 
@@ -662,10 +664,10 @@ procedure render_shapes<T>(shapes: Vec<T>)
 procedure main() {
     let circles = vec![
         Circle { x: 0.0, y: 0.0, radius: 5.0 },
-        Circle { x: 10.0, y: 10.0, radius: 3.0 },
-    ];
+        Circle { x: 10.0, y: 10.0, radius: 3.0 }
+    ]
 
-    render_shapes(circles);  // Monomorphized for Circle
+    render_shapes(circles)  // Monomorphized for Circle
 }
 ```
 

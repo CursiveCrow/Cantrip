@@ -63,32 +63,32 @@ TraitList    ::= Ident ("," Ident)*
 // Trait providing concrete implementations
 trait Debug {
     procedure debug($): String
-        uses alloc.heap;
+        uses alloc.heap
     {
         format!("{}@{:p}", Self::type_name(), $)
     }
 
     procedure print_debug($)
-        uses io.write, alloc.heap;
+        uses io.write, alloc.heap
     {
-        println("{}", $.debug());
+        println("{}", $.debug())
     }
 }
 
 // Trait with required procedure
 trait Display
     must {
-        procedure fmt($): String;
+        procedure fmt($): String
     }
 {
     procedure display($)
-        uses io.write, alloc.heap;
+        uses io.write, alloc.heap
     {
-        println("{}", $.fmt());
+        println("{}", $.fmt())
     }
 
     procedure to_string($): String
-        uses alloc.heap;
+        uses alloc.heap
     {
         $.fmt()
     }
@@ -97,7 +97,7 @@ trait Display
 // Trait with generic Self
 trait Clone {
     procedure clone($): own Self
-        uses alloc.heap;
+        uses alloc.heap
     {
         // Generic clone implementation
         Self::deep_copy($)
@@ -106,8 +106,8 @@ trait Clone {
 
 // Record attaching traits
 record Point attach Debug, Clone {
-    x: f64;
-    y: f64;
+    x: f64
+    y: f64
 }
 
 // Point now has debug(), print_debug(), and clone() procedures
@@ -164,21 +164,21 @@ trait Identifiable {
 }
 
 record Counter attach Identifiable {
-    value: i32;
+    value: i32
 }
 
 // Usage
-let c1 = Counter { value: 0 };
-let c2 = Counter { value: 0 };
-println("{}", c1.id());              // 140736... (memory address)
-println("{}", c1.is_same(c2));      // false (different objects)
+let c1 = Counter { value: 0 }
+let c2 = Counter { value: 0 }
+println("{}", c1.id())              // 140736... (memory address)
+println("{}", c1.is_same(c2))      // false (different objects)
 ```
 
 **Example 2: Trait requiring procedures**
 ```cantrip
 trait Comparable
     must {
-        procedure compare($, other: Self): i32;
+        procedure compare($, other: Self): i32
     }
 {
     procedure less_than($, other: Self): bool {
@@ -195,8 +195,8 @@ trait Comparable
 }
 
 record Point attach Comparable {
-    x: i32;
-    y: i32;
+    x: i32
+    y: i32
 
     // Must provide required procedure
     procedure compare($, other: Self): i32 {
@@ -209,42 +209,42 @@ record Point attach Comparable {
 }
 
 // Usage
-let p1 = Point { x: 1, y: 2 };
-let p2 = Point { x: 3, y: 4 };
-println("{}", p1.less_than(p2));     // true (from trait)
-println("{}", p1.equals(p2));        // false (from trait)
+let p1 = Point { x: 1, y: 2 }
+let p2 = Point { x: 3, y: 4 }
+println("{}", p1.less_than(p2))     // true (from trait)
+println("{}", p1.equals(p2))        // false (from trait)
 ```
 
 **Example 3: Trait with effects**
 ```cantrip
 trait Serializable {
     procedure save($, path: String): Result<(), Error>
-        uses io.write, alloc.heap;
+        uses io.write, alloc.heap
     {
-        let data = $.to_json();
+        let data = $.to_json()
         std::fs::write(path, data)
     }
 
     procedure load(path: String): Result<own Self, Error>
-        uses io.read, alloc.heap;
+        uses io.read, alloc.heap
     {
-        let data = std::fs::read(path)?;
+        let data = std::fs::read(path)?
         Self::from_json(data)
     }
 }
 
 record Config attach Serializable {
-    host: String;
-    port: u16;
+    host: String
+    port: u16
 
     procedure to_json($): String
-        uses alloc.heap;
+        uses alloc.heap
     {
         format!("{{\"host\":\"{}\",\"port\":{}}}", $.host, $.port)
     }
 
     procedure from_json(json: String): own Self
-        uses alloc.heap;
+        uses alloc.heap
     {
         // Parse JSON and return Config
         ...
@@ -404,8 +404,8 @@ All trait procedure calls use static dispatch (no vtables):
 
 ```cantrip
 record T attach I { ... }
-let obj = T { ... };
-obj.m();  // Resolved at compile time to T's implementation
+let obj = T { ... }
+obj.m()  // Resolved at compile time to T's implementation
 ```
 
 **Property 6.2 (Zero-Cost Abstraction):**
@@ -457,7 +457,7 @@ Traits have **no runtime representation**. All trait procedures are monomorphize
 trait I { procedure m($): i32 { $.value + 1 } }
 
 record T attach I {
-    value: i32;
+    value: i32
 }
 
 Memory layout of T:
@@ -474,12 +474,12 @@ All trait procedure calls are resolved statically:
 
 ```cantrip
 // Source
-let obj = T { value: 5 };
-obj.m();
+let obj = T { value: 5 }
+obj.m()
 
 // After monomorphization (conceptual)
-let obj = T { value: 5 };
-T_m_from_I(obj);  // Direct function call
+let obj = T { value: 5 }
+T_m_from_I(obj)  // Direct function call
 
 // Compiled (pseudo-assembly)
 mov rdi, [obj]     ; load obj pointer
@@ -491,14 +491,14 @@ call T_m           ; direct call, no indirection
 ```cantrip
 // Source
 record Point attach Debug, Clone {
-    x: i32;
-    y: i32;
+    x: i32
+    y: i32
 }
 
 // Conceptual desugaring
 record Point {
-    x: i32;
-    y: i32;
+    x: i32
+    y: i32
 }
 
 // Debug trait procedures monomorphized for Point
@@ -516,23 +516,23 @@ procedure Point_clone(self: Point): own Point { ... }
 ```cantrip
 trait Incrementable {
     procedure increment(mut $) {
-        $.value += 1;
+        $.value += 1
     }
 
     procedure add(mut $, n: i32) {
         for _ in 0..n {
-            $.increment();
+            $.increment()
         }
     }
 }
 
 record Counter attach Incrementable {
-    value: i32;
+    value: i32
 }
 
 // Evaluation trace
-let mut c = Counter { value: 0 };
-c.add(3);
+let mut c = Counter { value: 0 }
+c.add(3)
 
 ⇝ Counter { value: 0 }
 ⇝ c.add(3) where add is from Incrementable
@@ -558,26 +558,26 @@ trait Debug {
     }
 
     procedure debug($): String
-        uses alloc.heap;
+        uses alloc.heap
     {
         format!("{}{{ ... }}", Self::type_name())
     }
 
     procedure print_debug($)
-        uses io.write, alloc.heap;
+        uses io.write, alloc.heap
     {
-        println!("{}", $.debug());
+        println("{}", $.debug())
     }
 }
 
 // Attach to any type
 record Config attach Debug {
-    host: String;
-    port: u16;
+    host: String
+    port: u16
 }
 
-let cfg = Config { host: "localhost", port: 8080 };
-cfg.print_debug();  // Output: Config{ ... }
+let cfg = Config { host: "localhost", port: 8080 }
+cfg.print_debug()  // Output: Config{ ... }
 ```
 
 #### 6.5.2 Builder Pattern Trait
@@ -585,7 +585,7 @@ cfg.print_debug();  // Output: Config{ ... }
 ```cantrip
 trait Builder
     must {
-        procedure new(): own Self;
+        procedure new(): own Self
     }
 {
     procedure with_default(): own Self {
@@ -593,18 +593,18 @@ trait Builder
     }
 
     procedure build_multiple(count: usize): Vec<own Self>
-        uses alloc.heap;
+        uses alloc.heap
     {
-        var result = Vec::with_capacity(count);
+        var result = Vec::with_capacity(count)
         for _ in 0..count {
-            result.push(Self::new());
+            result.push(Self::new())
         }
         result
     }
 }
 
 record Connection attach Builder {
-    socket: Socket;
+    socket: Socket
 
     procedure new(): own Self {
         own Self { socket: Socket::new() }
@@ -612,7 +612,7 @@ record Connection attach Builder {
 }
 
 // Usage
-let connections = Connection::build_multiple(10);
+let connections = Connection::build_multiple(10)
 ```
 
 #### 6.5.3 Default Values Trait
@@ -620,7 +620,7 @@ let connections = Connection::build_multiple(10);
 ```cantrip
 trait Default
     must {
-        procedure default(): own Self;
+        procedure default(): own Self
     }
 {
     procedure or_default(opt: Option<Self>): own Self {
@@ -638,7 +638,7 @@ trait Default
 }
 
 record Config attach Default {
-    max_connections: i32;
+    max_connections: i32
 
     procedure default(): own Self {
         own Self { max_connections: 100 }
@@ -646,8 +646,8 @@ record Config attach Default {
 }
 
 // Usage
-let cfg = Config::or_default(None);
-let cfgs: [Config; 5] = Config::array();
+let cfg = Config::or_default(None)
+let cfgs: [Config; 5] = Config::array()
 ```
 
 #### 6.5.4 Comparison Trait
@@ -655,7 +655,7 @@ let cfgs: [Config; 5] = Config::array();
 ```cantrip
 trait Comparable
     must {
-        procedure compare($, other: Self): i32;
+        procedure compare($, other: Self): i32
     }
 {
     procedure less_than($, other: Self): bool {
@@ -690,7 +690,7 @@ trait Comparable
 }
 
 record Score attach Comparable {
-    value: i32;
+    value: i32
 
     procedure compare($, other: Self): i32 {
         $.value - other.value
@@ -703,13 +703,13 @@ record Score attach Comparable {
 ```cantrip
 trait ToBytes
     must {
-        procedure to_bytes($): Vec<u8>;
+        procedure to_bytes($): Vec<u8>
     }
 {
     procedure to_hex($): String
-        uses alloc.heap;
+        uses alloc.heap
     {
-        let bytes = $.to_bytes();
+        let bytes = $.to_bytes()
         bytes.iter()
             .map(|b| format!("{:02x}", b))
             .collect()
@@ -721,10 +721,10 @@ trait ToBytes
 }
 
 record Message attach ToBytes {
-    data: String;
+    data: String
 
     procedure to_bytes($): Vec<u8>
-        uses alloc.heap;
+        uses alloc.heap
     {
         $.data.as_bytes().to_vec()
     }
@@ -740,20 +740,20 @@ Traits can use other traits:
 ```cantrip
 trait Display {
     procedure to_string($): String
-        uses alloc.heap;
+        uses alloc.heap
 }
 
 trait Loggable
     must {
-        procedure level($): LogLevel;
+        procedure level($): LogLevel
     }
 {
     // Can require that Self has Display
     procedure log($)
         where Self: Display
-        uses io.write, alloc.heap;
+        uses io.write, alloc.heap
     {
-        println!("[{}] {}", $.level(), $.to_string());
+        println("[{}] {}", $.level(), $.to_string())
     }
 }
 ```
@@ -764,7 +764,7 @@ Traits can be generic:
 
 ```cantrip
 trait Convertible<T> {
-    procedure convert($): T;
+    procedure convert($): T
 
     procedure try_convert($): Result<T, String> {
         Ok($.convert())
@@ -772,10 +772,10 @@ trait Convertible<T> {
 }
 
 record Number attach Convertible<String> {
-    value: i32;
+    value: i32
 
     procedure convert($): String
-        uses alloc.heap;
+        uses alloc.heap
     {
         $.value.to_string()
     }
@@ -790,10 +790,10 @@ Procedures can have trait bounds:
 trait Container {
     procedure print_all($)
         where Self: Iterator, Self::Item: Display
-        uses io.write, alloc.heap;
+        uses io.write, alloc.heap
     {
         for item in $ {
-            println!("{}", item.to_string());
+            println("{}", item.to_string())
         }
     }
 }
@@ -816,20 +816,20 @@ trait Container {
 ```cantrip
 // Protocol (abstract contract)
 protocol Drawable {
-    procedure draw($, canvas: Canvas);
-    procedure bounds($): Rectangle;
+    procedure draw($, canvas: Canvas)
+    procedure bounds($): Rectangle
 }
 
 // Trait (concrete implementation)
 trait Cacheable
     must {
-        procedure compute_hash($): u64;
+        procedure compute_hash($): u64
     }
 {
     procedure with_cache($, cache: mut Cache): Result<T> {
-        let hash = $.compute_hash();
+        let hash = $.compute_hash()
         if let Some(cached) = cache.get(hash) {
-            return Ok(cached);
+            return Ok(cached)
         }
         // ... compute and cache
     }

@@ -30,7 +30,8 @@
 - **UTF-32 encoding**: Each `char` is 4 bytes (one Unicode scalar value)
 - **No type inference**: Character literals always have type `char`
 - **Unicode correctness**: Surrogate pairs (U+D800-U+DFFF) are invalid
-- **Copy semantics**: `char` is a `Copy` type
+- **Copy trait**: `char` implements `Copy` (can be explicitly copied)
+- **Parameter passing**: Characters pass by permission like all types (no automatic copying)
 
 ### 5.4.2 Syntax
 
@@ -51,13 +52,13 @@ UnicodeEscape ::= "\\u{" HexDigit+ "}"
 
 **Examples:**
 ```cantrip
-let letter: char = 'A';           // U+0041 (Latin capital A)
-let emoji: char = '🚀';            // U+1F680 (Rocket)
-let chinese: char = '中';          // U+4E2D (Chinese character)
-let null_char: char = '\0';       // U+0000 (null character, valid!)
-let tab: char = '\t';             // U+0009 (tab)
-let newline: char = '\n';         // U+000A (line feed)
-let unicode: char = '\u{1F600}';  // U+1F600 (grinning face emoji)
+let letter: char = 'A'           // U+0041 (Latin capital A)
+let emoji: char = '🚀'            // U+1F680 (Rocket)
+let chinese: char = '中'          // U+4E2D (Chinese character)
+let null_char: char = '\0'       // U+0000 (null character, valid!)
+let tab: char = '\t'             // U+0009 (tab)
+let newline: char = '\n'         // U+000A (line feed)
+let unicode: char = '\u{1F600}'  // U+1F600 (grinning face emoji)
 ```
 
 #### Abstract Syntax
@@ -97,8 +98,8 @@ c ∈ [U+0000, U+D7FF] ∪ [U+E000, U+10FFFF]
 **No type inference:** Character literals always have type `char` with no context sensitivity:
 
 ```cantrip
-let c1 = 'A';           // Type: char (no inference needed)
-let c2: char = '🚀';    // Type: char (explicit annotation)
+let c1 = 'A'           // Type: char (no inference needed)
+let c2: char = '🚀'    // Type: char (explicit annotation)
 // No suffixes or context variations like integers
 ```
 
@@ -132,13 +133,16 @@ size(char) = 4 bytes
 align(char) = 4 bytes
 ```
 
-**Theorem 5.4.3 (Copy Semantics):**
+**Theorem 5.4.3 (Copy Capability):**
 
 ```
 char : Copy
 ```
 
-Characters are always copied, never moved.
+**Semantics:**
+- Characters pass by permission (reference-like) by default
+- The `.copy()` method creates an explicit duplicate when needed
+- Fixed 4-byte size makes copying inexpensive when explicitly requested
 
 ### 5.4.4 Dynamic Semantics
 
@@ -215,11 +219,11 @@ Character comparison uses Unicode scalar value ordering:
 Characters can be converted to/from `u32` representing the Unicode codepoint:
 
 ```cantrip
-let c: char = 'A';
-let code: u32 = c as u32;                // 65 (U+0041)
+let c: char = 'A'
+let code: u32 = c as u32                // 65 (U+0041)
 
-let valid: char = char::from_u32(65).unwrap();      // 'A'
-let invalid: Option<char> = char::from_u32(0xD800); // None (surrogate)
+let valid: char = char::from_u32(65).unwrap()      // 'A'
+let invalid: Option<char> = char::from_u32(0xD800) // None (surrogate)
 ```
 
 **Type rules for conversions:**
@@ -316,12 +320,12 @@ assert_eq!(to_uppercase_unicode('i'), 'I');  // But Turkish would be İ
 **Iterating over string characters:**
 ```cantrip
 function count_vowels(text: str): usize {
-    let mut count = 0;
+    let mut count = 0
     for ch in text.chars() {
         match ch {
             'a' | 'e' | 'i' | 'o' | 'u' |
-            'A' | 'E' | 'I' | 'O' | 'U' -> count += 1,
-            _ -> {},
+            'A' | 'E' | 'I' | 'O' | 'U' => count += 1,
+            _ => {}
         }
     }
     count
@@ -337,8 +341,8 @@ function first_uppercase(text: str): Option<char> {
 **Working with codepoints:**
 ```cantrip
 function codepoint_range(start: char, end: char): Vec<char> {
-    let start_code = start as u32;
-    let end_code = end as u32;
+    let start_code = start as u32
+    let end_code = end as u32
 
     (start_code..=end_code)
         .filter_map(|code| char::from_u32(code))
@@ -346,11 +350,11 @@ function codepoint_range(start: char, end: char): Vec<char> {
 }
 
 // Generate ASCII letters
-let lowercase = codepoint_range('a', 'z');
-assert_eq!(lowercase.len(), 26);
+let lowercase = codepoint_range('a', 'z')
+assert_eq!(lowercase.len(), 26)
 
 function is_emoji(ch: char): bool {
-    let code = ch as u32;
+    let code = ch as u32
     // Simplified emoji range check
     (code >= 0x1F600 && code <= 0x1F64F) ||  // Emoticons
     (code >= 0x1F300 && code <= 0x1F5FF) ||  // Misc Symbols and Pictographs
@@ -364,21 +368,21 @@ function is_emoji(ch: char): bool {
 ```cantrip
 function classify_char(ch: char): str {
     match ch {
-        'a'..='z' -> "lowercase letter",
-        'A'..='Z' -> "uppercase letter",
-        '0'..='9' -> "digit",
-        ' ' | '\t' | '\n' | '\r' -> "whitespace",
-        '!' | '?' | '.' | ',' -> "punctuation",
-        _ -> "other",
+        'a'..='z' => "lowercase letter",
+        'A'..='Z' => "uppercase letter",
+        '0'..='9' => "digit",
+        ' ' | '\t' | '\n' | '\r' => "whitespace",
+        '!' | '?' | '.' | ',' => "punctuation",
+        _ => "other"
     }
 }
 
 function hex_to_digit(ch: char): Option<u8> {
     match ch {
-        '0'..='9' -> Some((ch as u32 - '0' as u32) as u8),
-        'a'..='f' -> Some((ch as u32 - 'a' as u32 + 10) as u8),
-        'A'..='F' -> Some((ch as u32 - 'A' as u32 + 10) as u8),
-        _ -> None,
+        '0'..='9' => Some((ch as u32 - '0' as u32) as u8),
+        'a'..='f' => Some((ch as u32 - 'a' as u32 + 10) as u8),
+        'A'..='F' => Some((ch as u32 - 'A' as u32 + 10) as u8),
+        _ => None
     }
 }
 ```
@@ -389,32 +393,32 @@ function hex_to_digit(ch: char): Option<u8> {
 
 ```cantrip
 // char: Single Unicode scalar value
-let char_e_acute: char = 'é';  // U+00E9 (single codepoint)
+let char_e_acute: char = 'é'  // U+00E9 (single codepoint)
 
 // Grapheme: User-perceived character (may be multiple codepoints)
-let grapheme_e_acute: str = "é";  // Could be U+0065 + U+0301 (e + combining acute)
+let grapheme_e_acute: str = "é"  // Could be U+0065 + U+0301 (e + combining acute)
 
 // Byte: Raw UTF-8 byte
-let bytes: [u8] = "é".as_bytes();  // [0xC3, 0xA9] in UTF-8
+let bytes: [u8] = "é".as_bytes()  // [0xC3, 0xA9] in UTF-8
 
 // Important: char != byte count
-let rocket: char = '🚀';           // 4 bytes UTF-32, single char
-let rocket_str: str = "🚀";        // 4 bytes UTF-8 encoding
-assert_eq!(rocket_str.len(), 4);   // Byte length
-assert_eq!(rocket_str.chars().count(), 1);  // Character count
+let rocket: char = '🚀'           // 4 bytes UTF-32, single char
+let rocket_str: str = "🚀"        // 4 bytes UTF-8 encoding
+assert_eq!(rocket_str.len(), 4)   // Byte length
+assert_eq!(rocket_str.chars().count(), 1)  // Character count
 ```
 
 **When char is insufficient:**
 
 ```cantrip
 // Combining characters (grapheme clusters)
-let flag: str = "🇺🇸";  // Two chars: U+1F1FA + U+1F1F8 (regional indicators)
-assert_eq!(flag.chars().count(), 2);  // Two scalar values
+let flag: str = "🇺🇸"  // Two chars: U+1F1FA + U+1F1F8 (regional indicators)
+assert_eq!(flag.chars().count(), 2)  // Two scalar values
 // Use grapheme library for user-perceived character count
 
 // Emoji with skin tone modifiers
-let hand: str = "👋🏽";  // Two chars: U+1F44B + U+1F3FD
-assert_eq!(hand.chars().count(), 2);
+let hand: str = "👋🏽"  // Two chars: U+1F44B + U+1F3FD
+assert_eq!(hand.chars().count(), 2)
 ```
 
 ---

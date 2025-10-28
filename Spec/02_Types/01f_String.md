@@ -5,7 +5,7 @@
 
 ---
 
-**Definition 5.6.1 (String Type):** The String type is a heap-allocated, growable record type containing a sequence of UTF-8 encoded Unicode scalar values. It is defined as `record String { data: own Vec<u8>; }` with the invariant that `data` contains only valid UTF-8 byte sequences.
+**Definition 5.6.1 (String Type):** The String type is a heap-allocated, growable record type containing a sequence of UTF-8 encoded Unicode scalar values. It is defined as `record String { data: own Vec<u8> }` with the invariant that `data` contains only valid UTF-8 byte sequences.
 
 ## 5.6 String Type
 
@@ -64,12 +64,12 @@ IsolatedString ::= "iso" "String"
 **Examples:**
 ```cantrip
 // Type annotations
-let message: own String = String.new();
-let greeting: String = "hello";          // ERROR: type mismatch (str vs String)
+let message: own String = String.new()
+let greeting: String = "hello"          // ERROR: type mismatch (str vs String)
 
 // String construction
-let empty: own String = String.new();
-let from_literal: own String = String.from("hello");
+let empty: own String = String.new()
+let from_literal: own String = String.from("hello")
 
 // Permission annotations
 function read_only(text: String) { ... }         // Immutable reference
@@ -95,7 +95,7 @@ function consume(own text: String) { ... }       // Takes ownership
     | iso String                                (isolated String)
 
 String = record {
-    data: own Vec<u8>;                          (UTF-8 byte vector)
+    data: own Vec<u8>                          (UTF-8 byte vector)
 }
 ```
 
@@ -135,13 +135,13 @@ where continuation(b) ⟺ b ∈ [0x80, 0xBF]
 **Creating strings:**
 ```cantrip
 // Empty string
-let empty: own String = String.new();
-assert!(empty.is_empty());
-assert!(empty.length() == 0);
+let empty: own String = String.new()
+assert!(empty.is_empty())
+assert!(empty.length() == 0)
 
 // From string literal
-let greeting: own String = String.from("Hello, world!");
-assert!(greeting.length() == 13);  // Length in bytes
+let greeting: own String = String.from("Hello, world!")
+assert!(greeting.length() == 13)  // Length in bytes
 ```
 
 **Explanation:** Strings are created either empty with `String.new()` or from a string literal using `String.from()`. Both require `uses alloc.heap;` effect permission.
@@ -150,14 +150,14 @@ assert!(greeting.length() == 13);  // Length in bytes
 ```cantrip
 function display(text: String)           // Immutable reference
 {
-    let len = text.length();             // Read-only operations
-    // text.push_str(" more");           // ERROR: cannot mutate
+    let len = text.length()             // Read-only operations
+    // text.push_str(" more")           // ERROR: cannot mutate
 }
 
 function append_suffix(text: mut String)  // Mutable reference
-    uses alloc.heap;
+    uses alloc.heap
 {
-    text.push_str(" - end");             // Can modify
+    text.push_str(" - end")             // Can modify
 }
 
 function take_ownership(own text: String) // Owned
@@ -165,10 +165,10 @@ function take_ownership(own text: String) // Owned
     // text is freed when function returns
 }
 
-let message: own String = String.from("start");
-display(message);                        // Pass by reference
-append_suffix(mut message);              // Pass mutable reference
-take_ownership(move message);            // Transfer ownership
+let message: own String = String.from("start")
+display(message)                        // Pass by reference
+append_suffix(mut message)              // Pass mutable reference
+take_ownership(move message)            // Transfer ownership
 // message no longer accessible
 ```
 
@@ -176,14 +176,14 @@ take_ownership(move message);            // Transfer ownership
 
 **Basic operations:**
 ```cantrip
-let mut text: own String = String.from("Hello");
+let mut text: own String = String.from("Hello")
 
 // Query operations
-let len: usize = text.length();          // 5 bytes
-let empty: bool = text.is_empty();       // false
+let len: usize = text.length()          // 5 bytes
+let empty: bool = text.is_empty()       // false
 
 // Modification (requires mut reference and alloc.heap)
-text.push_str(", world!");               // "Hello, world!"
+text.push_str(", world!")               // "Hello, world!"
 ```
 
 **Explanation:** String provides methods for querying length and emptiness, and for growing the string by appending more text. Modification must both a mutable reference and the `alloc.heap` effect permission.
@@ -249,7 +249,7 @@ valid_utf8(lit) = true
 **Example:**
 ```cantrip
 function create_greeting(): own String
-    uses alloc.heap;
+    uses alloc.heap
 {
     String.from("Hello, World!")
     // Type: own String (heap-allocated copy)
@@ -269,7 +269,7 @@ function create_greeting(): own String
 **Example:**
 ```cantrip
 function create_buffer(): own String
-    uses alloc.heap;
+    uses alloc.heap
 {
     String.new()  // Empty string, capacity may be 0 or small
 }
@@ -290,7 +290,7 @@ valid_utf8(data) = true
 **Example:**
 ```cantrip
 function duplicate(text: str): own String
-    uses alloc.heap;
+    uses alloc.heap
 {
     String.from(text)  // Heap-allocated copy
 }
@@ -310,9 +310,9 @@ method m has signature (String, T₁, ..., Tₙ) → U ! ε
 
 **Example:**
 ```cantrip
-let s: own String = String.from("hello");
-let n: usize = s.len();        // Method: len(self: String): usize
-let empty: bool = s.is_empty(); // Method: is_empty(self: String): bool
+let s: own String = String.from("hello")
+let n: usize = s.len()        // Method: len(self: String): usize
+let empty: bool = s.is_empty() // Method: is_empty(self: String): bool
 ```
 
 **[T-String-Mut-Method]** - Mutable string method:
@@ -330,10 +330,10 @@ method m has signature (mut String, T₁, ..., Tₙ) → U ! ε
 **Example:**
 ```cantrip
 function append_text(text: str): own String
-    uses alloc.heap;
+    uses alloc.heap
 {
-    var s = String.new();
-    s.push_str(text);  // Mutates s (requires mut String)
+    var s = String.new()
+    s.push_str(text)  // Mutates s (requires mut String)
     move s
 }
 ```
@@ -355,11 +355,11 @@ function print(text: String) {
 }
 
 function example()
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let msg: own String = String.from("data");
-    print(msg);  // Passes immutable reference (own String <: String)
-    print(msg);  // msg still owned here
+    let msg: own String = String.from("data")
+    print(msg)  // Passes immutable reference (own String <: String)
+    print(msg)  // msg still owned here
     // msg destroyed at end of scope
 }
 ```
@@ -383,12 +383,12 @@ function consume(own s: String) {
 }
 
 function example()
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let s1: own String = String.from("text");
-    let s2: own String = move s1;  // Transfer ownership
+    let s1: own String = String.from("text")
+    let s2: own String = move s1  // Transfer ownership
     // s1 no longer accessible
-    consume(move s2);  // Transfer to function
+    consume(move s2)  // Transfer to function
 }
 ```
 
@@ -407,12 +407,12 @@ String does NOT implement the Copy trait. Assignment and parameter passing trans
 
 **Example:**
 ```cantrip
-let s1: own String = String.from("hello");
-let s2: own String = move s1;  // Explicit move required
+let s1: own String = String.from("hello")
+let s2: own String = move s1  // Explicit move required
 // s1 no longer accessible
 
 // Copying would require:
-let s3: own String = s2.clone();  // Explicit clone for deep copy
+let s3: own String = s2.clone()  // Explicit clone for deep copy
 ```
 
 **Theorem 5.6.2 (UTF-8 Invariant Preservation):**
@@ -461,20 +461,20 @@ String interacts with the permission system as follows:
 **Example:**
 ```cantrip
 function permissions_demo()
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let s: own String = String.from("base");
+    let s: own String = String.from("base")
 
     // Immutable reference
-    let len: usize = s.len();  // OK: s implicitly borrowed as String
+    let len: usize = s.len()  // OK: s implicitly borrowed as String
 
     // Mutable reference
-    var s_mut = s;  // s_mut has type own String
-    s_mut.push_str(" text");  // OK: can mutate owned string
+    var s_mut = s  // s_mut has type own String
+    s_mut.push_str(" text")  // OK: can mutate owned string
 
     // Multiple mut refs (allowed in Cantrip!)
-    let ref1 = mut s_mut;
-    let ref2 = mut s_mut;
+    let ref1 = mut s_mut
+    let ref2 = mut s_mut
     // Programmer responsible for safe usage
 }
 ```
@@ -522,16 +522,16 @@ function accepts_slice(text: str) {
 }
 
 function example()
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let owned: own String = String.from("data");
+    let owned: own String = String.from("data")
 
     // String can be passed where str expected (deref coercion)
-    accepts_slice(owned);  // OK: String → str
+    accepts_slice(owned)  // OK: String → str
 
     // str to String must allocation
-    let slice: str = "literal";
-    let owned2: own String = String.from(slice);  // Allocates
+    let slice: str = "literal"
+    let owned2: own String = String.from(slice)  // Allocates
 }
 ```
 
@@ -557,10 +557,10 @@ block { ... }
 **Example:**
 ```cantrip
 function automatic_cleanup()
-    uses alloc.heap;
+    uses alloc.heap
 {
     {
-        let temp: own String = String.from("temporary");
+        let temp: own String = String.from("temporary")
         // Use temp
     } // temp.ptr deallocated here automatically
 
@@ -767,8 +767,8 @@ String { ptr: ─┘, len: used_bytes, cap: total_allocated }
 
 **Example:**
 ```cantrip
-let mut s: own String = String.new();  // Allocate with DEFAULT_CAP
-s.push_str("Hello");                   // Append 5 bytes
+let mut s: own String = String.new()  // Allocate with DEFAULT_CAP
+s.push_str("Hello")                   // Append 5 bytes
 
 Heap state:
 ┌─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┐
@@ -865,10 +865,10 @@ Owned strings (`own String`) are automatically deallocated when their owner's sc
 
 ```cantrip
 function example()
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let s: own String = String.new();  // Allocate heap buffer
-    s.push_str("data");                // Append data (may realloc)
+    let s: own String = String.new()  // Allocate heap buffer
+    s.push_str("data")                // Append data (may realloc)
     // Automatic deallocation occurs here
 }
 ```
@@ -903,14 +903,14 @@ Region guarantees:
 **Example:**
 ```cantrip
 function process(s1: mut String, s2: mut String)
-    uses alloc.heap;
+    uses alloc.heap
 {
-    s1.push_str("A");
-    s2.push_str("B");  // OK: multiple mutable references allowed
+    s1.push_str("A")
+    s2.push_str("B")  // OK: multiple mutable references allowed
 }
 
-let mut owner: own String = String.new();
-process(owner, owner);  // OK in Cantrip (unlike Rust)
+let mut owner: own String = String.new()
+process(owner, owner)  // OK in Cantrip (unlike Rust)
                         // Regions ensure owner outlives both references
 ```
 
@@ -1018,27 +1018,27 @@ Bits:         21 bits for codepoint (3 + 6 + 6 + 6)
 
 1. **String literals (compiler validated):**
    ```cantrip
-   let s = "Hello, �,-�O";  // Compiler will UTF-8 validity
+   let s = "Hello, �,-�O"  // Compiler will UTF-8 validity
    ```
 
 2. **String.new() (creates empty valid string):**
    ```cantrip
-   let s = String.new();  // Empty string is trivially valid UTF-8
+   let s = String.new()  // Empty string is trivially valid UTF-8
    ```
 
 3. **String.from_utf8() (validates or errors):**
    ```cantrip
-   let s = String.from_utf8(bytes)?;  // Returns Err if invalid
+   let s = String.from_utf8(bytes)?  // Returns Err if invalid
    ```
 
 4. **push_str(valid_string) (concatenation preserves validity):**
    ```cantrip
-   s1.push_str(s2);  // If s1 and s2 valid, result is valid
+   s1.push_str(s2)  // If s1 and s2 valid, result is valid
    ```
 
 5. **Slicing at character boundaries:**
    ```cantrip
-   let slice = s[0..5];  // Panics if not at char boundary
+   let slice = s[0..5]  // Panics if not at char boundary
    ```
 
 **Theorem 5.6.5 (UTF-8 Invariant Preservation):**
@@ -1209,13 +1209,13 @@ is_continuation(byte: u8) → bool:
 
 ```cantrip
 function String.from_utf8(bytes: [u8]): Result<own String, Utf8Error>
-    uses alloc.heap;
+    uses alloc.heap
 {
     if validate_utf8(bytes) {
-        let mut s = String.new();
-        s.reserve(bytes.len);
-        memcpy(s.ptr, bytes.ptr, bytes.len);
-        s.len = bytes.len;
+        let mut s = String.new()
+        s.reserve(bytes.len)
+        memcpy(s.ptr, bytes.ptr, bytes.len)
+        s.len = bytes.len
         Ok(s)
     } else {
         Err(Utf8Error::InvalidSequence)
@@ -1230,13 +1230,13 @@ Unsafe operations bypass validation and place the burden on the programmer:
 ```cantrip
 // UNSAFE: Programmer must ensure `bytes` contains valid UTF-8
 function String.from_utf8_unchecked(bytes: [u8]): own String
-    uses alloc.heap, unsafe.memory;
+    uses alloc.heap, unsafe.memory
 {
     // No validation performed
-    let mut s = String.new();
-    s.reserve(bytes.len);
-    memcpy(s.ptr, bytes.ptr, bytes.len);
-    s.len = bytes.len;
+    let mut s = String.new()
+    s.reserve(bytes.len)
+    memcpy(s.ptr, bytes.ptr, bytes.len)
+    s.len = bytes.len
     s
 }
 ```
@@ -1289,11 +1289,11 @@ function String.chars(self: String): CharIterator {
 impl Iterator<char> for CharIterator {
     function next(mut self): Option<char> {
         if self.ptr >= self.end {
-            return None;
+            return None
         }
 
-        let (ch, byte_len) = decode_utf8_char(self.ptr);
-        self.ptr += byte_len;
+        let (ch, byte_len) = decode_utf8_char(self.ptr)
+        self.ptr += byte_len
         Some(ch)
     }
 }
@@ -1331,7 +1331,7 @@ decode_utf8_char(ptr: *u8) → (char, usize):
 
 **Example:**
 ```cantrip
-let s = "A©中🦀";
+let s = "A©中🦀"
 for ch in s.chars() {
     // Yields: 'A', '©', '中', '🦀'
 }
@@ -1386,22 +1386,22 @@ function compare(s1: String, s2: String): bool {
 **Operations prohibited:**
 ```cantrip
 function illegal_modify(s: String) {
-    s.push_str("!");     // ERROR E3002: Cannot modify immutable reference
-    s.clear();           // ERROR E3002: Cannot modify immutable reference
+    s.push_str("!")     // ERROR E3002: Cannot modify immutable reference
+    s.clear()           // ERROR E3002: Cannot modify immutable reference
 }
 ```
 
 **Example - Multiple references allowed:**
 ```cantrip
 function process_multiple(text: String)
-    uses io.write;
+    uses io.write
 {
-    let len1 = get_length(text);      // OK: first reference
-    let len2 = get_length(text);      // OK: can pass again
-    compare(text, text);              // OK: two references simultaneously
+    let len1 = get_length(text)      // OK: first reference
+    let len2 = get_length(text)      // OK: can pass again
+    compare(text, text)              // OK: two references simultaneously
 
     // text still accessible here
-    std.io.println(text);
+    std.io.println(text)
 }
 ```
 
@@ -1432,26 +1432,26 @@ Aliasing: Unlimited
 **Operations allowed:**
 ```cantrip
 function modify_string(s: mut String) {
-    s.push_str("!");           // OK: can append
-    s.clear();                 // OK: can clear
-    s[0] = 'X';                // OK: can modify bytes (if valid UTF-8)
-    let len = s.len();         // OK: can also read
+    s.push_str("!")           // OK: can append
+    s.clear()                 // OK: can clear
+    s[0] = 'X'                // OK: can modify bytes (if valid UTF-8)
+    let len = s.len()         // OK: can also read
 }
 ```
 
 **Example - Basic mutation:**
 ```cantrip
 function append_exclamation(s: mut String) {
-    s.push_str("!");
+    s.push_str("!")
 }
 
 function example()
-    uses alloc.heap;
+    uses alloc.heap
 {
-    var text: own String = String.from("Hello");
-    append_exclamation(mut text);
+    var text: own String = String.from("Hello")
+    append_exclamation(mut text)
     // text now contains "Hello!"
-    std.io.println(text);  // Prints: Hello!
+    std.io.println(text)  // Prints: Hello!
 }
 ```
 
@@ -1459,21 +1459,21 @@ function example()
 
 ```cantrip
 function modify1(s: mut String) {
-    s.push_str(" world");
+    s.push_str(" world")
 }
 
 function modify2(s: mut String) {
-    s.push_str("!");
+    s.push_str("!")
 }
 
 function example()
-    uses alloc.heap;
+    uses alloc.heap
 {
-    var text: own String = String.from("Hello");
+    var text: own String = String.from("Hello")
 
     // Both allowed simultaneously - NO borrow checker
-    modify1(mut text);
-    modify2(mut text);
+    modify1(mut text)
+    modify2(mut text)
 
     // Result: "Hello world!"
     // Programmer must ensure correct ordering!
@@ -1484,12 +1484,12 @@ function example()
 ```cantrip
 // UNSAFE PATTERN - Programmer's responsibility to avoid!
 function dangerous_pattern()
-    uses alloc.heap;
+    uses alloc.heap
 {
-    var text: own String = String.from("data");
+    var text: own String = String.from("data")
 
-    let ref1: mut String = mut text;
-    let ref2: mut String = mut text;
+    let ref1: mut String = mut text
+    let ref2: mut String = mut text
 
     // Both ref1 and ref2 can modify - could cause bugs
     // Cantrip allows this, but programmer must be careful!
@@ -1525,13 +1525,13 @@ Lifetime: Lexical scope
 **Operations - Full control:**
 ```cantrip
 function example()
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let s: own String = String.new();
+    let s: own String = String.new()
 
-    s.push_str("data");     // Can modify (owner has all rights)
-    let len = s.len();      // Can read
-    consume(move s);        // Can transfer ownership
+    s.push_str("data")     // Can modify (owner has all rights)
+    let len = s.len()      // Can read
+    consume(move s)        // Can transfer ownership
     // s no longer accessible here
 }
 ```
@@ -1539,11 +1539,11 @@ function example()
 **Creating owned strings:**
 ```cantrip
 function create_greeting(): own String
-    uses alloc.heap;
+    uses alloc.heap
 {
-    var s: own String = String.new();
-    s.push_str("Hello, ");
-    s.push_str("World!");
+    var s: own String = String.new()
+    s.push_str("Hello, ")
+    s.push_str("World!")
     s  // Return ownership to caller
 }
 ```
@@ -1551,10 +1551,10 @@ function create_greeting(): own String
 **Automatic destruction:**
 ```cantrip
 function auto_cleanup()
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let temp: own String = String.from("temporary");
-    temp.push_str(" data");
+    let temp: own String = String.from("temporary")
+    temp.push_str(" data")
     // temp automatically freed here (no explicit drop needed)
 }
 ```
@@ -1562,17 +1562,17 @@ function auto_cleanup()
 **Move semantics:**
 ```cantrip
 function consume_string(text: own String) {
-    std.io.println(text);
+    std.io.println(text)
     // text destroyed here
 }
 
 function example()
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let message: own String = String.from("Hello");
+    let message: own String = String.from("Hello")
 
-    consume_string(move message);  // Explicit transfer
-    // message.len();  // ERROR E3004: Value moved
+    consume_string(move message)  // Explicit transfer
+    // message.len()  // ERROR E3004: Value moved
 }
 ```
 
@@ -1596,38 +1596,38 @@ own String <: mut String <: String
 **Explicit transitions:**
 
 ```cantrip
-let s: own String = String.from("data");
+let s: own String = String.from("data")
 
 // 1. Pass as immutable reference (keep ownership)
-read(s);           // s: String (reference)
+read(s)           // s: String (reference)
 
 // 2. Pass as mutable reference (keep ownership)
-modify(mut s);     // s: mut String (mutable reference)
+modify(mut s)     // s: mut String (mutable reference)
 
 // 3. Transfer ownership (lose access)
-consume(move s);   // s: own String (moved)
+consume(move s)   // s: own String (moved)
 // s no longer accessible
 ```
 
 **Complex example showing all transitions:**
 ```cantrip
 function demonstrate_permissions()
-    uses alloc.heap, io.write;
+    uses alloc.heap, io.write
 {
-    var text: own String = String.from("initial");
+    var text: own String = String.from("initial")
 
     // Transition 1: own → reference (temporary, keep ownership)
-    let len1 = get_length(text);
-    std.io.println(format!("Length: {}", len1));
+    let len1 = get_length(text)
+    std.io.println(format!("Length: {}", len1))
 
     // Transition 2: own → mut reference (temporary, keep ownership)
-    append_data(mut text);
+    append_data(mut text)
 
     // Transition 3: own → reference again
-    let len2 = get_length(text);
+    let len2 = get_length(text)
 
     // Transition 4: own → own (permanent move)
-    send_to_logger(move text);
+    send_to_logger(move text)
 
     // text no longer accessible
 }
@@ -1641,9 +1641,9 @@ function demonstrate_permissions()
 ```cantrip
 function safe_example(): String {
     region temp {
-        let s = String.new_in<temp>();
-        s.push_str("data");
-        // return s;  // ERROR E8301: Cannot escape region
+        let s = String.new_in<temp>()
+        s.push_str("data")
+        // return s  // ERROR E8301: Cannot escape region
     }
 }
 ```
@@ -1651,20 +1651,20 @@ function safe_example(): String {
 2. **Double-free** (one owner only):
 ```cantrip
 function safe_example()
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let s = String.from("data");
-    consume(move s);
-    // consume(move s);  // ERROR E3004: Value already moved
+    let s = String.from("data")
+    consume(move s)
+    // consume(move s)  // ERROR E3004: Value already moved
 }
 ```
 
 3. **Memory leaks** (automatic destruction):
 ```cantrip
 function safe_example()
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let s = String.from("data");
+    let s = String.from("data")
     // No need for explicit free - automatic cleanup
 }  // s destroyed here, memory reclaimed
 ```
@@ -1674,23 +1674,23 @@ function safe_example()
 1. **Aliasing bugs** (multiple `mut` refs allowed):
 ```cantrip
 // ALLOWED but potentially dangerous
-var text = String.from("data");
-modify1(mut text);
-modify2(mut text);  // Could conflict with modify1
+var text = String.from("data")
+modify1(mut text)
+modify2(mut text)  // Could conflict with modify1
 ```
 
 2. **Data races** (no automatic synchronization):
 ```cantrip
 // Programmer must use proper synchronization for threads
-thread1.spawn(|| modify(mut shared_string));
-thread2.spawn(|| modify(mut shared_string));  // Race condition!
+thread1.spawn(|| modify(mut shared_string))
+thread2.spawn(|| modify(mut shared_string))  // Race condition!
 ```
 
 3. **Modification during iteration** (no iterator invalidation protection):
 ```cantrip
-var text = String.from("data");
+var text = String.from("data")
 for c in text.chars() {
-    text.push_str("x");  // ALLOWED but dangerous!
+    text.push_str("x")  // ALLOWED but dangerous!
 }
 ```
 
@@ -1713,7 +1713,7 @@ for c in text.chars() {
 **Basic syntax:**
 ```cantrip
 region name {
-    let s: own String = String.new_in<name>();
+    let s: own String = String.new_in<name>()
     // s allocated in region 'name'
 }  // s freed here (O(1) bulk deallocation)
 ```
@@ -1730,17 +1730,17 @@ region name {
 **Complete example:**
 ```cantrip
 function parse_file(path: String): Result<Data, Error>
-    uses alloc.region, io.read;
+    uses alloc.region, io.read
 {
     region temp {
         // Allocate parsing buffer in region
-        let contents: own String = String.new_in<temp>();
+        let contents: own String = String.new_in<temp>()
 
         // Read file into region-allocated buffer
-        std.fs.read_to_string(path, mut contents)?;
+        std.fs.read_to_string(path, mut contents)?
 
         // Parse (may use more temp strings)
-        let parsed = parse_json(contents)?;
+        let parsed = parse_json(contents)?
 
         // Must return heap-allocated data
         Ok(parsed.to_heap())
@@ -1754,24 +1754,24 @@ function parse_file(path: String): Result<Data, Error>
 
 | Method | Signature | Allocation |
 |--------|-----------|------------|
-| `String.new()` | `() -> own String` | Heap |
-| `String.new_in<'r>()` | `() -> own String` | Region `'r` |
-| `String.from(s)` | `(str) -> own String` | Heap |
-| `String.from_in<'r>(s)` | `(str) -> own String` | Region `'r` |
-| `String.with_capacity(n)` | `(usize) -> own String` | Heap |
-| `String.with_capacity_in<'r>(n)` | `(usize) -> own String` | Region `'r` |
+| `String.new()` | `() => own String` | Heap |
+| `String.new_in<'r>()` | `() => own String` | Region `'r` |
+| `String.from(s)` | `(str) => own String` | Heap |
+| `String.from_in<'r>(s)` | `(str) => own String` | Region `'r` |
+| `String.with_capacity(n)` | `(usize) => own String` | Heap |
+| `String.with_capacity_in<'r>(n)` | `(usize) => own String` | Region `'r` |
 
 **Example usage:**
 ```cantrip
 region temp {
     // Empty string in region
-    let s1 = String.new_in<temp>();
+    let s1 = String.new_in<temp>()
 
     // From literal
-    let s2 = String.from_in<temp>("hello");
+    let s2 = String.from_in<temp>("hello")
 
     // With capacity
-    let s3 = String.with_capacity_in<temp>(1024);
+    let s3 = String.with_capacity_in<temp>(1024)
 }
 ```
 
@@ -1780,11 +1780,11 @@ region temp {
 **Cannot escape region:**
 ```cantrip
 function bad_example(): own String
-    uses alloc.region;
+    uses alloc.region
 {
     region temp {
-        let s = String.new_in<temp>();
-        s.push_str("data");
+        let s = String.new_in<temp>()
+        s.push_str("data")
         s  // ERROR E8301: Cannot return region-allocated value
     }
 }
@@ -1797,7 +1797,7 @@ Error E8301: Value allocated in region 'temp' cannot escape region scope
    |
 3  |     region temp {
    |     ----------- region 'temp' declared here
-4  |         let s = String.new_in<temp>();
+4  |         let s = String.new_in<temp>()
    |                 --------------------- allocated in region 'temp'
 5  |         s  // ERROR
    |         ^ cannot return region-allocated value
@@ -1809,11 +1809,11 @@ Error E8301: Value allocated in region 'temp' cannot escape region scope
 **Correct pattern - convert to heap:**
 ```cantrip
 function safe_example(): own String
-    uses alloc.region, alloc.heap;
+    uses alloc.region, alloc.heap
 {
     region temp {
-        var s = String.new_in<temp>();
-        s.push_str("data");
+        var s = String.new_in<temp>()
+        s.push_str("data")
         s.to_heap()  // OK: Deep copy to heap
     }
 }
@@ -1884,22 +1884,22 @@ Does string need to escape function?
 **Regions support nesting (LIFO order):**
 ```cantrip
 function nested_example()
-    uses alloc.region;
+    uses alloc.region
 {
     region outer {
-        let s1 = String.from_in<outer>("outer");
+        let s1 = String.from_in<outer>("outer")
 
         region inner {
-            let s2 = String.from_in<inner>("inner");
+            let s2 = String.from_in<inner>("inner")
 
             // Can access outer from inner
-            s1.push_str(" modified");
+            s1.push_str(" modified")
 
             // Cannot return s2 (would escape inner)
         }  // s2 freed here
 
         // s1 still valid
-        s1.push_str(" again");
+        s1.push_str(" again")
     }  // s1 freed here
 }
 ```
@@ -1928,18 +1928,18 @@ dealloc(r₂) <ʜᴀᴘᴘᴇɴs-ʙᴇғᴏʀᴇ> dealloc(r₁)
 **Pattern 1: Parsing with regions**
 ```cantrip
 function tokenize(source: String): Vec<Token>
-    uses alloc.heap, alloc.region;
+    uses alloc.heap, alloc.region
 {
-    var tokens = Vec.new();  // Heap (return value)
+    var tokens = Vec.new()  // Heap (return value)
 
     region temp {
         for line in source.lines() {
             // Temporary string for processing
-            var trimmed = String.new_in<temp>();
-            trimmed.push_str(line.trim());
+            var trimmed = String.new_in<temp>()
+            trimmed.push_str(line.trim())
 
-            let token = parse_token(trimmed);
-            tokens.push(token);  // token copied to heap
+            let token = parse_token(trimmed)
+            tokens.push(token)  // token copied to heap
 
             // trimmed stays in region (will be freed)
         }
@@ -1952,15 +1952,15 @@ function tokenize(source: String): Vec<Token>
 **Pattern 2: Request processing**
 ```cantrip
 function handle_request(request: Request): Response
-    uses alloc.region, alloc.heap;
+    uses alloc.region, alloc.heap
 {
     region request_scope {
         // Parse request (many temp strings)
-        var body = String.new_in<request_scope>();
-        request.read_body(mut body)?;
+        var body = String.new_in<request_scope>()
+        request.read_body(mut body)?
 
-        var headers = parse_headers_in<request_scope>(request);
-        let data = extract_data(body, headers)?;
+        var headers = parse_headers_in<request_scope>(request)
+        let data = extract_data(body, headers)?
 
         // Return heap-allocated response
         Response.from_data(data)
@@ -1971,21 +1971,21 @@ function handle_request(request: Request): Response
 **Pattern 3: Batch string processing**
 ```cantrip
 function process_batch(items: Vec<String>): Vec<Result>
-    uses alloc.region, alloc.heap;
+    uses alloc.region, alloc.heap
 {
-    var results = Vec.new();
+    var results = Vec.new()
 
     region batch {
         for item in items {
             // Temporary processing strings
-            var normalized = String.new_in<batch>();
-            normalized.push_str(item.to_lowercase());
+            var normalized = String.new_in<batch>()
+            normalized.push_str(item.to_lowercase())
 
-            var cleaned = String.new_in<batch>();
-            cleaned.push_str(normalized.trim());
+            var cleaned = String.new_in<batch>()
+            cleaned.push_str(normalized.trim())
 
-            let result = process(cleaned);
-            results.push(result);  // result copied to heap
+            let result = process(cleaned)
+            results.push(result)  // result copied to heap
 
             // normalized, cleaned stay in region
         }
@@ -1998,14 +1998,14 @@ function process_batch(items: Vec<String>): Vec<Result>
 **Pattern 4: Compilation phases**
 ```cantrip
 function compile(source: String): Program
-    uses alloc.region, alloc.heap;
+    uses alloc.region, alloc.heap
 {
     region parsing {
-        var tokens = lex_into_strings<parsing>(source);
+        var tokens = lex_into_strings<parsing>(source)
 
         region analysis {
-            let ast = parse_in<analysis>(tokens);
-            let optimized = optimize(ast);
+            let ast = parse_in<analysis>(tokens)
+            let optimized = optimize(ast)
 
             codegen(optimized)  // Return heap-allocated Program
         }  // Analysis temps freed
@@ -2021,30 +2021,30 @@ function compile(source: String): Program
 impl String {
     // Clone from heap to region
     function clone_in<'r>(self: String): own String
-        uses alloc.region;
+        uses alloc.region
 
     // Convert region → heap (deep copy)
     function to_heap(self: own String): own String
-        uses alloc.heap;
+        uses alloc.heap
 }
 ```
 
 **Example:**
 ```cantrip
 function example()
-    uses alloc.heap, alloc.region;
+    uses alloc.heap, alloc.region
 {
-    let heap_str = String.from("data");
+    let heap_str = String.from("data")
 
     region temp {
         // Clone heap string into region
-        let region_str = heap_str.clone_in<temp>();
+        let region_str = heap_str.clone_in<temp>()
 
         // Process in region
-        region_str.push_str(" processed");
+        region_str.push_str(" processed")
 
         // Convert back to heap if needed
-        let result = region_str.to_heap();
+        let result = region_str.to_heap()
 
         // result escapes, region_str freed
     }
@@ -2056,19 +2056,19 @@ function example()
 **Regions control lifetime, not access:**
 ```cantrip
 function example()
-    uses alloc.region;
+    uses alloc.region
 {
     region temp {
-        var text = String.new_in<temp>();
+        var text = String.new_in<temp>()
 
         // Permissions work as normal:
-        read(text);          // Immutable reference
-        modify(mut text);    // Mutable reference
-        read(text);          // Can reference again
+        read(text)          // Immutable reference
+        modify(mut text)    // Mutable reference
+        read(text)          // Can reference again
 
         // Multiple mut refs still allowed
-        modify1(mut text);
-        modify2(mut text);
+        modify1(mut text)
+        modify2(mut text)
     }  // text freed (region determines WHEN)
 }
 ```
@@ -2092,7 +2092,7 @@ String provides a comprehensive API for construction, access, modification, and 
 **Empty string creation:**
 ```cantrip
 function String.new(): own String
-    uses alloc.heap;
+    uses alloc.heap
 ```
 
 Creates an empty String with zero length. May allocate minimal capacity.
@@ -2100,7 +2100,7 @@ Creates an empty String with zero length. May allocate minimal capacity.
 **Example:**
 ```cantrip
 function create_buffer(): own String
-    uses alloc.heap;
+    uses alloc.heap
 {
     String.new()  // Returns empty String
 }
@@ -2109,7 +2109,7 @@ function create_buffer(): own String
 **From UTF-8 bytes (validated):**
 ```cantrip
 function String.from_utf8(bytes: [u8]): Result<own String, Utf8Error>
-    uses alloc.heap;
+    uses alloc.heap
 ```
 
 Constructs a String from a byte array, validating UTF-8 encoding. Returns error if bytes are invalid UTF-8.
@@ -2117,22 +2117,22 @@ Constructs a String from a byte array, validating UTF-8 encoding. Returns error 
 **Example:**
 ```cantrip
 function parse_bytes(data: [u8]): Result<own String, Utf8Error>
-    uses alloc.heap;
+    uses alloc.heap
 {
     String.from_utf8(data)  // Validates UTF-8
 }
 
-let valid_bytes: [u8] = [72, 101, 108, 108, 111];  // "Hello"
-let s = String.from_utf8(valid_bytes)?;  // Ok(String)
+let valid_bytes: [u8] = [72, 101, 108, 108, 111]  // "Hello"
+let s = String.from_utf8(valid_bytes)?  // Ok(String)
 
-let invalid_bytes: [u8] = [0xFF, 0xFE];  // Invalid UTF-8
-let err = String.from_utf8(invalid_bytes);  // Err(Utf8Error)
+let invalid_bytes: [u8] = [0xFF, 0xFE]  // Invalid UTF-8
+let err = String.from_utf8(invalid_bytes)  // Err(Utf8Error)
 ```
 
 **From UTF-8 bytes (unchecked):**
 ```cantrip
 function String.from_utf8_unchecked(bytes: [u8]): own String
-    uses alloc.heap;
+    uses alloc.heap
 ```
 
 Constructs a String from bytes without validation. **Unsafe**: Violates UTF-8 invariant if bytes are invalid.
@@ -2141,7 +2141,7 @@ Constructs a String from bytes without validation. **Unsafe**: Violates UTF-8 in
 ```cantrip
 // ONLY use if you KNOW bytes are valid UTF-8
 function trusted_conversion(validated_bytes: [u8]): own String
-    uses alloc.heap;
+    uses alloc.heap
 {
     String.from_utf8_unchecked(validated_bytes)  // No validation overhead
 }
@@ -2152,7 +2152,7 @@ function trusted_conversion(validated_bytes: [u8]): own String
 **From string slice:**
 ```cantrip
 function String.from(slice: str): own String
-    uses alloc.heap;
+    uses alloc.heap
 ```
 
 Constructs a String by copying data from a string slice. Allocation required for heap storage.
@@ -2160,9 +2160,9 @@ Constructs a String by copying data from a string slice. Allocation required for
 **Example:**
 ```cantrip
 function duplicate_literal(): own String
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let literal: str = "Hello, world!";
+    let literal: str = "Hello, world!"
     String.from(literal)  // Allocates and copies
 }
 ```
@@ -2170,7 +2170,7 @@ function duplicate_literal(): own String
 **With initial capacity:**
 ```cantrip
 function String.with_capacity(cap: usize): own String
-    uses alloc.heap;
+    uses alloc.heap
 ```
 
 Creates an empty String with pre-allocated capacity. Useful for avoiding reallocations when final size is known.
@@ -2178,13 +2178,13 @@ Creates an empty String with pre-allocated capacity. Useful for avoiding realloc
 **Example:**
 ```cantrip
 function build_large_string(parts: [str]): own String
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let total_len: usize = parts.map(|p| p.len()).sum();
-    let mut result: own String = String.with_capacity(total_len);
+    let total_len: usize = parts.map(|p| p.len()).sum()
+    let mut result: own String = String.with_capacity(total_len)
 
     for part in parts {
-        result.push_str(part);  // No reallocation needed
+        result.push_str(part)  // No reallocation needed
     }
 
     result
@@ -2194,7 +2194,7 @@ function build_large_string(parts: [str]): own String
 **Region-allocated string:**
 ```cantrip
 function String.new_in<'r>(): own String
-    uses alloc.region;
+    uses alloc.region
 ```
 
 Creates an empty String allocated in the specified region instead of the heap. String lifetime is bound to the region.
@@ -2202,11 +2202,11 @@ Creates an empty String allocated in the specified region instead of the heap. S
 **Example:**
 ```cantrip
 function temporary_strings(): own String
-    uses alloc.heap, alloc.region;
+    uses alloc.heap, alloc.region
 {
     region temp {
-        let s: own String = String.new_in<temp>();
-        s.push_str("temporary");
+        let s: own String = String.new_in<temp>()
+        s.push_str("temporary")
 
         // Cannot return s (region-bound)
         // Must convert to heap:
@@ -2219,50 +2219,50 @@ function temporary_strings(): own String
 
 **Get byte length:**
 ```cantrip
-function len(self: String): usize;
+function len(self: String): usize
 ```
 
 Returns the length of the String in bytes (NOT characters). O(1) operation.
 
 **Example:**
 ```cantrip
-let s: own String = String.from("Hello🦀");
-assert!(s.len() == 10);  // 5 ASCII bytes + 4 byte emoji
+let s: own String = String.from("Hello🦀")
+assert!(s.len() == 10)  // 5 ASCII bytes + 4 byte emoji
 ```
 
 **Check if empty:**
 ```cantrip
-function is_empty(self: String): bool;
+function is_empty(self: String): bool
 ```
 
 Returns `true` if the String contains zero bytes. Equivalent to `self.len() == 0`.
 
 **Example:**
 ```cantrip
-let empty: own String = String.new();
-assert!(empty.is_empty());
+let empty: own String = String.new()
+assert!(empty.is_empty())
 
-let non_empty: own String = String.from("x");
-assert!(!non_empty.is_empty());
+let non_empty: own String = String.from("x")
+assert!(!non_empty.is_empty())
 ```
 
 **Get capacity:**
 ```cantrip
-function capacity(self: String): usize;
+function capacity(self: String): usize
 ```
 
 Returns the allocated capacity in bytes. Capacity is always greater than or equal to length.
 
 **Example:**
 ```cantrip
-let s: own String = String.with_capacity(100);
-assert!(s.capacity() >= 100);
-assert!(s.len() == 0);
+let s: own String = String.with_capacity(100)
+assert!(s.capacity() >= 100)
+assert!(s.len() == 0)
 ```
 
 **Convert to str slice:**
 ```cantrip
-function as_str(self: String): str;
+function as_str(self: String): str
 ```
 
 Returns a string slice view of the String's contents. Zero-copy operation.
@@ -2270,32 +2270,32 @@ Returns a string slice view of the String's contents. Zero-copy operation.
 **Example:**
 ```cantrip
 function print_text(text: str) {
-    println(text);
+    println(text)
 }
 
 function example()
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let s: own String = String.from("data");
-    print_text(s.as_str());  // Explicit conversion
-    print_text(s);  // Or use deref coercion
+    let s: own String = String.from("data")
+    print_text(s.as_str())  // Explicit conversion
+    print_text(s)  // Or use deref coercion
 }
 ```
 
 **Get bytes:**
 ```cantrip
-function as_bytes(self: String): [u8];
+function as_bytes(self: String): [u8]
 ```
 
 Returns a byte slice view of the String's UTF-8 data. Zero-copy operation.
 
 **Example:**
 ```cantrip
-let s: own String = String.from("ABC");
-let bytes: [u8] = s.as_bytes();
-assert!(bytes[0] == 65);  // 'A'
-assert!(bytes[1] == 66);  // 'B'
-assert!(bytes[2] == 67);  // 'C'
+let s: own String = String.from("ABC")
+let bytes: [u8] = s.as_bytes()
+assert!(bytes[0] == 65)  // 'A'
+assert!(bytes[1] == 66)  // 'B'
+assert!(bytes[2] == 67)  // 'C'
 ```
 
 ##### 5.6.6.3.3 Modification Operations (Requires own or mut)
@@ -2303,7 +2303,7 @@ assert!(bytes[2] == 67);  // 'C'
 **Append string:**
 ```cantrip
 function push_str(self: mut String, s: str)
-    uses alloc.heap;
+    uses alloc.heap
 ```
 
 Appends a string slice to the end of the String. May reallocate if capacity is insufficient.
@@ -2311,10 +2311,10 @@ Appends a string slice to the end of the String. May reallocate if capacity is i
 **Example:**
 ```cantrip
 function concatenate(a: str, b: str): own String
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let mut result: own String = String.from(a);
-    result.push_str(b);
+    let mut result: own String = String.from(a)
+    result.push_str(b)
     result
 }
 ```
@@ -2322,94 +2322,94 @@ function concatenate(a: str, b: str): own String
 **Append character:**
 ```cantrip
 function push(self: mut String, ch: char)
-    uses alloc.heap;
+    uses alloc.heap
 ```
 
 Appends a Unicode scalar value to the String. Character is encoded as UTF-8 (1-4 bytes).
 
 **Example:**
 ```cantrip
-let mut s: own String = String.from("Hello");
-s.push(' ');
-s.push('🦀');
-assert!(s.as_str() == "Hello 🦀");
+let mut s: own String = String.from("Hello")
+s.push(' ')
+s.push('🦀')
+assert!(s.as_str() == "Hello 🦀")
 ```
 
 **Insert string at position:**
 ```cantrip
 function insert_str(self: mut String, idx: usize, s: str)
-    uses alloc.heap;
-    must idx <= self.len();
-    must is_char_boundary(self, idx);
+    uses alloc.heap
+    must idx <= self.len()
+    must is_char_boundary(self, idx)
 ```
 
 Inserts a string slice at the specified byte index. May reallocate. Index must be at a UTF-8 character boundary.
 
 **Example:**
 ```cantrip
-let mut s: own String = String.from("HelloWorld");
-s.insert_str(5, ", ");  // Index 5 is after "Hello"
-assert!(s.as_str() == "Hello, World");
+let mut s: own String = String.from("HelloWorld")
+s.insert_str(5, ", ")  // Index 5 is after "Hello"
+assert!(s.as_str() == "Hello, World")
 
 // ERROR: Invalid boundary
-// s.insert_str(1, "x");  // Panic if idx=1 is mid-character
+// s.insert_str(1, "x")  // Panic if idx=1 is mid-character
 ```
 
 **Remove range:**
 ```cantrip
 function remove(self: mut String, start: usize, end: usize)
-    must start <= end;
-    must end <= self.len();
-    must is_char_boundary(self, start);
-    must is_char_boundary(self, end);
+    must start <= end
+    must end <= self.len()
+    must is_char_boundary(self, start)
+    must is_char_boundary(self, end)
 ```
 
 Removes characters in the byte range [start, end). Indices must be at UTF-8 character boundaries.
 
 **Example:**
 ```cantrip
-let mut s: own String = String.from("Hello, World!");
-s.remove(5, 7);  // Remove ", "
-assert!(s.as_str() == "HelloWorld!");
+let mut s: own String = String.from("Hello, World!")
+s.remove(5, 7)  // Remove ", "
+assert!(s.as_str() == "HelloWorld!")
 ```
 
 **Clear all contents:**
 ```cantrip
-function clear(self: mut String);
+function clear(self: mut String)
 ```
 
 Removes all characters from the String, setting length to 0. Capacity is unchanged.
 
 **Example:**
 ```cantrip
-let mut s: own String = String.from("temporary");
-let old_cap: usize = s.capacity();
+let mut s: own String = String.from("temporary")
+let old_cap: usize = s.capacity()
 
-s.clear();
-assert!(s.is_empty());
-assert!(s.capacity() == old_cap);  // Capacity preserved
+s.clear()
+assert!(s.is_empty())
+assert!(s.capacity() == old_cap)  // Capacity preserved
 ```
 
 **Truncate to length:**
 ```cantrip
 function truncate(self: mut String, new_len: usize)
-    must new_len <= self.len();
-    must is_char_boundary(self, new_len);
+    must new_len <= self.len()
+    must is_char_boundary(self, new_len)
 ```
 
 Shortens the String to the specified byte length. `new_len` must be at a character boundary.
 
 **Example:**
 ```cantrip
-let mut s: own String = String.from("Hello, World!");
-s.truncate(5);  // Keep only "Hello"
-assert!(s.as_str() == "Hello");
+let mut s: own String = String.from("Hello, World!")
+s.truncate(5)  // Keep only "Hello"
+assert!(s.as_str() == "Hello")
 ```
 
 **Reserve additional capacity:**
 ```cantrip
 function reserve(self: mut String, additional: usize)
-    uses alloc.heap;
+    uses alloc.heap
 ```
 
 Reserves capacity for at least `additional` more bytes. May reallocate if current capacity is insufficient.
@@ -2417,15 +2417,15 @@ Reserves capacity for at least `additional` more bytes. May reallocate if curren
 **Example:**
 ```cantrip
 function build_string(parts: [str]): own String
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let mut s: own String = String.new();
-    let total: usize = parts.map(|p| p.len()).sum();
+    let mut s: own String = String.new()
+    let total: usize = parts.map(|p| p.len()).sum()
 
-    s.reserve(total);  // Pre-allocate
+    s.reserve(total)  // Pre-allocate
 
     for part in parts {
-        s.push_str(part);  // No reallocation
+        s.push_str(part)  // No reallocation
     }
 
     s
@@ -2437,51 +2437,51 @@ function build_string(parts: [str]): own String
 **Slice to str:**
 ```cantrip
 function slice(self: String, start: usize, end: usize): str
-    must start <= end;
-    must end <= self.len();
-    must is_char_boundary(self, start);
-    must is_char_boundary(self, end);
+    must start <= end
+    must end <= self.len()
+    must is_char_boundary(self, start)
+    must is_char_boundary(self, end)
 ```
 
 Returns a string slice view of the byte range [start, end). Zero-copy operation. Indices must be at UTF-8 character boundaries.
 
 **Example:**
 ```cantrip
-let s: own String = String.from("Hello, World!");
-let hello: str = s.slice(0, 5);  // "Hello"
-let world: str = s.slice(7, 12); // "World"
+let s: own String = String.from("Hello, World!")
+let hello: str = s.slice(0, 5)  // "Hello"
+let world: str = s.slice(7, 12) // "World"
 ```
 
 **Split by delimiter:**
 ```cantrip
 function split(self: String, delimiter: str): Iterator<str>
-    must !delimiter.is_empty();
+    must !delimiter.is_empty()
 ```
 
 Returns an iterator over substrings separated by the delimiter. Delimiter is not included in results.
 
 **Example:**
 ```cantrip
-let s: own String = String.from("one,two,three");
-let parts: [str] = s.split(",").collect();
-assert!(parts.len() == 3);
-assert!(parts[0] == "one");
-assert!(parts[1] == "two");
-assert!(parts[2] == "three");
+let s: own String = String.from("one,two,three")
+let parts: [str] = s.split(",").collect()
+assert!(parts.len() == 3)
+assert!(parts[0] == "one")
+assert!(parts[1] == "two")
+assert!(parts[2] == "three")
 ```
 
 **Get lines:**
 ```cantrip
-function lines(self: String): Iterator<str>;
+function lines(self: String): Iterator<str>
 ```
 
 Returns an iterator over lines (substrings separated by `\n` or `\r\n`). Line terminators are not included in results.
 
 **Example:**
 ```cantrip
-let doc: own String = String.from("Line 1\nLine 2\nLine 3");
+let doc: own String = String.from("Line 1\nLine 2\nLine 3")
 for line in doc.lines() {
-    println(line);
+    println(line)
 }
 // Output:
 // Line 1
@@ -2491,47 +2491,47 @@ for line in doc.lines() {
 
 **Trim whitespace:**
 ```cantrip
-function trim(self: String): str;
+function trim(self: String): str
 ```
 
 Returns a string slice with leading and trailing whitespace removed. Zero-copy operation.
 
 **Example:**
 ```cantrip
-let s: own String = String.from("  hello  ");
-let trimmed: str = s.trim();
-assert!(trimmed == "hello");
+let s: own String = String.from("  hello  ")
+let trimmed: str = s.trim()
+assert!(trimmed == "hello")
 ```
 
 ##### 5.6.6.3.5 Iteration Operations
 
 **Iterate bytes:**
 ```cantrip
-function bytes(self: String): Iterator<u8>;
+function bytes(self: String): Iterator<u8>
 ```
 
 Returns an iterator over the String's bytes. Each byte is yielded individually.
 
 **Example:**
 ```cantrip
-let s: own String = String.from("ABC");
+let s: own String = String.from("ABC")
 for byte in s.bytes() {
-    println("{byte}");  // 65, 66, 67
+    println("{byte}")  // 65, 66, 67
 }
 ```
 
 **Iterate characters:**
 ```cantrip
-function chars(self: String): Iterator<char>;
+function chars(self: String): Iterator<char>
 ```
 
 Returns an iterator over Unicode scalar values (characters). Multi-byte UTF-8 sequences are decoded.
 
 **Example:**
 ```cantrip
-let s: own String = String.from("Hello🦀");
+let s: own String = String.from("Hello🦀")
 for ch in s.chars() {
-    println("{ch}");  // H, e, l, l, o, 🦀
+    println("{ch}")  // H, e, l, l, o, 🦀
 }
 ```
 
@@ -2539,66 +2539,66 @@ for ch in s.chars() {
 
 **Equality (bytes):**
 ```cantrip
-function equals(self: String, other: String): bool;
+function equals(self: String, other: String): bool
 ```
 
 Returns `true` if both Strings contain identical byte sequences. Equivalent to `==` operator.
 
 **Example:**
 ```cantrip
-let a: own String = String.from("hello");
-let b: own String = String.from("hello");
-let c: own String = String.from("world");
+let a: own String = String.from("hello")
+let b: own String = String.from("hello")
+let c: own String = String.from("world")
 
-assert!(a.equals(b));
-assert!(!a.equals(c));
+assert!(a.equals(b))
+assert!(!a.equals(c))
 ```
 
 **Lexicographic comparison:**
 ```cantrip
-function compare(self: String, other: String): Ordering;
+function compare(self: String, other: String): Ordering
 ```
 
 Compares Strings lexicographically by byte values. Returns `Less`, `Equal`, or `Greater`.
 
 **Example:**
 ```cantrip
-let a: own String = String.from("apple");
-let b: own String = String.from("banana");
+let a: own String = String.from("apple")
+let b: own String = String.from("banana")
 
 match a.compare(b) {
-    Ordering::Less -> println("apple < banana"),
-    Ordering::Equal -> println("equal"),
-    Ordering::Greater -> println("apple > banana"),
+    Ordering::Less => println("apple < banana"),
+    Ordering::Equal => println("equal"),
+    Ordering::Greater => println("apple > banana"),
 }
 ```
 
 **Starts with prefix:**
 ```cantrip
-function starts_with(self: String, prefix: str): bool;
+function starts_with(self: String, prefix: str): bool
 ```
 
 Returns `true` if the String begins with the specified prefix.
 
 **Example:**
 ```cantrip
-let s: own String = String.from("https://example.com");
-assert!(s.starts_with("https://"));
-assert!(!s.starts_with("http://"));
+let s: own String = String.from("https://example.com")
+assert!(s.starts_with("https://"))
+assert!(!s.starts_with("http://"))
 ```
 
 **Ends with suffix:**
 ```cantrip
-function ends_with(self: String, suffix: str): bool;
+function ends_with(self: String, suffix: str): bool
 ```
 
 Returns `true` if the String ends with the specified suffix.
 
 **Example:**
 ```cantrip
-let filename: own String = String.from("document.txt");
-assert!(filename.ends_with(".txt"));
-assert!(!filename.ends_with(".pdf"));
+let filename: own String = String.from("document.txt")
+assert!(filename.ends_with(".txt"))
+assert!(!filename.ends_with(".pdf"))
 ```
 
 #### 5.6.6.4 Indexing and Iteration
@@ -2612,14 +2612,14 @@ String does NOT support direct indexing via `s[i]` syntax. This is a deliberate 
 UTF-8 encodes Unicode scalar values using 1-4 bytes per character. Direct indexing creates ambiguity:
 
 ```cantrip
-let s: own String = String.from("Hello🦀World");  // Contains emoji (4 bytes)
+let s: own String = String.from("Hello🦀World")  // Contains emoji (4 bytes)
 
 // If s[6] were allowed, what would it return?
 // Option 1: Byte at index 6? (middle of emoji - INVALID UTF-8!)
 // Option 2: 6th character? (requires O(n) scan from start)
 
 // ERROR: s[6] is not allowed
-// let ch = s[6];  // Compile error: String does not support indexing
+// let ch = s[6]  // Compile error: String does not support indexing
 ```
 
 **Why byte indexing is unsafe:**
@@ -2641,12 +2641,12 @@ Users typically expect `[i]` to be O(1) constant-time. However, UTF-8 character 
 ```cantrip
 // To find the nth character, must scan from beginning
 function nth_char_naive(s: String, n: usize): Option<char> {
-    let mut count: usize = 0;
+    let mut count: usize = 0
     for ch in s.chars() {
         if count == n {
-            return Some(ch);
+            return Some(ch)
         }
-        count = count + 1;
+        count = count + 1
     }
     None
 }
@@ -2669,7 +2669,7 @@ function process_bytes(s: String) {
     for byte in s.bytes() {
         // byte has type u8
         if byte == 0x0A {  // Newline
-            println("Found newline");
+            println("Found newline")
         }
     }
 }
@@ -2689,16 +2689,16 @@ For Unicode scalar value access:
 
 ```cantrip
 function count_chars(s: String): usize {
-    let mut count: usize = 0;
+    let mut count: usize = 0
     for ch in s.chars() {
         // ch has type char (Unicode scalar value)
-        count = count + 1;
+        count = count + 1
     }
     count
 }
 
-let s: own String = String.from("Hello🦀");
-assert!(count_chars(s) == 6);  // 5 ASCII + 1 emoji
+let s: own String = String.from("Hello🦀")
+assert!(count_chars(s) == 6)  // 5 ASCII + 1 emoji
 ```
 
 **Performance:** O(n) to traverse entire string. Getting the nth character must O(n) scan.
@@ -2706,14 +2706,14 @@ assert!(count_chars(s) == 6);  // 5 ASCII + 1 emoji
 **Example: Finding nth character:**
 ```cantrip
 function nth_char(s: String, n: usize): Option<char> {
-    let mut iter = s.chars();
+    let mut iter = s.chars()
     iter.skip(n).next()  // O(n) operation
 }
 
-let s: own String = String.from("Hello");
-assert!(nth_char(s, 0) == Some('H'));
-assert!(nth_char(s, 4) == Some('o'));
-assert!(nth_char(s, 10) == None);
+let s: own String = String.from("Hello")
+assert!(nth_char(s, 0) == Some('H'))
+assert!(nth_char(s, 4) == Some('o'))
+assert!(nth_char(s, 10) == None)
 ```
 
 ##### 5.6.6.4.4 Grapheme Clusters
@@ -2722,19 +2722,19 @@ assert!(nth_char(s, 10) == None);
 
 ```cantrip
 // Example: é can be represented two ways
-let composed: str = "é";     // U+00E9 (single code point)
-let decomposed: str = "é";   // U+0065 U+0301 (e + combining accent)
+let composed: str = "é"     // U+00E9 (single code point)
+let decomposed: str = "é"   // U+0065 U+0301 (e + combining accent)
 
-let s1: own String = String.from(composed);
-let s2: own String = String.from(decomposed);
+let s1: own String = String.from(composed)
+let s2: own String = String.from(decomposed)
 
 // Character counts differ!
-assert!(s1.chars().count() == 1);  // 1 code point
-assert!(s2.chars().count() == 2);  // 2 code points (e + accent)
+assert!(s1.chars().count() == 1)  // 1 code point
+assert!(s2.chars().count() == 2)  // 2 code points (e + accent)
 
 // But they look identical when displayed:
-println("{}", s1);  // é
-println("{}", s2);  // é
+println("{}", s1)  // é
+println("{}", s2)  // é
 ```
 
 **For true grapheme iteration:**
@@ -2743,7 +2743,7 @@ Use the Unicode segmentation library (not in core):
 
 ```cantrip
 // Hypothetical library usage:
-// use std.unicode.graphemes;
+// use std.unicode.graphemes
 //
 // for grapheme in s.graphemes() {
 //     // grapheme is a user-perceived character
@@ -2755,14 +2755,14 @@ Use the Unicode segmentation library (not in core):
 Slicing must respect UTF-8 character boundaries to preserve the UTF-8 invariant:
 
 ```cantrip
-let s: own String = String.from("Hello🦀World");
+let s: own String = String.from("Hello🦀World")
 
 // OK: Slices at character boundaries
-let hello: str = s.slice(0, 5);  // "Hello"
-let world: str = s.slice(9, 14); // "World"
+let hello: str = s.slice(0, 5)  // "Hello"
+let world: str = s.slice(9, 14) // "World"
 
 // PANIC: Index 7 is mid-character (inside 🦀 emoji)
-// let bad: str = s.slice(0, 7);  // Runtime panic!
+// let bad: str = s.slice(0, 7)  // Runtime panic!
 // Error: "byte index 7 is not a char boundary"
 ```
 
@@ -2776,13 +2776,13 @@ A byte index is a valid character boundary if:
 // UTF-8 continuation bytes: 10xxxxxx (0x80-0xBF)
 function is_char_boundary(s: String, idx: usize): bool {
     if idx > s.len() {
-        return false;
+        return false
     }
     if idx == 0 || idx == s.len() {
-        return true;
+        return true
     }
 
-    let byte: u8 = s.as_bytes()[idx];
+    let byte: u8 = s.as_bytes()[idx]
     (byte & 0xC0) != 0x80  // NOT a continuation byte
 }
 ```
@@ -2793,23 +2793,23 @@ When you need to slice at a specific character position:
 
 ```cantrip
 function slice_first_n_chars(s: String, n: usize): str {
-    let mut char_count: usize = 0;
-    let mut byte_idx: usize = 0;
+    let mut char_count: usize = 0
+    let mut byte_idx: usize = 0
 
     for (idx, ch) in s.char_indices() {
         if char_count >= n {
-            break;
+            break
         }
-        byte_idx = idx + ch.len_utf8();
-        char_count = char_count + 1;
+        byte_idx = idx + ch.len_utf8()
+        char_count = char_count + 1
     }
 
     s.slice(0, byte_idx)
 }
 
-let s: own String = String.from("Hello🦀World");
-let first5: str = slice_first_n_chars(s, 5);
-assert!(first5 == "Hello");
+let s: own String = String.from("Hello🦀World")
+let first5: str = slice_first_n_chars(s, 5)
+assert!(first5 == "Hello")
 ```
 
 #### 5.6.6.5 Common Pitfalls
@@ -2819,31 +2819,31 @@ assert!(first5 == "Hello");
 ```cantrip
 // WRONG: Slicing mid-character
 function bad_slice()
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let s: own String = String.from("Hello🦀");
+    let s: own String = String.from("Hello🦀")
 
     // 🦀 is 4 bytes: 0xF0 0x9F 0xA6 0x80
     // Byte indices: H=0, e=1, l=2, l=3, o=4, 🦀=5-8
 
-    let bad: str = s.slice(0, 7);  // PANIC at runtime!
+    let bad: str = s.slice(0, 7)  // PANIC at runtime!
     // Error: "byte index 7 is not a char boundary"
 }
 
 // CORRECT: Use character iteration or valid boundaries
 function good_slice()
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let s: own String = String.from("Hello🦀");
+    let s: own String = String.from("Hello🦀")
 
     // Option 1: Slice at known character boundaries
-    let hello: str = s.slice(0, 5);  // "Hello"
+    let hello: str = s.slice(0, 5)  // "Hello"
 
     // Option 2: Use character iteration
-    let first5: own String = String.new();
+    let first5: own String = String.new()
     for (idx, ch) in s.chars().enumerate() {
         if idx < 5 {
-            first5.push(ch);
+            first5.push(ch)
         }
     }
 }
@@ -2856,31 +2856,31 @@ function good_slice()
 ```cantrip
 // DANGEROUS: Reference invalidation
 function dangerous(s: mut String)
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let bytes: [u8] = s.as_bytes();  // Get reference to byte data
-    let first: u8 = bytes[0];        // Read from reference
+    let bytes: [u8] = s.as_bytes()  // Get reference to byte data
+    let first: u8 = bytes[0]        // Read from reference
 
-    s.push_str("x");  // Modifies String, MAY reallocate!
+    s.push_str("x")  // Modifies String, MAY reallocate!
 
     // bytes pointer is now INVALID if reallocation occurred!
     // Accessing bytes[1] could read freed memory (undefined behavior)
-    // let second: u8 = bytes[1];  // USE-AFTER-FREE!
+    // let second: u8 = bytes[1]  // USE-AFTER-FREE!
 }
 
 // SAFE: Don't hold references across mutations
 function safe(s: mut String)
-    uses alloc.heap;
+    uses alloc.heap
 {
     // Copy values, not references
-    let len: usize = s.len();
-    let first: u8 = s.as_bytes()[0];
+    let len: usize = s.len()
+    let first: u8 = s.as_bytes()[0]
 
-    s.push_str("x");  // OK: no outstanding references
+    s.push_str("x")  // OK: no outstanding references
 
     // Re-acquire reference after mutation
-    let new_len: usize = s.len();
-    assert!(new_len == len + 1);
+    let new_len: usize = s.len()
+    assert!(new_len == len + 1)
 }
 ```
 
@@ -2891,24 +2891,24 @@ function safe(s: mut String)
 ```cantrip
 // WRONG: Confusing bytes and characters
 function bad_count()
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let s: own String = String.from("Hello🦀");
-    let char_count: usize = s.len();  // Returns 10 (bytes), not 6!
-    println("Characters: {char_count}");  // Wrong: prints 10
+    let s: own String = String.from("Hello🦀")
+    let char_count: usize = s.len()  // Returns 10 (bytes), not 6!
+    println("Characters: {char_count}")  // Wrong: prints 10
 }
 
 // CORRECT: Use chars().count()
 function good_count()
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let s: own String = String.from("Hello🦀");
+    let s: own String = String.from("Hello🦀")
 
-    let byte_count: usize = s.len();           // 10 bytes
-    let char_count: usize = s.chars().count(); // 6 characters
+    let byte_count: usize = s.len()           // 10 bytes
+    let char_count: usize = s.chars().count() // 6 characters
 
-    println("Bytes: {byte_count}");      // 10
-    println("Characters: {char_count}"); // 6
+    println("Bytes: {byte_count}")      // 10
+    println("Characters: {char_count}") // 6
 }
 ```
 
@@ -2919,22 +2919,22 @@ function good_count()
 ```cantrip
 // WRONG: Trying to return region-allocated string
 function bad_region(): own String
-    uses alloc.region;
+    uses alloc.region
 {
     region temp {
-        let s: own String = String.new_in<temp>();
-        s.push_str("data");
+        let s: own String = String.new_in<temp>()
+        s.push_str("data")
         s  // ERROR: cannot escape region (lifetime violation)
     }
 }
 
 // CORRECT: Convert to heap before returning
 function good_region(): own String
-    uses alloc.heap, alloc.region;
+    uses alloc.heap, alloc.region
 {
     region temp {
-        let s: own String = String.new_in<temp>();
-        s.push_str("data");
+        let s: own String = String.new_in<temp>()
+        s.push_str("data")
 
         // Copy to heap before escaping region
         String.from(s.as_str())  // Heap allocation
@@ -2949,30 +2949,30 @@ function good_region(): own String
 ```cantrip
 // WRONG: Assuming chars() gives grapheme count
 function bad_grapheme()
-    uses alloc.heap;
+    uses alloc.heap
 {
     // "é" can be U+00E9 (composed) or U+0065 U+0301 (decomposed)
-    let s1: own String = String.from("é");  // Composed (1 code point)
-    let s2: own String = String.from("é");  // Decomposed (2 code points)
+    let s1: own String = String.from("é")  // Composed (1 code point)
+    let s2: own String = String.from("é")  // Decomposed (2 code points)
 
     // Character counts differ!
-    assert!(s1.chars().count() == 1);  // Passes
-    assert!(s2.chars().count() == 1);  // FAILS! (actually 2)
+    assert!(s1.chars().count() == 1)  // Passes
+    assert!(s2.chars().count() == 1)  // FAILS! (actually 2)
 }
 
 // CORRECT: Be aware of normalization
 function good_grapheme()
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let s: own String = String.from("é");  // Could be 1 or 2 code points
+    let s: own String = String.from("é")  // Could be 1 or 2 code points
 
     // For user-perceived character count, need Unicode library:
-    // use std.unicode.graphemes;
-    // let grapheme_count = s.graphemes().count();
+    // use std.unicode.graphemes
+    // let grapheme_count = s.graphemes().count()
 
     // Or normalize before counting:
-    // let normalized = s.nfc();  // NFC normalization
-    // let char_count = normalized.chars().count();
+    // let normalized = s.nfc()  // NFC normalization
+    // let char_count = normalized.chars().count()
 }
 ```
 
@@ -2986,19 +2986,19 @@ Simple string creation and manipulation:
 
 ```cantrip
 function greet(name: str): own String
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let mut msg: own String = String.from("Hello, ");
-    msg.push_str(name);
-    msg.push('!');
+    let mut msg: own String = String.from("Hello, ")
+    msg.push_str(name)
+    msg.push('!')
     msg  // Return owned string
 }
 
 function example()
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let greeting: own String = greet("Alice");
-    println(greeting);  // "Hello, Alice!"
+    let greeting: own String = greet("Alice")
+    println(greeting)  // "Hello, Alice!"
 }
 ```
 
@@ -3010,11 +3010,11 @@ Efficient string construction using temporary region allocation:
 
 ```cantrip
 record Data {
-    items: [Item];
+    items: [Item]
 }
 
 record Item {
-    name_val: str;
+    name_val: str
 }
 
 impl Item {
@@ -3024,24 +3024,24 @@ impl Item {
 }
 
 function format_report(data: Data): own String
-    uses alloc.heap, alloc.region;
+    uses alloc.heap, alloc.region
 {
     region temp {
-        let mut parts: own Vec<str> = Vec.new_in<temp>();
+        let mut parts: own Vec<str> = Vec.new_in<temp>()
 
         // Build parts in temporary region
         for item in data.items {
-            let mut s: own String = String.new_in<temp>();
-            s.push_str("Item: ");
-            s.push_str(item.name());
-            parts.push(s.as_str());
+            let mut s: own String = String.new_in<temp>()
+            s.push_str("Item: ")
+            s.push_str(item.name())
+            parts.push(s.as_str())
         }
 
         // Join into final heap string
-        let mut result: own String = String.new();
+        let mut result: own String = String.new()
         for part in parts {
-            result.push_str(part);
-            result.push_str("\n");
+            result.push_str(part)
+            result.push_str("\n")
         }
 
         result  // Heap-allocated, escapes region
@@ -3057,8 +3057,8 @@ Parse and validate structured string input:
 
 ```cantrip
 record Email {
-    local: str;
-    domain: str;
+    local: str
+    domain: str
 }
 
 enum ParseError {
@@ -3069,37 +3069,37 @@ enum ParseError {
 
 function parse_email(input: String): Result<Email, ParseError> {
     if input.is_empty() {
-        return Err(ParseError::Empty);
+        return Err(ParseError::Empty)
     }
 
     // Split by @ symbol
-    let mut parts = input.split("@");
-    let parts_vec: [str] = parts.collect();
+    let mut parts = input.split("@")
+    let parts_vec: [str] = parts.collect()
 
     if parts_vec.len() != 2 {
-        return Err(ParseError::InvalidFormat);
+        return Err(ParseError::InvalidFormat)
     }
 
-    let local: str = parts_vec[0];
-    let domain: str = parts_vec[1];
+    let local: str = parts_vec[0]
+    let domain: str = parts_vec[1]
 
     if local.is_empty() || domain.is_empty() {
-        return Err(ParseError::MissingPart);
+        return Err(ParseError::MissingPart)
     }
 
     Ok(Email { local, domain })
 }
 
 function example()
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let addr: own String = String.from("user@example.com");
+    let addr: own String = String.from("user@example.com")
 
     match parse_email(addr) {
-        Ok(email) -> println("Local: {}, Domain: {}", email.local, email.domain),
-        Err(ParseError::Empty) -> println("Empty email"),
-        Err(ParseError::InvalidFormat) -> println("Invalid format"),
-        Err(ParseError::MissingPart) -> println("Missing part"),
+        Ok(email) => println("Local: {}, Domain: {}", email.local, email.domain),
+        Err(ParseError::Empty) => println("Empty email"),
+        Err(ParseError::InvalidFormat) => println("Invalid format"),
+        Err(ParseError::MissingPart) => println("Missing part"),
     }
 }
 ```
@@ -3112,13 +3112,13 @@ Process strings without allocation using string slices:
 
 ```cantrip
 function count_words(text: String): usize {
-    let mut count: usize = 0;
+    let mut count: usize = 0
 
     for line in text.lines() {
         for word in line.split(" ") {
-            let trimmed: str = word.trim();
+            let trimmed: str = word.trim()
             if !trimmed.is_empty() {
-                count = count + 1;
+                count = count + 1
             }
         }
     }
@@ -3127,11 +3127,11 @@ function count_words(text: String): usize {
 }
 
 function example()
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let doc: own String = String.from("Hello world\nHow are you\n\nFine thanks");
-    let words: usize = count_words(doc);
-    println("Word count: {words}");  // 6
+    let doc: own String = String.from("Hello world\nHow are you\n\nFine thanks")
+    let words: usize = count_words(doc)
+    println("Word count: {words}")  // 6
 }
 ```
 

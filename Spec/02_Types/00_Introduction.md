@@ -39,7 +39,7 @@ The type system will memory safety, prevents undefined behavior, and enables zer
 3. **Performance** — No runtime overhead for type checking
    - All types resolved at compile time
    - Monomorphization generates specialized code
-   - No vtables unless explicitly requested (trait objects)
+   - Zero-cost abstractions through static dispatch
 
 4. **Composability** — Types combine through well-defined operations
    - Product types (tuples, records)
@@ -96,14 +96,12 @@ Cantrip Type System (T)
 │   │           ├── Immutable slices: [τ] (Copy)
 │   │           └── Mutable slices: [mut τ] [TO BE SPECIFIED]
 │   │
-│   └── Reference Types [TO BE SPECIFIED]
-│       ├── Raw Pointers
-│       │   ├── *τ (immutable raw pointer)
-│       │   └── *mut τ (mutable raw pointer)
-│       └── Smart Pointers
-│           ├── Box<τ> (owned heap allocation)
-│           ├── Rc<τ> (reference counted, if supported)
-│           └── Arc<τ> (atomic reference counted, if supported)
+│   └── Reference Types (§9)
+│       ├── Safe Pointers
+│       │   └── Ptr<τ>@State (modal heap pointers with state-based aliasing safety)
+│       └── Raw Pointers
+│           ├── *τ (immutable raw pointer)
+│           └── *mut τ (mutable raw pointer)
 │
 ├── Parametric Types
 │   ├── Generic Types: T<α₁, ..., αₙ> (§11)
@@ -122,8 +120,7 @@ Cantrip Type System (T)
 │   ├── Trait Types (§10)
 │   │   ├── Trait definitions: trait I { ... }
 │   │   ├── Trait bounds: T: I₁ + I₂ + ... + Iₙ
-│   │   ├── Supertrait bounds: trait I: J { ... }
-│   │   └── Trait objects: dyn I [TO BE SPECIFIED]
+│   │   └── Supertrait bounds: trait I: J { ... }
 │   │
 │   └── Function Types [TO BE SPECIFIED]
 │       ├── Function pointers: fn(τ₁, ..., τₙ) → τ
@@ -138,7 +135,7 @@ Cantrip Type System (T)
 
 **Type classification:**
 - **Sized types:** Types with compile-time known size (most types)
-- **Unsized types (DSTs):** Dynamically-sized types: [T], str, trait objects
+- **Unsized types (DSTs):** Dynamically-sized types: [T], str
 - **Zero-sized types (ZSTs):** Types with size 0: (), !, unit-only enums
 - **Inhabited types:** Types with at least one value
 - **Uninhabited types:** Types with no values: !
@@ -172,7 +169,6 @@ Cantrip Type System (T)
     | τ₁ → τ₂                                      (function type)
     | *τ                                           (raw pointer)
     | *mut τ                                       (mutable raw pointer)
-    | dyn I                                        (trait object)
     | α                                            (type variable)
 
 B ::= I | I₁ + I₂ + ... + Iₙ                      (trait bounds)
@@ -241,10 +237,9 @@ Generic types have higher kinds:
 ──────────
 ! <: τ
 
-[Sub-Trait]  (Trait implementation)
-T implements I
-──────────────
-T <: dyn I
+[Sub-Array]  (Array to slice coercion)
+─────────────
+[T; n] <: [T]
 ```
 
 **Invariance principles:**
@@ -435,7 +430,7 @@ Recursive types must be well-founded (positive occurrences only):
 [WF-Recursive]
 record List<T> {
     head: T,
-    tail: Box<List<T>>,  // OK: positive occurrence through Box
+    tail: Ptr<List<T>>@Exclusive,  // OK: positive occurrence through heap pointer
 }
 
 // INVALID:
@@ -649,9 +644,37 @@ imm T     Immutable borrow (shareable, not movable)
 Example:
 ```cantrip
 let x: own String = String.new();   // Owned
-let y: mut String = &mut x;          // Mutable borrow
-let z: imm String = &x;              // Immutable borrow
+var y: mut String = String.new();   // Mutable owned
+let z: String = String.new();       // Immutable owned
 ```
+
+**Parameter Passing Semantics:**
+
+All types pass by permission (reference-like) by default, regardless of whether they implement the Copy trait:
+
+```
+procedure process(value: i32) { ... }      // Immutable permission
+procedure modify(value: mut i32) { ... }   // Mutable permission
+procedure consume(value: own i32) { ... }  // Owned permission
+
+let x: own i32 = 42
+process(x)         // Pass as immutable, x remains owned
+modify(mut x)      // Pass as mutable, x remains owned
+consume(move x)    // Transfer ownership
+```
+
+The Copy trait indicates a type CAN be copied explicitly, but does NOT change default passing behavior:
+
+```
+procedure double(x: i32): i32
+    where i32: Copy  // Constraint on type capability
+{
+    let mut local = x.copy()  // Explicit copy via .copy() method
+    local * 2
+}
+```
+
+This uniform passing behavior eliminates the confusion of different defaults for different types—all types follow the same rules.
 
 **Effects (Part IV):**
 
@@ -705,7 +728,93 @@ modal File {
 File@Closed vs. File@Open are distinct types
 ```
 
-### 0.6 Specification Status
+### 0.6 Copy Trait and Value Semantics
+
+**Definition 0.9 (Copy Trait):** The Copy trait marks types that can be duplicated via bitwise copy without violating safety invariants:
+
+```
+trait Copy {
+    procedure copy(self: Self): Self
+        requires unsafe.bitcopy
+}
+```
+
+**Semantics:**
+- Copy types CAN be copied explicitly via `.copy()` method
+- Copy does NOT change parameter passing behavior
+- All parameters pass by permission regardless of Copy status
+- Assignment creates permission bindings, not copies
+
+**Auto-implementation:** The compiler automatically implements Copy for types where all fields are Copy:
+
+```
+[Copy-Primitive]
+─────────────
+i32 : Copy
+
+[Copy-Slice]
+─────────────
+[T] : Copy    (fat pointer is always Copy, regardless of T)
+
+[Copy-Tuple]
+T₁ : Copy    ...    Tₙ : Copy
+──────────────────────────────
+(T₁, ..., Tₙ) : Copy
+
+[Copy-Array]
+T : Copy
+────────────────
+[T; n] : Copy
+
+[Copy-Record]
+record R { f₁: T₁; ...; fₙ: Tₙ }
+T₁ : Copy ∧ ... ∧ Tₙ : Copy
+────────────────────────────────
+R : Copy
+```
+
+**Non-Copy types:**
+- Heap-allocated types (String, Vec<T>, Ptr<T>@Exclusive)
+- Types with custom drop logic
+- Types containing non-Copy fields
+- Types with interior mutability
+
+**Example:**
+```cantrip
+// Copy-capable type
+let x: i32 = 42
+let y = x           // y binds to x's value, x still usable
+let z = x.copy()    // Explicit copy creates new value
+
+// Non-Copy type
+let s: own String = String.new("hello")
+let t = s           // t binds to s's value, s still usable
+// let u = s.copy() // ERROR: String doesn't implement Copy
+let u = move s      // Explicit move transfers ownership
+```
+
+**Relationship to parameter passing:**
+
+```cantrip
+// Copy-capable type - still passes by permission
+procedure process(n: i32) {
+    // n is passed by permission, no copy unless .copy() called
+    let local = n.copy()  // Explicit copy
+}
+
+let x = 42
+process(x)  // x passed by permission, still usable after
+
+// Non-Copy type - also passes by permission
+procedure print(text: String) {
+    println(text)  // Access through permission
+}
+
+let s = String.new("test")
+print(s)  // s passed by permission, still usable after
+```
+
+### 0.7 Specification Status
 
 This table tracks the completeness of the type system specification:
 
@@ -760,11 +869,9 @@ This table tracks the completeness of the type system specification:
 | **Type Aliases** | §11 | ✅ **COMPLETE** | ✅ P0 |
 | - Transparent aliases | §11.2-11.3 | ✅ Specified | - |
 | - Newtype pattern | §11.5 | ✅ Specified | - |
-| **Smart Pointers** | §12 | ✅ **COMPLETE** | ✅ P1 |
-| - Box<T> | §12.2 | ✅ **COMPLETE** | ✅ P1 |
-| - Rc<T>, Arc<T> | §12.3 | ⚠️ Overview only | 🟢 P2 |
-| **Marker Traits** | - | ❌ **NOT SPECIFIED** | 🟢 P2 |
-| - Copy, Clone | - | ⚠️ Used, not defined | 🟢 P2 |
+| **Marker Traits** | - | ⚠️ **PARTIAL** | 🟢 P2 |
+| - Copy | §0.6 | ✅ **COMPLETE** | ✅ P0 |
+| - Clone | - | ❌ **NOT SPECIFIED** | 🟢 P2 |
 | - Send, Sync | - | ❌ **NOT SPECIFIED** | 🟢 P2 |
 | - Sized, Unsize | - | ❌ **NOT SPECIFIED** | 🟢 P2 |
 
@@ -788,7 +895,7 @@ This table tracks the completeness of the type system specification:
 2. ✅ Function types (fn, closures) - §10 Complete
 3. ✅ Type aliases (type Name = T) - §11 Complete
 
-### 0.7 Notation and Conventions
+### 0.8 Notation and Conventions
 
 **Metavariables:**
 
@@ -863,7 +970,7 @@ e[x ↦ v]                    Expression e with variable x substituted by value 
 Γ[x ↦ τ]                    Context Γ with x mapped to type τ
 ```
 
-### 0.8 Reading Guide
+### 0.9 Reading Guide
 
 **Structure of type specifications:**
 

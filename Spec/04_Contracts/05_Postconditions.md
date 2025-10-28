@@ -44,7 +44,7 @@
 
 **Postcondition clause:**
 ```ebnf
-WillClause ::= "will" PredicateList ";"
+WillClause ::= "will" PredicateList
 
 PredicateList ::= Predicate ("," Predicate)*
 
@@ -64,33 +64,33 @@ Expression    ::= "result" RelOp Expression
 ```cantrip
 // Return value constraint
 procedure abs(x: i32): i32
-    will result >= 0;
+    will result >= 0
 {
     if x < 0 { -x } else { x }
 }
 
 // Relationship with input
 procedure increment(x: i32): i32
-    will result == x + 1;
+    will result == x + 1
 {
     x + 1
 }
 
 // Mutation guarantee
 procedure push<T>(vec: mut Vec<T>, item: T)
-    will vec.len() == @old(vec.len()) + 1;
+    will vec.len() == @old(vec.len()) + 1
 {
-    vec.push(item);
+    vec.push(item)
 }
 
 // Multiple postconditions
 procedure clamp(value: i32, min: i32, max: i32): i32
-    must min <= max;
+    must min <= max
     will {
         result >= min,
         result <= max,
-        (value >= min && value <= max) => result == value,
-    };
+        (value >= min && value <= max) => result == value
+    }
 {
     if value < min {
         min
@@ -145,7 +145,7 @@ Equivalent to:
 **Example 1: Return value properties**
 ```cantrip
 procedure square(x: i32): i32
-    will result >= 0;
+    will result >= 0
 {
     x * x
 }
@@ -154,7 +154,7 @@ procedure square(x: i32): i32
 **Example 2: Relationship between input and output**
 ```cantrip
 procedure double(x: i32): i32
-    will result == 2 * x;
+    will result == 2 * x
 {
     x + x
 }
@@ -163,9 +163,9 @@ procedure double(x: i32): i32
 **Example 3: Mutation postcondition**
 ```cantrip
 procedure increment(counter: mut i32)
-    will counter == @old(counter) + 1;
+    will counter == @old(counter) + 1
 {
-    counter += 1;
+    counter += 1
 }
 ```
 
@@ -372,7 +372,7 @@ The compiler attempts to prove postconditions using:
 
 ```cantrip
 procedure abs(x: i32): i32
-    will result >= 0;
+    will result >= 0
 {
     if x < 0 { -x } else { x }
 }
@@ -388,18 +388,18 @@ When static proof fails, insert runtime checks:
 
 ```cantrip
 procedure complex_calc(x: i32): i32
-    will result > 0;
+    will result > 0
 {
     // Complex calculation
-    let r = compute(x);
+    let r = compute(x)
     r  // Runtime check: assert!(r > 0)
 }
 
 // Compiles to:
 procedure complex_calc(x: i32): i32 {
-    let r = compute(x);
+    let r = compute(x)
     if !(r > 0) {
-        panic!("postcondition violated: result > 0");
+        panic!("postcondition violated: result > 0")
     }
     r
 }
@@ -410,15 +410,15 @@ procedure complex_calc(x: i32): i32 {
 Postconditions are checked at all return points:
 
 ```cantrip
-procedure find_positive(numbers: &[i32]): Option<i32>
+procedure find_positive(numbers: [i32]): Option<i32>
     will match result {
         Some(n) => n > 0,
-        None => true,
-    };
+        None => true
+    }
 {
-    for &n in numbers {
+    for n in numbers {
         if n > 0 {
-            return Some(n);  // Check here
+            return Some(n)  // Check here
         }
     }
     None  // Check here too
@@ -433,17 +433,17 @@ procedure find_positive(numbers: &[i32]): Option<i32>
 
 ```cantrip
 procedure increment(counter: mut i32)
-    will counter == @old(counter) + 1;
+    will counter == @old(counter) + 1
 {
-    counter += 1;
+    counter += 1
 }
 
 // Compiles to:
 procedure increment(counter: mut i32) {
-    let __old_counter = counter;  // Capture @old value
-    counter += 1;
+    let __old_counter = counter  // Capture @old value
+    counter += 1
     if !(counter == __old_counter + 1) {  // Check using captured value
-        panic!("postcondition violated");
+        panic!("postcondition violated")
     }
 }
 ```
@@ -454,16 +454,16 @@ Each @old expression is captured once:
 
 ```cantrip
 procedure swap(a: mut i32, b: mut i32)
-    will a == @old(b), b == @old(a);
+    will a == @old(b), b == @old(a)
 {
-    let temp = a;
-    a = b;
-    b = temp;
+    let temp = a
+    a = b
+    b = temp
 }
 
 // Captures:
-// let __old_a = a;
-// let __old_b = b;
+// let __old_a = a
+// let __old_b = b
 // Then checks: a == __old_b && b == __old_a
 ```
 
@@ -473,17 +473,17 @@ procedure swap(a: mut i32, b: mut i32)
 
 ```cantrip
 record SortedVec<T> where T: Ord {
-    elements: Vec<T>;
+    elements: Vec<T>
 
     procedure insert(mut $, item: T)
         will {
             $.len() == @old($.len()) + 1,
             is_sorted($.elements),
-            $.contains(&item),
-        };
+            $.contains(item)
+        }
     {
-        let pos = $.elements.binary_search(&item).unwrap_or_else(|e| e);
-        $.elements.insert(pos, item);
+        let pos = $.elements.binary_search(item).unwrap_or_else(|e| e)
+        $.elements.insert(pos, item)
     }
 }
 ```
@@ -495,34 +495,34 @@ procedure transfer(from: mut Account, to: mut Account, amount: i64)
     must {
         amount > 0,
         from.balance >= amount,
-        from.id != to.id,
+        from.id != to.id
     }
     will {
         from.balance == @old(from.balance) - amount,
-        to.balance == @old(to.balance) + amount,
-    };
+        to.balance == @old(to.balance) + amount
+    }
 {
-    from.balance -= amount;
-    to.balance += amount;
+    from.balance -= amount
+    to.balance += amount
 }
 ```
 
 #### 5.5.3 Cache Guarantees
 
 ```cantrip
-record Cache<K, V> {
-    data: HashMap<K, V>;
+record Cache<K, V> where V: Copy {
+    data: HashMap<K, V>
 
-    procedure get_or_insert(mut $, key: K, value: V): &V
+    procedure get_or_insert(mut $, key: K, value: V): V
         will {
-            $.contains_key(&key),
-            result == &$.get(&key).unwrap(),
-        };
-    {
-        if !$.contains_key(&key) {
-            $.insert(key, value);
+            $.contains_key(key),
+            result == $.get(key).unwrap()
         }
-        $.get(&key).unwrap()
+    {
+        if !$.contains_key(key) {
+            $.insert(key, value)
+        }
+        $.get(key).unwrap()
     }
 }
 ```
@@ -530,18 +530,18 @@ record Cache<K, V> {
 #### 5.5.4 Search Guarantees
 
 ```cantrip
-procedure binary_search<T: Ord>(arr: &[T], target: &T): Result<usize, usize>
-    must is_sorted(arr);
+procedure binary_search<T: Ord>(arr: [T], target: T): Result<usize, usize>
+    must is_sorted(arr)
     will match result {
         Ok(index) => {
             index < arr.len(),
-            arr[index] == *target,
+            arr[index] == target
         },
         Err(index) => {
             index <= arr.len(),
-            forall(|i| i < arr.len() => arr[i] != *target),
-        },
-    };
+            forall(|i| i < arr.len() => arr[i] != target)
+        }
+    }
 {
     arr.binary_search(target)
 }
@@ -551,23 +551,23 @@ procedure binary_search<T: Ord>(arr: &[T], target: &T): Result<usize, usize>
 
 ```cantrip
 record Connection {
-    state: State;
+    state: State
 
     procedure connect(mut $)
-        must $.state == State::Disconnected;
-        will $.state == State::Connected;
-        uses net.tcp;
+        must $.state == State::Disconnected
+        will $.state == State::Connected
+        uses net.tcp
     {
         // Perform connection
-        $.state = State::Connected;
+        $.state = State::Connected
     }
 
     procedure disconnect(mut $)
-        must $.state == State::Connected;
-        will $.state == State::Disconnected;
+        must $.state == State::Connected
+        will $.state == State::Disconnected
     {
         // Perform disconnection
-        $.state = State::Disconnected;
+        $.state = State::Disconnected
     }
 }
 ```
@@ -582,8 +582,8 @@ procedure map_all<T, U>(items: Vec<T>, f: map(T) -> U): Vec<U>
         result.len() == items.len(),
         forall(|i| i < result.len() =>
             result[i] == f(items[i])
-        ),
-    };
+        )
+    }
 {
     items.into_iter().map(f).collect()
 }
@@ -598,10 +598,10 @@ procedure update_name(person: mut Person, name: String)
     will {
         person.name == name,
         person.age == @old(person.age),  // Frame: age unchanged
-        person.id == @old(person.id),    // Frame: id unchanged
-    };
+        person.id == @old(person.id)    // Frame: id unchanged
+    }
 {
-    person.name = name;
+    person.name = name
 }
 ```
 
@@ -611,12 +611,12 @@ procedure update_name(person: mut Person, name: String)
 procedure parse_int(s: String): Result<i32, ParseError>
     will match result {
         Ok(n) => {
-            n.to_string() == s.trim(),
+            n.to_string() == s.trim()
         },
         Err(e) => {
-            !is_valid_int(s),
-        },
-    };
+            !is_valid_int(s)
+        }
+    }
 {
     s.trim().parse()
 }

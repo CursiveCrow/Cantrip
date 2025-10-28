@@ -52,20 +52,20 @@ WhereClause   ::= Type ":" Bound ("+" Bound)*
 **Syntax:**
 ```cantrip
 // Simple type alias
-type Kilometers = f64;
+type Kilometers = f64
 
 // Generic type alias
-type Result<T> = Result<T, Error>;
+type Result<T> = Result<T, Error>
 
 // Complex type alias (function pointer)
-type Callback = fn(String) -> bool;
+type Callback = fn(String) => bool
 
 // Type alias with bounds
-type CompareFn<T> = fn(T, T) -> i32
-    where T: Ord;
+type CompareFn<T> = fn(T, T) => i32
+    where T: Ord
 
 // Type alias for nested generics
-type StringMap<V> = HashMap<String, V>;
+type StringMap<V> = HashMap<String, V>
 ```
 
 #### 11.2.2 Abstract Syntax
@@ -98,21 +98,21 @@ A<τ₁, ..., τₙ> ≡ τ[α₁ ↦ τ₁, ..., αₙ ↦ τₙ]
 
 ```cantrip
 // Domain-specific type vocabulary
-type UserId = u64;
-type Temperature = f32;
-type Timestamp = i64;
+type UserId = u64
+type Temperature = f32
+type Timestamp = i64
 
 // Function pointer aliases
-type Predicate<T> = fn(T) -> bool;
-type Comparator<T> = fn(T, T) -> i32;
+type Predicate<T> = fn(T) => bool
+type Comparator<T> = fn(T, T) => i32
 
 // Collection aliases
-type StringList = Vec<String>;
-type IntSet = HashSet<i32>;
+type StringList = Vec<String>
+type IntSet = HashSet<i32>
 
 // Result type shortcuts
-type IoResult<T> = Result<T, IoError>;
-type ParseResult = Result<i32, ParseError>;
+type IoResult<T> = Result<T, IoError>
+type ParseResult = Result<i32, ParseError>
 ```
 
 **Explanation:** These examples show how type aliases create readable names for types that would otherwise require verbose repetition. Aliases are fully transparent and can be used interchangeably with their definitions.
@@ -140,16 +140,16 @@ No cycles: A ∉ FV(τ)      (non-recursive)
 
 **Valid:**
 ```cantrip
-type Point2D = (f64, f64);                    // ✓ Well-formed
-type Callback<T> = fn(T) -> Option<T>;       // ✓ Generic parameter used
-type Matrix<T> = Vec<Vec<T>> where T: Num;   // ✓ Bounded parameter used
+type Point2D = (f64, f64)                    // ✓ Well-formed
+type Callback<T> = fn(T) => Option<T>       // ✓ Generic parameter used
+type Matrix<T> = Vec<Vec<T>> where T: Num   // ✓ Bounded parameter used
 ```
 
 **Invalid:**
 ```cantrip
-type Invalid<T> = String;    // ✗ Unused type parameter T
-type Cycle = Vec<Cycle>;     // ✗ Recursive without indirection
-type Bad<T> = fn(U) -> T;    // ✗ Free variable U not in parameters
+type Invalid<T> = String    // ✗ Unused type parameter T
+type Cycle = Vec<Cycle>     // ✗ Recursive without indirection
+type Bad<T> = fn(U) => T    // ✗ Free variable U not in parameters
 ```
 
 #### 11.3.2 Type Rules
@@ -166,10 +166,10 @@ type A = τ declared in scope
 **Explanation:** Type alias declarations establish type equivalence. The alias name A and its definition τ are fully interchangeable in all contexts.
 
 ```cantrip
-type Distance = f64;
+type Distance = f64
 
-let d: Distance = 5.5;      // ✓ Distance = f64
-let x: f64 = d;             // ✓ Transparent, no conversion needed
+let d: Distance = 5.5      // ✓ Distance = f64
+let x: f64 = d             // ✓ Transparent, no conversion needed
 ```
 
 **[T-TypeAliasInst] Generic Type Alias Instantiation:**
@@ -184,10 +184,10 @@ type A<α₁, ..., αₙ> = τ declared
 **Explanation:** Generic type aliases are instantiated by substituting concrete types for type parameters.
 
 ```cantrip
-type Pair<T> = (T, T);
+type Pair<T> = (T, T)
 
-let p: Pair<i32> = (1, 2);        // ✓ Pair<i32> ≡ (i32, i32)
-let q: (i32, i32) = p;            // ✓ Transparent equivalence
+let p: Pair<i32> = (1, 2)        // ✓ Pair<i32> ≡ (i32, i32)
+let q: (i32, i32) = p            // ✓ Transparent equivalence
 ```
 
 **[T-AliasTransparency] Transparency Rule:**
@@ -206,14 +206,14 @@ type A = τ
 **Explanation:** Expressions can be typed as either the alias or its definition interchangeably without conversion.
 
 ```cantrip
-type Age = u32;
+type Age = u32
 
-function is_adult(age: Age) -> bool {
+function is_adult(age: Age) => bool {
     age >= 18     // ✓ Age is transparent to u32, >= works
 }
 
-let years: u32 = 25;
-is_adult(years);  // ✓ u32 can be passed where Age expected
+let years: u32 = 25
+is_adult(years)  // ✓ u32 can be passed where Age expected
 ```
 
 **[T-AliasSubstitution] Substitution in Types:**
@@ -228,8 +228,8 @@ type A = τ₁
 **Explanation:** Aliases can be substituted in any type expression.
 
 ```cantrip
-type Score = i32;
-type GameState = HashMap<String, Score>;
+type Score = i32
+type GameState = HashMap<String, Score>
 
 // GameState ≡ HashMap<String, i32>
 ```
@@ -247,14 +247,14 @@ type A<α> = τ where α: Trait
 **Explanation:** Type aliases with where clauses require bounds to be satisfied at instantiation.
 
 ```cantrip
-type Comparator<T> = fn(T, T) -> i32
-    where T: Ord;
+type Comparator<T> = fn(T, T) => i32
+    where T: Ord
 
 // ✓ i32 implements Ord
-let cmp: Comparator<i32> = |a, b| a - b;
+let cmp: Comparator<i32> = |a, b| a - b
 
 // ✗ Error: Vec<T> does not implement Ord
-// let bad: Comparator<Vec<i32>> = ...;
+// let bad: Comparator<Vec<i32>> = ...
 ```
 
 **[T-AliasNesting] Nested Type Aliases:**
@@ -269,9 +269,9 @@ B ≡ τ₂[A ↦ τ₁]    (transitive)
 **Explanation:** Type aliases compose transitively.
 
 ```cantrip
-type Key = String;
-type Value = i32;
-type Cache = HashMap<Key, Value>;
+type Key = String
+type Value = i32
+type Cache = HashMap<Key, Value>
 
 // Cache ≡ HashMap<String, i32>
 ```
@@ -288,12 +288,12 @@ type F = fn(τ₁, ..., τₙ) → τ
 **Explanation:** Function pointer types can be aliased for readability.
 
 ```cantrip
-type BinaryOp = fn(i32, i32) -> i32;
+type BinaryOp = fn(i32, i32) => i32
 
-let add: BinaryOp = |a, b| a + b;
-let sub: BinaryOp = |a, b| a - b;
+let add: BinaryOp = |a, b| a + b
+let sub: BinaryOp = |a, b| a - b
 
-function apply(op: BinaryOp, x: i32, y: i32) -> i32 {
+function apply(op: BinaryOp, x: i32, y: i32) => i32 {
     op(x, y)
 }
 ```
@@ -311,9 +311,9 @@ e used in context expecting τ
 **Explanation:** Type inference can infer aliases or their definitions.
 
 ```cantrip
-type Index = usize;
+type Index = usize
 
-let indices = vec![1, 2, 3];  // Inferred as Vec<Index> or Vec<usize>
+let indices = vec![1, 2, 3]  // Inferred as Vec<Index> or Vec<usize>
 ```
 
 **[T-AliasError] Error Reporting with Aliases:**
@@ -329,11 +329,11 @@ ERROR: Expected A (which is τ), found τ'
 **Explanation:** Error messages display both the alias name and its definition for clarity.
 
 ```cantrip
-type UserId = u64;
+type UserId = u64
 
 function get_user(id: UserId) { ... }
 
-get_user("invalid");
+get_user("invalid")
 // ERROR: Expected UserId (which is u64), found &str
 ```
 
@@ -350,35 +350,35 @@ Can use A ≡ τ
 
 ```cantrip
 module math {
-    pub type Vector = (f64, f64, f64);  // Public alias
-    type Internal = i32;                 // Private alias
+    pub type Vector = (f64, f64, f64)  // Public alias
+    type Internal = i32                 // Private alias
 }
 
-use math::Vector;
-let v: Vector = (1.0, 2.0, 3.0);  // ✓ Public alias accessible
+use math::Vector
+let v: Vector = (1.0, 2.0, 3.0)  // ✓ Public alias accessible
 
-// let x: math::Internal = 5;     // ✗ Private alias not accessible
+// let x: math::Internal = 5     // ✗ Private alias not accessible
 ```
 
 **[T-AliasRecursive] Recursive Types with Indirection:**
 ```
 [T-AliasRecursive]
-type List<T> = Option<Box<(T, List<T>)>>
-Box provides indirection
+type List<T> = Option<Ptr<(T, List<T>)>@Exclusive>
+Ptr provides heap indirection
 ─────────────────────────────────────────
 Recursive type is well-formed
 ```
 
-**Explanation:** Recursive type aliases require indirection (Box, references) to have finite size.
+**Explanation:** Recursive type aliases require heap indirection (via Ptr) to have finite size.
 
 ```cantrip
 // ✗ Invalid: Direct recursion
-// type List<T> = (T, List<T>);  // Infinite size!
+// type List<T> = (T, List<T>)  // Infinite size!
 
-// ✓ Valid: Recursion through Box
-type List<T> = Option<Box<(T, List<T>)>>;
+// ✓ Valid: Recursion through heap pointer
+type List<T> = Option<Ptr<(T, List<T>)>@Exclusive>
 
-let list: List<i32> = Some(Box::new((1, None)));
+let list: List<i32> = Some(Ptr.new(&(1, None)))
 ```
 
 **[T-AliasAssociated] Associated Type Aliases:**
@@ -394,14 +394,14 @@ T : I  ∧  T::A ≡ τ
 
 ```cantrip
 trait Container {
-    type Item;
-    function get(self: Self, index: usize) -> Option<Self::Item>;
+    type Item
+    function get(self: Self, index: usize) => Option<Self::Item>
 }
 
 impl Container for Vec<i32> {
-    type Item = i32;  // Associated type alias
+    type Item = i32  // Associated type alias
 
-    function get(self: Self, index: usize) -> Option<i32> {
+    function get(self: Self, index: usize) => Option<i32> {
         if index < self.len() {
             Some(self[index])
         } else {
@@ -423,10 +423,10 @@ type F = fn(τ₁) → τ₂ ! ε
 **Explanation:** Type aliases can include effect signatures for functions.
 
 ```cantrip
-type Logger = fn(String) -> () ! {io.write};
-type Reader = fn() -> String ! {io.read};
+type Logger = fn(String) => () ! {io.write}
+type Reader = fn() => String ! {io.read}
 
-let log: Logger = |msg| println(msg);
+let log: Logger = |msg| println(msg)
 ```
 
 **[T-AliasPermission] Type Aliases with Permissions:**
@@ -441,9 +441,9 @@ type A = π τ    (alias includes permission)
 **Explanation:** Type aliases can encode permission qualifiers.
 
 ```cantrip
-type OwnedString = own String;
-type SharedInt = imm i32;
-type MutableVec<T> = mut Vec<T>;
+type OwnedString = own String
+type SharedInt = imm i32
+type MutableVec<T> = mut Vec<T>
 ```
 
 **[T-AliasConversion] No Implicit Conversion:**
@@ -458,15 +458,15 @@ No conversion needed: A = τ (not A → τ)
 **Explanation:** Type aliases are transparent; no conversion or coercion occurs.
 
 ```cantrip
-type Meters = f64;
+type Meters = f64
 
-let distance: Meters = 10.5;
-let value: f64 = distance;    // ✓ No conversion, same type
+let distance: Meters = 10.5
+let value: f64 = distance    // ✓ No conversion, same type
 
 // Newtype would require explicit conversion:
-// record MetersNewtype(f64);
-// let d = MetersNewtype(10.5);
-// let v: f64 = d.0;  // Must access field
+// record MetersNewtype(f64)
+// let d = MetersNewtype(10.5)
+// let v: f64 = d.0  // Must access field
 ```
 
 **[T-AliasCopy] Trait Implementation Inheritance:**
@@ -481,13 +481,14 @@ A : Trait
 **Explanation:** Type aliases inherit all trait implementations from their target type.
 
 ```cantrip
-type Point = (i32, i32);
+type Point = (i32, i32)
 
 // (i32, i32) implements Copy, Clone, Debug, etc.
 // Therefore Point also implements Copy, Clone, Debug, etc.
 
-let p1: Point = (5, 10);
-let p2 = p1;  // ✓ Copy works because (i32, i32) is Copy
+let p1: Point = (5, 10)
+let p2 = p1  // ✓ Both bind to same value (permission), p1 still usable
+let p3 = p1.copy()  // ✓ Explicit copy because (i32, i32) is Copy
 ```
 
 #### 11.3.3 Type Properties
@@ -532,9 +533,9 @@ e[A ↦ τ] evaluated at runtime (A erased)
 **Explanation:** At runtime, all type aliases are replaced by their definitions. Type aliases exist only in the source code and type system.
 
 ```cantrip
-type Distance = f64;
+type Distance = f64
 
-let d: Distance = 10.5;
+let d: Distance = 10.5
 // At runtime: let d: f64 = 10.5;  (Distance erased)
 ```
 
@@ -549,11 +550,11 @@ Align(type A = τ) = Align(τ)
 
 **Examples:**
 ```cantrip
-type Coordinate = (f32, f32);
+type Coordinate = (f32, f32)
 // Size: 8 bytes (2 × f32)
 // Align: 4 bytes (alignment of f32)
 
-type Callback = fn(i32) -> bool;
+type Callback = fn(i32) => bool
 // Size: 0 bytes (function types are zero-sized)
 // Align: 1 byte
 ```
@@ -565,12 +566,12 @@ type Callback = fn(i32) -> bool;
 Type aliases do not change operational behavior. All operations on aliased types are identical to operations on their target types.
 
 ```cantrip
-type Index = usize;
+type Index = usize
 
-let i: Index = 5;
-let j: usize = 10;
+let i: Index = 5
+let j: usize = 10
 
-let sum = i + j;  // Same as: 5_usize + 10_usize
+let sum = i + j  // Same as: 5_usize + 10_usize
 // No conversion, same operation
 ```
 
@@ -582,7 +583,7 @@ The **newtype pattern** uses single-field record types to create distinct nomina
 
 **Syntax:**
 ```cantrip
-record NewtypeName(InnerType);
+record NewtypeName(InnerType)
 ```
 
 **Comparison with Type Aliases:**
@@ -599,33 +600,33 @@ record NewtypeName(InnerType);
 
 **Type alias (transparent):**
 ```cantrip
-type Meters = f64;
-type Feet = f64;
+type Meters = f64
+type Feet = f64
 
-let m: Meters = 10.0;
-let f: Feet = 33.0;
+let m: Meters = 10.0
+let f: Feet = 33.0
 
 // ✗ Oops! Can mix Meters and Feet (both are f64)
-let sum = m + f;  // ✓ Compiles but semantically wrong
+let sum = m + f  // ✓ Compiles but semantically wrong
 ```
 
 **Newtype pattern (distinct types):**
 ```cantrip
-record Meters(f64);
-record Feet(f64);
+record Meters(f64)
+record Feet(f64)
 
-let m = Meters(10.0);
-let f = Feet(33.0);
+let m = Meters(10.0)
+let f = Feet(33.0)
 
 // ✓ Cannot mix Meters and Feet (compiler error)
-// let sum = m + f;  // ✗ ERROR: cannot add Meters and Feet
+// let sum = m + f  // ✗ ERROR: cannot add Meters and Feet
 
 // Must convert explicitly
-function feet_to_meters(f: Feet) -> Meters {
+function feet_to_meters(f: Feet) => Meters {
     Meters(f.0 * 0.3048)
 }
 
-let sum_meters = m.0 + feet_to_meters(f).0;  // ✓ Explicit
+let sum_meters = m.0 + feet_to_meters(f).0  // ✓ Explicit
 ```
 
 **When to use newtype pattern:**
@@ -636,17 +637,17 @@ let sum_meters = m.0 + feet_to_meters(f).0;  // ✓ Explicit
 
 **Example: Preventing ID confusion**
 ```cantrip
-record UserId(u64);
-record ProductId(u64);
+record UserId(u64)
+record ProductId(u64)
 
-function get_user(id: UserId) -> User { ... }
-function get_product(id: ProductId) -> Product { ... }
+function get_user(id: UserId) => User { ... }
+function get_product(id: ProductId) => Product { ... }
 
-let user_id = UserId(12345);
-let product_id = ProductId(67890);
+let user_id = UserId(12345)
+let product_id = ProductId(67890)
 
-get_user(user_id);      // ✓ Correct
-get_user(product_id);   // ✗ ERROR: Expected UserId, found ProductId
+get_user(user_id)      // ✓ Correct
+get_user(product_id)   // ✗ ERROR: Expected UserId, found ProductId
 ```
 
 ### 11.6 Generic Type Aliases
@@ -655,7 +656,7 @@ Generic type aliases allow parameterization by type variables, enabling reusable
 
 **Syntax:**
 ```cantrip
-type AliasName<T1, T2, ...> = ComplexType<T1, T2, ...>;
+type AliasName<T1, T2, ...> = ComplexType<T1, T2, ...>
 ```
 
 **Examples:**
@@ -663,8 +664,8 @@ type AliasName<T1, T2, ...> = ComplexType<T1, T2, ...>;
 **Standard library patterns:**
 ```cantrip
 // Result type with fixed error type
-type IoResult<T> = Result<T, IoError>;
-type ParseResult<T> = Result<T, ParseError>;
+type IoResult<T> = Result<T, IoError>
+type ParseResult<T> = Result<T, ParseError>
 
 function read_config(): IoResult<Config> {
     // Return type is Result<Config, IoError>
@@ -674,47 +675,47 @@ function read_config(): IoResult<Config> {
 
 **Collection type aliases:**
 ```cantrip
-type StringMap<V> = HashMap<String, V>;
-type IntSet = HashSet<i32>;
-type Matrix<T> = Vec<Vec<T>>;
+type StringMap<V> = HashMap<String, V>
+type IntSet = HashSet<i32>
+type Matrix<T> = Vec<Vec<T>>
 
-let scores: StringMap<i32> = HashMap::new();
-let grid: Matrix<f64> = vec![vec![1.0, 2.0], vec![3.0, 4.0]];
+let scores: StringMap<i32> = HashMap::new()
+let grid: Matrix<f64> = vec![vec![1.0, 2.0], vec![3.0, 4.0]]
 ```
 
 **Function type aliases:**
 ```cantrip
-type Predicate<T> = fn(T) -> bool;
-type Transform<T, U> = fn(T) -> U;
-type FoldFn<T, A> = fn(A, T) -> A;
+type Predicate<T> = fn(T) => bool
+type Transform<T, U> = fn(T) => U
+type FoldFn<T, A> = fn(A, T) => A
 
-function filter<T>(items: Vec<T>, pred: Predicate<T>) -> Vec<T> {
+function filter<T>(items: Vec<T>, pred: Predicate<T>) => Vec<T> {
     items.into_iter().filter(pred).collect()
 }
 ```
 
 **Trait-bounded generic aliases:**
 ```cantrip
-type Comparator<T> = fn(T, T) -> i32
-    where T: Ord;
+type Comparator<T> = fn(T, T) => i32
+    where T: Ord
 
-type Serializer<T> = fn(T) -> String
-    where T: Display;
+type Serializer<T> = fn(T) => String
+    where T: Display
 
-type Cloner<T> = fn(T) -> T
-    where T: Clone;
+type Cloner<T> = fn(T) => T
+    where T: Clone
 ```
 
 **Complex nested generics:**
 ```cantrip
 // Simplify callback signatures
-type AsyncCallback<T> = fn(Result<T, Error>) -> ();
-type EventHandler<E> = fn(E) -> EventResult;
-type StateTransition<S> = fn(S) -> Option<S>;
+type AsyncCallback<T> = fn(Result<T, Error>) => ()
+type EventHandler<E> = fn(E) => EventResult
+type StateTransition<S> = fn(S) => Option<S>
 
 // Simplify data structure signatures
-type Graph<N, E> = HashMap<N, Vec<(N, E)>>;
-type Cache<K, V> = Arc<Mutex<HashMap<K, V>>>;
+type Graph<N, E> = HashMap<N, Vec<(N, E)>>
+type Cache<K, V> = Arc<Mutex<HashMap<K, V>>>
 ```
 
 ### 11.7 Examples and Patterns
@@ -725,29 +726,29 @@ type Cache<K, V> = Arc<Mutex<HashMap<K, V>>>;
 
 ```cantrip
 // Physics simulation
-type Position = (f64, f64, f64);
-type Velocity = (f64, f64, f64);
-type Mass = f64;
-type Force = (f64, f64, f64);
+type Position = (f64, f64, f64)
+type Velocity = (f64, f64, f64)
+type Mass = f64
+type Force = (f64, f64, f64)
 
 record Particle {
-    position: Position;
-    velocity: Velocity;
-    mass: Mass;
+    position: Position
+    velocity: Velocity
+    mass: Mass
 }
 
-function apply_force(p: Particle, f: Force, dt: f64) -> Particle {
-    let acceleration = (f.0 / p.mass, f.1 / p.mass, f.2 / p.mass);
+function apply_force(p: Particle, f: Force, dt: f64) => Particle {
+    let acceleration = (f.0 / p.mass, f.1 / p.mass, f.2 / p.mass)
     let new_velocity = (
         p.velocity.0 + acceleration.0 * dt,
         p.velocity.1 + acceleration.1 * dt,
         p.velocity.2 + acceleration.2 * dt
-    );
+    )
     let new_position = (
         p.position.0 + new_velocity.0 * dt,
         p.position.1 + new_velocity.1 * dt,
         p.position.2 + new_velocity.2 * dt
-    );
+    )
 
     Particle {
         position: new_position,
@@ -767,10 +768,10 @@ function apply_force(p: Particle, f: Force, dt: f64) -> Particle {
 // Without aliases (verbose and unclear)
 function process_data(
     data: Vec<i32>,
-    transform: fn(i32) -> f64,
-    filter: fn(f64) -> bool,
-    fold: fn(f64, f64) -> f64
-) -> f64 {
+    transform: fn(i32) => f64,
+    filter: fn(f64) => bool,
+    fold: fn(f64, f64) => f64
+) => f64 {
     data.iter()
         .map(transform)
         .filter(filter)
@@ -778,16 +779,16 @@ function process_data(
 }
 
 // With aliases (clear and concise)
-type Transform = fn(i32) -> f64;
-type Filter = fn(f64) -> bool;
-type Reducer = fn(f64, f64) -> f64;
+type Transform = fn(i32) => f64
+type Filter = fn(f64) => bool
+type Reducer = fn(f64, f64) => f64
 
 function process_data(
     data: Vec<i32>,
     transform: Transform,
     filter: Filter,
     fold: Reducer
-) -> f64 {
+) => f64 {
     data.iter()
         .map(transform)
         .filter(filter)
@@ -795,11 +796,11 @@ function process_data(
 }
 
 // Usage
-let t: Transform = |x| x as f64 * 2.0;
-let f: Filter = |x| x > 0.0;
-let r: Reducer = |acc, x| acc + x;
+let t: Transform = |x| x as f64 * 2.0
+let f: Filter = |x| x > 0.0
+let r: Reducer = |acc, x| acc + x
 
-process_data(vec![1, 2, 3], t, f, r);
+process_data(vec![1, 2, 3], t, f, r)
 ```
 
 **Explanation:** Type aliases make function signatures more readable and easier to maintain. Changes to callback signatures only need to be made in one place.
@@ -815,13 +816,13 @@ record ParseError { line: usize; message: String; }
 record NetworkError { code: i32; message: String; }
 
 // Create specialized Result aliases
-type IoResult<T> = Result<T, IoError>;
-type ParseResult<T> = Result<T, ParseError>;
-type NetworkResult<T> = Result<T, NetworkError>;
+type IoResult<T> = Result<T, IoError>
+type ParseResult<T> = Result<T, ParseError>
+type NetworkResult<T> = Result<T, NetworkError>
 
 // Functions use domain-specific result types
 function read_file(path: String): IoResult<String>
-    uses io.read;
+    uses io.read
 {
     // Implementation
     ...
@@ -833,7 +834,7 @@ function parse_config(content: String): ParseResult<Config> {
 }
 
 function fetch_data(url: String): NetworkResult<String>
-    uses io.network;
+    uses io.network
 {
     // Implementation
     ...
@@ -841,7 +842,7 @@ function fetch_data(url: String): NetworkResult<String>
 
 // Usage clearly indicates error context
 let config_result = read_file("config.txt")
-    .and_then(|content| parse_config(content));
+    .and_then(|content| parse_config(content))
 ```
 
 **Explanation:** Specialized Result types make error handling more explicit and self-documenting. The function signature immediately tells you what kind of errors to expect.
@@ -852,37 +853,37 @@ let config_result = read_file("config.txt")
 
 ```cantrip
 // Public API (stable)
-pub type ConnectionId = u64;
+pub type ConnectionId = u64
 
 // Internal implementation (can change)
 record Connection {
-    id: ConnectionId;
-    socket: TcpStream;
-    buffer: Vec<u8>;
+    id: ConnectionId
+    socket: TcpStream
+    buffer: Vec<u8>
 }
 
-pub function connect(addr: String) -> Result<ConnectionId, Error> {
+pub function connect(addr: String) => Result<ConnectionId, Error> {
     // Create connection
     let conn = Connection {
         id: generate_id(),
         socket: TcpStream::connect(addr)?,
         buffer: Vec::new()
-    };
+    }
 
     // Store connection and return ID
-    store_connection(conn);
+    store_connection(conn)
     Ok(conn.id)
 }
 
-pub function send(id: ConnectionId, data: Vec<u8>) -> Result<(), Error> {
-    let conn = get_connection(id)?;
-    conn.socket.write(data)?;
+pub function send(id: ConnectionId, data: Vec<u8>) => Result<(), Error> {
+    let conn = get_connection(id)?
+    conn.socket.write(data)?
     Ok(())
 }
 
 // Later, can change ConnectionId implementation without breaking API
-// pub type ConnectionId = (u64, u32);  // Add generation counter
-// pub type ConnectionId = Uuid;         // Switch to UUID
+// pub type ConnectionId = (u64, u32)  // Add generation counter
+// pub type ConnectionId = Uuid         // Switch to UUID
 ```
 
 **Explanation:** The public API uses `ConnectionId`, allowing internal representation to change without breaking client code. This is more flexible than exposing the concrete type directly.

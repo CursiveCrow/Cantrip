@@ -62,7 +62,8 @@ Utf8Bom    ::= #xEF #xBB #xBF
 
 **Formal properties:**
 - Encoding: UTF-8 (REQUIRED)
-- Line endings: LF (`\n`), CRLF (`\r\n`), or CR (`\r`) (all accepted)
+- Line endings: LF (`\n`), CRLF (`\r\n`), or CR (`\r`) (all accepted, normalized to LF during lexing)
+- Newlines are significant tokens: Newlines are preserved as tokens during lexical analysis (not discarded as whitespace)
 - BOM: Optional UTF-8 BOM (U+FEFF) is ignored if present
 - File extension: `.cantrip` (RECOMMENDED)
 - Maximum file size: Implementation-defined (RECOMMENDED: 1MB)
@@ -86,6 +87,7 @@ ModuleDoc    ::= "//!" ~[\n\r]*
 - Module docs (`//!`) document the containing module
 - Doc comments are preserved for documentation generation
 - Non-doc comments are stripped before parsing
+- Comments do not affect statement continuation (newlines after comments are significant)
 
 **Identifiers:**
 
@@ -186,22 +188,116 @@ StringLiteral ::= '"' (EscapeSequence | ~["\\])* '"'
 **Reserved keywords (MUST NOT be used as identifiers):**
 ```
 abstract    as          async       await       break
-case        comptime    const       continue    defer
-effect      else        will enum        exists
-false       for         forall      function    if
-impl        import      internal    invariant   iso
-let         loop        match       modal       module
-move        mut         uses new         none
-own         private     protected   procedure   public
-record      ref         region      must result
-select      self        Self        state       static
-trait       true        type        var         where
-while
+by          case        comptime    const       continue
+defer       effect      else        enum        exists
+false       forall      function    if          import
+internal    invariant   iso         let         loop
+match       modal       module      move        must
+mut         new         none        own         private
+procedure   protected   public      record      ref
+region      result      select      self        Self
+state       static      trait       true        type
+uses        var         where       will        with
 ```
 
 **Contextual keywords (special meaning in specific contexts):**
 ```
 effects     pure
+```
+
+**Statement Terminators:**
+
+**Definition 2.5 (Statement Termination):** Cantrip uses newlines as primary statement terminators. Semicolons are optional and may be used to separate multiple statements on a single line.
+
+**Grammar:**
+```ebnf
+Separator ::= NEWLINE | ";"
+Whitespace ::= " " | "\t" | "\r"  (not newline)
+```
+
+**Termination Rules:**
+- **Primary rule:** A newline terminates a statement unless a continuation rule applies
+- **Optional separator:** Semicolons `;` may be used to separate statements on the same line
+- **Whitespace:** Spaces, tabs, and carriage returns are discarded (not significant)
+- **Newlines:** Newlines are preserved as tokens (significant for statement boundaries)
+
+**Statement Continuation Rules:**
+
+A statement continues across newlines in exactly four cases:
+
+**Rule 1: Unclosed Delimiters**
+```
+Statement continues when `(`, `[`, or `<` remains unclosed.
+```
+
+**Rule 2: Trailing Operator**
+```
+Statement continues when line ends with a binary or assignment operator.
+Binary operators: +, -, *, /, %, **, ==, !=, <, <=, >, >=, &&, ||, &, |, ^, <<, >>, .., ..=, =>
+Assignment operators: =, +=, -=, *=, /=, %=, &=, |=, ^=, <<=, >>=
+```
+
+**Rule 3: Leading Dot**
+```
+Statement continues when next line begins with `.` (method/field access).
+```
+
+**Rule 4: Leading Pipeline**
+```
+Statement continues when next line begins with `=>` (pipeline operator).
+```
+
+**Formal Continuation Predicate:**
+```
+is_continuation(current: Token, state: ParserState) -> bool:
+    // Rule 1: Unclosed delimiters
+    if state.paren_depth > 0 || state.bracket_depth > 0 || state.angle_depth > 0:
+        return true
+
+    // Rule 2: Trailing operator
+    if state.previous_token in BINARY_OPERATORS ∪ ASSIGNMENT_OPERATORS:
+        return true
+
+    // Rule 3: Leading dot
+    if state.next_token == DOT:
+        return true
+
+    // Rule 4: Leading pipeline
+    if state.next_token == PIPELINE:
+        return true
+
+    return false
+```
+
+**Examples:**
+```cantrip
+// Simple statements (newline terminates)
+let x = 1
+let y = 2
+
+// Multiple statements on one line (semicolon separates)
+let x = 1; let y = 2
+
+// Rule 1: Unclosed parentheses
+let result = calculate(
+    arg1,
+    arg2
+)
+
+// Rule 2: Trailing operator
+let total = base +
+    modifier +
+    bonus
+
+// Rule 3: Leading dot (method chaining)
+result
+    .validate()
+    .process()
+
+// Rule 4: Leading pipeline
+let result = input
+    => validate
+    => transform
 ```
 
 #### 2.2.2 Abstract Syntax
@@ -220,6 +316,8 @@ Token ::= Identifier(name: String)
         | Keyword(word: KeywordKind)
         | Operator(op: OperatorKind)
         | Delimiter(delim: DelimiterKind)
+        | Newline                               (significant token)
+        | Semicolon                             (optional separator)
         | EOF
 
 KeywordKind ::= Function | Procedure | Record | Enum | Modal | ...
@@ -229,6 +327,11 @@ DelimiterKind ::= LParen | RParen | LBrace | RBrace | ...
 IntegerType ::= I8 | I16 | I32 | I64 | ISize | U8 | U16 | U32 | U64 | USize
 FloatType ::= F32 | F64
 ```
+
+**Key changes from traditional lexers:**
+- **Newline is preserved:** Unlike most C-family languages, newlines are not discarded as whitespace
+- **Semicolon is optional:** Semicolons are tokens but not required for statement termination
+- **Whitespace handling:** Only spaces, tabs, and carriage returns are discarded; newlines are kept
 
 **Token Stream:**
 
@@ -518,13 +621,13 @@ while_loop  → [Identifier("while_loop")]
 0xFF_       // ERROR E2002: trailing underscore in integer literal
 '\xAB'      // ERROR E2003: hex escape exceeds ASCII range (0x7F)
 '\u{D800}'  // ERROR E2004: surrogate code point in Unicode escape
-let while = 5;  // ERROR E2005: 'while' is reserved keyword
+let while = 5  // ERROR E2005: 'while' is reserved keyword
 ```
 
 **Valid lexically but type-incorrect (type errors detected in §4):**
 ```cantrip
-let x: u8 = 256;        // Lexically valid, type error (overflow)
-let y: i32 = 3.14;      // Lexically valid, type error (mismatch)
+let x: u8 = 256        // Lexically valid, type error (overflow)
+let y: i32 = 3.14      // Lexically valid, type error (mismatch)
 ```
 
 ### 2.6 Examples and Patterns
@@ -594,6 +697,48 @@ function add(x: i32, y: i32): i32 {
 
 "hello"     → StringLiteral("hello")
 "line 1\nline 2" → StringLiteral("line 1\nline 2")
+```
+
+#### 2.6.3 Statement Termination Examples
+
+**Simple statements:**
+```cantrip
+let x = 10
+let y = 20
+let z = x + y
+```
+
+**Multi-line expressions:**
+```cantrip
+let result = base_value +
+    adjustment_factor *
+    scale_factor
+
+let condition = x > 0 &&
+    y < 100 &&
+    z != 0
+```
+
+**Method chaining:**
+```cantrip
+let result = builder
+    .with_capacity(100)
+    .with_name("example")
+    .build()
+```
+
+**Unclosed delimiters:**
+```cantrip
+let array = [
+    1, 2, 3,
+    4, 5, 6
+]
+
+let result = compute(
+    arg1,
+    arg2,
+    arg3
+)
 ```
 
 ---

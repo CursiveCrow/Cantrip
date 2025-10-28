@@ -53,7 +53,7 @@ LoopVerification ::= LoopVariant? LoopInvariant?
 
 LoopVariant ::= "by" Expr                          // Termination metric
 
-LoopInvariant ::= "with" PredicateBlock ";"        // Loop invariants
+LoopInvariant ::= "with" PredicateBlock        // Loop invariants
 
 PredicateBlock ::= Assertion                       // Single invariant
                  | "{" AssertionList "}"           // Multiple invariants
@@ -133,34 +133,34 @@ body       ::= block_expr                 // Loop body
 **Example 1: Infinite loop**
 ```cantrip
 loop {
-    let command = read_command();
+    let command = read_command()
     if command == "quit" {
-        break;
+        break
     }
-    process(command);
+    process(command)
 }
 ```
 
 **Example 2: While-style loop**
 ```cantrip
-var i = 0;
+var i = 0
 loop i < 10 {
-    println!("{}", i);
-    i += 1;
+    println("{}", i)
+    i += 1
 }
 ```
 
 **Example 3: For-style loop**
 ```cantrip
 loop i in 0..10 {
-    println!("{}", i);
+    println("{}", i)
 }
 ```
 
 **Example 4: Iterator loop**
 ```cantrip
 loop item in collection {
-    process(item);
+    process(item)
 }
 ```
 
@@ -242,11 +242,11 @@ break expressions in body have type τ_break
 ```cantrip
 // Type: i32
 let result: i32 = loop {
-    let x = compute();
+    let x = compute()
     if x > threshold {
-        break x;  // breaks with i32
+        break x  // breaks with i32
     }
-};
+}
 ```
 
 **[T-Loop-Condition] Conditional loop:**
@@ -425,7 +425,7 @@ pat matches v, binding Γ'
 **Syntax:**
 ```cantrip
 loop condition
-    with invariant;
+    with invariant
 {
     body
 }
@@ -435,8 +435,8 @@ loop condition
     with {
         inv1,
         inv2,
-        inv3,
-    };
+        inv3
+    }
 {
     body
 }
@@ -457,22 +457,22 @@ invariant ∧ ¬condition ⇒ postcondition
 **Example: Array sum**
 ```cantrip
 procedure sum_array(arr: [i32; n]): i32
-    will result == sum_of(arr[0..n]);
+    will result == sum_of(arr[0..n])
 {
-    var sum = 0;
-    var i = 0;
-    
+    var sum = 0
+    var i = 0
+
     loop i < n
         with {
             0 <= i,
             i <= n,
             sum == sum_of(arr[0..i]),
-        };
+        }
     {
-        sum += arr[i];
-        i += 1;
+        sum += arr[i]
+        i += 1
     }
-    
+
     sum
 }
 ```
@@ -512,24 +512,24 @@ variant ≥ 0  (or some lower bound)
 **Example: Binary search**
 ```cantrip
 procedure binary_search(arr: [i32], target: i32): Option<usize> {
-    var low = 0;
-    var high = arr.len();
-    
+    var low = 0
+    var high = arr.len()
+
     loop low < high by high - low
         with {
             0 <= low,
             high <= arr.len(),
             low <= high,
-        };
+        }
     {
-        let mid = (low + high) / 2;
+        let mid = (low + high) / 2
         if arr[mid] < target {
-            low = mid + 1;
+            low = mid + 1
         } else {
-            high = mid;
+            high = mid
         }
     }
-    
+
     if low < arr.len() && arr[low] == target {
         Some(low)
     } else {
@@ -557,13 +557,13 @@ procedure binary_search(arr: [i32], target: i32): Option<usize> {
 ```cantrip
 // Compiler can infer: by n - i
 loop i in 0..n {
-    process(i);
+    process(i)
 }
 
 // Compiler can infer: by n - i
-var i = 0;
+var i = 0
 loop i < n {
-    i += 1;
+    i += 1
 }
 ```
 
@@ -590,7 +590,7 @@ error[E9010]: cannot prove loop termination
 **Destructuring tuples:**
 ```cantrip
 loop (key, value) in map {
-    println!("{}: {}", key, value);
+    println("{}: {}", key, value)
 }
 ```
 
@@ -598,14 +598,14 @@ loop (key, value) in map {
 ```cantrip
 loop Ok(value) in results {
     // Only processes Ok variants, skips Err
-    process(value);
+    process(value)
 }
 ```
 
 **With guards:**
 ```cantrip
 loop x in items where x > 0 {
-    process_positive(x);
+    process_positive(x)
 }
 ```
 
@@ -613,12 +613,12 @@ loop x in items where x > 0 {
 
 ```cantrip
 loop i in 0..n by n - i
-    with i >= 0, i <= n;
+    with { i >= 0, i <= n }
 {
     loop j in 0..i by i - j
-        with j >= 0, j <= i;
+        with { j >= 0, j <= i }
     {
-        matrix[i][j] = compute(i, j);
+        matrix[i][j] = compute(i, j)
     }
 }
 ```
@@ -631,10 +631,10 @@ loop i in 0..n by n - i
 'outer: loop i in 0..n {
     'inner: loop j in 0..m {
         if should_exit_all() {
-            break 'outer;
+            break 'outer
         }
         if should_skip_inner() {
-            continue 'inner;
+            continue 'inner
         }
     }
 }
@@ -648,12 +648,12 @@ loop i in 0..n by n - i
 
 ```cantrip
 procedure product(numbers: Vec<i32>): i32 {
-    var result = 1;
-    
+    var result = 1
+
     loop num in numbers {
-        result *= num;
+        result *= num
     }
-    
+
     result
 }
 ```
@@ -668,10 +668,10 @@ procedure product(numbers: Vec<i32>): i32 {
 procedure find_first<T>(items: Vec<T>, predicate: fn(T) -> bool): Option<T> {
     loop item in items {
         if predicate(item) {
-            break Some(item);
+            break Some(item)
         }
     }
-    
+
     None
 }
 ```
@@ -684,24 +684,24 @@ procedure find_first<T>(items: Vec<T>, predicate: fn(T) -> bool): Option<T> {
 
 ```cantrip
 procedure gcd(a: u64, b: u64): u64
-    must a > 0, b > 0;
-    will result divides a, result divides b;
+    must a > 0, b > 0
+    will result divides a, result divides b
 {
-    var x = a;
-    var y = b;
-    
+    var x = a
+    var y = b
+
     loop y > 0 by y
         with {
             x > 0,
             y >= 0,
             gcd(x, y) == gcd(a, b),
-        };
+        }
     {
-        let temp = y;
-        y = x % y;
-        x = temp;
+        let temp = y
+        y = x % y
+        x = temp
     }
-    
+
     x
 }
 ```
@@ -718,7 +718,7 @@ procedure event_loop(server: mut Server) {
         match server.receive_event() {
             Event::Request(req) => handle_request(req),
             Event::Shutdown => break,
-            Event::Error(e) => log_error(e),
+            Event::Error(e) => log_error(e)
         }
     }
 }

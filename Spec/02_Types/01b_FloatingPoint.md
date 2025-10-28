@@ -30,7 +30,8 @@
 - **Default float type**: Float literals default to `f64`
 - **Special values**: ±0, ±∞, NaN with IEEE 754 semantics
 - **NaN propagation**: Operations with NaN produce NaN
-- **Copy semantics**: Both `f32` and `f64` are `Copy` types
+- **Copy trait**: Both `f32` and `f64` implement `Copy` (can be explicitly copied)
+- **Parameter passing**: Floats pass by permission like all types (no automatic copying)
 
 ### 5.2.2 Syntax
 
@@ -55,19 +56,19 @@ TypeSuffix   ::= "f32" | "f64"
 **Examples:**
 ```cantrip
 // Basic floating-point literals
-let pi: f64 = 3.14159;
-let e: f32 = 2.71828f32;
+let pi: f64 = 3.14159
+let e: f32 = 2.71828f32
 
 // Scientific notation
-let avogadro: f64 = 6.022e23;
-let planck: f64 = 6.626e-34;
+let avogadro: f64 = 6.022e23
+let planck: f64 = 6.626e-34
 
 // Suffix notation
-let x = 1.0f32;
-let y = 2.5f64;
+let x = 1.0f32
+let y = 2.5f64
 
 // Underscores for readability
-let large: f64 = 299_792_458.0;  // Speed of light (m/s)
+let large: f64 = 299_792_458.0  // Speed of light (m/s)
 ```
 
 #### Abstract Syntax
@@ -119,9 +120,9 @@ T ∈ {f32, f64}
 
 **Examples:**
 ```cantrip
-let x = 3.14;         // Type: f64 (default)
-let y: f32 = 3.14;    // Type: f32 (context)
-let z = 3.14f32;      // Type: f32 (suffix)
+let x = 3.14         // Type: f64 (default)
+let y: f32 = 3.14    // Type: f32 (context)
+let z = 3.14f32      // Type: f32 (suffix)
 ```
 
 #### Type Properties
@@ -278,23 +279,23 @@ function approx_equal(a: f64, b: f64, epsilon: f64): bool {
     (a - b).abs() < epsilon
 }
 
-const EPSILON: f64 = 1e-10;
+const EPSILON: f64 = 1e-10
 
-let x = 0.1 + 0.2;
-let y = 0.3;
+let x = 0.1 + 0.2
+let y = 0.3
 
 // Direct comparison unreliable due to rounding:
-assert!(x != y);  // May fail due to floating-point precision
+assert!(x != y)  // May fail due to floating-point precision
 
 // Use epsilon comparison:
-assert!(approx_equal(x, y, EPSILON));
+assert!(approx_equal(x, y, EPSILON))
 ```
 
 **Relative epsilon comparison:**
 ```cantrip
 function relative_eq(a: f64, b: f64, epsilon: f64): bool {
-    let abs_diff = (a - b).abs();
-    let largest = a.abs().max(b.abs());
+    let abs_diff = (a - b).abs()
+    let largest = a.abs().max(b.abs())
     abs_diff <= largest * epsilon
 }
 ```
@@ -332,68 +333,68 @@ function classify(x: f64): str {
 
 **Common mathematical functions:**
 ```cantrip
-let x: f64 = 2.0;
+let x: f64 = 2.0
 
 // Exponential and logarithmic
-let exp_x = x.exp();           // e^x
-let ln_x = x.ln();             // natural log
-let log10_x = x.log10();       // base-10 log
-let log2_x = x.log2();         // base-2 log
+let exp_x = x.exp()           // e^x
+let ln_x = x.ln()             // natural log
+let log10_x = x.log10()       // base-10 log
+let log2_x = x.log2()         // base-2 log
 
 // Trigonometric
-let sin_x = x.sin();
-let cos_x = x.cos();
-let tan_x = x.tan();
-let atan2_y_x = y.atan2(x);    // arctangent of y/x
+let sin_x = x.sin()
+let cos_x = x.cos()
+let tan_x = x.tan()
+let atan2_y_x = y.atan2(x)    // arctangent of y/x
 
 // Power and roots
-let sqrt_x = x.sqrt();         // square root
-let cbrt_x = x.cbrt();         // cube root
-let pow_x_y = x.powf(y);       // x^y
+let sqrt_x = x.sqrt()         // square root
+let cbrt_x = x.cbrt()         // cube root
+let pow_x_y = x.powf(y)       // x^y
 
 // Rounding
-let floor_x = x.floor();       // round down
-let ceil_x = x.ceil();         // round up
-let round_x = x.round();       // round to nearest
-let trunc_x = x.trunc();       // truncate toward zero
+let floor_x = x.floor()       // round down
+let ceil_x = x.ceil()         // round up
+let round_x = x.round()       // round to nearest
+let trunc_x = x.trunc()       // truncate toward zero
 ```
 
 #### Type Conversions
 
 **Float-to-float:**
 ```cantrip
-let x: f64 = 3.14159265358979323846;
-let y: f32 = x as f32;  // Precision loss: 3.1415927
+let x: f64 = 3.14159265358979323846
+let y: f32 = x as f32  // Precision loss: 3.1415927
 ```
 
 **Float-to-integer:**
 ```cantrip
-let f: f64 = 3.7;
-let i: i32 = f as i32;  // Truncates: i = 3
+let f: f64 = 3.7
+let i: i32 = f as i32  // Truncates: i = 3
 
 // Saturating conversion
-let large: f64 = 1e100;
-let saturated: i32 = large as i32;  // i32::MAX (saturates)
+let large: f64 = 1e100
+let saturated: i32 = large as i32  // i32::MAX (saturates)
 
-let neg_large: f64 = -1e100;
-let saturated_neg: i32 = neg_large as i32;  // i32::MIN
+let neg_large: f64 = -1e100
+let saturated_neg: i32 = neg_large as i32  // i32::MIN
 
 // NaN/Infinity conversion
-let nan: f64 = 0.0 / 0.0;
-let nan_int: i32 = nan as i32;  // 0 (implementation-defined)
+let nan: f64 = 0.0 / 0.0
+let nan_int: i32 = nan as i32  // 0 (implementation-defined)
 
-let inf: f64 = 1.0 / 0.0;
-let inf_int: i32 = inf as i32;  // i32::MAX (saturates)
+let inf: f64 = 1.0 / 0.0
+let inf_int: i32 = inf as i32  // i32::MAX (saturates)
 ```
 
 **Integer-to-float:**
 ```cantrip
-let i: i64 = 123456789;
-let f: f32 = i as f32;  // May lose precision for large integers
+let i: i64 = 123456789
+let f: f32 = i as f32  // May lose precision for large integers
 
 // Exact conversion (if in range)
-let small: i32 = 42;
-let exact: f64 = small as f64;  // 42.0 (exact)
+let small: i32 = 42
+let exact: f64 = small as f64  // 42.0 (exact)
 ```
 
 ---

@@ -121,12 +121,13 @@ e ::= x                                     (variable)
     | var x = e₁ in e₂                     (mutable binding)
     | f(e₁, ..., eₙ)                        (function call)
     | λx:T. e                               (lambda abstraction)
-    | e₁ ; e₂                               (sequencing)
+    | e₁ SEP e₂                             (sequencing, SEP = newline or semicolon)
     | move e                                (ownership transfer)
     | region r { e }                        (region block)
     | alloc_in⟨r⟩(e)                        (region allocation)
     | match e { pᵢ -> eᵢ }                  (pattern matching)
-    | while e₁ do e₂                        (loop)
+    | loop e { e₂ }                         (conditional loop)
+    | loop p in e { e₂ }                   (iteration loop)
     | loop { e }                            (infinite loop)
     | break                                 (loop exit)
     | continue                              (loop continue)
@@ -138,6 +139,8 @@ e ::= x                                     (variable)
     | e[i]                                  (array/slice index)
     | {f₁: e₁, ..., fₙ: eₙ}                (record construction)
     | Variant(e)                            (enum construction)
+
+where SEP ::= NEWLINE | ";"                 (statement separator)
 ```
 
 **Key observations:**
@@ -146,7 +149,8 @@ e ::= x                                     (variable)
 - Control flow (if, match, while, loop)
 - Function calls and lambda abstractions
 - Record construction and field access
-- Blocks and sequencing (`;`)
+- Blocks and sequencing (SEP = newline or semicolon)
+- Statement separators are abstract: both newlines and semicolons map to the same sequencing construct
 
 **Definition 3.4 (Values):** The abstract syntax of values (fully evaluated expressions).
 
@@ -210,9 +214,9 @@ P, Q ::= none                               (trivial assertion)
        | result                             (return value)
 
 Function Contracts ::=
-    uses ε;                                (effect declaration)
-    must P;                             (preconditions)
-    will Q;                              (postconditions)
+    uses ε                                 (effect declaration, newline-terminated)
+    must P                                 (preconditions, newline-terminated)
+    will Q                                 (postconditions, newline-terminated)
 ```
 
 **Key observations:**
@@ -502,13 +506,13 @@ match x: i32 {
 
 **Example:**
 ```cantrip
-let x = 10;           // x₁ : i32 = 10
-let x = x + 5;        // x₂ : i32 = 15 (shadows x₁)
+let x = 10           // x₁ : i32 = 10
+let x = x + 5        // x₂ : i32 = 15 (shadows x₁)
 {
-    let x = "hello";  // x₃ : str = "hello" (shadows x₂ in this block)
-    print(x);         // Prints "hello" (refers to x₃)
+    let x = "hello"  // x₃ : str = "hello" (shadows x₂ in this block)
+    print(x)         // Prints "hello" (refers to x₃)
 }
-print(x);             // Prints 15 (refers to x₂, x₃ out of scope)
+print(x)             // Prints 15 (refers to x₂, x₃ out of scope)
 ```
 
 ### 3.4 Dynamic Semantics
@@ -677,7 +681,7 @@ Match
 ```cantrip
 record Point { x: f32, y: f32 }
 
-let p = Point { x: 1.0, y: 2.0 };
+let p = Point { x: 1.0, y: 2.0 }
 ```
 
 **Abstract Syntax:**
@@ -712,6 +716,22 @@ T ∈ {i8, i16, i32, i64, u8, u16, u32, u64, f32, f64}
 ```
 
 Here `BinOp(Add, e₁, e₂)` refers to the abstract syntax node, not the string "e₁ + e₂". The parser has already transformed the concrete syntax `e₁ + e₂` into the AST node.
+
+**Statement Separators in Type Rules:**
+
+Both newlines and semicolons are treated identically in abstract syntax—they both represent sequencing. The type rule for sequencing applies uniformly:
+
+```
+[T-Seq]
+Γ ⊢ e₁ : T₁
+Γ ⊢ e₂ : T₂
+────────────────────────
+Γ ⊢ e₁ SEP e₂ : T₂
+
+where SEP = NEWLINE or ";"
+```
+
+This means `let x = 1\nlet y = 2` and `let x = 1; let y = 2` have identical abstract syntax and type checking behavior.
 
 **Evaluation Rules (Part X):** Operational semantics evaluates abstract syntax:
 ```

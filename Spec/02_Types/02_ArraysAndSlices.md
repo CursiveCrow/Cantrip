@@ -92,30 +92,30 @@ e ::= e[e₁..e₂]      (slice range)
 **Array examples:**
 ```cantrip
 // Array types
-let numbers: [i32; 5] = [1, 2, 3, 4, 5];
-let zeros: [i32; 100] = [0; 100];  // Repeat: [value; count]
-let matrix: [[f64; 3]; 3];          // Nested arrays
+let numbers: [i32; 5] = [1, 2, 3, 4, 5]
+let zeros: [i32; 100] = [0; 100]  // Repeat: [value; count]
+let matrix: [[f64; 3]; 3]          // Nested arrays
 
 // Array indexing
-let first = numbers[0];             // 1
-let third = numbers[2];             // 3
+let first = numbers[0]             // 1
+let third = numbers[2]             // 3
 ```
 
 **Slice examples:**
 ```cantrip
-let arr = [1, 2, 3, 4, 5];
+let arr = [1, 2, 3, 4, 5]
 
 // Exclusive range (..): excludes end index
-let slice: [i32] = arr[1..4];   // [2, 3, 4] (indices 1, 2, 3)
+let slice: [i32] = arr[1..4]   // [2, 3, 4] (indices 1, 2, 3)
 
 // Inclusive range (..=): includes end index
-let inclusive: [i32] = arr[1..=4];  // [2, 3, 4, 5] (indices 1, 2, 3, 4)
+let inclusive: [i32] = arr[1..=4]  // [2, 3, 4, 5] (indices 1, 2, 3, 4)
 
 // Partial ranges
-let all: [i32] = arr[..];       // [1, 2, 3, 4, 5]
-let from: [i32] = arr[2..];     // [3, 4, 5]
-let to: [i32] = arr[..3];       // [1, 2, 3]
-let to_incl: [i32] = arr[..=3]; // [1, 2, 3, 4]
+let all: [i32] = arr[..]       // [1, 2, 3, 4, 5]
+let from: [i32] = arr[2..]     // [3, 4, 5]
+let to: [i32] = arr[..3]       // [1, 2, 3]
+let to_incl: [i32] = arr[..=3] // [1, 2, 3, 4]
 ```
 
 ### 6.3 Static Semantics
@@ -223,15 +223,15 @@ T = unify(T₁, ..., Tₙ)
 
 **Example:**
 ```cantrip
-let arr = [1, 2, 3];        // Inferred: [i32; 3]
-let mixed = [1, 2u64, 3];   // ERROR: cannot unify i32 and u64
+let arr = [1, 2, 3]        // Inferred: [i32; 3]
+let mixed = [1, 2u64, 3]   // ERROR: cannot unify i32 and u64
 ```
 
 **Contextual type inference:**
 ```cantrip
-let arr: [u8; 3] = [1, 2, 3];    // Literals inferred as u8 from context
+let arr: [u8; 3] = [1, 2, 3]    // Literals inferred as u8 from context
 function process(data: [f32; 4]) { ... }
-process([1.0, 2.0, 3.0, 4.0]);   // Literals inferred as f32
+process([1.0, 2.0, 3.0, 4.0])   // Literals inferred as f32
 ```
 
 **Bounds checking:**
@@ -258,10 +258,10 @@ i is not a compile-time constant
 
 **Example:**
 ```cantrip
-let arr = [1, 2, 3, 4, 5];
-let x = arr[2];           // Static: guaranteed in bounds
-let i: usize = get_index();
-let y = arr[i];           // Dynamic: runtime check inserted
+let arr = [1, 2, 3, 4, 5]
+let x = arr[2]           // Static: guaranteed in bounds
+let i: usize = get_index()
+let y = arr[i]           // Dynamic: runtime check inserted
 ```
 
 #### 6.3.3 Type Properties
@@ -289,11 +289,36 @@ layout = { ptr: *T, len: usize }  (fat pointer)
 
 The slice itself is always 16 bytes on 64-bit systems (8 bytes pointer + 8 bytes length), regardless of the data it views.
 
-**Theorem 6.3 (Copy Semantics):**
+**Theorem 6.3 (Copy Capability):**
 
 ```
-[T; n] is Copy ⟺ T is Copy
-[T] is always Copy (copies fat pointer, not data)
+[T; n] implements Copy ⟺ T implements Copy
+[T] always implements Copy
+```
+
+**Semantics:**
+- Arrays pass by permission by default (like all types)
+- `.copy()` method performs element-wise bitwise copy for Copy-capable arrays
+- Slices always implement Copy (copying the fat pointer descriptor, not underlying data)
+- Slice `.copy()` duplicates the (ptr, len) pair, creating another view of same data
+
+**Example:**
+```cantrip
+// Array parameter - pass by permission
+procedure sum(arr: [i32; 5]): i32 {
+    let mut total = 0
+    for x in arr {  // Iterates through permission to array
+        total += x
+    }
+    total
+}
+
+let numbers = [1, 2, 3, 4, 5]
+let result = sum(numbers)  // numbers passed by permission
+// numbers still usable here
+
+// Explicit copy when needed
+let copy_of_numbers = numbers.copy()  // Element-wise copy
 ```
 
 ### 6.4 Dynamic Semantics
@@ -429,10 +454,21 @@ Arrays and slices provide memory-safe access through compile-time and runtime bo
 - **Dynamic indices**: Runtime checks inserted, panic on out-of-bounds access with error message indicating the index and length
 - **Performance**: Modern CPUs can often predict bounds check branches, minimizing performance impact
 
-**Copy vs Move semantics:**
+**Parameter Passing:**
 
-- **Arrays**: Copy if element type `T` is `Copy`; otherwise move semantics apply. Large arrays may have significant copy overhead.
-- **Slices**: Always `Copy` (fat pointer copied, not underlying data). This makes slices cheap to pass to functions.
+- **All arrays** pass by permission (reference-like) regardless of Copy capability
+- **Copy-capable arrays** can be explicitly copied with `.copy()` method
+- **Non-Copy arrays** require explicit `move` for ownership transfer
+- **Slices** always Copy-capable (fat pointer), pass by permission by default
+
+**Example:**
+```cantrip
+let arr: [i32; 3] = [1, 2, 3]
+procedure process(a: [i32; 3]) { ... }
+process(arr)  // Pass by permission, arr still usable
+
+let explicit_copy = arr.copy()  // Explicit copy if needed
+```
 
 **Performance characteristics:**
 
@@ -447,38 +483,57 @@ Sequential access:   Cache-friendly due to contiguous layout
 ```cantrip
 // Compiler can prove i < 5 for all iterations
 for i in 0..5 {
-    arr[i] = i;  // Bounds check eliminated
+    arr[i] = i  // Bounds check eliminated
 }
 ```
 
 ### 6.5 Additional Properties
 
-#### 6.5.1 Copy vs Move Semantics
+#### 6.5.1 Parameter Passing and Copying
 
-**Arrays:**
-- `[T; n]` is Copy if T is Copy
-- Large arrays are expensive to copy (consider using slices)
-- Arrays of non-Copy types are moved
+**All arrays and slices pass by permission:**
 
 ```cantrip
-let arr1: [i32; 3] = [1, 2, 3];
-let arr2 = arr1;    // Copy (i32 is Copy, small array)
+// Small array - passes by permission
+let arr1: [i32; 3] = [1, 2, 3]
+procedure process(a: [i32; 3]) { ... }
+process(arr1)  // Permission, not copy
+// arr1 still usable
 
-let big: [String; 1000] = ...;
-let moved = big;    // Move (String not Copy)
-// big is now unusable
+// Explicit copy when needed
+let arr2 = arr1.copy()  // Element-wise copy
+
+// Large array - passes by permission (efficient!)
+let big: [i32; 1000] = initialize_big_array()
+process_big(big)  // Permission only, zero cost
+// No expensive copy unless explicitly requested
+
+// Non-Copy array - passes by permission or moves
+let strings: [String; 3] = [String.new("a"), String.new("b"), String.new("c")]
+process_strings(strings)  // Permission
+consume_strings(move strings)  // Explicit move
+// strings no longer usable
 ```
 
-**Slices:**
-- `[T]` is always Copy (copies the fat pointer, not the data)
-- Underlying data is not copied
-- Cheap to pass slices to functions
+**Slices - always Copy-capable:**
 
 ```cantrip
-let arr = [1, 2, 3, 4, 5];
-let slice: [i32] = arr[..];
-let slice2 = slice; // Copy (fat pointer copied, not data)
-// Both slice and slice2 point to same data
+let arr = [1, 2, 3, 4, 5]
+let slice: [i32] = arr[..]
+
+// Slices pass by permission like everything else
+procedure process(s: [i32]) { ... }
+process(slice)  // Permission to fat pointer
+
+// Explicit copy duplicates fat pointer (cheap)
+let slice2 = slice.copy()  // Copies (ptr, len), NOT data
+// Both slice and slice2 view same data
+
+// Data copying requires explicit element iteration
+let mut data_copy = Vec.new()
+for x in slice {
+    data_copy.push(x.copy())
+}
 ```
 
 #### 6.5.2 Subtyping
@@ -495,8 +550,8 @@ Arrays and slices are **invariant** in their type parameter:
 **Example:**
 ```cantrip
 // This would be unsound if allowed:
-let arr: [own String; 3] = [...];
-let arr2: [mut String; 3] = arr;  // ERROR: not a subtype
+let arr: [own String; 3] = [...]
+let arr2: [mut String; 3] = arr  // ERROR: not a subtype
 ```
 
 #### 6.5.3 Array-to-Slice Coercion
@@ -516,8 +571,8 @@ function process(data: [i32]) {
     // ...
 }
 
-let arr: [i32; 5] = [1, 2, 3, 4, 5];
-process(arr);  // OK: [i32; 5] coerces to [i32]
+let arr: [i32; 5] = [1, 2, 3, 4, 5]
+process(arr)  // OK: [i32; 5] coerces to [i32]
 ```
 
 ### 6.6 Examples and Patterns
@@ -529,15 +584,15 @@ process(arr);  // OK: [i32; 5] coerces to [i32]
 function process_batch(items: [Item; 32]) {
     // Fixed-size processing, no heap allocation
     for item in items {
-        process(item);
+        process(item)
     }
 }
 ```
 
 **Compile-time known sizes:**
 ```cantrip
-const BUFFER_SIZE: usize = 4096;
-let buffer: [u8; BUFFER_SIZE] = [0; BUFFER_SIZE];
+const BUFFER_SIZE: usize = 4096
+let buffer: [u8; BUFFER_SIZE] = [0; BUFFER_SIZE]
 ```
 
 **Multidimensional arrays:**
@@ -547,9 +602,9 @@ let matrix: [[f64; 3]; 3] = [
     [1.0, 0.0, 0.0],
     [0.0, 1.0, 0.0],
     [0.0, 0.0, 1.0],
-];
+]
 
-let element = matrix[1][2];  // 0.0
+let element = matrix[1][2]  // 0.0
 ```
 
 #### 6.6.2 Slice Patterns
@@ -558,39 +613,39 @@ let element = matrix[1][2];  // 0.0
 ```cantrip
 // Good: accepts any size
 function sum(numbers: [i32]): i32 {
-    let mut total = 0;
+    let mut total = 0
     for n in numbers {
-        total += n;
+        total += n
     }
     total
 }
 
 // Can call with any array size:
-sum([1, 2, 3]);         // OK
-sum([1, 2, 3, 4, 5]);   // OK
+sum([1, 2, 3])         // OK
+sum([1, 2, 3, 4, 5])   // OK
 ```
 
 **Slicing arrays:**
 ```cantrip
-let data = [1, 2, 3, 4, 5, 6, 7, 8];
+let data = [1, 2, 3, 4, 5, 6, 7, 8]
 
 // Exclusive ranges (..)
-let first_half = data[..4];     // [1, 2, 3, 4] (indices 0..4, excludes 4)
-let second_half = data[4..];    // [5, 6, 7, 8] (indices 4..8)
-let middle = data[2..6];        // [3, 4, 5, 6] (indices 2..6, excludes 6)
+let first_half = data[..4]     // [1, 2, 3, 4] (indices 0..4, excludes 4)
+let second_half = data[4..]    // [5, 6, 7, 8] (indices 4..8)
+let middle = data[2..6]        // [3, 4, 5, 6] (indices 2..6, excludes 6)
 
 // Inclusive ranges (..=)
-let first_four = data[..=3];    // [1, 2, 3, 4] (indices 0..=3, includes 3)
-let last_four = data[4..=7];    // [5, 6, 7, 8] (indices 4..=7, includes 7)
-let middle_incl = data[2..=5];  // [3, 4, 5, 6] (indices 2..=5, includes 5)
+let first_four = data[..=3]    // [1, 2, 3, 4] (indices 0..=3, includes 3)
+let last_four = data[4..=7]    // [5, 6, 7, 8] (indices 4..=7, includes 7)
+let middle_incl = data[2..=5]  // [3, 4, 5, 6] (indices 2..=5, includes 5)
 ```
 
 **Window operations:**
 ```cantrip
 function sliding_window(data: [i32], size: usize) {
     for i in 0..(data.len() - size + 1) {
-        let window = data[i..(i + size)];
-        process_window(window);
+        let window = data[i..(i + size)]
+        process_window(window)
     }
 }
 ```
@@ -634,15 +689,15 @@ MutSliceIndex ::= MutExpr "[" Expr "]"
 **Examples:**
 ```cantrip
 // Mutable slice types
-let mut arr = [1, 2, 3, 4, 5];
-let slice: [mut i32] = arr[1..4];  // Mutable view
+let mut arr = [1, 2, 3, 4, 5]
+let slice: [mut i32] = arr[1..4]  // Mutable view
 
 // Mutable indexing
-slice[0] = 10;  // Modify through slice
+slice[0] = 10  // Modify through slice
 
 // Mutable slice from mutable array
-var numbers = [0; 100];
-let view: [mut i32] = numbers[10..20];
+var numbers = [0; 100]
+let view: [mut i32] = numbers[10..20]
 ```
 
 #### 6.7.2 Type Rules
@@ -661,11 +716,11 @@ start ≤ end ≤ n
 **Explanation:** Only mutable arrays can produce mutable slices. The `mut` permission is required.
 
 ```cantrip
-let arr = [1, 2, 3, 4, 5];           // Immutable array
-// let s: [mut i32] = arr[1..3];     // ✗ ERROR: cannot borrow as mutable
+let arr = [1, 2, 3, 4, 5]           // Immutable array
+// let s: [mut i32] = arr[1..3]     // ✗ ERROR: cannot borrow as mutable
 
-var mut_arr = [1, 2, 3, 4, 5];       // Mutable array
-let s: [mut i32] = mut_arr[1..3];   // ✓ Mutable slice
+var mut_arr = [1, 2, 3, 4, 5]       // Mutable array
+let s: [mut i32] = mut_arr[1..3]   // ✓ Mutable slice
 ```
 
 **[T-MutSliceIndex] Mutable Slice Indexing:**
@@ -680,15 +735,15 @@ let s: [mut i32] = mut_arr[1..3];   // ✓ Mutable slice
 **Explanation:** Indexing a mutable slice yields a mutable reference to the element.
 
 ```cantrip
-var arr = [10, 20, 30];
-let slice: [mut i32] = arr[..];
+var arr = [10, 20, 30]
+let slice: [mut i32] = arr[..]
 
 // Read element
-let value = slice[1];  // 20
+let value = slice[1]  // 20
 
 // Modify element
-slice[1] = 25;         // ✓ Mutable access
-assert(slice[1] == 25);
+slice[1] = 25         // ✓ Mutable access
+assert(slice[1] == 25)
 ```
 
 **[T-MutSliceAssign] Mutable Slice Assignment:**
@@ -704,14 +759,14 @@ assert(slice[1] == 25);
 **Explanation:** Elements can be assigned through mutable slices.
 
 ```cantrip
-var data = [1, 2, 3, 4, 5];
-let slice: [mut i32] = data[1..4];
+var data = [1, 2, 3, 4, 5]
+let slice: [mut i32] = data[1..4]
 
-slice[0] = 100;  // Modifies data[1]
-slice[1] = 200;  // Modifies data[2]
-slice[2] = 300;  // Modifies data[3]
+slice[0] = 100  // Modifies data[1]
+slice[1] = 200  // Modifies data[2]
+slice[2] = 300  // Modifies data[3]
 
-assert(data == [1, 100, 200, 300, 5]);
+assert(data == [1, 100, 200, 300, 5])
 ```
 
 **[T-MutSliceIter] Mutable Slice Iteration:**
@@ -725,15 +780,15 @@ assert(data == [1, 100, 200, 300, 5]);
 **Explanation:** Mutable slices provide mutable iterators for in-place modification.
 
 ```cantrip
-var numbers = [1, 2, 3, 4, 5];
-let slice: [mut i32] = numbers[..];
+var numbers = [1, 2, 3, 4, 5]
+let slice: [mut i32] = numbers[..]
 
 // Mutable iteration
 for x in slice.iter_mut() {
-    *x *= 2;  // Double each element in place
+    *x *= 2  // Double each element in place
 }
 
-assert(numbers == [2, 4, 6, 8, 10]);
+assert(numbers == [2, 4, 6, 8, 10])
 ```
 
 **[T-SlicePermission] Permission Requirements:**
@@ -750,15 +805,15 @@ where π ∈ {own, mut, imm}
 
 ```cantrip
 // Immutable array → immutable slice
-let arr: imm [i32; 5] = [1, 2, 3, 4, 5];
-let slice: [imm i32] = arr[1..3];  // ✓ Immutable slice
+let arr: imm [i32; 5] = [1, 2, 3, 4, 5]
+let slice: [imm i32] = arr[1..3]  // ✓ Immutable slice
 
 // Mutable array → mutable slice
-var mut_arr: mut [i32; 5] = [1, 2, 3, 4, 5];
-let mut_slice: [mut i32] = mut_arr[1..3];  // ✓ Mutable slice
+var mut_arr: mut [i32; 5] = [1, 2, 3, 4, 5]
+let mut_slice: [mut i32] = mut_arr[1..3]  // ✓ Mutable slice
 
 // Cannot create mutable slice from immutable array
-// let bad: [mut i32] = arr[1..3];  // ✗ ERROR: permission mismatch
+// let bad: [mut i32] = arr[1..3]  // ✗ ERROR: permission mismatch
 ```
 
 **[T-MutSliceSplit] Mutable Slice Splitting:**
@@ -773,17 +828,17 @@ let mut_slice: [mut i32] = mut_arr[1..3];  // ✓ Mutable slice
 **Explanation:** Mutable slices can be split into non-overlapping mutable sub-slices.
 
 ```cantrip
-var arr = [1, 2, 3, 4, 5, 6];
-let slice: [mut i32] = arr[..];
+var arr = [1, 2, 3, 4, 5, 6]
+let slice: [mut i32] = arr[..]
 
-let (left, right) = slice.split_at_mut(3);
+let (left, right) = slice.split_at_mut(3)
 // left: [mut i32] = [1, 2, 3]
 // right: [mut i32] = [4, 5, 6]
 
-left[0] = 10;
-right[0] = 40;
+left[0] = 10
+right[0] = 40
 
-assert(arr == [10, 2, 3, 40, 5, 6]);
+assert(arr == [10, 2, 3, 40, 5, 6])
 ```
 
 **[T-MutSliceNonOverlap] Non-Overlapping Guarantee:**
@@ -800,17 +855,17 @@ slice₁ and slice₂ can coexist as [mut T]
 **Explanation:** Multiple mutable slices of the same array are allowed only if they don't overlap.
 
 ```cantrip
-var arr = [1, 2, 3, 4, 5, 6];
+var arr = [1, 2, 3, 4, 5, 6]
 
 // ✓ Non-overlapping mutable slices
-let slice1: [mut i32] = arr[0..3];
-let slice2: [mut i32] = arr[3..6];
-slice1[0] = 10;
-slice2[0] = 40;
+let slice1: [mut i32] = arr[0..3]
+let slice2: [mut i32] = arr[3..6]
+slice1[0] = 10
+slice2[0] = 40
 
 // ✗ ERROR: Overlapping mutable slices not allowed
-// let bad1: [mut i32] = arr[0..4];
-// let bad2: [mut i32] = arr[2..6];  // Overlaps with bad1
+// let bad1: [mut i32] = arr[0..4]
+// let bad2: [mut i32] = arr[2..6]  // Overlaps with bad1
 ```
 
 **[T-MutSliceCoercion] Array to Mutable Slice Coercion:**
@@ -826,13 +881,13 @@ slice2[0] = 40;
 ```cantrip
 function double_elements(data: [mut i32]) {
     for x in data.iter_mut() {
-        *x *= 2;
+        *x *= 2
     }
 }
 
-var numbers = [1, 2, 3, 4, 5];
-double_elements(numbers);  // ✓ Coerces [i32; 5] to [mut i32]
-assert(numbers == [2, 4, 6, 8, 10]);
+var numbers = [1, 2, 3, 4, 5]
+double_elements(numbers)  // ✓ Coerces [i32; 5] to [mut i32]
+assert(numbers == [2, 4, 6, 8, 10])
 ```
 
 #### 6.7.3 Memory Representation
@@ -864,14 +919,14 @@ Mutable Slice [mut T]:
 
 **In-place modification:**
 ```cantrip
-var data = [1, 2, 3, 4, 5];
-let slice: [mut i32] = data[1..4];
+var data = [1, 2, 3, 4, 5]
+let slice: [mut i32] = data[1..4]
 
 // Modify slice element
-slice[1] = 100;
+slice[1] = 100
 
 // Original array is modified
-assert(data == [1, 2, 100, 4, 5]);
+assert(data == [1, 2, 100, 4, 5])
 ```
 
 **Mutable vs. Immutable slices:**
@@ -887,18 +942,18 @@ assert(data == [1, 2, 100, 4, 5]);
 
 **Permission rules:**
 ```cantrip
-var arr = [1, 2, 3, 4, 5];
+var arr = [1, 2, 3, 4, 5]
 
 // ✓ Multiple immutable slices allowed
-let s1: [i32] = arr[0..2];
-let s2: [i32] = arr[2..5];
+let s1: [i32] = arr[0..2]
+let s2: [i32] = arr[2..5]
 
 // ✓ One mutable slice allowed
-let ms: [mut i32] = arr[..];
+let ms: [mut i32] = arr[..]
 
 // ✗ Cannot have mutable and immutable slices simultaneously
-// let bad_imm: [i32] = arr[0..2];      // ✗ ERROR: already borrowed mutably
-// let bad_mut: [mut i32] = arr[3..5];  // ✗ ERROR: already borrowed mutably
+// let bad_imm: [i32] = arr[0..2]      // ✗ ERROR: already borrowed mutably
+// let bad_mut: [mut i32] = arr[3..5]  // ✗ ERROR: already borrowed mutably
 ```
 
 #### 6.7.5 Examples and Patterns
@@ -907,45 +962,45 @@ let ms: [mut i32] = arr[..];
 
 ```cantrip
 function normalize(values: [mut f64]) {
-    let max = values.iter().fold(0.0, |acc, &x| if x > acc { x } else { acc });
+    let max = values.iter().fold(0.0, |acc, &x| if x > acc { x } else { acc })
     if max > 0.0 {
         for v in values.iter_mut() {
-            *v /= max;
+            *v /= max
         }
     }
 }
 
-var data = [10.0, 20.0, 30.0, 40.0];
-normalize(data);
-assert(data == [0.25, 0.5, 0.75, 1.0]);
+var data = [10.0, 20.0, 30.0, 40.0]
+normalize(data)
+assert(data == [0.25, 0.5, 0.75, 1.0])
 ```
 
 **Pattern 2: Partitioning**
 
 ```cantrip
-function partition<T>(slice: [mut T], pred: fn(T) -> bool) -> usize
+function partition<T>(slice: [mut T], pred: fn(T) => bool) => usize
     where T: Copy
 {
-    let mut left = 0;
-    let mut right = slice.len() - 1;
+    let mut left = 0
+    let mut right = slice.len() - 1
 
     while left < right {
         if pred(slice[left]) {
-            left += 1;
+            left += 1
         } else {
             // Swap with right
-            let temp = slice[left];
-            slice[left] = slice[right];
-            slice[right] = temp;
-            right -= 1;
+            let temp = slice[left]
+            slice[left] = slice[right]
+            slice[right] = temp
+            right -= 1
         }
     }
 
     left  // Return partition point
 }
 
-var numbers = [1, 2, 3, 4, 5, 6, 7, 8];
-let pivot = partition(numbers, |x| x % 2 == 0);
+var numbers = [1, 2, 3, 4, 5, 6, 7, 8]
+let pivot = partition(numbers, |x| x % 2 == 0)
 // Even numbers moved to front
 ```
 
@@ -953,20 +1008,20 @@ let pivot = partition(numbers, |x| x % 2 == 0);
 
 ```cantrip
 function swap_halves(data: [mut i32]) {
-    let mid = data.len() / 2;
-    let (left, right) = data.split_at_mut(mid);
+    let mid = data.len() / 2
+    let (left, right) = data.split_at_mut(mid)
 
     // Can modify both halves independently (non-overlapping)
     for i in 0..left.len() {
-        let temp = left[i];
-        left[i] = right[i];
-        right[i] = temp;
+        let temp = left[i]
+        left[i] = right[i]
+        right[i] = temp
     }
 }
 
-var arr = [1, 2, 3, 4, 5, 6];
-swap_halves(arr);
-assert(arr == [4, 5, 6, 1, 2, 3]);
+var arr = [1, 2, 3, 4, 5, 6]
+swap_halves(arr)
+assert(arr == [4, 5, 6, 1, 2, 3])
 ```
 
 **Pattern 4: Accumulation with mutation**
@@ -974,17 +1029,17 @@ assert(arr == [4, 5, 6, 1, 2, 3]);
 ```cantrip
 function running_sum(values: [mut i32]) {
     if values.len() == 0 {
-        return;
+        return
     }
 
     for i in 1..values.len() {
-        values[i] += values[i - 1];
+        values[i] += values[i - 1]
     }
 }
 
-var data = [1, 2, 3, 4, 5];
-running_sum(data);
-assert(data == [1, 3, 6, 10, 15]);  // Cumulative sum
+var data = [1, 2, 3, 4, 5]
+running_sum(data)
+assert(data == [1, 3, 6, 10, 15])  // Cumulative sum
 ```
 
 **Pattern 5: Safe mutable windowing**
@@ -992,28 +1047,28 @@ assert(data == [1, 3, 6, 10, 15]);  // Cumulative sum
 ```cantrip
 function smooth(data: [mut f64], window_size: usize) {
     if data.len() < window_size || window_size == 0 {
-        return;
+        return
     }
 
-    let mut temp = Vec::with_capacity(data.len());
+    let mut temp = Vec::with_capacity(data.len())
 
     // Copy original values
     for &x in data.iter() {
-        temp.push(x);
+        temp.push(x)
     }
 
     // Apply smoothing
     for i in 0..(data.len() - window_size + 1) {
-        let mut sum = 0.0;
+        let mut sum = 0.0
         for j in 0..window_size {
-            sum += temp[i + j];
+            sum += temp[i + j]
         }
-        data[i] = sum / (window_size as f64);
+        data[i] = sum / (window_size as f64)
     }
 }
 
-var signal = [1.0, 5.0, 2.0, 8.0, 3.0];
-smooth(signal, 3);
+var signal = [1.0, 5.0, 2.0, 8.0, 3.0]
+smooth(signal, 3)
 // Applies moving average smoothing
 ```
 

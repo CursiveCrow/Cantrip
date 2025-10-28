@@ -31,7 +31,8 @@
 - **Default integer type**: Integer literals without suffix default to `i32`
 - **Overflow behavior**: Debug mode panics, release mode wraps (two's complement)
 - **Type inference**: Context-sensitive (function signatures, annotations)
-- **Permission system**: All integers are `Copy` types
+- **Permission system**: All integers implement `Copy` trait (can be explicitly copied)
+- **Parameter passing**: Integers pass by permission like all types (no automatic copying)
 
 ### 5.1.2 Syntax
 
@@ -68,18 +69,18 @@ BinDigit    ::= [0-1]
 **Examples:**
 ```cantrip
 // Decimal literals
-let a: i32 = 42;
-let b: u64 = 1_000_000;    // Underscores for readability
-let c = 42i8;              // Type suffix
+let a: i32 = 42
+let b: u64 = 1_000_000    // Underscores for readability
+let c = 42i8              // Type suffix
 
 // Hexadecimal
-let hex: u32 = 0xDEAD_BEEF;
+let hex: u32 = 0xDEAD_BEEF
 
 // Octal
-let oct: u16 = 0o755;
+let oct: u16 = 0o755
 
 // Binary
-let bin: u8 = 0b1010_1010;
+let bin: u8 = 0b1010_1010
 ```
 
 #### Abstract Syntax
@@ -100,18 +101,18 @@ v ::= n    (integer value)
 **Integer literals in various bases:**
 ```cantrip
 // Decimal (base 10)
-let decimal: i32 = 42;
-let negative: i16 = -128;
+let decimal: i32 = 42
+let negative: i16 = -128
 
 // Hexadecimal (base 16)
-let hex: u32 = 0xDEAD_BEEF;
-let small_hex: u8 = 0xFF;
+let hex: u32 = 0xDEAD_BEEF
+let small_hex: u8 = 0xFF
 
 // Octal (base 8)
-let octal: i16 = 0o755;
+let octal: i16 = 0o755
 
 // Binary (base 2)
-let binary: u8 = 0b1010_1010;
+let binary: u8 = 0b1010_1010
 ```
 
 **Explanation:** Integer literals can be written in decimal, hexadecimal (0x prefix), octal (0o prefix), or binary (0b prefix) notation. Underscores can be used as visual separators for readability and are ignored by the compiler.
@@ -119,29 +120,29 @@ let binary: u8 = 0b1010_1010;
 **Type annotations and inference:**
 ```cantrip
 // Explicit type annotation
-let age: u8 = 30;
-let population: u64 = 8_000_000_000;
+let age: u8 = 30
+let population: u64 = 8_000_000_000
 
 // Type suffix
-let small = 100u8;
-let large = 1_000_000u64;
+let small = 100u8
+let large = 1_000_000u64
 
 // Default inference (i32)
-let default = 42;  // Inferred as i32
+let default = 42  // Inferred as i32
 ```
 
 **Explanation:** Integer types can be specified via explicit type annotations, type suffixes on literals, or inferred from context. Without explicit specification, integer literals default to `i32`.
 
 **Basic arithmetic operations:**
 ```cantrip
-let a: i32 = 10;
-let b: i32 = 3;
+let a: i32 = 10
+let b: i32 = 3
 
-let sum = a + b;        // 13
-let diff = a - b;       // 7
-let product = a * b;    // 30
-let quotient = a / b;   // 3 (integer division)
-let remainder = a % b;  // 1
+let sum = a + b        // 13
+let diff = a - b       // 7
+let product = a * b    // 30
+let quotient = a / b   // 3 (integer division)
+let remainder = a % b  // 1
 ```
 
 **Explanation:** Integer types support standard arithmetic operations. Division truncates toward zero, and modulo preserves the sign of the left operand.
@@ -189,10 +190,10 @@ n ∈ ⟦T⟧    (n fits in range of T)
 
 **Examples:**
 ```cantrip
-let x = 42;           // Type: i32 (default)
-let y: u8 = 42;       // Type: u8 (context)
-let z = 42u64;        // Type: u64 (suffix)
-let w: i8 = 200;      // ERROR E5101: 200 doesn't fit in i8 range [-128, 127]
+let x = 42           // Type: i32 (default)
+let y: u8 = 42       // Type: u8 (context)
+let z = 42u64        // Type: u64 (suffix)
+let w: i8 = 200      // ERROR E5101: 200 doesn't fit in i8 range [-128, 127]
 ```
 
 #### Type Properties
@@ -216,7 +217,7 @@ For each integer type T, the value set ⟦T⟧ is defined as:
 
 Where n = pointer width (32 or 64 bits depending on target architecture).
 
-**Theorem 5.1.2 (Copy Semantics):**
+**Theorem 5.1.2 (Copy Capability):**
 
 All integer types implement the `Copy` trait:
 
@@ -224,7 +225,24 @@ All integer types implement the `Copy` trait:
 ∀ T ∈ IntTypes. T : Copy
 ```
 
-This means integer values are automatically copied on assignment and parameter passing.
+**Semantics:**
+- Integers pass by permission (reference-like) by default
+- The `.copy()` method creates an explicit duplicate when needed
+- Small size (1-8 bytes) makes copying cheap when explicitly requested
+- Assignment creates permission bindings, not copies
+
+**Example:**
+```cantrip
+let x: i32 = 42
+let y = x           // y binds to x's value, both usable (permission binding)
+let z = x.copy()    // Explicit copy creates new value
+
+procedure double(n: i32): i32 {
+    n * 2  // Access through permission, no copy
+}
+
+let result = double(x)  // x passed by permission, still usable after
+```
 
 **Theorem 5.1.3 (Platform-Dependent Sizes):**
 
@@ -366,14 +384,14 @@ Release mode (wrapping):
 **Examples:**
 ```cantrip
 // u8: range [0, 255]
-let x: u8 = 255;
-let y = x + 1;
+let x: u8 = 255
+let y = x + 1
 // Debug: panic!("attempt to add with overflow")
 // Release: y = 0 (wrapping: 256 mod 256 = 0)
 
 // i8: range [-128, 127]
-let a: i8 = 127;
-let b = a + 1;
+let a: i8 = 127
+let b = a + 1
 // Debug: panic!
 // Release: b = -128 (two's complement wrap)
 ```
@@ -400,21 +418,21 @@ Cantrip provides methods for explicit overflow control:
 
 ```cantrip
 // Checked arithmetic (returns Option)
-let x: u32 = 100;
-let y: u32 = 200;
-let sum = x.checked_add(y)?;  // Some(300)
+let x: u32 = 100
+let y: u32 = 200
+let sum = x.checked_add(y)?  // Some(300)
 
-let max: u32 = u32::MAX;
-let overflow = max.checked_add(1);  // None
+let max: u32 = u32::MAX
+let overflow = max.checked_add(1)  // None
 
 // Saturating arithmetic (clamps at limits)
-let sat_sum = max.saturating_add(1);  // u32::MAX
+let sat_sum = max.saturating_add(1)  // u32::MAX
 
 // Wrapping arithmetic (explicit wrap-around)
-let wrap_sum = max.wrapping_add(1);  // 0
+let wrap_sum = max.wrapping_add(1)  // 0
 
 // Overflowing arithmetic (returns tuple with overflow flag)
-let (result, overflowed) = max.overflowing_add(1);
+let (result, overflowed) = max.overflowing_add(1)
 // result = 0, overflowed = true
 ```
 
@@ -422,21 +440,21 @@ let (result, overflowed) = max.overflowing_add(1);
 
 ```cantrip
 // Division by zero: always panics (both debug and release)
-let x = 10 / 0;  // panic!("attempt to divide by zero")
+let x = 10 / 0  // panic!("attempt to divide by zero")
 
 // Integer division truncates toward zero
-assert!(7 / 2 == 3);
-assert!(-7 / 2 == -3);
+assert!(7 / 2 == 3)
+assert!(-7 / 2 == -3)
 
 // Modulo has sign of left operand
-assert!(7 % 3 == 1);
-assert!(-7 % 3 == -1);
-assert!(7 % -3 == 1);
-assert!(-7 % -3 == -1);
+assert!(7 % 3 == 1)
+assert!(-7 % 3 == -1)
+assert!(7 % -3 == 1)
+assert!(-7 % -3 == -1)
 
 // Special case: MIN / -1 can overflow
-let min: i8 = i8::MIN;  // -128
-let result = min / -1;  // Would be 128, which overflows i8
+let min: i8 = i8::MIN  // -128
+let result = min / -1  // Would be 128, which overflows i8
 // Debug: panic!("attempt to divide with overflow")
 // Release: result = -128 (wraps)
 ```
@@ -447,9 +465,9 @@ let result = min / -1;  // Would be 128, which overflows i8
 
 **Explicit types:**
 ```cantrip
-let age: u8 = 30;
-let population: u64 = 8_000_000_000;
-let temperature: i16 = -40;
+let age: u8 = 30
+let population: u64 = 8_000_000_000
+let temperature: i16 = -40
 ```
 
 **Type inference from context:**
@@ -458,11 +476,11 @@ function calculate(x: f32): f32 {
     x * 2.0
 }
 
-let numbers: Vec<i64> = Vec.new();
-numbers.push(42);  // 42 inferred as i64
+let numbers: Vec<i64> = Vec.new()
+numbers.push(42)  // 42 inferred as i64
 
 function process(bytes: [u8; 4]) { ... }
-process([1, 2, 3, 4]);  // Literals inferred as u8
+process([1, 2, 3, 4])  // Literals inferred as u8
 ```
 
 #### Safe Integer Operations
@@ -485,8 +503,8 @@ function bounded_increment(counter: u8): u8 {
     counter.saturating_add(1)
 }
 
-let x: u8 = 255;
-assert!(bounded_increment(x) == 255);  // Clamps at max
+let x: u8 = 255
+assert!(bounded_increment(x) == 255)  // Clamps at max
 ```
 
 **Wrapping arithmetic (explicit wrap-around):**
@@ -500,36 +518,36 @@ function hash_combine(h1: u64, h2: u64): u64 {
 
 **Bitwise operations:**
 ```cantrip
-let a: u8 = 0b1010_1010;
-let b: u8 = 0b1100_0011;
+let a: u8 = 0b1010_1010
+let b: u8 = 0b1100_0011
 
-let and = a & b;         // 0b1000_0010
-let or  = a | b;         // 0b1110_1011
-let xor = a ^ b;         // 0b0110_1001
-let not = !a;            // 0b0101_0101
+let and = a & b         // 0b1000_0010
+let or  = a | b         // 0b1110_1011
+let xor = a ^ b         // 0b0110_1001
+let not = !a            // 0b0101_0101
 
 // Bit shifts
-let left = a << 2;       // 0b1010_1000 (logical shift)
-let right = a >> 2;      // 0b0010_1010 (logical for unsigned)
+let left = a << 2       // 0b1010_1000 (logical shift)
+let right = a >> 2      // 0b0010_1010 (logical for unsigned)
 
 // Signed right shift (arithmetic)
-let neg: i8 = -64;       // 0b1100_0000
-let arith = neg >> 2;    // 0b1111_0000 (-16, sign-extended)
+let neg: i8 = -64       // 0b1100_0000
+let arith = neg >> 2    // 0b1111_0000 (-16, sign-extended)
 ```
 
 #### Type Conversions
 
 **Explicit casts:**
 ```cantrip
-let a: i32 = 42;
-let b: i64 = a as i64;       // Widening cast (safe)
+let a: i32 = 42
+let b: i64 = a as i64       // Widening cast (safe)
 
-let large: i64 = 1_000_000;
-let small: i32 = large as i32;  // Narrowing cast (truncates high bits)
+let large: i64 = 1_000_000
+let small: i32 = large as i32  // Narrowing cast (truncates high bits)
 
 // Sign conversions
-let signed: i32 = -1;
-let unsigned: u32 = signed as u32;  // Bit pattern reinterpretation
+let signed: i32 = -1
+let unsigned: u32 = signed as u32  // Bit pattern reinterpretation
 // unsigned = 4294967295 (0xFFFFFFFF)
 ```
 
@@ -544,10 +562,10 @@ function safe_downcast(x: i64): Option<i32> {
 }
 
 // Or using TryFrom trait
-use std::convert::TryFrom;
+use std::convert::TryFrom
 
-let x: i64 = 42;
-let y = i32::try_from(x)?;  // Returns Result<i32, Error>
+let x: i64 = 42
+let y = i32::try_from(x)?  // Returns Result<i32, Error>
 ```
 
 #### Platform-Specific Code
@@ -573,8 +591,8 @@ function offset_ptr<T>(ptr: *T, offset: isize): *T {
 }
 
 // Memory sizes and alignments (use usize)
-let size: usize = std::mem::size_of::<MyStruct>();
-let align: usize = std::mem::align_of::<MyStruct>();
+let size: usize = std::mem::size_of::<MyStruct>()
+let align: usize = std::mem::align_of::<MyStruct>()
 ```
 
 ---

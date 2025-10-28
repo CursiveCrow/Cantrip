@@ -1,7 +1,7 @@
 # Part II: Type System - §9. Enums and Pattern Matching
 
 **Section**: §9 | **Part**: Type System (Part II)
-**Previous**: [Records](04_Records.md) | **Next**: [Traits](06_Traits.md)
+**Previous**: [Unions](04a_Unions.md) | **Next**: [Traits](06_Traits.md)
 
 ---
 
@@ -116,7 +116,7 @@ enum Direction {
     West,
 }
 
-let dir = Direction.North;
+let dir = Direction.North
 ```
 
 **Enum with data:**
@@ -126,15 +126,15 @@ enum Option<T> {
     None,
 }
 
-let some_value: Option<i32> = Option.Some(42);
-let no_value: Option<i32> = Option.None;
+let some_value: Option<i32> = Option.Some(42)
+let no_value: Option<i32> = Option.None
 ```
 
 **Pattern matching:**
 ```cantrip
 match some_value {
-    Option.Some(x) -> println("Value: {x}"),
-    Option.None -> println("No value"),
+    Option.Some(x) => println("Value: {x}"),
+    Option.None => println("No value"),
 }
 ```
 
@@ -190,7 +190,7 @@ enum E { V₁(T₁), ..., Vₙ(Tₙ) }
 ∀i. Γ, pᵢ ⊢ eᵢ : U
 patterns {p₁, ..., pₙ} exhaustive for E
 ──────────────────────────────────────────────
-Γ ⊢ match e { p₁ -> e₁, ..., pₙ -> eₙ } : U
+Γ ⊢ match e { p₁ => e₁, ..., pₙ => eₙ } : U
 ```
 
 **Pattern typing:**
@@ -240,9 +240,9 @@ enum Status {
 
 function describe(status: Status): str {
     match status {
-        Status.Active -> "active",
-        Status.Pending -> "pending",
-        Status.Inactive -> "inactive",
+        Status.Active => "active",
+        Status.Pending => "pending",
+        Status.Inactive => "inactive",
         // Exhaustive - all variants covered
     }
 }
@@ -250,7 +250,7 @@ function describe(status: Status): str {
 // ERROR: Non-exhaustive
 function incomplete(status: Status): str {
     match status {
-        Status.Active -> "active",
+        Status.Active => "active",
         // ERROR: Missing Pending and Inactive
     }
 }
@@ -273,10 +273,10 @@ Literal patterns match exact values:
 
 ```cantrip
 match number {
-    0 -> "zero",
-    1 -> "one",
-    2 -> "two",
-    _ -> "many",  // Wildcard
+    0 => "zero",
+    1 => "one",
+    2 => "two",
+    _ => "many",  // Wildcard
 }
 ```
 
@@ -293,10 +293,10 @@ Tuple patterns destructure tuple values and bind variables:
 
 ```cantrip
 match point {
-    (0, 0) -> "origin",
-    (0, y) -> "on y-axis",  // Binds y
-    (x, 0) -> "on x-axis",  // Binds x
-    (x, y) -> "point",       // Binds both
+    (0, 0) => "origin",
+    (0, y) => "on y-axis",  // Binds y
+    (x, 0) => "on x-axis",  // Binds x
+    (x, y) => "point",       // Binds both
 }
 ```
 
@@ -314,9 +314,9 @@ Record patterns match record types and destructure fields:
 
 ```cantrip
 match person {
-    Person { name, age: 0..=17 } -> "minor: {name}",
-    Person { name, age: 18..=64 } -> "adult: {name}",
-    Person { name, age: 65.. } -> "senior: {name}",
+    Person { name, age: 0..=17 } => "minor: {name}",
+    Person { name, age: 18..=64 } => "adult: {name}",
+    Person { name, age: 65.. } => "senior: {name}",
 }
 ```
 
@@ -335,9 +335,9 @@ Guard patterns add boolean conditions to patterns:
 
 ```cantrip
 match value {
-    x if x > 0 -> "positive",
-    x if x < 0 -> "negative",
-    _ -> "zero",
+    x if x > 0 => "positive",
+    x if x < 0 => "negative",
+    _ => "zero",
 }
 ```
 
@@ -388,14 +388,14 @@ The wildcard `_` matches any value without binding:
 match(p₁, v) = Some(θ)    // Pattern matches
 ⟨e₁[θ], σ'⟩ ⇓ ⟨v', σ''⟩
 ────────────────────────────────────────────
-⟨match e { p₁ -> e₁, ..., pₙ -> eₙ }, σ⟩ ⇓ ⟨v', σ''⟩
+⟨match e { p₁ => e₁, ..., pₙ => eₙ }, σ⟩ ⇓ ⟨v', σ''⟩
 
 [E-Match-Rest]
 ⟨e, σ⟩ ⇓ ⟨v, σ'⟩
 match(p₁, v) = None    // Pattern doesn't match
-⟨match e { p₂ -> e₂, ..., pₙ -> eₙ }, σ'⟩ ⇓ ⟨v', σ''⟩
+⟨match e { p₂ => e₂, ..., pₙ => eₙ }, σ'⟩ ⇓ ⟨v', σ''⟩
 ────────────────────────────────────────────
-⟨match e { p₁ -> e₁, p₂ -> e₂, ..., pₙ -> eₙ }, σ⟩ ⇓ ⟨v', σ''⟩
+⟨match e { p₁ => e₁, p₂ => e₂, ..., pₙ => eₙ }, σ⟩ ⇓ ⟨v', σ''⟩
 ```
 
 #### 9.4.2 Memory Representation
@@ -449,7 +449,7 @@ enum HttpStatus {
     ServerError = 500,
 }
 
-let code: u16 = HttpStatus.Ok as u16;  // 200
+let code: u16 = HttpStatus.Ok as u16  // 200
 ```
 
 **Type rule for discriminant:**
@@ -536,7 +536,7 @@ enum Status {
 //     Active = 0,
 //     Inactive = 1,
 //     Pending = 2
-// } Status;
+// } Status
 ```
 
 **Combined with integer type:**
@@ -588,8 +588,8 @@ enum Option<T> {
     None,
 }
 
-// If T is a non-nullable pointer (e.g., &i32, Box<T>):
-// Size(Option<&T>) = Size(&T)  // No extra discriminant!
+// If T is a non-nullable pointer (e.g., Ptr<i32>@Exclusive):
+// Size(Option<Ptr<T>@Exclusive>) = Size(Ptr<T>@Exclusive)  // No extra discriminant!
 // None represented by null pointer
 ```
 
@@ -597,7 +597,7 @@ enum Option<T> {
 
 ```
 Without optimization:
-Option<&i32>:
+Option<Ptr<i32>@Exclusive>:
 ┌──────────────┬──────────────┐
 │discriminant  │  pointer     │
 │  8 bytes     │  8 bytes     │
@@ -605,7 +605,7 @@ Option<&i32>:
 Total: 16 bytes
 
 With niche optimization:
-Option<&i32>:
+Option<Ptr<i32>@Exclusive>:
 ┌──────────────┐
 │  pointer     │  (None = null, Some(_) = valid ptr)
 │  8 bytes     │
@@ -702,7 +702,7 @@ discriminant type = IntType
 
 **Proof sketch:** Niche optimization uses invalid bit patterns (niches) in the payload type to represent discriminant values. Since these bit patterns are invalid for the payload type, they cannot be confused with valid payload values. The compiler will exhaustive case coverage to prevent accessing niches as valid payloads. ∎
 
-**Corollary 9.2:** `Option<&T>` has the same size as `&T` for all reference types.
+**Corollary 9.2:** `Option<Ptr<T>@Exclusive>` has the same size as `Ptr<T>@Exclusive` for all pointer types.
 
 **Layout attributes summary:**
 
@@ -747,7 +747,7 @@ enum FileType {
 //     Regular = 0,
 //     Directory = 1,
 //     Symlink = 2
-// } FileType;
+// } FileType
 ```
 
 **Examples:**
@@ -767,7 +767,7 @@ enum TinyEnum {
 **Example 2: Niche optimization**
 
 ```cantrip
-record NonNull<T>(*const T);  // Cannot be null
+record NonNull<T>(*const T)  // Cannot be null
 
 enum Option<NonNull<i32>> {
     Some(NonNull<i32>),  // Valid pointer
@@ -826,8 +826,8 @@ function divide(x: i32, y: i32): Option<i32> {
 }
 
 match divide(10, 2) {
-    Option.Some(result) -> println("Result: {result}"),
-    Option.None -> println("Division by zero"),
+    Option.Some(result) => println("Result: {result}"),
+    Option.None => println("Division by zero"),
 }
 ```
 
@@ -849,8 +849,8 @@ function parse_number(s: str): Result<i32, String> {
 }
 
 match parse_number("123") {
-    Result.Ok(n) -> println("Parsed: {n}"),
-    Result.Err(error) -> println("Error: {error}"),
+    Result.Ok(n) => println("Parsed: {n}"),
+    Result.Err(error) => println("Error: {error}"),
 }
 ```
 
@@ -867,18 +867,18 @@ enum ConnectionState {
 
 function handle_state(state: ConnectionState): ConnectionState {
     match state {
-        ConnectionState.Disconnected -> {
+        ConnectionState.Disconnected => {
             ConnectionState.Connecting { started_at: DateTime.now() }
         },
-        ConnectionState.Connecting { started_at } -> {
+        ConnectionState.Connecting { started_at } => {
             if should_timeout(started_at) {
                 ConnectionState.Error { message: "connection timeout" }
             } else {
                 state  // Keep trying
             }
         },
-        ConnectionState.Connected { .. } -> state,
-        ConnectionState.Error { .. } -> ConnectionState.Disconnected,
+        ConnectionState.Connected { .. } => state,
+        ConnectionState.Error { .. } => ConnectionState.Disconnected,
     }
 }
 ```
@@ -903,22 +903,22 @@ enum Response {
 
 function handle_request(req: Request): Response {
     match req {
-        Request.Get { key } -> {
+        Request.Get { key } => {
             if let Some(value) = lookup(key) {
                 Response.Value(value)
             } else {
                 Response.NotFound
             }
         },
-        Request.Set { key, value } -> {
-            store(key, value);
+        Request.Set { key, value } => {
+            store(key, value)
             Response.Ok
         },
-        Request.Delete { key } -> {
-            remove(key);
+        Request.Delete { key } => {
+            remove(key)
             Response.Ok
         },
-        Request.List -> {
+        Request.List => {
             Response.Value(list_keys().join(","))
         },
     }
@@ -927,4 +927,4 @@ function handle_request(req: Request): Response {
 
 ---
 
-**Previous**: [Records](04_Records.md) | **Next**: [Traits](06_Traits.md)
+**Previous**: [Unions](04a_Unions.md) | **Next**: [Traits](06_Traits.md)

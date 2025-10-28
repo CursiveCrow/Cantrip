@@ -5,8 +5,8 @@
 
 ---
 
-**Version:** 1.0.2
-**Date:** October 22, 2025
+**Version:** 1.3.0
+**Date:** October 24, 2025
 **Status:** Publication Ready
 **Specification Type:** Normative
 **Target Audience:** Language implementers, compiler writers, tool developers
@@ -94,6 +94,9 @@ implementation-defined limits, and unspecified behavior MUST be documented.
   - [6. Records and Classes](#6-records-and-classes)
     - [6.1 Record Declaration](#61-record-declaration)
     - [6.6 Structure-of-Arrays](#66-structure-of-arrays)
+  - [6.5 Union Types](#65-union-types)
+    - [6.5.1 Union Declaration](#651-union-declaration)
+    - [6.5.2 Union Safety and FFI](#652-union-safety-and-ffi)
   - [7. Enums and Pattern Matching](#7-enums-and-pattern-matching)
     - [7.1 Enum Declaration](#71-enum-declaration)
     - [7.4 Discriminant Values](#74-discriminant-values)
@@ -135,8 +138,6 @@ implementation-defined limits, and unspecified behavior MUST be documented.
     - [13.6 Return Values](#136-return-values)
     - [13.7 Procedure Syntax](#137-procedure-syntax)
     - [14.9 Operator Precedence](#149-operator-precedence)
-    - [15.2 While Loops](#152-while-loops)
-    - [15.3 For Loops](#153-for-loops)
     - [15.4 Loop Control](#154-loop-control)
   - [16. Higher-Order Functions and Closures](#16-higher-order-functions-and-closures)
     - [16.1 Function Types (fn) and Procedure Types (proc)](#161-function-types-fn-and-procedure-types-proc)

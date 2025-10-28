@@ -24,10 +24,10 @@
 
 **When NOT to use generics:**
 - When working with a single known type → use concrete types
-- When types need different implementations → use traits with multiple impls
-- Runtime polymorphism needed → use trait objects (dyn Trait)
+- When types need different implementations → use enums with pattern matching
+- When you need a closed set of variants → use enums explicitly
 - Excessive complexity without clear benefit → keep it simple
-- When monomorphization bloat is a concern → consider alternatives
+- When monomorphization bloat is a concern → use enums instead
 
 **Relationship to other features:**
 - **Traits**: Provide bounds for generic type parameters
@@ -73,8 +73,8 @@ function swap<T>(a: T, b: T): (T, T) {
 }
 
 record Pair<T, U> {
-    first: T;
-    second: U;
+    first: T
+    second: U
 }
 
 enum Option<T> {
@@ -109,18 +109,18 @@ function identity<T>(x: T): T {
     x
 }
 
-let a = identity(42);        // T = i32, returns 42
-let b = identity("hello");   // T = str, returns "hello"
+let a = identity(42)        // T = i32, returns 42
+let b = identity("hello")   // T = str, returns "hello"
 ```
 
 **Generic container:**
 ```cantrip
-record Box<T> {
-    value: T;
+record Container<T> {
+    value: T
 }
 
-let int_box = Box { value: 42 };
-let str_box = Box { value: "hello" };
+let int_cont = Container { value: 42 }
+let str_cont = Container { value: "hello" }
 ```
 
 ### 11.3 Static Semantics
@@ -223,7 +223,7 @@ Then Γ ⊢ e[α ↦ U] : τ[α ↦ U]
 ```cantrip
 function serialize<T>(value: T): String
     where T: Serialize + Clone
-    uses alloc.heap;
+    uses alloc.heap
 {
     value.clone().to_json()
 }
@@ -243,10 +243,10 @@ function process<T, U>(data: T): U
     where
         T: Clone + Serialize,
         U: Display + Debug
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let copy = data.clone();
-    let json = copy.to_json();
+    let copy = data.clone()
+    let json = copy.to_json()
     U.from_json(json)
 }
 ```
@@ -281,8 +281,8 @@ Generates specialized function f_ConcreteType
 Generic types have the same memory layout as their instantiated versions:
 
 ```
-size(Box<i32>) = size(i32) = 4 bytes
-size(Box<String>) = size(String) = 24 bytes (on 64-bit)
+size(Container<i32>) = size(i32) = 4 bytes
+size(Container<String>) = size(String) = 24 bytes (on 64-bit)
 ```
 
 Each instantiation has its own distinct layout.
@@ -314,9 +314,9 @@ function max_String(a: String, b: String): String { ... }
 Each unique instantiation generates separate machine code:
 
 ```cantrip
-let a = identity(42);       // Calls identity_i32
-let b = identity(3.14);     // Calls identity_f64
-let c = identity("hello");  // Calls identity_str
+let a = identity(42)       // Calls identity_i32
+let b = identity(3.14)     // Calls identity_f64
+let c = identity("hello")  // Calls identity_str
 ```
 
 **Trade-off:**
@@ -359,16 +359,16 @@ function process<T, const N: usize>(data: [T; N]): T {
 }
 
 // Type aliases with const parameters
-type Matrix<T, const ROWS: usize, const COLS: usize> = [[T; COLS]; ROWS];
+type Matrix<T, const ROWS: usize, const COLS: usize> = [[T; COLS]; ROWS]
 
 // Records with const parameters
 record RingBuffer<T, const CAP: usize> {
-    data: [T; CAP];
-    head: usize;
-    tail: usize;
+    data: [T; CAP]
+    head: usize
+    tail: usize
 
     procedure new(): own RingBuffer<T, CAP>
-        must CAP > 0;
+        must CAP > 0
     {
         own RingBuffer {
             data: [T::default(); CAP],
@@ -387,21 +387,21 @@ record RingBuffer<T, const CAP: usize> {
 
 Const arguments must be evaluable at compile time:
 ```cantrip
-const SIZE: usize = 10;
+const SIZE: usize = 10
 
 // OK: const value
-let buf: RingBuffer<i32, SIZE>;
+let buf: RingBuffer<i32, SIZE>
 
 // OK: literal
-let buf2: RingBuffer<i32, 100>;
+let buf2: RingBuffer<i32, 100>
 
 // OK: const arithmetic
-const DOUBLED: usize = SIZE * 2;
-let buf3: RingBuffer<i32, DOUBLED>;
+const DOUBLED: usize = SIZE * 2
+let buf3: RingBuffer<i32, DOUBLED>
 
 // ERROR E9310: not a compile-time constant
-let n = read_input();
-let buf4: RingBuffer<i32, n>;  // ERROR
+let n = read_input()
+let buf4: RingBuffer<i32, n>  // ERROR
 ```
 
 **Diagnostics:**
@@ -414,7 +414,7 @@ Cantrip does not support higher-rank polymorphism (rank-2 or higher types):
 
 ```cantrip
 // NOT SUPPORTED:
-type F = function<T>(f: function<U>(U) -> U): T;
+type F = function<T>(f: function<U>(U) => U): T
 ```
 
 Generics are first-order only.
@@ -426,12 +426,12 @@ Generics are first-order only.
 **Vec implementation sketch:**
 ```cantrip
 record Vec<T> {
-    data: own [T];
-    length: usize;
-    capacity: usize;
+    data: own [T]
+    length: usize
+    capacity: usize
 
     procedure new(): own Vec<T>
-        uses alloc.heap;
+        uses alloc.heap
     {
         own Vec {
             data: own [],
@@ -441,13 +441,13 @@ record Vec<T> {
     }
 
     procedure push(self: mut Vec<T>, value: T)
-        uses alloc.heap;
+        uses alloc.heap
     {
         if self.length == self.capacity {
-            self.grow();
+            self.grow()
         }
-        self.data[self.length] = value;
-        self.length += 1;
+        self.data[self.length] = value
+        self.length += 1
     }
 
     procedure get(self: Vec<T>, index: usize): Option<T>
@@ -470,17 +470,17 @@ enum Option<T> {
     Some(T),
     None,
 
-    procedure map<U>(self: Option<T>, f: map(T) -> U): Option<U> {
+    procedure map<U>(self: Option<T>, f: map(T) => U): Option<U> {
         match self {
-            Option.Some(value) -> Option.Some(f(value)),
-            Option.None -> Option.None,
+            Option.Some(value) => Option.Some(f(value)),
+            Option.None => Option.None,
         }
     }
 
     procedure unwrap_or(self: Option<T>, default: T): T {
         match self {
-            Option.Some(value) -> value,
-            Option.None -> default,
+            Option.Some(value) => value,
+            Option.None => default,
         }
     }
 }
@@ -492,20 +492,20 @@ enum Result<T, E> {
     Ok(T),
     Err(E),
 
-    procedure map<U>(self: Result<T, E>, f: map(T) -> U): Result<U, E> {
+    procedure map<U>(self: Result<T, E>, f: map(T) => U): Result<U, E> {
         match self {
-            Result.Ok(value) -> Result.Ok(f(value)),
-            Result.Err(error) -> Result.Err(error),
+            Result.Ok(value) => Result.Ok(f(value)),
+            Result.Err(error) => Result.Err(error),
         }
     }
 
     procedure and_then<U>(
         self: Result<T, E>,
-        f: map(T) -> Result<U, E>
+        f: map(T) => Result<U, E>
     ): Result<U, E> {
         match self {
-            Result.Ok(value) -> f(value),
-            Result.Err(error) -> Result.Err(error),
+            Result.Ok(value) => f(value),
+            Result.Err(error) => Result.Err(error),
         }
     }
 }
@@ -518,36 +518,36 @@ enum Result<T, E> {
 function bubble_sort<T>(arr: [mut T])
     where T: Comparable<T> + Copy
 {
-    let n = arr.len();
+    let n = arr.len()
     for i in 0..n {
         for j in 0..(n - i - 1) {
             if arr[j].compare(arr[j + 1]) > 0 {
-                let temp = arr[j];
-                arr[j] = arr[j + 1];
-                arr[j + 1] = temp;
+                let temp = arr[j]
+                arr[j] = arr[j + 1]
+                arr[j + 1] = temp
             }
         }
     }
 }
 
-let mut numbers = [64, 34, 25, 12, 22, 11, 90];
-bubble_sort(numbers);
+let mut numbers = [64, 34, 25, 12, 22, 11, 90]
+bubble_sort(numbers)
 ```
 
 **Generic map function:**
 ```cantrip
 function map<T, U>(items: [T], f: function(T): U): Vec<U>
-    uses alloc.heap;
+    uses alloc.heap
 {
-    let mut result = Vec.new();
+    let mut result = Vec.new()
     for item in items {
-        result.push(f(item));
+        result.push(f(item))
     }
     result
 }
 
-let numbers = [1, 2, 3, 4, 5];
-let doubled = map(numbers, function(x) { x * 2 });
+let numbers = [1, 2, 3, 4, 5]
+let doubled = map(numbers, function(x) { x * 2 })
 ```
 
 #### 11.6.4 Generic Builder Pattern
@@ -555,9 +555,9 @@ let doubled = map(numbers, function(x) { x * 2 });
 **Type-safe builder:**
 ```cantrip
 record RequestBuilder<T> {
-    url: String;
-    method: HttpMethod;
-    body: Option<T>;
+    url: String
+    method: HttpMethod
+    body: Option<T>
 
     procedure new(url: String): own RequestBuilder<T> {
         own RequestBuilder {
@@ -568,7 +568,7 @@ record RequestBuilder<T> {
     }
 
     procedure method(self: mut RequestBuilder<T>, method: HttpMethod): mut RequestBuilder<T> {
-        self.method = method;
+        self.method = method
         self
     }
 
@@ -597,8 +597,8 @@ record RequestBuilder<T> {
 **Fixed-size buffer:**
 ```cantrip
 record FixedBuffer<T, const SIZE: usize> {
-    data: [T; SIZE];
-    len: usize;
+    data: [T; SIZE]
+    len: usize
 
     procedure new(): FixedBuffer<T, SIZE>
         where T: Default
@@ -610,13 +610,13 @@ record FixedBuffer<T, const SIZE: usize> {
     }
 
     procedure push(self: mut FixedBuffer<T, SIZE>, value: T): Result<(), Error>
-        must self.len < SIZE;
+        must self.len < SIZE
     {
         if self.len >= SIZE {
-            return Err(Error.new("Buffer full"));
+            return Err(Error.new("Buffer full"))
         }
-        self.data[self.len] = value;
-        self.len += 1;
+        self.data[self.len] = value
+        self.len += 1
         Ok(())
     }
 
@@ -626,9 +626,9 @@ record FixedBuffer<T, const SIZE: usize> {
 }
 
 // Usage:
-let mut buffer: FixedBuffer<i32, 10> = FixedBuffer.new();
-buffer.push(42);
-assert(buffer.capacity() == 10);
+let mut buffer: FixedBuffer<i32, 10> = FixedBuffer.new()
+buffer.push(42)
+assert(buffer.capacity() == 10)
 ```
 
 ---

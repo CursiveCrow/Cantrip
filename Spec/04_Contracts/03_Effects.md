@@ -44,7 +44,7 @@
 
 **Effect declaration:**
 ```ebnf
-UsesClause ::= "uses" EffectExpr ";"
+UsesClause ::= "uses" EffectExpr
 
 EffectExpr  ::= EffectPath ("," EffectPath)*
               | "pure"
@@ -56,22 +56,22 @@ EffectPath  ::= Ident ("." Ident)*
 ```cantrip
 // Single effect
 procedure print(s: String)
-    uses io.write;
+    uses io.write
 {
-    println!("{}", s);
+    println("{}", s)
 }
 
 // Multiple effects
 procedure load_config(path: String): Config
-    uses io.read, alloc.heap;
+    uses io.read, alloc.heap
 {
-    let contents = std::fs::read(path)?;
+    let contents = std::fs::read(path)?
     parse_json(contents)
 }
 
 // Explicit purity (optional)
 procedure add(x: i32, y: i32): i32
-    uses pure;
+    uses pure
 {
     x + y
 }
@@ -123,13 +123,13 @@ map(τ₁, ..., τₙ) -> τ ! ε
 **Example 1: I/O effects**
 ```cantrip
 procedure read_file(path: String): Result<String, Error>
-    uses io.read, alloc.heap;
+    uses io.read, alloc.heap
 {
     std::fs::read_to_string(path)
 }
 
 procedure write_file(path: String, content: String): Result<(), Error>
-    uses io.write;
+    uses io.write
 {
     std::fs::write(path, content)
 }
@@ -138,7 +138,7 @@ procedure write_file(path: String, content: String): Result<(), Error>
 **Example 2: Network effects**
 ```cantrip
 procedure fetch_url(url: String): Result<Response, Error>
-    uses net.tcp, alloc.heap;
+    uses net.tcp, alloc.heap
 {
     http::get(url)
 }
@@ -369,9 +369,9 @@ The compiler tracks effects through control flow:
 ```cantrip
 procedure example(flag: bool) uses io.write {
     if flag {
-        println!("true");    // io.write
+        println("true")    // io.write
     } else {
-        println!("false");   // io.write
+        println("false")   // io.write
     }
     // Both branches have io.write, so uses io.write
 }
@@ -383,10 +383,10 @@ The compiler is conservative - if an effect might occur, it must be declared:
 
 ```cantrip
 procedure conditional_io(flag: bool)
-    uses io.write;  // Required even though might not execute
+    uses io.write  // Required even though might not execute
 {
     if flag {
-        println!("Hello");  // io.write
+        println("Hello")  // io.write
     }
     // No else branch, but io.write is possible
 }
@@ -402,8 +402,8 @@ procedure helper(x: i32): i32 {
 }
 
 procedure caller() uses io.write {
-    let y = helper(5);  // OK: pure ⊆ {io.write}
-    println!("{}", y);  // io.write
+    let y = helper(5)  // OK: pure ⊆ {io.write}
+    println("{}", y)  // io.write
 }
 ```
 
@@ -414,12 +414,12 @@ Effects have no runtime representation - they are purely compile-time informatio
 ```cantrip
 // Source
 procedure log(msg: String) uses io.write {
-    println!("{}", msg);
+    println("{}", msg)
 }
 
 // Compiled (no effect metadata)
 void log(String msg) {
-    println(msg);  // Just the operation
+    println(msg)  // Just the operation
 }
 ```
 
@@ -488,25 +488,25 @@ procedure map<T, U, E>(
     items: Vec<T>,
     f: map(T) -> U ! E
 ): Vec<U> ! E
-    uses E, alloc.heap;
+    uses E, alloc.heap
 {
-    var result = Vec::with_capacity(items.len());
+    var result = Vec::with_capacity(items.len())
     for item in items {
-        result.push(f(item));  // f's effects propagate
+        result.push(f(item))  // f's effects propagate
     }
     result
 }
 
 // Usage with pure function
-let numbers = vec![1, 2, 3];
-let doubled = map(numbers, |x| x * 2);  // E = ∅ (pure)
+let numbers = vec![1, 2, 3]
+let doubled = map(numbers, |x| x * 2)  // E = ∅ (pure)
 
 // Usage with effectful function
-let messages = vec!["a", "b", "c"];
+let messages = vec!["a", "b", "c"]
 let logged = map(messages, |s| {
-    println!("{}", s);  // E = {io.write}
+    println("{}", s)  // E = {io.write}
     s
-});
+})
 ```
 
 #### 3.6.2 Effect Bounds on Traits
@@ -514,14 +514,14 @@ let logged = map(messages, |s| {
 ```cantrip
 contract Processor {
     procedure process($, data: Data): Result
-        uses alloc.heap;  // All implementations can use heap
+        uses alloc.heap  // All implementations can use heap
 }
 
 record SimpleProcessor: Processor {
     // fields...
 
     procedure process($, data: Data): Result
-        uses alloc.heap;  // Exactly matches contract
+        uses alloc.heap  // Exactly matches contract
     {
         // Process with allocation
         ...
@@ -547,11 +547,10 @@ procedure save_if_changed<T>(
     cache: mut Cache<T>,
     key: String,
     value: T
-) uses alloc.heap, io.write;
-{
+) uses alloc.heap, io.write {
     if cache.get(&key) != Some(&value) {
-        cache.insert(key.clone(), value);  // alloc.heap
-        persist_cache(&cache);             // io.write
+        cache.insert(key.clone(), value)  // alloc.heap
+        persist_cache(&cache)             // io.write
     }
     // Effects declared even though conditionally executed
 }
@@ -561,7 +560,7 @@ procedure save_if_changed<T>(
 
 ```cantrip
 procedure run_with_io<T>(f: map() -> T ! {io.read, io.write}): T
-    uses io.read, io.write;
+    uses io.read, io.write
 {
     f()  // f's effects contained within this procedure
 }
@@ -569,11 +568,11 @@ procedure run_with_io<T>(f: map() -> T ! {io.read, io.write}): T
 procedure main() uses io.read, io.write {
     let config = run_with_io(|| {
         load_config("config.toml")  // io.read
-    });
+    })
 
     run_with_io(|| {
         save_results(config)  // io.write
-    });
+    })
 }
 ```
 
@@ -590,10 +589,10 @@ procedure factorial(n: i32): i32 uses pure {
 }
 
 // Implicitly pure (no uses clause)
-procedure sum(numbers: &[i32]): i32 {
-    var total = 0;
+procedure sum(numbers: [i32]): i32 {
+    var total = 0
     for num in numbers {
-        total += num;
+        total += num
     }
     total
 }
@@ -608,16 +607,16 @@ Procedures can be more specific than their contract bounds:
 ```cantrip
 contract Logger {
     procedure log($, msg: String)
-        uses io.write, alloc.heap;  // Upper bound
+        uses io.write, alloc.heap  // Upper bound
 }
 
 record BufferedLogger: Logger {
-    buffer: Vec<String>;
+    buffer: Vec<String>
 
     procedure log($, msg: String)
-        uses alloc.heap;  // More specific (no io.write yet)
+        uses alloc.heap  // More specific (no io.write yet)
     {
-        $.buffer.push(msg);  // Just buffering
+        $.buffer.push(msg)  // Just buffering
     }
 }
 ```
@@ -629,9 +628,9 @@ Pure procedures enable aggressive optimization:
 ```cantrip
 procedure expensive_computation(x: i32): i32 {
     // Pure - can be memoized
-    let mut result = 1;
+    let mut result = 1
     for _ in 0..x {
-        result = result * 2 + 1;
+        result = result * 2 + 1
     }
     result
 }
@@ -647,14 +646,14 @@ procedure expensive_computation(x: i32): i32 {
 ```cantrip
 procedure with_effects() uses io.write, alloc.heap {
     let logger = |msg: String| {
-        println!("{}", msg);  // io.write
-    };
+        println("{}", msg)  // io.write
+    }
 
-    let data = vec![1, 2, 3];  // alloc.heap
+    let data = vec![1, 2, 3]  // alloc.heap
 
-    logger("Processing");
+    logger("Processing")
     for x in data {
-        logger(format!("{}", x));  // alloc.heap + io.write
+        logger(format!("{}", x))  // alloc.heap + io.write
     }
 }
 ```

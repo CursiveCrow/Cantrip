@@ -1,11 +1,18 @@
 # Cantrip Language Specification - LLM Quick Reference
 
-**Version:** 1.2.0  
-**Date:** 2025-10-24  
-**Purpose:** Token-efficient, complete reference for LLMs working with/extending Cantrip specification  
+**Version:** 1.3.0
+**Date:** 2025-10-24
+**Purpose:** Token-efficient, complete reference for LLMs working with/extending Cantrip specification
 **Target Audience:** LLMs, AI assistants, automated tools
 
-**Recent Changes (v1.2.0):**
+**Recent Changes (v1.3.0):**
+- **SYNTAX CHANGE:** Semicolons now **OPTIONAL** (newlines terminate statements by default)
+- 4 simple continuation rules for multi-line expressions
+- Braces remain mandatory for blocks
+- All semantics unchanged (pure syntax change)
+- Single-line multi-statement separation with semicolons still supported (e.g., `let x = 1; let y = 2`)
+
+**Previous Changes (v1.2.0):**
 - Unified loop syntax: ONE `loop` keyword for all iteration patterns
 - Loop verification: `by` (variant) and `with` (invariants) clauses
 - Break with values: `break expr` returns value from loop
@@ -311,12 +318,12 @@ T₁ → U₁ <: T₂ → U₂
 **Syntax:**
 ```cantrip
 record Point {
-    x: f64;
-    y: f64;
+    x: f64
+    y: f64
 
     procedure distance(self: Point, other: Point): f64 {
-        let dx = self.x - other.x;
-        let dy = self.y - other.y;
+        let dx = self.x - other.x
+        let dy = self.y - other.y
         (dx * dx + dy * dy).sqrt()
     }
 }
@@ -389,20 +396,20 @@ Size = sizeof(discriminant) + max(sizeof(T₁), ..., sizeof(Tₙ)) + padding
 ```cantrip
 modal File {
     @Closed { path: String }
-    @Open { path: String; handle: FileHandle }
-    
-    @Closed → open() → @Open;
-    @Open → read() → @Open;
-    @Open → close() → @Closed;
+    @Open { path: String, handle: FileHandle }
+
+    @Closed → open() → @Open
+    @Open → read() → @Open
+    @Open → close() → @Closed
 }
 ```
 
 **Type-level state tracking:**
 ```cantrip
-let file: File@Closed = File.new("data.txt");
-let opened: File@Open = file.open();  // Type changes!
-// file.read();  // ERROR: File@Closed has no read()
-opened.read();    // OK: File@Open has read()
+let file: File@Closed = File.new("data.txt")
+let opened: File@Open = file.open()  // Type changes!
+// file.read()  // ERROR: File@Closed has no read()
+opened.read()    // OK: File@Open has read()
 ```
 
 **Verification:** Compiler ensures only valid transitions, preventing invalid state access.
@@ -448,34 +455,48 @@ procedure read_only(text: String) { ... }      // Immutable
 procedure modify(text: mut String) { ... }     // Mutable
 procedure consume(text: own String) { ... }    // Owned
 
-let s: own String = String.new();
-read_only(s);           // Pass as immutable, keep ownership
-modify(mut s);          // Pass as mutable, keep ownership
-consume(move s);        // Transfer ownership, s unusable after
+let s: own String = String.new()
+read_only(s)           // Pass as immutable, keep ownership
+modify(mut s)          // Pass as mutable, keep ownership
+consume(move s)        // Transfer ownership, s unusable after
 ```
 
-### 3.4 Copy vs Move Semantics
+### 3.4 Copy Trait and Parameter Passing
 
-**Copy types (automatically copied on assignment):**
+**IMPORTANT: ALL types pass by permission (reference-like) by default.**
+
+The `Copy` trait marks types that CAN be cheaply copied with `.copy()` method:
+
+**Copy-capable types:**
 - All primitives: integers, floats, bool, char
+- Slices: [T] (fat pointer only, not underlying data)
 - Tuples/arrays of Copy types
 - Records where all fields are Copy
 
-**Move types (require explicit `move`):**
+**Non-Copy types:**
 - String (heap-allocated)
 - Vec<T> (heap-allocated)
 - Records containing non-Copy fields
 - All heap-allocated types
 
-**Example:**
+**Parameter passing is uniform for all types:**
 ```cantrip
-// Copy
-let x: i32 = 42;
-let y = x;  // x still usable (copied)
+// Primitives - pass by permission (NO automatic copy)
+let x: i32 = 42
+procedure double(n: i32): i32 { n * 2 }
+double(x)  // x passed by permission, still usable after
 
-// Move
-let s1: own String = String.new();
-let s2 = move s1;  // s1 no longer usable (moved)
+// Explicit copy when needed
+let y = x.copy()  // Explicit copy creates duplicate
+
+// Heap types - also pass by permission
+let s: own String = String.new("hello")
+procedure print(text: String) { println(text) }
+print(s)  // s passed by permission, still usable after
+
+// Explicit move for ownership transfer
+procedure consume(text: own String) { /* takes ownership */ }
+consume(move s)  // s no longer usable after move
 ```
 
 ### 3.5 Safety Guarantees
@@ -484,35 +505,35 @@ let s2 = move s1;  // s1 no longer usable (moved)
 ```
 ✓ Use-after-free
     region temp {
-        let s = String.new_in<temp>();
-        // return s;  // ERROR: Cannot escape region
+        let s = String.new_in<temp>()
+        // return s  // ERROR: Cannot escape region
     }
 
 ✓ Double-free
-    let s = String.new();
-    consume(move s);
-    // consume(move s);  // ERROR: Value already moved
+    let s = String.new()
+    consume(move s)
+    // consume(move s)  // ERROR: Value already moved
 
 ✓ Memory leaks
     {
-        let temp = String.new();
+        let temp = String.new()
     }  // Automatically freed (RAII)
 ```
 
 **What Cantrip does NOT prevent (⚠ programmer's responsibility):**
 ```
 ⚠ Aliasing bugs
-    var text = String.new();
-    modify1(mut text);
-    modify2(mut text);  // Both can modify - could conflict!
+    var text = String.new()
+    modify1(mut text)
+    modify2(mut text)  // Both can modify - could conflict!
 
 ⚠ Data races
-    thread1.spawn(|| modify(mut shared));
-    thread2.spawn(|| modify(mut shared));  // Race!
+    thread1.spawn(|| modify(mut shared))
+    thread2.spawn(|| modify(mut shared))  // Race!
 
 ⚠ Iterator invalidation
     for c in text.chars() {
-        text.push_str("x");  // ALLOWED but dangerous!
+        text.push_str("x")  // ALLOWED but dangerous!
     }
 ```
 
@@ -531,9 +552,9 @@ Contracts specify function behavior through three components:
 **Syntax:**
 ```cantrip
 procedure divide(x: i32, y: i32): i32
-    uses alloc.heap;              // ← EFFECTS (part of contract)
-    must y != 0;                  // ← PRECONDITION
-    will result == x / y;         // ← POSTCONDITION
+    uses alloc.heap              // ← EFFECTS (part of contract)
+    must y != 0                  // ← PRECONDITION
+    will result == x / y         // ← POSTCONDITION
 { x / y }
 ```
 
@@ -583,23 +604,23 @@ random          Non-determinism
 **Effect Syntax:**
 ```cantrip
 // Single effect
-uses alloc.heap;
+uses alloc.heap
 
 // Multiple effects
-uses alloc.heap, io.write, fs.read;
+uses alloc.heap, io.write, fs.read
 
 // Wildcards
-uses alloc.*;       // Any allocation
-uses fs.*, net.*;   // Any FS or network
+uses alloc.*       // Any allocation
+uses fs.*, net.*   // Any FS or network
 
 // Forbidden effects (negative)
-uses *, !panic;     // All effects except panic
-uses io.*, !io.write;  // Read-only I/O
+uses *, !panic     // All effects except panic
+uses io.*, !io.write  // Read-only I/O
 
 // Bounded effects
-uses alloc.heap(bytes≤1024);     // At most 1KB
-uses thread.spawn(count≤4);      // At most 4 threads
-uses time.sleep(duration≤10ms);  // At most 10ms
+uses alloc.heap(bytes≤1024)     // At most 1KB
+uses thread.spawn(count≤4)      // At most 4 threads
+uses time.sleep(duration≤10ms)  // At most 10ms
 ```
 
 **Effect Checking:**
@@ -614,16 +635,16 @@ effect(function) = effect(body) ∪ ⋃(effect(called_fn))
 **Example:**
 ```cantrip
 procedure write_log(message: String)
-    uses fs.write, alloc.heap;
+    uses fs.write, alloc.heap
 {
-    let path = String.from("/var/log/app.log");  // uses alloc.heap
-    std.fs.append(path, message);                // uses fs.write
+    let path = String.from("/var/log/app.log")  // uses alloc.heap
+    std.fs.append(path, message)                // uses fs.write
 }
 
 procedure process_request(req: Request): Response
-    uses fs.write, alloc.heap, io.write;  // Includes transitive effects
+    uses fs.write, alloc.heap, io.write  // Includes transitive effects
 {
-    write_log(format!("Processing {}", req));  // uses fs.write, alloc.heap
+    write_log(format!("Processing {}", req))  // uses fs.write, alloc.heap
     respond(req)                               // uses io.write
 }
 ```
@@ -633,7 +654,7 @@ procedure process_request(req: Request): Response
 **Syntax:**
 ```cantrip
 procedure get<T>(arr: [T], idx: usize): T
-    must idx < arr.len();
+    must idx < arr.len()
 { arr[idx] }
 ```
 
@@ -643,7 +664,7 @@ procedure transfer(from: mut Account, to: mut Account, amount: u64)
     must {
         from.balance >= amount,
         amount > 0,
-        to.id != from.id,
+        to.id != from.id
     }
 { ... }
 ```
@@ -664,16 +685,16 @@ P, Q ::= true | false
 **Syntax:**
 ```cantrip
 procedure increment(x: mut i32)
-    will *x == @old(*x) + 1;
-{ *x += 1; }
+    will *x == @old(*x) + 1
+{ *x += 1 }
 
 procedure append<T>(vec: mut Vec<T>, item: T)
-    uses alloc.heap;
+    uses alloc.heap
     will {
         vec.len() == @old(vec.len()) + 1,
-        vec[vec.len() - 1] == item,
+        vec[vec.len() - 1] == item
     }
-{ vec.push(item); }
+{ vec.push(item) }
 ```
 
 **Special constructs:**
@@ -683,10 +704,10 @@ procedure append<T>(vec: mut Vec<T>, item: T)
 **Example:**
 ```cantrip
 procedure divide(x: i32, y: i32): i32
-    must y != 0;
+    must y != 0
     will {
         result == x / y,
-        result * y <= x,  // Integer division rounds down
+        result * y <= x  // Integer division rounds down
     }
 { x / y }
 ```
@@ -720,18 +741,18 @@ Control how contracts are checked:
 ```cantrip
 #[verify(static)]    // Compile-time verification via SMT solver
 procedure critical(x: i32): i32
-    must x >= 0;
-    will result >= x;
+    must x >= 0
+    will result >= x
 { x + 1 }
 
 #[verify(runtime)]   // Runtime assertion injection
 procedure parse(s: str): i32
-    must !s.is_empty();
+    must !s.is_empty()
 { s.parse().unwrap() }
 
 #[verify(none)]      // Documentation only, no checking
 procedure approximate(x: f64): f64
-    will result >= 0.0;
+    will result >= 0.0
 { x.abs() }
 ```
 
@@ -752,7 +773,7 @@ procedure approximate(x: f64): f64
 **Syntax:**
 ```cantrip
 region name {
-    let s = String.new_in<name>();
+    let s = String.new_in<name>()
     // s allocated in region 'name'
 }  // All region memory freed in O(1)
 ```
@@ -765,14 +786,14 @@ region name {
 **Example:**
 ```cantrip
 procedure parse_file(path: String): Result<Data, Error>
-    uses alloc.region, io.read;
+    uses alloc.region, io.read
 {
     region temp {
-        let contents = String.new_in<temp>();  // Temporary buffer
-        std.fs.read_to_string(path, mut contents)?;
-        
-        let parsed = parse_json(contents)?;    // Parsing uses temp region
-        
+        let contents = String.new_in<temp>()  // Temporary buffer
+        std.fs.read_to_string(path, mut contents)?
+
+        let parsed = parse_json(contents)?    // Parsing uses temp region
+
         parsed.to_heap()  // Convert to heap before return
     }  // All temp strings freed in O(1)
 }
@@ -948,14 +969,17 @@ Expr ::= Literal | Ident | "(" Expr ")"
        | "var" Ident "=" Expr "in" Expr
        | FunctionCall | MethodCall
        | FieldAccess | ArrayIndex
-       | "{" Expr (";" Expr)* "}"               // Block
+       | "{" Statement (NEWLINE Statement)* "}" // Block
        | "move" Expr                            // Ownership transfer
        | "region" Ident "{" Expr "}"            // Region
+
+Statement ::= Expr | LetBinding | VarBinding | Assignment
+Separator ::= NEWLINE | ";"
 
 LoopHead ::= Pattern "in" Expr                  // For-style
            | Expr                               // While-style (no "in")
 
-LoopVerif ::= ("by" Expr)? ("with" Predicates ";")?  // Variant & invariants
+LoopVerif ::= ("by" Expr)? ("with" Predicates)?  // Variant & invariants (semicolon optional)
 
 BinOp ::= "+" | "-" | "*" | "/" | "%" | "**"    // Arithmetic
         | "==" | "!=" | "<" | "<=" | ">" | ">=" // Comparison
@@ -992,7 +1016,7 @@ loop condition by variant { body }
 
 // Loop invariants
 loop condition
-    with invariant1, invariant2;
+    with invariant1, invariant2
 { body }
 
 // Both
@@ -1000,31 +1024,103 @@ loop i in 0..n by n - i
     with {
         0 <= i,
         i <= n,
-        sum == sum_of(arr[0..i]),
-    };
+        sum == sum_of(arr[0..i])
+    }
 { body }
 ```
 
 **Control flow:**
 ```cantrip
-break;           // Exit loop (returns ())
-break value;     // Exit with value
-continue;        // Next iteration
+break           // Exit loop (returns ())
+break value     // Exit with value
+continue        // Next iteration
 
 // With labels
 'outer: loop {
     'inner: loop {
-        break 'outer;     // Break outer loop
-        continue 'inner;  // Continue inner
+        break 'outer     // Break outer loop
+        continue 'inner  // Continue inner
     }
 }
 ```
 
 **Key rules:**
 - `by expr` specifies decreasing termination metric
-- `with { inv1, inv2, ... };` specifies loop invariants
+- `with { inv1, inv2, ... }` specifies loop invariants (semicolon after closing brace is optional)
 - Pattern with `in` → for-style; expression without `in` → while-style
 - Loop type = type of break expressions (or `Never` if no breaks)
+
+### 6.4a Statement Termination Rules
+
+**NEW in v1.3.0:** Semicolons are optional. Newlines terminate statements by default.
+
+**Primary rule:** A newline terminates a statement.
+
+**Exceptions (4 continuation rules):** A statement continues across newlines when:
+
+#### Rule 1: Unclosed Delimiters
+
+Statement continues when `(`, `[`, or `<` remains unclosed.
+
+```cantrip
+let result = calculate(
+    arg1,
+    arg2,
+    arg3
+)
+
+let array = [
+    1, 2, 3,
+    4, 5, 6
+]
+```
+
+#### Rule 2: Trailing Operator
+
+Statement continues when line ends with a binary or assignment operator (`+`, `-`, `*`, `/`, `==`, `&&`, `=`, `+=`, etc.).
+
+```cantrip
+let total = base +
+    modifier +
+    bonus
+
+let condition = x > 0 &&
+    y < 100 &&
+    z == 42
+```
+
+#### Rule 3: Leading Dot (Method Chaining)
+
+Statement continues when next line begins with `.` (method/field access).
+
+```cantrip
+result
+    .validate()
+    .transform()
+    .process()
+
+let value = builder
+    .with_capacity(100)
+    .with_name("example")
+    .build()
+```
+
+#### Rule 4: Leading Pipeline
+
+Statement continues when next line begins with `=>` (pipeline operator).
+
+```cantrip
+let result = input
+    => validate
+    => transform
+    => process
+```
+
+**Optional semicolons:** Semicolons may be used for explicit separation on a single line:
+
+```cantrip
+let x = 1; let y = 2; let z = 3  // Multiple statements on one line
+```
 
 ### 6.5 Pattern Syntax
 
@@ -1039,34 +1135,34 @@ Pattern ::= "_"                                 // Wildcard
           | Pattern "if" Expr                   // Guard
 ```
 
-### 6.5 Declaration Syntax
+### 6.6 Declaration Syntax
 
 ```cantrip
 // Function
 procedure name<T>(param: T): U
-    needs effect1, effect2;
-    requires precondition;
-    ensures postcondition;
+    uses effect1, effect2
+    must precondition
+    will postcondition
 { body }
 
 // Record
 record Name<T> {
-    field1: Type1;
-    field2: Type2;
+    field1: Type1
+    field2: Type2
 
     procedure method(self: Self, param: T): U { ... }
 }
 
 // Enum
 enum Name<T> {
-    Variant1,
-    Variant2(T),
-    Variant3 { field: Type },
+    Variant1
+    Variant2(T)
+    Variant3 { field: Type }
 }
 
 // Trait
 trait Name<T> {
-    procedure method(self: Self, param: T): U;
+    procedure method(self: Self, param: T): U
 }
 
 // Record implementing trait
@@ -1080,12 +1176,12 @@ record Type: Name<T> {
 modal Name<T> {
     @State1 { field: Type }
     @State2 { field: Type }
-    
-    @State1 -> transition() -> @State2;
+
+    @State1 -> transition() -> @State2
 }
 ```
 
-### 6.6 Attributes
+### 6.7 Attributes
 
 ```cantrip
 #[repr(C)]               // C-compatible layout
@@ -1495,9 +1591,9 @@ When adding new features, ensure integration with:
 
 **✓ Contract System (with Effects):**
 - [ ] Identify all effects operations perform
-- [ ] Specify `needs` clauses for all operations
-- [ ] Define preconditions where applicable
-- [ ] Define postconditions where applicable
+- [ ] Specify `uses` clauses for all operations
+- [ ] Define preconditions (`must`) where applicable
+- [ ] Define postconditions (`will`) where applicable
 
 **✓ Memory Management:**
 - [ ] Specify memory layout (size, alignment, padding)
@@ -1601,22 +1697,19 @@ l < c    (capacity check)
 | `[T]` | 16 | 8 | Fat pointer (ptr+len) |
 | `(T, U)` | varies | `max(align(T), align(U))` | With padding |
 
-### 10.2 Reserved Keywords (55 Total)
+### 10.2 Reserved Keywords (54 Total)
 
+**Current keywords:**
 ```
-abstract    as          async       await       break
-case        comptime    const       continue    defer
-effect      else        ensures     enum        exists
-false       for         forall      procedure    if
-impl        import      internal    invariant   iso
-let         loop        match       modal       module
-move        mut         needs       new         none
-own         private     procedure   protected   public
-record      ref         region      requires    result
-select      self        Self        state       static
-trait       true        type        var         where
-while
+abstract, as, async, await, break, by, case, comptime, const, continue,
+defer, effect, else, enum, exists, false, forall,
+if, import, internal, invariant, iso, let, loop,
+match, modal, module, move, must, mut, new, none, own, private,
+procedure, protected, public, record, ref, region, result,
+select, self, Self, state, static, trait, true, type, uses, var, where, will, with
 ```
+
+**Note:** `needs`, `requires`, and `ensures` were replaced by `uses`, `must`, and `will` in v1.1.0 but may still appear in legacy code.
 
 ### 10.3 Operator Precedence (15 Levels, High to Low)
 
@@ -1654,28 +1747,28 @@ while
 ```cantrip
 // Option type
 enum Option<T> {
-    Some(T),
-    None,
+    Some(T)
+    None
 }
 
 // Result type
 enum Result<T, E> {
-    Ok(T),
-    Err(E),
+    Ok(T)
+    Err(E)
 }
 
 // String type
 record String {
-    ptr: *u8;
-    len: usize;
-    cap: usize;
+    ptr: *u8
+    len: usize
+    cap: usize
 }
 
 // Vector type
 record Vec<T> {
-    ptr: *T;
-    len: usize;
-    cap: usize;
+    ptr: *T
+    len: usize
+    cap: usize
 }
 
 // HashMap type
@@ -1692,22 +1785,22 @@ trait Copy { }
 
 // Clone trait (explicit deep copy)
 trait Clone {
-    procedure clone(self: Self): Self;
+    procedure clone(self: Self): Self
 }
 
 // Debug trait (debug formatting)
 trait Debug {
-    procedure debug(self: Self): String;
+    procedure debug(self: Self): String
 }
 
 // PartialEq trait (equality comparison)
 trait PartialEq {
-    procedure eq(self: Self, other: Self): bool;
+    procedure eq(self: Self, other: Self): bool
 }
 
 // PartialOrd trait (ordering comparison)
 trait PartialOrd {
-    procedure cmp(self: Self, other: Self): Ordering;
+    procedure cmp(self: Self, other: Self): Ordering
 }
 ```
 
@@ -1742,12 +1835,14 @@ This document provides:
 ✓ **Quick reference** — Type sizes, keywords, operators, error codes
 
 **Key Points:**
-1. **Effects are part of contracts**, not a separate system
-2. **Multiple mutable references allowed** (unlike Rust, like Cyclone)
-3. **Regions control lifetimes**, not lifetime parameters
-4. **Follow String (§5.6) as exemplar** for new type specifications
-5. **15+ type rules minimum** for new types
-6. **Always integrate**: permissions, effects, regions, formal semantics
+1. **Semicolons are optional** — Newlines terminate statements (v1.3.0)
+2. **4 simple continuation rules** — Unclosed delimiters, trailing operators, leading dot, leading pipeline
+3. **Effects are part of contracts**, not a separate system
+4. **Multiple mutable references allowed** (unlike Rust, like Cyclone)
+5. **Regions control lifetimes**, not lifetime parameters
+6. **Follow String (§5.6) as exemplar** for new type specifications
+7. **15+ type rules minimum** for new types
+8. **Always integrate**: permissions, effects, regions, formal semantics
 
 **Usage:** Reference this document when:
 - Writing new specification sections
@@ -1764,7 +1859,7 @@ This document provides:
 
 ---
 
-**Document Version:** 1.0.2  
-**Last Updated:** 2025-10-23  
-**Maintainer:** Cantrip Language Team  
+**Document Version:** 1.3.0
+**Last Updated:** 2025-10-24
+**Maintainer:** Cantrip Language Team
 **License:** Same as Cantrip Language Specification

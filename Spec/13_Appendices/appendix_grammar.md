@@ -12,12 +12,23 @@ DocComment ::= "///" ~[\n\r]*
 ModuleDoc ::= "//!" ~[\n\r]*
 ```
 
-### A.1.2 Identifiers
+### A.1.2 Identifiers and Whitespace
 ```ebnf
 Identifier ::= IdentStart IdentContinue*
 IdentStart ::= [a-zA-Z_]
 IdentContinue ::= [a-zA-Z0-9_]
+
+NEWLINE ::= "\n" | "\r\n"
 ```
+
+**Note on Newlines:** Newlines are significant in Cantrip syntax. A newline terminates a statement unless one of the following continuation rules applies:
+
+1. **Unclosed delimiters**: `(`, `[`, or `<` remains unclosed
+2. **Trailing operator**: Line ends with a binary or assignment operator
+3. **Leading dot**: Next line begins with `.` (method chaining)
+4. **Leading pipeline**: Next line begins with `=>` (pipeline operator)
+
+Semicolons (`;`) are optional and can be used to explicitly separate statements on the same line.
 
 ### A.1.3 Literals
 ```ebnf
@@ -141,7 +152,7 @@ LoopVerification ::= LoopVariant? LoopInvariant?
 
 LoopVariant ::= "by" Expr
 
-LoopInvariant ::= "with" PredicateBlock ";"
+LoopInvariant ::= "with" PredicateBlock NEWLINE
 
 MatchExpr ::= "match" Expr "{" MatchArm* "}"
 MatchArm ::= Pattern ("if" Expr)? "=>" Expr ","
@@ -189,6 +200,8 @@ FieldPattern ::= Identifier (":" Pattern)?
 ## A.5 Statement Grammar
 
 ```ebnf
+Separator ::= NEWLINE | ";"
+
 Statement ::= LetStmt
             | VarStmt
             | ExprStmt
@@ -197,14 +210,16 @@ Statement ::= LetStmt
             | BreakStmt
             | ContinueStmt
 
-LetStmt ::= "let" Pattern (":" Type)? "=" Expr ";"
-VarStmt ::= "var" Pattern (":" Type)? "=" Expr ";"
-ExprStmt ::= Expr ";"
-AssignStmt ::= Expr "=" Expr ";"
-ReturnStmt ::= "return" Expr? ";"
-BreakStmt ::= "break" Label? Expr? ";"
-ContinueStmt ::= "continue" Label? ";"
+LetStmt ::= "let" Pattern (":" Type)? "=" Expr
+VarStmt ::= "var" Pattern (":" Type)? "=" Expr
+ExprStmt ::= Expr
+AssignStmt ::= Expr "=" Expr
+ReturnStmt ::= "return" Expr?
+BreakStmt ::= "break" Label? Expr?
+ContinueStmt ::= "continue" Label?
 Label ::= "'" Identifier
+
+Statements ::= (Statement Separator)*
 ```
 
 ## A.6 Declaration Grammar
@@ -232,17 +247,17 @@ StateTransition ::= "@" Identifier "->" "@" Identifier
 
 ContractClause ::= MustClause | WillClause | UsesClause | InvariantClause
 
-MustClause ::= "must" PredicateBlock ";"
-WillClause ::= "will" PredicateBlock ";"
-UsesClause ::= "uses" EffectList ";"
-InvariantClause ::= "invariant" ":" Assertion (";" Assertion)* ";"
+MustClause ::= "must" PredicateBlock NEWLINE
+WillClause ::= "will" PredicateBlock NEWLINE
+UsesClause ::= "uses" EffectList NEWLINE
+InvariantClause ::= "invariant" ":" Assertion (NEWLINE Assertion)* NEWLINE
 
 PredicateBlock ::= Assertion                    // Single predicate
                  | "{" PredicateList "}"         // Multiple predicates
 
 PredicateList  ::= Assertion ("," Assertion)* ","?
 
-FunctionBody ::= BlockExpr | ";"
+FunctionBody ::= BlockExpr
 ```
 
 ### A.6.2 Type Declarations
@@ -250,10 +265,10 @@ FunctionBody ::= BlockExpr | ";"
 RecordDecl ::= Attribute* Visibility? "record" Identifier GenericParams?
                "{" RecordField* "}"
 
-RecordField ::= Visibility? Identifier ":" Type ";"
+RecordField ::= Visibility? Identifier ":" Type NEWLINE
 
 EnumDecl ::= Attribute* Visibility? "enum" Identifier GenericParams?
-             "{" EnumVariant ("," EnumVariant)* ","? "}"
+             "{" EnumVariant (NEWLINE EnumVariant)* NEWLINE? "}"
 
 EnumVariant ::= Identifier ("(" Type ")")? ("=" IntegerLiteral)?
 
@@ -301,12 +316,12 @@ ModuleItem ::= ImportDecl
              | EffectDecl
              | TypeAlias
 
-ImportDecl ::= "import" ImportPath ("as" Identifier)? ";"
+ImportDecl ::= "import" ImportPath ("as" Identifier)? NEWLINE
 ImportPath ::= Identifier ("::" Identifier)*
 
-TypeAlias ::= Visibility? "type" Identifier GenericParams? "=" Type ";"
+TypeAlias ::= Visibility? "type" Identifier GenericParams? "=" Type NEWLINE
 
-EffectDecl ::= "effect" Identifier ("{" EffectAtom* "}")? ";"
+EffectDecl ::= "effect" Identifier ("{" EffectAtom* "}")? NEWLINE
 EffectAtom ::= Identifier ("(" EffectParam ("," EffectParam)* ")")?
 
 Visibility ::= "public" | "internal" | "private"

@@ -44,7 +44,7 @@
 
 **Precondition clause:**
 ```ebnf
-MustClause ::= "must" PredicateList ";"
+MustClause ::= "must" PredicateList
 
 PredicateList  ::= Predicate ("," Predicate)*
 
@@ -55,21 +55,21 @@ Predicate      ::= Expression
 ```cantrip
 // Single precondition
 procedure sqrt(x: f64): f64
-    must x >= 0.0;
+    must x >= 0.0
 {
     x.sqrt()
 }
 
 // Multiple preconditions
 procedure divide(a: i32, b: i32): i32
-    must b != 0, a >= i32::MIN, b >= i32::MIN;
+    must b != 0, a >= i32::MIN, b >= i32::MIN
 {
     a / b
 }
 
 // Complex preconditions
-procedure binary_search<T: Ord>(arr: &[T], target: T): Option<usize>
-    must is_sorted(arr);
+procedure binary_search<T: Ord>(arr: [T], target: T): Option<usize>
+    must is_sorted(arr)
 {
     // Binary search implementation
     ...
@@ -80,11 +80,11 @@ procedure transfer(from: mut Account, to: mut Account, amount: i64)
     must {
         amount > 0,
         from.balance >= amount,
-        from.id != to.id,
-    };
+        from.id != to.id
+    }
 {
-    from.balance -= amount;
-    to.balance += amount;
+    from.balance -= amount
+    to.balance += amount
 }
 ```
 
@@ -121,7 +121,7 @@ Equivalent to:
 **Example 1: Numeric constraints**
 ```cantrip
 procedure factorial(n: i32): i32
-    must n >= 0, n <= 12;  // Prevent overflow
+    must n >= 0, n <= 12  // Prevent overflow
 {
     if n <= 1 {
         1
@@ -133,19 +133,23 @@ procedure factorial(n: i32): i32
 
 **Example 2: Array bounds**
 ```cantrip
-procedure get<T>(arr: &[T], index: usize): &T
-    must index < arr.len();
+procedure get<T>(arr: [T], index: usize): T
+    must index < arr.len()
+    must T: Copy
 {
-    &arr[index]  // Safe: precondition ensures bounds
+    arr[index]  // Safe: precondition ensures bounds
 }
 ```
 
 **Example 3: Non-null precondition**
 ```cantrip
-procedure process_data(data: &Data)
-    must data != null;  // If nullable pointers exist
+procedure process_data(data: *Data)
+    must data != null  // Raw pointer must not be null
+    uses unsafe.ptr
 {
-    data.process()
+    unsafe {
+        (*data).process()
+    }
 }
 ```
 
@@ -293,9 +297,9 @@ Preconditions are independent of effects and postconditions:
 
 ```cantrip
 procedure f(x: i32)
-    uses io.write;
-    must x > 0;
-    ensures result > x;
+    uses io.write
+    must x > 0
+    ensures result > x
 {
     ...
 }
@@ -356,9 +360,9 @@ The compiler attempts to prove preconditions using:
 procedure needs_positive(x: i32) must x > 0 { ... }
 
 procedure caller() {
-    needs_positive(5);   // Proven: 5 > 0 ✓
-    let y = 10;
-    needs_positive(y);   // Proven: 10 > 0 ✓
+    needs_positive(5)   // Proven: 5 > 0 ✓
+    let y = 10
+    needs_positive(y)   // Proven: 10 > 0 ✓
 }
 ```
 
@@ -370,15 +374,15 @@ When static proof fails, insert runtime checks:
 procedure sqrt(x: f64) must x >= 0.0 { ... }
 
 procedure compute(input: f64) {
-    sqrt(input);  // Runtime check: assert!(input >= 0.0)
+    sqrt(input)  // Runtime check: assert!(input >= 0.0)
 }
 
 // Compiles to:
 procedure compute(input: f64) {
     if !(input >= 0.0) {
-        panic!("precondition violated: x >= 0.0");
+        panic!("precondition violated: x >= 0.0")
     }
-    sqrt(input);
+    sqrt(input)
 }
 ```
 
@@ -419,16 +423,17 @@ warning: cannot verify precondition statically
 #### 4.5.1 Array Access
 
 ```cantrip
-procedure safe_get<T>(arr: &[T], index: usize): &T
-    must index < arr.len();
+procedure safe_get<T>(arr: [T], index: usize): T
+    must index < arr.len()
+    must T: Copy
 {
-    &arr[index]
+    arr[index]
 }
 
-procedure process_array(data: &[i32]) {
+procedure process_array(data: [i32]) {
     for i in 0..data.len() {
-        let item = safe_get(data, i);  // Proven: i < data.len()
-        println!("{}", item);
+        let item = safe_get(data, i)  // Proven: i < data.len()
+        println("{}", item)
     }
 }
 ```
@@ -437,7 +442,7 @@ procedure process_array(data: &[i32]) {
 
 ```cantrip
 procedure safe_divide(a: i32, b: i32): i32
-    must b != 0;
+    must b != 0
 {
     a / b
 }
@@ -455,20 +460,20 @@ procedure calculate(x: i32, y: i32): Option<i32> {
 
 ```cantrip
 record File {
-    handle: FileHandle;
-    is_open: bool;
+    handle: FileHandle
+    is_open: bool
 
     procedure read($): Result<String, Error>
-        must $.is_open;
-        uses io.read, alloc.heap;
+        must $.is_open
+        uses io.read, alloc.heap
     {
         // Safe: file is guaranteed open
         $.handle.read_to_string()
     }
 
     procedure write($, data: String): Result<(), Error>
-        must $.is_open;
-        uses io.write;
+        must $.is_open
+        uses io.write
     {
         $.handle.write_all(data.as_bytes())
     }
@@ -479,14 +484,14 @@ record File {
 
 ```cantrip
 record SortedVec<T: Ord> {
-    elements: Vec<T>;
+    elements: Vec<T>
 
     where {
-        is_sorted(elements),
+        is_sorted(elements)
     }
 
-    procedure binary_search($, target: &T): Result<usize, usize>
-        must is_sorted($.elements);  // Redundant with where, but explicit
+    procedure binary_search($, target: T): Result<usize, usize>
+        must is_sorted($.elements)  // Redundant with where, but explicit
     {
         $.elements.binary_search(target)
     }
@@ -497,17 +502,17 @@ record SortedVec<T: Ord> {
 
 ```cantrip
 record Transaction {
-    started: Instant;
-    completed: Option<Instant>;
+    started: Instant
+    completed: Option<Instant>
 
     procedure commit(mut $)
-        must $.completed.is_none();
+        must $.completed.is_none()
     {
-        $.completed = Some(Instant::now());
+        $.completed = Some(Instant::now())
     }
 
     procedure rollback(mut $)
-        must $.completed.is_none();
+        must $.completed.is_none()
     {
         // Can only rollback active transactions
         ...
@@ -533,17 +538,17 @@ procedure inferred_precond(x: i32, y: i32): i32 {
 #### 4.6.2 Preconditions with Quantifiers
 
 ```cantrip
-procedure all_positive(numbers: &[i32]): bool
-    must numbers.len() > 0;
+procedure all_positive(numbers: [i32]): bool
+    must numbers.len() > 0
 {
-    numbers.iter().all(|&n| n > 0)
+    numbers.iter().all(|n| n > 0)
 }
 
-procedure process_positive_list(nums: &[i32])
+procedure process_positive_list(nums: [i32])
     must {
         nums.len() > 0,
-        forall(|i| i < nums.len() => nums[i] > 0),
-    };
+        forall(|i| i < nums.len() => nums[i] > 0)
+    }
 {
     // All numbers guaranteed positive
     ...
@@ -556,9 +561,9 @@ Preconditions can specify framing constraints:
 
 ```cantrip
 procedure update_field(obj: mut Record, value: i32)
-    must obj.state == State::Active;
+    must obj.state == State::Active
 {
-    obj.value = value;
+    obj.value = value
     // obj.state remains Active (frame condition)
 }
 ```
@@ -566,12 +571,12 @@ procedure update_field(obj: mut Record, value: i32)
 #### 4.6.4 Preconditions in Generic Code
 
 ```cantrip
-procedure binary_search_generic<T, F>(arr: &[T], predicate: F) -> Option<usize>
-    where F: Fn(&T) -> bool
+procedure binary_search_generic<T, F>(arr: [T], predicate: F): Option<usize>
+    where F: Fn(T) -> bool
     must {
         arr.len() > 0,
-        is_partitioned(arr, predicate),  // arr partitioned by predicate
-    };
+        is_partitioned(arr, predicate)  // arr partitioned by predicate
+    }
 {
     // Binary search implementation
     ...

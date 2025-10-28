@@ -29,7 +29,8 @@
 - **Control flow**: Boolean expressions control `if`, `while`, `match` guards
 - **Short-circuit evaluation**: `&&` and `||` operators short-circuit
 - **Pattern matching**: `true` and `false` are patterns
-- **Copy semantics**: `bool` is a `Copy` type
+- **Copy trait**: `bool` implements `Copy` (can be explicitly copied)
+- **Parameter passing**: Booleans pass by permission like all types (no automatic copying)
 
 ### 5.3.2 Syntax
 
@@ -43,11 +44,11 @@ BoolLiteral ::= "true" | "false"
 
 **Examples:**
 ```cantrip
-let flag: bool = true;
-let is_valid = false;
+let flag: bool = true
+let is_valid = false
 
 if flag {
-    println("Flag is set");
+    println("Flag is set")
 }
 ```
 
@@ -99,13 +100,16 @@ The boolean type has exactly two values:
 ⟦bool⟧ = {true, false} ≅ {⊤, ⊥} ≅ ℤ₂
 ```
 
-**Theorem 5.3.2 (Copy Semantics):**
+**Theorem 5.3.2 (Copy Capability):**
 
 ```
 bool : Copy
 ```
 
-Booleans are always copied, never moved.
+**Semantics:**
+- Booleans pass by permission (reference-like) by default
+- The `.copy()` method creates an explicit duplicate when needed
+- Single-byte size makes copying trivial when explicitly requested
 
 **Theorem 5.3.3 (Size and Alignment):**
 
@@ -218,10 +222,10 @@ Logical NOT (¬):
 **Examples:**
 ```cantrip
 // Short-circuit prevents division by zero
-let safe = (y != 0) && (x / y > 10);
+let safe = (y != 0) && (x / y > 10)
 
 // Short-circuit prevents null dereference
-let result = (ptr != null) && (*ptr == target);
+let result = (ptr != null) && (*ptr == target)
 ```
 
 **Comparison:**
@@ -239,19 +243,19 @@ true != false  = true
 
 **If expressions:**
 ```cantrip
-let x = 42;
+let x = 42
 let result = if x > 0 {
     "positive"
 } else if x < 0 {
     "negative"
 } else {
     "zero"
-};
+}
 ```
 
 **Match with boolean:**
 ```cantrip
-let is_valid: bool = check_input();
+let is_valid: bool = check_input()
 
 match is_valid {
     true -> process_data(),
@@ -268,13 +272,13 @@ function is_even(n: i32): bool {
 }
 
 function is_prime(n: u64): bool {
-    if n < 2 { return false; }
-    if n == 2 { return true; }
-    if n % 2 == 0 { return false; }
+    if n < 2 { return false }
+    if n == 2 { return true }
+    if n % 2 == 0 { return false }
 
-    let limit = (n as f64).sqrt() as u64;
+    let limit = (n as f64).sqrt() as u64
     for i in (3..=limit).step_by(2) {
-        if n % i == 0 { return false; }
+        if n % i == 0 { return false }
     }
     true
 }
@@ -297,7 +301,7 @@ function in_range(value: i32, min: i32, max: i32): bool {
 }
 
 function is_valid_username(name: str): bool {
-    let len = name.len();
+    let len = name.len()
     len >= 3 && len <= 20 && name.chars().all(|c| c.is_alphanumeric() || c == '_')
 }
 ```
@@ -306,29 +310,29 @@ function is_valid_username(name: str): bool {
 
 **While loops:**
 ```cantrip
-let mut running: bool = true;
-let mut count = 0;
+let mut running: bool = true
+let mut count = 0
 
 while running {
-    count += 1;
+    count += 1
     if count >= 10 {
-        running = false;
+        running = false
     }
 }
 ```
 
 **Loop with break:**
 ```cantrip
-let mut found: bool = false;
+let mut found: bool = false
 
 loop {
-    let item = get_next_item();
+    let item = get_next_item()
     if item == target {
-        found = true;
-        break;
+        found = true
+        break
     }
     if item == null {
-        break;
+        break
     }
 }
 ```
@@ -338,19 +342,19 @@ loop {
 **Runtime assertions:**
 ```cantrip
 function divide(x: f64, y: f64): f64
-    must y != 0.0;
+    must y != 0.0
 {
-    assert!(y != 0.0, "division by zero");
+    assert!(y != 0.0, "division by zero")
     x / y
 }
 
 function process_valid_data(data: [u8])
-    must data.len() > 0;
-    must data[0] == MAGIC_BYTE;
-    will result.is_valid();
+    must data.len() > 0
+    must data[0] == MAGIC_BYTE
+    will result.is_valid()
 {
-    assert!(!data.is_empty());
-    assert_eq!(data[0], MAGIC_BYTE);
+    assert!(!data.is_empty())
+    assert_eq!(data[0], MAGIC_BYTE)
     // ...
 }
 ```
@@ -360,9 +364,9 @@ function process_valid_data(data: [u8])
 **State flags:**
 ```cantrip
 record ConnectionState {
-    connected: bool;
-    authenticated: bool;
-    encrypted: bool;
+    connected: bool
+    authenticated: bool
+    encrypted: bool
 
     procedure is_ready(self: ConnectionState): bool {
         self.connected && self.authenticated && self.encrypted
@@ -379,9 +383,9 @@ record ConnectionState {
 ```cantrip
 // BAD: Many related booleans
 record FileState {
-    is_open: bool;
-    is_closed: bool;
-    is_error: bool;
+    is_open: bool
+    is_closed: bool
+    is_error: bool
 }  // Mutually exclusive states → should be enum!
 
 // GOOD: Use enum for mutually exclusive states

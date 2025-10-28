@@ -52,7 +52,7 @@ Permission ::= "own" | "mut" | ε
 **Examples:**
 ```cantrip
 record Counter {
-    value: i32;
+    value: i32
 
     // Self in return type
     procedure new(initial: i32): own Self {
@@ -65,7 +65,7 @@ record Counter {
     }
 
     procedure increment(mut $) {
-        $.value += 1;
+        $.value += 1
     }
 
     procedure consume(own $): i32 {
@@ -99,15 +99,17 @@ procedure consume(self: own Self): i32
 **Explicit type override:**
 ```cantrip
 record Counter {
-    value: i32;
+    value: i32
 
     // Override Self type when needed
-    procedure from_ref($: &Counter): i32 {
+    procedure from_immut($: Counter): i32 {
         $.value
     }
 
-    procedure from_box($: Box<Counter>): i32 {
-        $.value
+    procedure from_ptr($: Ptr<Counter>@Exclusive): i32
+        uses read<Counter>
+    {
+        $.read().value
     }
 }
 ```
@@ -154,7 +156,7 @@ Outside these contexts, Self is undefined.
 **Constructor pattern:**
 ```cantrip
 record Counter {
-    value: i32;
+    value: i32
 
     procedure new(initial: i32): own Self {
         own Self { value: initial }
@@ -163,7 +165,7 @@ record Counter {
 
 // Equivalent to:
 record Counter {
-    value: i32;
+    value: i32
 
     procedure new(initial: i32): own Counter {
         own Counter { value: initial }
@@ -174,7 +176,7 @@ record Counter {
 **Method with self parameter:**
 ```cantrip
 record Counter {
-    value: i32;
+    value: i32
 
     procedure get($): i32 {
         $.value
@@ -183,7 +185,7 @@ record Counter {
 
 // Equivalent to:
 record Counter {
-    value: i32;
+    value: i32
 
     procedure get(self: Counter): i32 {
         self.value
@@ -194,7 +196,7 @@ record Counter {
 **Generic implementation:**
 ```cantrip
 record Stack<T> {
-    items: Vec<T>;
+    items: Vec<T>
 
     procedure new(): own Self {
         // Self ≡ Stack<T>
@@ -203,7 +205,7 @@ record Stack<T> {
 
     procedure push(mut $, item: T) {
         // $ : mut Self ≡ mut Stack<T>
-        $.items.push(item);
+        $.items.push(item)
     }
 }
 ```
@@ -432,13 +434,13 @@ The `$` parameter compiles to the same representation as any other self paramete
 ```cantrip
 // Source
 record Counter {
-    value: i32;
+    value: i32
     procedure get($): i32 { $.value }
 }
 
 // After desugaring
 record Counter {
-    value: i32;
+    value: i32
     procedure get(self: Counter): i32 { self.value }
 }
 
@@ -469,9 +471,9 @@ Stack frame for method call:
 
 ```cantrip
 record Vec<T> {
-    data: *T;
-    len: usize;
-    cap: usize;
+    data: *T
+    len: usize
+    cap: usize
 
     // Self ≡ Vec<T>
     procedure new(): own Self {
@@ -490,8 +492,8 @@ record Vec<T> {
 }
 
 // Usage
-let v1 = Vec::<i32>.new();  // Returns own Vec<i32>
-let v2 = v1.clone();         // Returns own Vec<i32>
+let v1 = Vec::<i32>.new()  // Returns own Vec<i32>
+let v2 = v1.clone()         // Returns own Vec<i32>
 ```
 
 **Evaluation trace:**
@@ -509,9 +511,9 @@ v1.clone()
 
 ```cantrip
 record RequestBuilder {
-    url: String;
-    method: String;
-    headers: Vec<(String, String)>;
+    url: String
+    method: String
+    headers: Vec<(String, String)>
 
     procedure new(url: String): own Self {
         own Self {
@@ -522,12 +524,12 @@ record RequestBuilder {
     }
 
     procedure method(mut $, m: String): mut Self {
-        $.method = m;
+        $.method = m
         mut $  // Return self for chaining
     }
 
     procedure header(mut $, key: String, value: String): mut Self {
-        $.headers.push((key, value));
+        $.headers.push((key, value))
         mut $
     }
 
@@ -544,28 +546,30 @@ record RequestBuilder {
 let request = RequestBuilder.new("https://api.example.com")
     .method("POST")
     .header("Content-Type", "application/json")
-    .build();
+    .build()
 ```
 
 #### 12.5.2 Generic Container
 
 ```cantrip
 record Stack<T> {
-    items: Vec<T>;
+    items: Vec<T>
 
     procedure new(): own Self {
         own Self { items: Vec.new() }
     }
 
     procedure push(mut $, item: T) {
-        $.items.push(item);
+        $.items.push(item)
     }
 
     procedure pop(mut $): Option<T> {
         $.items.pop()
     }
 
-    procedure peek($): Option<&T> {
+    procedure peek($): Option<T>
+        must T: Copy
+    {
         $.items.last()
     }
 
@@ -574,7 +578,7 @@ record Stack<T> {
     }
 
     procedure merge(mut $, other: own Self) {
-        $.items.extend(other.items);
+        $.items.extend(other.items)
     }
 }
 ```
@@ -583,18 +587,18 @@ record Stack<T> {
 
 ```cantrip
 contract Clone {
-    procedure clone($): own Self;
+    procedure clone($): own Self
 }
 
 record Vec<T>: Clone where T: Clone {
-    data: *T;
-    len: usize;
-    cap: usize;
+    data: *T
+    len: usize
+    cap: usize
 
     procedure clone($): own Self {
-        var cloned = Vec.with_capacity($.len());
+        var cloned = Vec.with_capacity($.len())
         for item in $ {
-            cloned.push(item.clone());
+            cloned.push(item.clone())
         }
         own cloned
     }
@@ -605,7 +609,7 @@ record Vec<T>: Clone where T: Clone {
 
 ```cantrip
 record Counter {
-    value: i32;
+    value: i32
 
     procedure zero(): own Self {
         own Self { value: 0 }
@@ -621,9 +625,9 @@ record Counter {
 }
 
 // Usage
-let c1 = Counter.zero();
-let c2 = Counter.from_value(42);
-let c3 = Counter.max();
+let c1 = Counter.zero()
+let c2 = Counter.from_value(42)
+let c3 = Counter.max()
 ```
 
 ---
