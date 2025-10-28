@@ -1,7 +1,7 @@
 # Part II: Type System - §0. Type System Foundations
 
 **Section**: §0 | **Part**: Type System (Part II)
-**Next**: [Primitive Types](01_PrimitiveTypes.md)
+**Next**: [Primitive Types](PART_A_Primitives/01_PrimitiveTypes.md)
 
 ---
 
@@ -14,6 +14,18 @@
 The type system will memory safety, prevents undefined behavior, and enables zero-cost abstractions through compile-time verification and monomorphization.
 
 ## 0. Type System Foundations
+
+
+**Note:** The type system specification has been reorganized into five parts (A-E) for better navigation:
+- **Part A**: Primitive Types (§2.1)
+- **Part B**: Composite Types (§2.2-§2.4)
+- **Part C**: Reference Types (§2.5)
+- **Part D**: Abstraction & Polymorphism (§2.6-§2.8)
+- **Part E**: Type Utilities (§2.9-§2.10)
+
+See the organizational structure below for complete details.
+
+---
 
 ### 0.1 Overview and Philosophy
 
@@ -61,7 +73,7 @@ Cantrip Type System (T)
 │
 ├── Value Types (τ)
 │   │
-│   ├── Primitive Types (§5)
+│   ├── Primitive Types (§2.1)
 │   │   ├── Integer Types
 │   │   │   ├── Signed: i8, i16, i32, i64, isize
 │   │   │   └── Unsigned: u8, u16, u32, u64, usize
@@ -76,27 +88,27 @@ Cantrip Type System (T)
 │   ├── Compound Types
 │   │   │
 │   │   ├── Product Types (Cartesian product)
-│   │   │   ├── Tuples: (τ₁, ..., τₙ) (§7)
+│   │   │   ├── Tuples: (τ₁, ..., τₙ) (§2.2.1)
 │   │   │   │   └── Unit Type: () (0-tuple, zero-sized)
-│   │   │   └── Records: record S { f₁: τ₁; ...; fₙ: τₙ } (§8)
+│   │   │   └── Records: record S { f₁: τ₁; ...; fₙ: τₙ } (§2.2.2)
 │   │   │       ├── Named records (struct-like)
 │   │   │       └── Tuple structs [TO BE SPECIFIED]
 │   │   │
 │   │   ├── Sum Types (Disjoint union)
-│   │   │   ├── Enums: enum E { V₁(τ₁), ..., Vₙ(τₙ) } (§9)
+│   │   │   ├── Enums: enum E { V₁(τ₁), ..., Vₙ(τₙ) } (§2.3.1 or §2.5)
 │   │   │   │   ├── Unit variants
 │   │   │   │   ├── Tuple variants
 │   │   │   │   └── Struct variants
-│   │   │   └── Modals: modal M { @S₁, ..., @Sₙ } (§12)
+│   │   │   └── Modals: modal M { @S₁, ..., @Sₙ } (§2.3.3 or §2.10)
 │   │   │       └── State-indexed types with transition functions
 │   │   │
 │   │   └── Collection Types
-│   │       ├── Arrays: [τ; n] (fixed-size, stack-allocated) (§6)
-│   │       └── Slices: [τ] (dynamically-sized view, fat pointer) (§6)
+│   │       ├── Arrays: [τ; n] (fixed-size, stack-allocated) (§2.4 or §2.6)
+│   │       └── Slices: [τ] (dynamically-sized view, fat pointer) (§2.4 or §2.6)
 │   │           ├── Immutable slices: [τ] (Copy)
 │   │           └── Mutable slices: [mut τ] [TO BE SPECIFIED]
 │   │
-│   └── Reference Types (§9)
+│   └── Reference Types (§2.3.1 or §2.5)
 │       ├── Safe Pointers
 │       │   └── Ptr<τ>@State (modal heap pointers with state-based aliasing safety)
 │       └── Raw Pointers
@@ -104,7 +116,7 @@ Cantrip Type System (T)
 │           └── *mut τ (mutable raw pointer)
 │
 ├── Parametric Types
-│   ├── Generic Types: T<α₁, ..., αₙ> (§11)
+│   ├── Generic Types: T<α₁, ..., αₙ> (§2.7 or §2.9)
 │   │   ├── Type parameters (α : Type)
 │   │   ├── Const generic parameters: const N: usize (§11.5)
 │   │   └── Lifetime parameters: 'a [TO BE SPECIFIED]
@@ -117,7 +129,7 @@ Cantrip Type System (T)
 │       └── trait I { type A; } (§10.5)
 │
 ├── Abstraction Types
-│   ├── Trait Types (§10)
+│   ├── Trait Types (§2.8)
 │   │   ├── Trait definitions: trait I { ... }
 │   │   ├── Trait bounds: T: I₁ + I₂ + ... + Iₙ
 │   │   └── Supertrait bounds: trait I: J { ... }
@@ -127,7 +139,7 @@ Cantrip Type System (T)
 │       └── Closures: |τ₁, ..., τₙ| → τ
 │
 └── Type Constructors (Kind: Type → Type)
-    ├── Generic type constructors: T<_> (§11)
+    ├── Generic type constructors: T<_> (§2.7 or §2.9)
     ├── Array constructor: [_; n]
     ├── Slice constructor: [_]
     └── Tuple constructor: (_, _, ...)
@@ -715,7 +727,7 @@ T @ region r
 
 Regions ensure references do not outlive their referents.
 
-**Modals (§12) and State:**
+**Modals (§2.3.3 or §2.10) and State:**
 
 Modals extend the type system with state-indexed types:
 
@@ -1018,4 +1030,4 @@ Each type section (§5 through §12) follows this standard structure:
 
 ---
 
-**Next**: [Primitive Types](01_PrimitiveTypes.md)
+**Next**: [Primitive Types](PART_A_Primitives/01_PrimitiveTypes.md)
