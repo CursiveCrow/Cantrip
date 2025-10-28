@@ -1622,7 +1622,12 @@ Characters can be converted to/from `u32` representing the Unicode codepoint:
 let c: char = 'A'
 let code: u32 = c as u32                // 65 (U+0041)
 
-let valid: char = char::from_u32(65).unwrap()      // 'A'
+// Converting u32 to char (validation required)
+match char::from_u32(65) {
+    Option.Some(valid_char) => valid_char,  // 'A'
+    Option.None => panic("invalid codepoint"),
+}
+
 let invalid: Option<char> = char::from_u32(0xD800) // None (surrogate)
 ```
 
@@ -1688,7 +1693,10 @@ assert!(is_whitespace('\u{00A0}'));  // Non-breaking space
 ```cantrip
 function to_uppercase_ascii(ch: char): char {
     if ch >= 'a' && ch <= 'z' {
-        char::from_u32((ch as u32) - 32).unwrap()
+        match char::from_u32((ch as u32) - 32) {
+            Option.Some(upper) => upper,
+            Option.None => ch,  // Shouldn't happen for valid ASCII
+        }
     } else {
         ch
     }
@@ -1696,7 +1704,10 @@ function to_uppercase_ascii(ch: char): char {
 
 function to_lowercase_ascii(ch: char): char {
     if ch >= 'A' && ch <= 'Z' {
-        char::from_u32((ch as u32) + 32).unwrap()
+        match char::from_u32((ch as u32) + 32) {
+            Option.Some(lower) => lower,
+            Option.None => ch,  // Shouldn't happen for valid ASCII
+        }
     } else {
         ch
     }
@@ -1706,7 +1717,12 @@ function to_lowercase_ascii(ch: char): char {
 **Unicode case conversion:**
 ```cantrip
 function to_uppercase_unicode(ch: char): char {
-    ch.to_uppercase().next().unwrap_or(ch)
+    // Note: Unicode case conversion typically provided by standard library
+    // This is conceptual - actual implementation would use stdlib functions
+    match ch.to_uppercase_chars() {
+        Option.Some(chars) => chars.first_or(ch),
+        Option.None => ch,
+    }
 }
 
 // Examples:
@@ -2067,10 +2083,22 @@ function event_loop(): ! {
     }
 }
 
-function server_main(port: u16): ! {
-    let listener = TcpListener::bind(port).unwrap()
+function server_main(port: u16): !
+    uses network.tcp
+{
+    let listener = match TcpListener::bind(port) {
+        Result.Ok(l) => l,
+        Result.Err(e) => panic("Failed to bind: {e}"),
+    }
+    
     loop {
-        let conn = listener.accept().unwrap()
+        let conn = match listener.accept() {
+            Result.Ok(c) => c,
+            Result.Err(e) => {
+                log_error(e)
+                continue  // Skip failed connection
+            },
+        }
         handle_connection(conn)
     }
 }
@@ -2218,8 +2246,11 @@ let value: u32 = match result {
     // Result::Err case impossible (! has no values)
 }
 
-// Or simply:
-let value: u32 = result.unwrap()  // Can't panic (no error possible)
+// Pattern matching handles the impossible case
+let value: u32 = match result {
+    Result.Ok(v) => v,
+    Result.Err(never) => match never {},  // Empty match - never type has no values
+}
 ```
 
 #### Integration with Control Flow
@@ -5515,43 +5546,31 @@ Alignment: 8 bytes
 
 **Theorem 2.1.7.1 (Niche Optimization):** For types T with invalid bit patterns (e.g., non-nullable pointers), `sizeof(Option<T>) = sizeof(T)`. The compiler uses the invalid pattern to represent `None`.
 
-#### Common Methods
+#### Working with Option Values
 
-**Note:** These are library methods, but documented here due to fundamental nature.
+**Primary mechanism:** Pattern matching (exhaustive checking enforced by compiler)
 
 ```cantrip
-impl<T> Option<T> {
-    // Query methods
-    procedure is_some(self: Option<T>): bool
-    procedure is_none(self: Option<T>): bool
+// Extract value with pattern matching
+match optional_value {
+    Option.Some(x) => {
+        // Use x here
+        process(x)
+    },
+    Option.None => {
+        // Handle absence
+        use_default()
+    },
+}
 
-    // Unwrapping (requires precondition or panics)
-    procedure unwrap(self: Option<T>): T
-        must self.is_some()
-        will match self { Option.Some(v) => result == v }
-
-    // Safe unwrapping with default
-    procedure unwrap_or(self: Option<T>, default: T): T
-        will match self {
-            Option.Some(v) => result == v,
-            Option.None => result == default
-        }
-
-    // Mapping
-    procedure map<U>(self: Option<T>, f: map(T) -> U): Option<U>
-        will match self {
-            Option.Some(v) => result == Option.Some(f(v)),
-            Option.None => result == Option.None
-        }
-
-    // Chaining
-    procedure and_then<U>(self: Option<T>, f: map(T) -> Option<U>): Option<U>
-        will match self {
-            Option.Some(v) => result == f(v),
-            Option.None => result == Option.None
-        }
+// Conditional binding
+if let Option.Some(x) = optional_value {
+    // x is bound here
+    use_value(x)
 }
 ```
+
+**Note:** Standard library (Part XII) provides utility procedures for common operations (checking presence, extracting with defaults, etc.), but pattern matching is the idiomatic Cantrip approach for Option handling.
 
 #### Examples
 
@@ -5710,52 +5729,41 @@ Result<(), ErrorCode>:  // Common pattern for operations without meaningful retu
   - ErrorCode: depends on error type
 ```
 
-#### Common Methods
+#### Working with Result Values
+
+**Primary mechanism:** Pattern matching for explicit error handling
 
 ```cantrip
-impl<T, E> Result<T, E> {
-    // Query methods
-    procedure is_ok(self: Result<T, E>): bool
-    procedure is_err(self: Result<T, E>): bool
+// Handle both success and error cases
+match operation_result {
+    Result.Ok(value) => {
+        // Use successful value
+        continue_with(value)
+    },
+    Result.Err(error) => {
+        // Handle error
+        log_error(error)
+        recover()
+    },
+}
 
-    // Unwrapping (requires precondition or panics)
-    procedure unwrap(self: Result<T, E>): T
-        must self.is_ok()
-        will match self { Result.Ok(v) => result == v }
-
-    procedure unwrap_err(self: Result<T, E>): E
-        must self.is_err()
-        will match self { Result.Err(e) => result == e }
-
-    // Safe unwrapping with default
-    procedure unwrap_or(self: Result<T, E>, default: T): T
-        will match self {
-            Result.Ok(v) => result == v,
-            Result.Err(_) => result == default
-        }
-
-    // Mapping (transform success value, keep error)
-    procedure map<U>(self: Result<T, E>, f: map(T) -> U): Result<U, E>
-        will match self {
-            Result.Ok(v) => result == Result.Ok(f(v)),
-            Result.Err(e) => result == Result.Err(e)
-        }
-
-    // Mapping error (keep success, transform error)
-    procedure map_err<F>(self: Result<T, E>, f: map(E) -> F): Result<T, F>
-        will match self {
-            Result.Ok(v) => result == Result.Ok(v),
-            Result.Err(e) => result == Result.Err(f(e))
-        }
-
-    // Chaining (monadic bind)
-    procedure and_then<U>(self: Result<T, E>, f: map(T) -> Result<U, E>): Result<U, E>
-        will match self {
-            Result.Ok(v) => result == f(v),
-            Result.Err(e) => result == Result.Err(e)
-        }
+// Propagate errors through explicit matching
+procedure process_file(path: String): Result<Data, Error>
+    uses io.read, alloc.heap
+{
+    match std.fs.read_to_string(path) {
+        Result.Ok(contents) => {
+            match parse_data(contents) {
+                Result.Ok(data) => Result.Ok(data),
+                Result.Err(e) => Result.Err(e),
+            }
+        },
+        Result.Err(e) => Result.Err(e),
+    }
 }
 ```
+
+**Note:** Standard library (Part XII) may provide utility procedures for result composition, but explicit pattern matching is the idiomatic Cantrip approach for error handling.
 
 #### Examples
 
