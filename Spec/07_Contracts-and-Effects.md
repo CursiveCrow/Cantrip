@@ -8,7 +8,7 @@
 
 Part VII specifies Cursive’s behavioral contract system: contract declarations, effect clauses (`uses`), preconditions (`must`), postconditions (`will`), and type invariants (`where`). It defines the grammar that extends Appendix A, the static and dynamic semantics of each clause, contract composition rules, and the diagnostics that enforce them.
 
-Notation update: Function types in this part use arrow syntax `(T₁, …, Tₙ) → U ! ε` (replacing the earlier `map(T₁, …, Tₙ) → U ! ε` alias). Where examples still show `map(...)`, read them as arrow function types.
+Notation: Function types in this part use arrow syntax `(T₁, …, Tₙ) → U ! ε`.
 
 ---
 

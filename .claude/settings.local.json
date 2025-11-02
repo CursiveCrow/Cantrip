@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(for file in 02_Type-System.md 05_Expressions-and-Operators.md 06_Statements-and-Control-Flow.md 01_Foundations.md 07_Contracts-and-Effects.md 00_LLM_Onboarding.md 03_Declarations-and-Scope.md 04_Lexical-Permissions.md)"
+      "Bash(for file in 02_Type-System.md 05_Expressions-and-Operators.md 06_Statements-and-Control-Flow.md 01_Foundations.md 07_Contracts-and-Effects.md 00_LLM_Onboarding.md 03_Declarations-and-Scope.md 04_Lexical-Permissions.md)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

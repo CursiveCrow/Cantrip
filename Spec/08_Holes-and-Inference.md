@@ -17,7 +17,7 @@
 
 This chapter specifies the formation, disambiguation, and resolution of holes across expressions, types, permissions, modal-states, and effects in Cursive. Holes are compile-time placeholders that request principal solutions derived from local constraints; there is no runtime behavior. The design follows Cursive principles (explicit over implicit, local reasoning, zero abstraction cost) and integrates with:
 
-Notation update: Function types are written with arrow syntax `(T₁, …, Tₙ) → U ! ε` (replacing the earlier `map(T₁, …, Tₙ) → U ! ε` alias). Where examples still show `map(...)`, read them as arrow function types.
+Notation: Function types are written with arrow syntax `(T₁, …, Tₙ) → U ! ε`.
 - Part II (types, subtyping/equivalence, modals, generics),
 - Part IV (permissions and moves),
 - Part V (principal effects and expression typing), and
