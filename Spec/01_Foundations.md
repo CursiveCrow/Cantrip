@@ -2158,13 +2158,16 @@ function foo() { ... }
 
 | Term | Definition |
 |------|------------|
+| Callable | **Generic term** for any function or procedure (collectively, callables are invocable declarations with parameters and return types). Use this term when referring to functions and procedures without distinction. See Part IX. |
 | Contract | Abstract behavioral specification with procedure signatures and clauses (`uses`, `must`, `will`). See Part VII §7.1. |
 | Contract clause | One of `uses`, `must`, `will` attached to a callable signature. |
 | Effect set | Finite set of capability tokens (e.g., `fs.write`, `alloc.heap`). |
+| Function | A callable declared without a `self` parameter. Functions may be declared at module scope or as associated functions within a type's scope (invoked via `::`). Functions cannot directly access instance fields. Declared with the `function` keyword. See Part IX §9.2. |
 | Mixin | **Informal term** for trait-based code composition pattern. In Cursive, use the `trait` keyword for reusable implementations. See "Trait" below. |
 | Modal state | A value of a modal type annotated with `@State`. |
 | Permission wrapper | One of `own T`, `mut T`, or `imm T`, indicating ownership semantics. |
 | Pipeline stage | An expression of the form `expr => stage: Type` chaining transformations. |
+| Procedure | A callable with an explicit `self` parameter that operates on a receiver value. Procedures are invoked using the scope operator `::` (e.g., `value::method(args)`). Procedures can access instance fields through `self`. Declared with the `procedure` keyword. See Part IX §9.3. |
 | Region | Lexically-scoped allocation arena released in LIFO order. |
 | Trait | Reusable procedure implementations (enables mixin-style composition). All procedures in a trait MUST have bodies. Distinct from contracts (which have no bodies). See Part II §2.7. |
 | Transition arm | Match arm that performs a modal transition (`pattern => transition() => body`). |

@@ -393,7 +393,7 @@ RecordMember    ::= RecordField | ProcedureDecl | FunctionDecl
 RecordField     ::= Visibility? Ident ":" Type
 
 TupleStructDecl ::= Attribute* Visibility? "record" Ident "(" FieldType ("," FieldType)* ","? ")"
-                    ("{" MethodDecl* "}")?
+                    ("{" ProcedureDecl* "}")?
 FieldType       ::= Visibility? Type
 
 EnumDecl        ::= Attribute* Visibility? "enum" Ident GenericParams? EnumBody
@@ -430,12 +430,6 @@ ProcedureDecl   ::= Attribute* Visibility? "procedure" TransitionSpec?
                     BlockStmt
 
 TransitionSpec  ::= "@" Ident "->" "@" Ident
-
-MethodDecl      ::= Attribute* Visibility? "procedure" Ident
-                    "(" ParamList ")" (":" Type)?
-                    WhereClause?
-                    ContractClause*
-                    BlockStmt
 
 ParamList       ::= Param ("," Param)*
 Param           ::= Ident ":" Type
