@@ -2446,8 +2446,51 @@ The following operations ARE allowed on `self`:
 | Method calls | ✅ | ✅ | ✅ | `self::method()` |
 | Borrow fields | ✅ | ✅ | ✅ | `&self.field` |
 | **Self reassignment** | **❌** | **❌** | **❌** | `self = other` |
+| **Self shadowing** | **❌** | **❌** | **❌** | `let self = other` |
 
-**Note**: All permissions (imm, mut, own) forbid reassigning the `self` binding itself.
+**Note**: All permissions (imm, mut, own) forbid reassigning or shadowing the `self` binding itself.
+
+##### 9.3.3.5 Shadowing and Pattern Matching
+
+**Rule**: The `self` binding **cannot be shadowed** by inner `let` or `var` declarations.
+
+**Rationale**: Shadowing `self` would create confusion about which object is being operated on, violating local reasoning principles. The `self` binding must remain unambiguous throughout the procedure body.
+
+```cursive
+record Example {
+    value: i32
+
+    procedure bad_shadow(self: Example) {
+        let self = Example { value: 99 }  // ❌ ERROR E9F-9302: cannot shadow self
+        println(self.value)
+    }
+
+    procedure ok_rename(self: Example) {
+        let other = Example { value: 99 }  // ✅ OK: different name
+        println(self.value)  // self is unchanged
+        println(other.value)
+    }
+}
+```
+
+**Pattern matching on self**: The `self` value CAN be used in pattern matching (e.g., destructuring), but this does not rebind or shadow `self`:
+
+```cursive
+record Point {
+    x: f64,
+    y: f64
+
+    procedure describe(self: Point): String {
+        // Destructure self's fields (doesn't shadow self)
+        let Point { x, y } = self  // ✅ OK: extract fields, self remains valid
+
+        result format("Point at ({}, {})", x, y)
+    }
+}
+```
+
+**Error E9F-9302**: Cannot shadow `self` parameter
+The `self` binding is reserved and cannot be shadowed by inner declarations.
 
 **Examples:**
 
@@ -6290,7 +6333,16 @@ This section catalogs errors, warnings, and lints related to functions and proce
 | E9P-0102 | Self parameter type must be `Self` | `procedure p(self: U)` where U ≠ Self |
 | E9P-0103 | Cannot use both `$` and explicit `self` | `procedure p($, self: T)` |
 
-### 9.14.3 Parameter Errors (E9F/P-02xx)
+### 9.14.3 Self Parameter Errors (E9F-93xx)
+
+| Code | Description | Example |
+|------|-------------|---------|
+| E9F-9301 | Cannot reassign `self` parameter | `self = other` in procedure body |
+| E9F-9302 | Cannot shadow `self` parameter | `let self = other` in procedure body |
+
+**Note**: The `self` binding is special and cannot be reassigned or shadowed, regardless of its permission level (imm, mut, or own). See §9.3.3 for complete semantics.
+
+### 9.14.4 Parameter Errors (E9F/P-02xx)
 
 | Code | Description | Example |
 |------|-------------|---------|
@@ -6302,7 +6354,7 @@ This section catalogs errors, warnings, and lints related to functions and proce
 | E9F/P-0206 | Default references later parameter | `f(x: i32 = y, y: i32)` |
 | E9F/P-0207 | Named arguments must follow positional | `f(x: 10, 20)` |
 
-### 9.14.4 Return Value Errors (E9F/P-03xx)
+### 9.14.5 Return Value Errors (E9F/P-03xx)
 
 | Code | Description | Example |
 |------|-------------|---------|
@@ -6310,7 +6362,7 @@ This section catalogs errors, warnings, and lints related to functions and proce
 | E9F-0302 | `return` not allowed in expression-bodied | `function f(): i32 = return 10` |
 | E9F-0303 | Function may not terminate; use return type `!` | Inferred divergence without `!` type |
 
-### 9.14.5 Call Errors (E9F/P-04xx)
+### 9.14.6 Call Errors (E9F/P-04xx)
 
 | Code | Description | Example |
 |------|-------------|---------|
@@ -6323,13 +6375,13 @@ This section catalogs errors, warnings, and lints related to functions and proce
 | E9F/P-0411 | Ambiguous call (multiple candidates) | Name collision in imports |
 | E9F/P-0413 | Type parameter inference failed | `collect()` without type annotation |
 
-### 9.14.6 Closure Errors (E9F/P-05xx)
+### 9.14.7 Closure Errors (E9F/P-05xx)
 
 | Code | Description | Example |
 |------|-------------|---------|
 | E9F/P-0501 | Capturing closure cannot coerce to function pointer | `let fp: fn() = \|\| -> captured_var` |
 
-### 9.14.7 FFI Errors (E9F/P-06xx)
+### 9.14.8 FFI Errors (E9F/P-06xx)
 
 | Code | Description | Example |
 |------|-------------|---------|
@@ -6337,7 +6389,7 @@ This section catalogs errors, warnings, and lints related to functions and proce
 | E9F-0602 | Extern call requires `uses ffi.call` | Calling FFI without declaring effect |
 | E9F-0603 | Variadic parameter must be last | `function f(..., x: i32)` in extern |
 
-### 9.14.8 Attribute Errors (E9F/P-07xx)
+### 9.14.9 Attribute Errors (E9F/P-07xx)
 
 | Code | Description | Example |
 |------|-------------|---------|
@@ -6345,7 +6397,7 @@ This section catalogs errors, warnings, and lints related to functions and proce
 | E9F/P-0702 | Attribute requires argument | `[[export_name]]` without string |
 | E9F/P-0703 | Attribute not applicable to this item | `[[must_tail]]` on non-tail-recursive |
 
-### 9.14.9 Warnings
+### 9.14.10 Warnings
 
 | Code | Description | Example |
 |------|-------------|---------|
@@ -6354,7 +6406,7 @@ This section catalogs errors, warnings, and lints related to functions and proce
 | W9F/P-0003 | Result of `[[must_use]]` function ignored | `must_use_fn();` without binding |
 | W9F/P-0004 | Unreachable code after `return` | Statements after `return` |
 
-### 9.14.10 Selected Diagnostic Examples
+### 9.14.11 Selected Diagnostic Examples
 
 **E9F/P-0204: Insufficient Permission**
 
