@@ -5,6 +5,13 @@
 
 ---
 
+Canonical Update (2025-10-30): The language now uses a single modal `string` type with states `string@Owned` (owned, growable) and `string@View` (read-only view). Legacy names remain as deprecated aliases:
+
+- `type String = string@Owned`  // DEPRECATED alias
+- `type str = string@View`      // DEPRECATED alias
+
+Rules: parameters written as `string` mean `string@View`; return types and stored fields written as `string` mean `string@Owned`. Owned → View is an implicit, zero-cost coercion; View → Owned requires allocation and MUST be covered by `uses alloc.heap`.
+
 **Definition 2.1 (Type System):** The Cantrip type system is a static, nominal framework with parametric polymorphism, subtyping, and modal state types. The system comprises the universe of types **T**, the typing judgment `Γ ⊢ e : τ`, the subtyping relation `<:`, and the well-formedness judgment `Γ ⊢ τ : Type`. The system MUST deliver memory safety, forbid undefined behavior, and preserve zero-cost abstractions through compile-time verification and monomorphization.
 
 ## 2.0 Type Foundations
@@ -285,6 +292,8 @@ Permission casts MUST be explicit (`move`, `mut`, or constructor-specific operat
 #### 2.0.8.2 Effects
 
 Function and procedure types carry an effect signature `uses ε`. A call site MUST guarantee `ε_call ⊇ ε_def`. Effect tokens include capabilities such as `io.print` and `unsafe.bitcopy`.
+
+Deprecation note (normative alignment): Historical examples may show map types annotated with `→{ε}`. The canonical type‑level form is `! ε`, with declaration‑level `uses ε`. Both are equivalent by law; new text and tools MUST use `! ε`. CITE: §1.2.5 — Equivalence Law; CITE: §2.0.6.1 — Subtyping.
 
 #### 2.0.8.3 Contracts
 
@@ -3522,12 +3531,12 @@ function parse_file(path: String): Result<Data, Error>
 
 | Method                           | Signature               | Allocation  |
 | -------------------------------- | ----------------------- | ----------- |
-| `String.new()`                   | `() => own String`      | Heap        |
-| `String.new_in<'r>()`            | `() => own String`      | Region `'r` |
-| `String.from(s)`                 | `(str) => own String`   | Heap        |
-| `String.from_in<'r>(s)`          | `(str) => own String`   | Region `'r` |
-| `String.with_capacity(n)`        | `(usize) => own String` | Heap        |
-| `String.with_capacity_in<'r>(n)` | `(usize) => own String` | Region `'r` |
+| `String.new()`                   | `map(()) → own String`      | Heap        |
+| `String.new_in<'r>()`            | `map(()) → own String`      | Region `'r` |
+| `String.from(s)`                 | `map(str) → own String`     | Heap        |
+| `String.from_in<'r>(s)`          | `map(str) → own String`     | Region `'r` |
+| `String.with_capacity(n)`        | `map(usize) → own String`   | Heap        |
+| `String.with_capacity_in<'r>(n)` | `map(usize) → own String`   | Region `'r` |
 
 **Example usage:**
 
@@ -12912,7 +12921,7 @@ Cantrip does not support higher-rank polymorphism (rank-2 or higher types):
 
 ```cantrip
 // NOT SUPPORTED:
-type F = function<T>(f: function<U>(U) => U): T
+type F = map<T>(map<U>(U) → U) → T
 ```
 
 Generics are first-order only.
@@ -14509,10 +14518,10 @@ type Kilometers = f64
 type Result<T> = Result<T, Error>
 
 // Complex type alias (function pointer)
-type Callback = fn(String) => bool
+type Callback = map(String) → bool
 
 // Type alias with bounds
-type CompareFn<T> = fn(T, T) => i32
+type CompareFn<T> = map(T, T) → i32
     where T: Ord
 
 // Type alias for nested generics
@@ -14574,7 +14583,7 @@ No cycles: A ∉ FV(τ)      (non-recursive)
 
 ```cantrip
 type Point2D = (f64, f64)                    // ✓ Well-formed
-type Callback<T> = fn(T) => Option<T>       // ✓ Generic parameter used
+type Callback<T> = map(T) → Option<T>       // ✓ Generic parameter used
 type Matrix<T> = Vec<Vec<T>> where T: Num   // ✓ Bounded parameter used
 ```
 
@@ -14583,7 +14592,7 @@ type Matrix<T> = Vec<Vec<T>> where T: Num   // ✓ Bounded parameter used
 ```cantrip
 type Invalid<T> = String    // ✗ Unused type parameter T
 type Cycle = Vec<Cycle>     // ✗ Recursive without indirection
-type Bad<T> = fn(U) => T    // ✗ Free variable U not in parameters
+type Bad<T> = map(U) → T    // ✗ Free variable U not in parameters
 ```
 
 #### 2.9.3.2 Type Rules
@@ -14686,7 +14695,7 @@ type A<α> = τ where α: Trait
 **Explanation:** Type aliases with where clauses require bounds to be satisfied at instantiation.
 
 ```cantrip
-type Comparator<T> = fn(T, T) => i32
+type Comparator<T> = map(T, T) → i32
     where T: Ord
 
 // ✓ i32 implements Ord
@@ -14716,20 +14725,20 @@ type Cache = HashMap<Key, Value>
 // Cache ≡ HashMap<String, i32>
 ```
 
-**[T-AliasFunction] Function Type Aliases:**
+**[T-AliasFunction] Map Type Aliases:**
 
 ```
 [T-AliasFunction]
-type F = fn(τ₁, ..., τₙ) → τ
-Γ ⊢ f : fn(τ₁, ..., τₙ) → τ
+type F = map(τ₁, ..., τₙ) → τ
+Γ ⊢ f : map(τ₁, ..., τₙ) → τ
 ───────────────────────────────
 Γ ⊢ f : F
 ```
 
-**Explanation:** Function pointer types can be aliased for readability.
+**Explanation:** Map (function value) types can be aliased for readability.
 
 ```cantrip
-type BinaryOp = fn(i32, i32) => i32
+type BinaryOp = map(i32, i32) → i32
 
 let add: BinaryOp = |a, b| a + b
 let sub: BinaryOp = |a, b| a - b
@@ -14857,12 +14866,12 @@ impl Container for Vec<i32> {
 }
 ```
 
-**[T-AliasEffect] Type Aliases with Effects:**
+**[T-AliasEffect] Map Type Aliases with Effects:**
 
 ```
 [T-AliasEffect]
-type F = fn(τ₁) → τ₂ ! ε
-Γ ⊢ f : fn(τ₁) → τ₂ ! ε
+type F = map(τ₁) → τ₂ ! ε
+Γ ⊢ f : map(τ₁) → τ₂ ! ε
 ─────────────────────────
 Γ ⊢ f : F
 ```
@@ -14870,8 +14879,8 @@ type F = fn(τ₁) → τ₂ ! ε
 **Explanation:** Type aliases can include effect signatures for functions.
 
 ```cantrip
-type Logger = fn(String) => () ! {io.write}
-type Reader = fn() => String ! {io.read}
+type Logger = map(String) → () ! {io.write}
+type Reader = map() → String ! {io.read}
 
 let log: Logger = |msg| println(msg)
 ```
@@ -15006,7 +15015,7 @@ type Coordinate = (f32, f32)
 // Size: 8 bytes (2 × f32)
 // Align: 4 bytes (alignment of f32)
 
-type Callback = fn(i32) => bool
+type Callback = map(i32) → bool
 // Size: 0 bytes (function types are zero-sized)
 // Align: 1 byte
 ```
@@ -15143,9 +15152,9 @@ let grid: Matrix<f64> = vec![vec![1.0, 2.0], vec![3.0, 4.0]]
 **Function type aliases:**
 
 ```cantrip
-type Predicate<T> = fn(T) => bool
-type Transform<T, U> = fn(T) => U
-type FoldFn<T, A> = fn(A, T) => A
+type Predicate<T> = map(T) → bool
+type Transform<T, U> = map(T) → U
+type FoldFn<T, A> = map(A, T) → A
 
 function filter<T>(items: Vec<T>, pred: Predicate<T>) => Vec<T> {
     items.into_iter().filter(pred).collect()
@@ -15155,13 +15164,13 @@ function filter<T>(items: Vec<T>, pred: Predicate<T>) => Vec<T> {
 **Trait-bounded generic aliases:**
 
 ```cantrip
-type Comparator<T> = fn(T, T) => i32
+type Comparator<T> = map(T, T) → i32
     where T: Ord
 
-type Serializer<T> = fn(T) => String
+type Serializer<T> = map(T) → String
     where T: Display
 
-type Cloner<T> = fn(T) => T
+type Cloner<T> = map(T) → T
     where T: Clone
 ```
 
@@ -15169,9 +15178,9 @@ type Cloner<T> = fn(T) => T
 
 ```cantrip
 // Simplify callback signatures
-type AsyncCallback<T> = fn(Result<T, Error>) => ()
-type EventHandler<E> = fn(E) => EventResult
-type StateTransition<S> = fn(S) => Option<S>
+type AsyncCallback<T> = map(Result<T, Error>) → ()
+type EventHandler<E> = map(E) → EventResult
+type StateTransition<S> = map(S) → Option<S>
 
 // Simplify data structure signatures
 type Graph<N, E> = HashMap<N, Vec<(N, E)>>
