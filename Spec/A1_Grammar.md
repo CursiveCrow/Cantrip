@@ -87,7 +87,7 @@ Type            ::= PrimitiveType
                  | SafePtrType
                  | ModalType
                  | FunctionType
-                 | EffectPolyType
+                 | GrantPolyType
                  | GenericType
                  | UnionType
                  | SelfType
@@ -104,39 +104,51 @@ ArrayType       ::= "[" Type ";" IntegerLiteral "]"
 SliceType       ::= "[" Type "]"
 TupleType       ::= "(" Type ("," Type)+ ")"
 
-PermissionType  ::= "own" Type
-                 | "mut" Type
-                 | "imm" Type
+PermissionType  ::= "owned" Type
+                 | "unique" Type
+                 | "shared" Type
+                 | "readonly" Type
+
+// Deprecated keywords (Version 1.0, removed in 2.0):
+// PermissionType ::= "own" Type | "mut" Type | "imm" Type  // DEPRECATED
+
+// Context-sensitive permission defaults:
+// - Bindings (let/var): bare T means owned T
+// - Parameters: bare T means readonly T
+// - Returns: bare T means readonly T
+// - Fields: bare T means owned T (only valid permission for fields)
+
 
 PointerType     ::= "*" Type | "*mut" Type
 
 SafePtrType     ::= "Ptr" "<" Type ">"
                  | "Ptr" "<" Type ">" "@" Ident
+                 ; Standard modal states for Ptr<T>: @Null, @Valid, @Weak, @Expired
 
 ModalType       ::= Ident "@" ModalState
 ModalState      ::= Ident | "_?"
 
-FunctionType    ::= "(" TypeList? ")" "→" Type EffectAnnotation?
+FunctionType    ::= "(" TypeList? ")" "->" Type GrantAnnotation?
 
-EffectPolyType  ::= "∀ε" EffectBound? "." FunctionType
-EffectBound     ::= "where" "ε" "⊆" "{" EffectSet "}"
+GrantPolyType  ::= "forall" "G" GrantBound? "." FunctionType
+GrantBound     ::= "where" "G" "<:" "{" GrantSet "}"
 
 GenericType     ::= Ident "<" TypeArgs ">"
 TypeArgs        ::= Type ("," Type)*
 TypeList        ::= Type ("," Type)*
 
-UnionType       ::= Type "∨" Type
+UnionType       ::= Type "\\/" Type
 
 SelfType        ::= "Self"
 
-EffectAnnotation::= "!" EffectSet
+GrantAnnotation::= "!" GrantSet
 
 TypeHole            ::= "_?"
 PermissionHoleType  ::= "_?" Type
 ```
 
 Note (normative; see Part VIII §8.2 and §8.7):
-- `PermissionHoleType` appears only where a permission wrapper is expected; elaboration chooses `perm⋆ ∈ {imm, mut, own}` and yields `perm⋆ Type`.
+- `PermissionHoleType` appears only where a permission wrapper is expected; elaboration chooses `perm⋆ ∈ {readonly, unique, shared, owned}` and yields `perm⋆ Type`.
 - When `_?` is immediately followed by a `Type` token in a position that admits permission wrappers, the parser recognizes `PermissionHoleType` rather than `TypeHole`.
 
 Range type constructors (`Range<T>`, `RangeInclusive<T>`, etc.) are defined in Part II §2.4.0.4.
@@ -199,8 +211,10 @@ AdditiveExpr    ::= MultiplicativeExpr (AddOp MultiplicativeExpr)*
 MultiplicativeExpr
                  ::= PowerExpr (MulOp PowerExpr)*
 PowerExpr       ::= UnaryExpr ("**" UnaryExpr)*
-UnaryExpr       ::= UnaryOp UnaryExpr
+UnaryExpr       ::= CaretPrefix UnaryExpr
+                 | UnaryOp UnaryExpr
                  | PostfixExpr
+CaretPrefix     ::= "^"+
 PostfixExpr     ::= PrimaryExpr PostfixSuffix*
 PostfixSuffix   ::= "." Ident
                  | "::" Ident "(" ArgumentList? ")"
@@ -268,8 +282,6 @@ IfHead          ::= Expr
 
 MatchExpr       ::= "match" Expr "{" MatchArm+ "}"
 MatchArm        ::= Pattern ("if" Expr)? "=>" Expr ","
-                 | TransitionArm
-TransitionArm   ::= ModalPattern "=>" Expr "(" ArgumentList? ")" "=>" Expr ","
 
 LoopExpr        ::= "loop" LoopHead? LoopVerif? LoopBlock
 LoopHead        ::= Pattern ":" Type "in" Expr
@@ -279,11 +291,14 @@ LoopBlock       ::= BlockExpr
 
 BlockExpr       ::= BlockStmt
 
-ClosureExpr     ::= "|" ParamList? "|" "→" Expr
+ClosureExpr     ::= "|" ParamList? "|" "->" Expr
                  | "|" ParamList? "|" BlockExpr
 
 AssignOp        ::= "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^=" | "<<=" | ">>="
 UnaryOp         ::= "-" | "!" | "*" | "&"
+                 ; Note: ^, &, * are position-disambiguated:
+                 ;  - Prefix position: unary (region alloc, address-of, deref)
+                 ;  - Infix position: binary (XOR, AND, multiply)
 AddOp           ::= "+" | "-"
 MulOp           ::= "*" | "/" | "%"
 ShiftOp         ::= "<<" | ">>"
@@ -309,7 +324,7 @@ Statement       ::= BlockStmt
                  | ContinueStmt
                  | DeferStmt
                  | EmptyStmt
-                 | EffectGatedBranch
+                 | GrantGatedBranch
                  | LoopWithRegion
                  | WithBlock
 
@@ -318,6 +333,7 @@ BlockStmt       ::= "{" Statement* "}"
 
 VarDeclStmt     ::= "let" Pattern (":" Type)? "=" Expr
                  | "var" Pattern (":" Type)? "=" Expr
+                 | "alias" Identifier (":" Type)? "=" Expr
                  | "shadow" VarDeclStmt
 
 AssignStmt      ::= LValue AssignOp Expr
@@ -339,18 +355,25 @@ LabelRef        ::= "'" Ident
 DeferStmt       ::= "defer" BlockStmt
 EmptyStmt       ::= ";"
 
+GrantGatedBranch
+                 ::= "comptime" "if" GrantPredicate BlockStmt ("else" BlockStmt)?
+GrantPredicate  ::= "grants_include" "(" GrantSet ")"
+                 | "grants_exclude" "(" GrantSet ")"
+
+(* Deprecated: Use GrantGatedBranch instead *)
 EffectGatedBranch
                  ::= "comptime" "if" EffectPredicate BlockStmt ("else" BlockStmt)?
-EffectPredicate ::= "effects_include" "(" EffectSet ")"
-                 | "effects_exclude" "(" EffectSet ")"
+EffectPredicate ::= "effects_include" "(" GrantSet ")"
+                 | "effects_exclude" "(" GrantSet ")"
 
 LoopWithRegion  ::= "loop" Pattern ":" Type "in" Expr "region" Ident BlockStmt
 
-WithBlock       ::= "with" EffectList "{" ImplementationList "}" BlockStmt
-EffectList      ::= EffectPath ("," EffectPath)*
+WithBlock       ::= "with" GrantList "{" ImplementationList "}" BlockStmt
+GrantList       ::= GrantPath ("," GrantPath)*
 ImplementationList
                 ::= Implementation ("," Implementation)*
-Implementation  ::= EffectPath "." Ident "(" ParamList? ")" "=>" Expr
+Implementation  ::= GrantPath "." Ident "(" ParamList? ")" "=>" Expr
+
 ```
 
 `LoopWithRegion` is syntactic sugar for the explicit region pattern described in §5.12.
@@ -369,9 +392,8 @@ Decl            ::= VarDeclStmt
                  | TypeDecl
                  | FunctionDecl
                  | ProcedureDecl
-                 | EffectDecl
                  | ContractDecl
-                 | TraitDecl
+                 | PredicateDecl
 
 TypeDecl        ::= "type" Ident GenericParams? "=" Type WhereClause?
                  | RecordDecl
@@ -388,9 +410,12 @@ ImplementsClause::= ":" ContractList
 ContractList    ::= Ident ("," Ident)*
 TypeConstraint  ::= "where" "{" Invariant ("," Invariant)* "}"
 Invariant       ::= Assertion
-RecordBody      ::= "{" RecordMember* "}"
+RecordBody      ::= "{" RecordItem* "}"
+RecordItem      ::= PartitionDirective | RecordMember
 RecordMember    ::= RecordField | ProcedureDecl | FunctionDecl
 RecordField     ::= Visibility? Ident ":" Type
+
+PartitionDirective ::= "<<" (Ident | "_") ">>"
 
 TupleStructDecl ::= Attribute* Visibility? "record" Ident "(" FieldType ("," FieldType)* ","? ")"
                     ("{" ProcedureDecl* "}")?
@@ -412,7 +437,7 @@ StateCoercion   ::= "coerce" "@" Ident "<:" "@" Ident CoercionConstraint?
 CoercionConstraint ::= "{"
                        ("cost" ":" Cost ","?)?
                        ("requires" ":" Permission ","?)?
-                       ("uses" ":" EffectSet ","?)?
+                       ("grants" ":" GrantSet ","?)?         (* Canonical form *)
                        "}"
 Cost            ::= "O(1)" | "O(n)" | IntegerLiteral
 
@@ -435,8 +460,7 @@ ParamList       ::= Param ("," Param)*
 Param           ::= Ident ":" Type
                  | SelfParam
 
-SelfParam       ::= "$"
-                 | "self" ":" SelfType
+SelfParam       ::= "self" ":" SelfType
                  | "self" ":" Permission SelfType
 
 ContractDecl    ::= Attribute* Visibility? "contract" Ident GenericParams?
@@ -448,7 +472,7 @@ ContractItem    ::= AssociatedTypeDecl
 
 AssociatedTypeDecl
                  ::= "type" Ident TypeBound?
-TypeBound       ::= ":" TraitBounds
+TypeBound       ::= ":" PredicateBounds
 
 ProcedureSignature
                  ::= "procedure" Ident "(" ParamList? ")" (":" Type)?
@@ -458,9 +482,9 @@ ProcedureSignature
 TypeProjection  ::= Ident "::" Ident
                  | "Self" "::" Ident
 
-TraitDecl       ::= Attribute* Visibility? "trait" Ident GenericParams? (":" TraitBounds)?
-                    "{" TraitItem* "}"
-TraitItem       ::= FunctionDecl | ProcedureDecl | TypeDecl
+PredicateDecl       ::= Attribute* Visibility? "predicate" Ident GenericParams? (":" PredicateBounds)?
+                    "{" PredicateItem* "}"
+PredicateItem       ::= FunctionDecl | ProcedureDecl | TypeDecl
 
 QualifiedName   ::= Ident ("::" Ident)*
 ModulePath      ::= Ident ("." Ident)*
@@ -468,36 +492,28 @@ IdentList       ::= Ident ("," Ident)* ","?
 
 Visibility      ::= "public" | "internal" | "private" | "protected"
 GenericParams   ::= "<" GenericParam ("," GenericParam)* ">"
-GenericParam    ::= TypeParam | ConstParam | EffectParam
-TypeParam       ::= Ident (":" TraitBounds)?
+GenericParam    ::= TypeParam | ConstParam | GrantParam
+TypeParam       ::= Ident (":" PredicateBounds)?
 ConstParam      ::= "const" Ident ":" Type
-EffectParam     ::= Ident
-TraitBounds     ::= TraitRef ("+" TraitRef)*
-TraitRef        ::= Ident ("<" TypeArgs ">")?
+GrantParam      ::= Ident                             (* Grant parameter, e.g., G *)
+PredicateBounds     ::= PredicateRef ("+" PredicateRef)*
+PredicateRef        ::= Ident ("<" TypeArgs ">")?
 
 WhereClause     ::= "where" WherePredicate ("," WherePredicate)*
-WherePredicate  ::= Ident ":" TraitBounds
-                 | Type ":" TraitBounds
-                 | Ident "⊆" "{" EffectSet "}"
-
-Permission      ::= "own" | "mut" | "imm"
-
-EffectDecl      ::= "effect" EffectPath EffectBody?
-EffectPath      ::= Ident ("." Ident)*
-EffectBody      ::= "{" EffectItem* "}"
-EffectItem      ::= EffectOperation
-EffectOperation ::= Ident "(" ParamList? ")" ":" Type EffectImplBody?
-EffectImplBody  ::= "{" Expr "}"
+WherePredicate  ::= Ident ":" PredicateBounds
+                 | Type ":" PredicateBounds
+                 | Ident "<:" "{" GrantSet "}"        (* Grant parameter bounds *)
+Permission      ::= "owned" | "unique" | "shared" | "readonly"
 ```
 
 ## A.7 Contract Grammar
 
 ```ebnf
-ContractClause  ::= UsesClause
+ContractClause  ::= GrantClause
                  | MustClause
                  | WillClause
 
-UsesClause      ::= "uses" EffectSet
+GrantClause     ::= "grants" GrantSet
 MustClause      ::= "must" PredicateBlock
 WillClause      ::= "will" PredicateBlock
 
@@ -506,7 +522,10 @@ PredicateBlock  ::= Assertion
 AssertionList   ::= Assertion ("," Assertion)* ","?
 ```
 
+
 `Assertion` is defined in Appendix A.8.
+
+`GrantSet` is defined in Appendix A.9 (Grant Grammar).
 
 ## A.8 Assertion Grammar
 
@@ -528,33 +547,47 @@ LogicTerm       ::= Expr CompareOp Expr
 CompareOp       ::= "==" | "!=" | "<" | ">" | "<=" | ">="
 ```
 
-## A.9 Effect Grammar
+## A.9 Grant Grammar
+
+**Normative**: This section defines the grammar for grant specifications, which track compile-time capabilities and restrictions on procedure operations.
 
 ```ebnf
-EffectSet       ::= EffectRef ("," EffectRef)* ","?
+GrantSet        ::= GrantRef ("," GrantRef)* ","?
 
-EffectRef       ::= EffectPath ("::" Ident)?
-                 | "effects" "(" Ident ")"
-                 | "!" EffectRef
-                 | "_?"
+GrantRef        ::= GrantPath
+                 | "grants" "<" Ident ">"     (* Grant parameter reference *)
+                 | "_?"                        (* Grant inference hole *)
+                 | "!" GrantRef                (* Grant exclusion (future) *)
 
-EffectPath      ::= Ident ("." Ident)*
+GrantPath       ::= Ident ("::" Ident)*       (* e.g., alloc::heap, fs::write *)
 
-(* Legacy effect atoms for backward compatibility *)
-EffectAtom      ::= "alloc" "." AllocEffect
-                 | "fs" "." FileSystemEffect
-                 | "net" "." NetworkEffect
-                 | "time" "." TimeEffect
-                 | "thread" "." ThreadEffect
-                 | "ffi" "." FFIEffect
-                 | "unsafe" "." UnsafeEffect
-                 | "panic"
-
-AllocEffect         ::= "heap" | "region" | "stack" | "temp" | "*"
-FileSystemEffect    ::= "read" | "write" | "delete"
-NetworkEffect       ::= "read" | "write"
-TimeEffect          ::= "read" | "sleep"
-ThreadEffect        ::= "spawn" | "join" | "atomic"
-FFIEffect           ::= "call"
-UnsafeEffect        ::= "ptr" | "transmute"
+(* Built-in grant categories *)
+AllocGrant      ::= "alloc" "::" ("heap" | "region" | "stack" | "temp" | "*")
+FileSystemGrant ::= "fs" "::" ("read" | "write" | "delete" | "metadata" | "*")
+NetworkGrant    ::= "net" "::" ("read" | "write" | "connect" | "listen" | "*")
+TimeGrant       ::= "time" "::" ("read" | "sleep" | "monotonic" | "*")
+ThreadGrant     ::= "thread" "::" ("spawn" | "join" | "atomic" | "*")
+FFIGrant        ::= "ffi" "::" ("call" | "*")
+UnsafeGrant     ::= "unsafe" "::" ("ptr" | "transmute" | "*")
+PanicGrant      ::= "panic"
 ```
+
+**Grant Polymorphism**: Grant parameters are declared in generic parameter lists (see §A.6) and referenced in grant sets using `grants<G>` syntax.
+
+**Example (informative)**:
+```cursive
+procedure process<T, G>(data: T): Result<T>
+    grants<G>, alloc::heap
+    where G <: {fs::read, net::read}
+{
+    // Procedure body can use grants<G> and alloc::heap
+}
+```
+
+**Grant Inference**: The `_?` hole allows the compiler to infer required grants based on procedure body (see Part VIII §8.x and Part IX §9.x).
+
+**Forward Reference**: Complete grant semantics, propagation rules, and verification are specified in Part IX (Grants and Capabilities).
+
+
+```
+

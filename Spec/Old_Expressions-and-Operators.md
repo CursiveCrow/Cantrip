@@ -191,70 +191,11 @@ v₁ = v₂ ∧ σ' = σ''
 3. Tuple/array/record fields evaluate in declaration order
 4. Sequential expressions evaluate in textual order
 
-**Exception:** Logical operators `&&` and `||` use short-circuit evaluation and MAY skip the right operand (§5.5.7).
-
-**Comparison to other languages:**
-
-| Language | Evaluation Order         | Determinism    |
-| -------- | ------------------------ | -------------- |
-| Cursive  | Strict left-to-right     | Guaranteed     |
-| C        | Unspecified (most cases) | Not guaranteed |
-| C++17+   | Partially specified      | Partially      |
-| Rust     | Strict left-to-right     | Guaranteed     |
-| Go       | Partially specified      | Partially      |
-
-CITE: §5.20 — Evaluation Order and Determinism (complete specification).
+**Exception:** Logical operators `&&` and `||` use short-circuit evaluation and MAY skip the right operand (§5.5.7). CITE: §5.20 — Evaluation Order and Determinism.
 
 ### 5.0.3 Effect Propagation
 
-**Definition 5.4 (Effect Propagation):** Effects in expressions compose through subexpressions according to the effect lattice, with the judgment form `Γ ⊢ e : τ ! ε` denoting that expression e has type τ and requires effects ε.
-
-**Effect judgment form:**
-
-```
-Γ ⊢ e : τ ! ε
-```
-
-This reads: "In context Γ, expression e has type τ and requires effect set ε."
-
-**Effect composition:**
-
-For compound expressions, effects compose via union:
-
-```
-[Effect-Union]
-Γ ⊢ e₁ : τ₁ ! ε₁
-Γ ⊢ e₂ : τ₂ ! ε₂
---------------------------------
-Γ ⊢ expr(e₁, e₂) : τ ! (ε₁ ∪ ε₂)
-```
-
-The effect set of a compound expression is the union of all subexpression effects.
-
-**Effect checking at calls:**
-
-```
-[Effect-Call-Check]
-Γ ⊢ f : (τ₁, ..., τₙ) → τᵣ ! ε_callee
-Γ ⊢ e₁ : τ₁ ! ε₁    ...    Γ ⊢ eₙ : τₙ ! εₙ
-ε_caller ⊇ (ε₁ ∪ ... ∪ εₙ ∪ ε_callee)
------------------------------------------
-Γ ⊢ f(e₁, ..., eₙ) : τᵣ ! ε_caller
-```
-
-The calling context must provide all effects required by arguments and callee.
-
-**Principal effects:**
-
-For every expression, there exists a minimal effect set (principal effects):
-
-```
-If Γ ⊢ e : τ ! ε and Γ ⊢ e : τ ! ε', then ε ⊆ ε'
-```
-
-The type system infers the smallest effect set that satisfies all constraints.
-
-CITE: §5.19 — Effect Composition (complete rules); Part VI — Contracts and Effects (effect system integration).
+Effects compose via union: compound expressions require all subexpression effects. CITE: Part VI — Contracts and Effects (authoritative effect system).
 
 ### 5.0.4 Value Categories
 
@@ -452,157 +393,15 @@ Expression productions and precedence are centralised in Foundations Appendix A.
 
 ### 5.2.1 Literals
 
-Literals are token sequences that directly represent constant values. The lexical syntax of literals is defined in Foundations §2.6; this section specifies their typing and evaluation.
+Literals evaluate to themselves without state change: `⟨literal, σ⟩ ⇓ ⟨literal, σ⟩`. Grammar: Appendix A.1, Foundations §2.6. Typing: Part II §2.1.
 
-#### 5.2.1.1 Integer Literals
-
-**Grammar (lexical):** Integer literal forms (decimal, hexadecimal, octal, binary, and optional suffixes) are defined in Appendix A.1 and Foundations §2.6.1.
-
-**Typing:** Part II §2.1.1 defines the authoritative typing rules for integer literals. In summary, explicit suffixes determine the type when present; otherwise the surrounding context may constrain the literal, and unsuffixed, unconstrained integers default to `i32`.
-
-**Evaluation:**
-
-```
-[E-Lit-Int]
-------------------------
-⟨n, σ⟩ ⇓ ⟨n, σ⟩
-```
-
-Integer literals evaluate to themselves without state change.
-
-**Examples:**
-
-```cursive
-let default = 42           // Type: i32 (default)
-let explicit = 42u64       // Type: u64 (suffix)
-let contextual: u8 = 42    // Type: u8 (context)
-let hex = 0xDEADBEEF       // Type: i32 (default, hex notation)
-let bin = 0b1010_1010u8    // Type: u8 (binary with suffix)
-```
-
-CITE: Foundations §2.6.1 — Integer Literals (lexical syntax); Part II §2.1.1 — Integer Types (value sets and ranges).
-
-#### 5.2.1.2 Floating-Point Literals
-
-**Grammar (lexical):** Floating-point literal syntax (fractional and exponential forms with optional suffixes) is defined in Appendix A.1 and Foundations §2.6.1.
-
-**Typing:**
-
-Part II §2.1.2 provides the definitive typing rules for floating-point literals. Unsuffixed floats default to `f64` unless contextual typing forces `f32`; explicit suffixes select the target type directly.
-
-**Evaluation:**
-
-```
-[E-Lit-Float]
-------------------------
-⟨f, σ⟩ ⇓ ⟨f, σ⟩
-```
-
-Floating-point literals evaluate to themselves, including special values (±0, ±∞, NaN).
-
-**Special values:**
-
-- **NaN (Not-a-Number):** Result of invalid operations (0.0/0.0, ∞-∞, etc.)
-- **±∞ (Infinity):** Result of overflow (1.0/0.0, large exponentiation, etc.)
-- **±0 (Signed zero):** Distinct representations with different division behavior
-
-**Examples:**
-
-```cursive
-let pi = 3.14159           // Type: f64 (default)
-let e: f32 = 2.71828       // Type: f32 (context)
-let avogadro = 6.022e23    // Type: f64 (scientific notation)
-let planck = 6.626e-34f32  // Type: f32 (suffix)
-```
-
-CITE: Foundations §2.6.1 — Floating-Point Literals; Part II §2.1.2 — Floating-Point Types (IEEE 754, special values).
-
-#### 5.2.1.3 Boolean Literals
-
-**Grammar (lexical):** Boolean literal tokens `true` and `false` are defined in Appendix A.1.
-
-**Typing:** Boolean literal typing is defined once in Part II §2.1.3; both `true` and `false` have type `bool`.
-
-**Evaluation:**
-
-```
-[E-Lit-Bool-True]
-------------------------
-⟨true, σ⟩ ⇓ ⟨true, σ⟩
-
-[E-Lit-Bool-False]
-------------------------
-⟨false, σ⟩ ⇓ ⟨false, σ⟩
-```
-
-Boolean literals evaluate to themselves.
-
-**Examples:**
-
-```cursive
-let yes = true       // Type: bool
-let no = false       // Type: bool
-```
-
-CITE: Part II §2.1.3 — Boolean Type.
-
-#### 5.2.1.4 Character Literals
-
-**Grammar (lexical):** Character literal forms and escape sequences are defined in Appendix A.1 and Foundations §2.6.3.
-
-**Typing:**
-
-Typing and validation rules for character literals appear in Part II §2.1.4; Cursive accepts only Unicode scalar values and rejects surrogate code points.
-
-Surrogate pairs [U+D800, U+DFFF] are invalid and MUST be rejected.
-
-**Evaluation:**
-
-```
-[E-Lit-Char]
-------------------------
-⟨'c', σ⟩ ⇓ ⟨'c', σ⟩
-```
-
-Character literals evaluate to themselves.
-
-**Examples:**
-
-```cursive
-let letter = 'A'           // Type: char, U+0041
-let emoji = '🚀'            // Type: char, U+1F680
-let newline = '\n'         // Type: char, U+000A
-let unicode = '\u{1F600}'  // Type: char, U+1F600
-```
-
-CITE: Foundations §2.6.3 — Character Literals; Part II §2.1.4 — Character Type (Unicode scalar values).
-
-#### 5.2.1.5 String Literals
-
-**Grammar (lexical):** String literal syntax is defined in Appendix A.1 and Foundations §2.6.2.
-
-**Typing:** Part II §2.1.6 designates string literals as `string@View`, the read-only modal state pointing at static storage. Implementations MUST validate that literal bytes form well-formed UTF‑8.
-
-**Evaluation:**
-
-```
-[E-Lit-String]
-"text" stored at static address addr
-len = byte_length("text")
--------------------------------------------------
-⟨"text", σ⟩ ⇓ ⟨string@View{ptr: addr, len: len}, σ⟩
-```
-
-String literals evaluate to views of static read-only memory with zero allocation.
-
-**Examples:**
-
-```cursive
-let greeting: string = "Hello, world!"  // Type: string@View (default for params)
-let literal = "text"                     // Type: string@View
-let multiline = "line 1
-line 2"                                  // Type: string@View (newline preserved)
-```
+| Literal | Default Type | Example | Special Notes |
+|---------|--------------|---------|---------------|
+| Integer | `i32` | `42`, `0xFF`, `100u64` | Suffixes override, hex/bin/oct supported |
+| Float | `f64` | `3.14`, `1e10`, `2.0f32` | IEEE 754, special values: NaN, ±∞, ±0 |
+| Boolean | `bool` | `true`, `false` | - |
+| Character | `char` | `'A'`, `'🚀'`, `'\n'` | Unicode scalar, rejects surrogates [U+D800-DFFF] |
+| String | `string@View` | `"hello"`, `"multi\nline"` | Static storage, zero allocation, UTF-8 validated |
 
 CITE: Foundations §2.6.2 — String Literals; Part II §2.1.6 — String Types (modal string, Owned vs View).
 
@@ -676,44 +475,7 @@ A variable reference evaluates to the current value stored at that variable's me
 
 #### 5.2.2.4 Use-After-Move Checking
 
-**Definition 5.9 (Use-After-Move):** After a value with `own` permission is moved, the original binding becomes invalid and MUST NOT be used.
-
-```
-[T-Var-Moved]
-x has been moved
-Γ ⊢ x : τ    (attempted use)
-------------------------------
-ERROR E4006: Use of moved value 'x'
-```
-
-**Move tracking:**
-
-The compiler tracks moved values through:
-
-1. Explicit `move x` expressions
-2. Passing `own` parameter to function (implicit move)
-3. Assignment from `own` binding (implicit move)
-
-**Examples:**
-
-```cursive
-let data: own string = string.from("hello")
-let moved = move data
-// let invalid = data  // ERROR E4006: use of moved value 'data'
-
-procedure consume(value: own i32) { }
-let x: own i32 = 42
-consume(x)        // Implicit move
-// let y = x      // ERROR E4006: use of moved value 'x'
-```
-
-**Diagnostic E4006:**
-
-- **Message:** "Use of moved value '{name}'"
-- **Note:** "Value was moved at {location}"
-- **Fix:** "Use value before move, or clone if type implements Clone"
-
-CITE: §5.4.5 — Move Expression; Part IV — Lexical Permission System (ownership).
+After moving `own` values, original bindings are invalid (E4006). CITE: Part IV — Lexical Permission System (authoritative ownership semantics).
 
 ### 5.2.3 Parenthesized Expressions
 
@@ -813,75 +575,9 @@ Statements within the block may introduce new bindings (via `let` or `var` decla
 
 Statements execute in order, each potentially modifying the store. The result expression (if present) is evaluated in the final store state.
 
-#### 5.2.4.4 Scope
+#### 5.2.4.4 Scope and Diagnostics
 
-**Block scope rule:**
-
-A block `{ ... }` introduces a new lexical scope. Declarations within the block are visible from the point of declaration to the end of the block, but NOT visible outside the block.
-
-```cursive
-let outer = 5
-{
-    let inner = 10  // Visible only in this block
-    println(inner)  // OK
-}
-// println(inner)  // ERROR: 'inner' not in scope
-```
-
-**Shadowing within blocks:**
-
-Variables in outer scopes may be shadowed within blocks using the `shadow` keyword:
-
-```cursive
-let x = 1
-{
-    shadow let x = 2  // Shadows outer x
-    println(x)  // Prints 2
-}
-println(x)  // Prints 1
-```
-
-CITE: Part III §3.7.1 — Scope Hierarchy (block scope); Part III §3.7.2 — Shadowing Rules.
-
-#### 5.2.4.5 Diagnostic E4401
-
-**ERROR E4401: Missing `result` keyword in block expression**
-
-**Trigger:** A block expression is used in value position without the `result` keyword.
-
-**Message:** "Block expression missing 'result' keyword before final expression"
-
-**Note:** "Blocks must explicitly declare return value with 'result'. This is a design change from Foundations §3.3."
-
-**Fix:** "Add 'result' before final expression, or change to unit block if no value needed"
-
-**Error examples:**
-
-```cursive
-let value = {
-    let x = compute()
-    x * 2  // ERROR E4401: Missing 'result' keyword
-}
-
-// Correct:
-let value: i32 = {
-    let x = compute()
-    result x * 2  // OK: explicit result
-}
-
-// Or if no value needed:
-{
-    let x = compute()
-    process(x)
-}  // OK: unit block, no result needed
-```
-
-**Rationale:**
-
-- Eliminates guessing about what a block returns
-- Makes return value explicit for LLM code generation
-- Aligns with `return` keyword semantics in functions
-- Prevents accidental value returns
+Blocks introduce new lexical scope. CITE: Part III §3.7. Missing `result` keyword in value position triggers E4401.
 
 ### 5.2.5 Unit
 

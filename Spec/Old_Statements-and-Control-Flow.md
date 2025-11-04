@@ -8,28 +8,7 @@
 
 ## Abstract
 
-This chapter specifies the Cursive statement system, defining how programs execute imperative actions through statements and structured control flow. The statement system provides memory safety through explicit control transfer semantics, supports AI-assisted development through structured control patterns without goto, and enables verifiable program organization through modal-aware branching, typed early-exit, and explicit effect discipline at the statement boundary.
-
-**Definition 6.1 (Statement System):** The Cursive statement system comprises:
-
-- The universe of statements **Stmt** from Foundations §3.3 (extended)
-- The execution judgment `⟨s, σ⟩ ⇓ outcome` (statement s executes producing an outcome)
-- The control outcome classification (Normal, Return, Break, Continue, Panic)
-- The statement grammar and well-formedness rules
-- Integration with modal types (Part II), permissions (Part II), effects (Part VII), contracts (Part VII), and regions (Part VIII)
-
-The system MUST provide deterministic execution order, explicit control transfer semantics, typed loop and block results, modal state refinement, and compile-time verification of control flow safety.
-
-**Design Philosophy:** See Part I (Abstract - Design Philosophy) for Cursive's core design principles. This chapter applies those principles through:
-
-1. **Structured control flow** - No `goto`; labeled `break`/`continue` for multi-level exit
-2. **Explicit over implicit** - Typed labels, explicit result keyword, required annotations
-3. **Modal-aware** - Branches refine modal states; transitions integrate with control flow
-4. **Effect-disciplined** - Block-level effect narrowing; `[[no_panic]]` sections for safety-critical code
-5. **Verifiable** - Loop contracts, postconditions, and reachability analysis support formal verification
-6. **Zero-cost** - All control flow compiles to structured branches and jumps; no runtime overhead
-
-(See Part I for normative conformance criteria and terminology.)
+This chapter specifies statement execution through judgment `⟨s, σ⟩ ⇓ outcome` with control outcomes (Normal, Return, Break, Continue, Panic). Structured control flow only: no `goto`. Integration with Part II (types, permissions), Part VII (effects, contracts), Part VIII (regions).
 
 ---
 
@@ -51,7 +30,6 @@ This chapter provides the complete normative specification of statement syntax, 
 - Control transfer semantics (break, continue, return) and outcome propagation
 - Defer execution order and interaction with control flow
 - Modal-aware branching and state refinement
-- Transition arms (match + state transition)
 - Region-scoped iteration discipline
 - Loop verification contracts (invariants, variants, postconditions)
 - Block-scoped contracts and effect narrowing
@@ -154,72 +132,7 @@ CITE: Part VIII — Regions.
 
 ### 6.0.3 Design Principles
 
-This chapter enforces the following design principles through normative requirements:
-
-**1. Structured control flow:**
-
-All control transfer is explicit and structured:
-
-- No `goto` statement exists in Cursive
-- Labeled `break`/`continue` provide multi-level loop exit
-- Labeled blocks enable typed early-exit without goto
-- All control paths are statically analyzable
-
-**Rationale:** Structured control flow enables definite assignment analysis, region escape checking, and modal state verification without flow-sensitive complexity.
-
-**2. Explicit over implicit:**
-
-All control-critical boundaries require explicit markers:
-
-- Value-producing blocks MUST use `result` keyword
-- Loop iterator bindings MUST have type annotations
-- Match result bindings MUST have type annotations
-- Effect narrowing and contracts must be declared explicitly
-
-**Rationale:** Eliminates inference puzzles for LLMs and human readers; makes control-flow intent locally visible.
-
-**3. Modal-aware control:**
-
-Control flow integrates with modal state machines:
-
-- Branches refine modal states statically
-- Transition arms combine matching and state transitions
-- Exhaustiveness checking extends to modal state coverage
-- Zero runtime overhead (states erased after type checking)
-
-**Rationale:** Makes state machine programming first-class; enables compile-time verification of protocol adherence.
-
-**4. Effect-disciplined:**
-
-Effect tracking applies at the statement and block level:
-
-- Block-level effect narrowing restricts capabilities within scopes
-- `[[no_panic]]` attribute forbids divergence in safety-critical sections
-- Effect-gated branching selects implementations based on capabilities
-
-**Rationale:** Localizes effect budgets; enables fine-grained control over side effects; supports verification.
-
-**5. Verifiable:**
-
-Statements support formal verification:
-
-- Loop contracts (invariants, variants) prove termination and correctness
-- Loop postconditions specify guarantees on results
-- Block contracts enable local reasoning
-- Reachability analysis detects dead code
-
-**Rationale:** Enables static verification without runtime cost; supports safety-critical and high-assurance code.
-
-**6. Zero-cost abstractions:**
-
-All statement checking occurs at compile time:
-
-- Control flow compiles to structured branches and jumps
-- Modal state refinement has no runtime representation
-- Verification contracts may be elided in release builds
-- Effect checking is purely static
-
-**Rationale:** No runtime overhead for safety and verification features.
+CITE: Part I — Design Philosophy.
 
 ### 6.0.4 Notational Conventions
 
@@ -398,61 +311,7 @@ let invalid = {
 
 ### 6.2.2 Static Semantics
 
-**Well-formedness:**
-
-```
-[WF-Block-Unit]
-Γ ⊢ s₁ : ()    ...    Γ ⊢ sₙ : ()
-------------------------------------
-Γ ⊢ { s₁; ...; sₙ } : ()
-
-[WF-Block-Result]
-Γ ⊢ s₁ : ()    ...    Γ ⊢ sₙ : ()
-Γ' ⊢ e : τ                         (Γ' = Γ extended with bindings from s₁...sₙ)
---------------------------------------------
-Γ ⊢ { s₁; ...; sₙ; result e } : τ
-```
-
-**Context extension:**
-
-Statements within a block may introduce new bindings (via `let` or `var`). These bindings extend the context for subsequent statements and the result expression.
-
-```
-extend_context(Γ, []) = Γ
-extend_context(Γ, let x:τ = e :: rest) = extend_context(Γ, x:τ, rest)
-extend_context(Γ, var x:τ = e :: rest) = extend_context(Γ, x:τ, rest)
-extend_context(Γ, other :: rest) = extend_context(Γ, rest)
-```
-
-**Typing requirement:**
-
-When a block is bound to a variable, the binding MUST have a type annotation:
-
-```
-[Block-Binding-Annotation]
-let x = { statements; result expr }    (no type annotation on x)
-----------------------------------------
-REQUIRED: let x: Type = { statements; result expr }
-```
-
-**Missing result keyword:**
-
-```
-[Block-Missing-Result]
-block used in value position (bound to variable, returned, etc.)
-block ends with expression e (not preceded by 'result')
-------------------------------------------------------------
-ERROR E4401: Block expression missing 'result' keyword
-```
-
-**Diagnostic E4401:**
-
-- **Trigger:** Value-producing block lacks `result` keyword before final expression
-- **Message:** "Block expression missing 'result' keyword before final expression"
-- **Note:** "Blocks must explicitly declare return value with 'result'. This enforces the 'explicit over implicit' design principle."
-- **Fix:** "Add 'result' before final expression, or change to unit block if no value needed"
-
-CITE: Part V §5.2.4 — Block Expressions (typing and evaluation rules for blocks as expressions).
+Block well-formedness: unit blocks type to `()`, result blocks require `result` keyword and type annotation on binding. CITE: Part V §5.2.4 (authoritative block semantics).
 
 ### 6.2.3 Dynamic Semantics
 
@@ -516,56 +375,12 @@ drop xₙ, ..., drop x₁    (reverse declaration order)
 
 CITE: Part III §3.7.1 — Scope Hierarchy (block scope); Part III §3.9.3 — RAII Cleanup.
 
-### 6.2.5 Examples
-
-**Unit block:**
-
-```cursive
-{
-    let data = load_data()
-    process(data)
-    cleanup()
-}  // No value produced; type is ()
-```
-
-**Value-producing block:**
+### 6.2.5 Example
 
 ```cursive
 let result: i32 = {
     let x = compute_base()
-    let y = apply_modifier(x)
-    result y * 2  // Explicit result required
-}
-```
-
-**Nested blocks with shadowing:**
-
-```cursive
-let x = 10
-{
-    shadow let x = 20
-    println(x)  // Prints 20
-    {
-        shadow let x = 30
-        println(x)  // Prints 30
-    }
-    println(x)  // Prints 20
-}
-println(x)  // Prints 10
-```
-
-**Error case (missing result):**
-
-```cursive
-let value: i32 = {
-    let x = compute()
-    x * 2  // ERROR E4401: Block expression missing 'result' keyword
-}
-
-// Fix:
-let value: i32 = {
-    let x = compute()
-    result x * 2  // OK
+    result x * 2  // Explicit result required
 }
 ```
 
@@ -1635,18 +1450,17 @@ function process(): Result<(), Error> {
 
 ---
 
-**Definition 6.14 (Modal-Aware Branching):** Modal-aware branching refines modal state types through pattern matching, enables transition arms that combine matching and state transitions, and enforces exhaustiveness over modal state spaces.
+**Definition 6.14 (Modal-Aware Branching):** Modal-aware branching refines modal state types through pattern matching and enforces exhaustiveness over modal state spaces.
 
 ## 6.10 Modal-Aware Branching and State Refinement
 
 ### 6.10.1 Overview
 
-Modal-aware control flow integrates Cursive's modal type system (Part II §2.3.3) with branching constructs to provide compile-time verification of state machine protocols. This section specifies how match expressions and conditional branches refine modal states and enable direct transition arms.
+Modal-aware control flow integrates Cursive's modal type system (Part II §2.3.3) with branching constructs to provide compile-time verification of state machine protocols. This section specifies how match expressions and conditional branches refine modal states.
 
 **Key innovations:**
 
 - **State refinement**: Match arms automatically refine the modal type to the matched state
-- **Transition arms**: Branches may combine pattern matching with state transitions
 - **Exhaustiveness over states**: Pattern exhaustiveness extends to modal state coverage
 - **Zero-cost**: All verification occurs at compile time; runtime behavior is standard branching
 
@@ -1727,102 +1541,7 @@ procedure process(file: File@Closed ∨ File@Open) {
 
 CITE: Part II §2.3.3 — Modal Types and State Transitions.
 
-### 6.10.3 Transition Arms
-
-**Definition 6.15 (Transition Arms):** A transition arm combines pattern matching on a modal state with execution of a state transition, providing a unified syntax for state-based branching and progression.
-
-**Syntax:** Transition arms build on the `MatchArm` grammar in Appendix A.3 augmented by the `TransitionArm` production defined there. In prose: a modal pattern, followed by a transition invocation, followed by the arm body. Within an arm, the placeholder `$` denotes the matched value (and after the transition, the transitioned value).
-
-**Example:**
-
-```cursive
-let file: File@Closed = File.new("data.txt")
-
-let result: File@Open = match file {
-    File@Closed => open() => {
-        // Transition from @Closed to @Open automatically
-        println("File opened")
-        result $  // $ refers to the transitioned value
-    },
-}
-```
-
-**Desugared semantics:**
-
-A transition arm `Pattern => transition() => body` desugars to:
-
-```cursive
-Pattern => {
-    let transitioned = $.transition()
-    // Substitute $ with transitioned in body
-    body
-}
-```
-
-Where `$` in the pattern match refers to the matched value, and after transition it refers to the new state.
-
-**Static semantics:**
-
-```
-[Transition-Arm-Valid]
-Γ ⊢ scrutinee : Modal@S₁
-arm matches Modal@S₁
-transition procedure m : (self: Modal@S₁, ...) → Modal@S₂ ! ε
-(@S₁ →ₘ @S₂) ∈ valid transitions for Modal
-Γ ⊢ arm_body : τ    (with $ : Modal@S₂)
---------------------------------------------------------
-arm is well-typed with result type τ
-```
-
-**Transition validity checking:**
-
-The compiler MUST verify that the transition is valid per the modal type's state graph:
-
-```
-[Transition-Validity]
-transition arm: @S₁ => procedure() => body
-(@S₁ →procedure @S₂) ∉ declared transitions
---------------------------------------------------------
-ERROR E6004: Invalid state transition via procedure
-```
-
-**Example with validation:**
-
-```cursive
-modal Connection {
-    @Disconnected { url: string }
-    @Connected { url: string, socket: Socket }
-    @Failed { url: string, error: Error }
-
-    @Disconnected -> connect() -> @Connected
-    @Disconnected -> connect() -> @Failed    (may fail)
-    @Connected -> disconnect() -> @Disconnected
-}
-
-// Transition arm handles both outcomes
-let result: Connection@Connected ∨ Connection@Failed = match conn {
-    Connection@Disconnected => connect() => {
-        // $ has type: Connection@Connected ∨ Connection@Failed
-        // (because connect may transition to either)
-        result $
-    },
-    Connection@Connected => {
-        result conn  // Already connected
-    },
-    Connection@Failed => {
-        result conn  // Failed state preserved
-    },
-}
-```
-
-**Diagnostic E6004:**
-
-- **Trigger:** Transition arm uses procedure not declared for source state
-- **Message:** "Invalid state transition from @{source} via {procedure}"
-- **Note:** "Modal type {Modal} does not declare transition @{source} -> {procedure}() -> @{target}"
-- **Fix:** "Use a valid transition procedure or standard match arm"
-
-### 6.10.4 Exhaustiveness Over Modal States
+### 6.10.3 Exhaustiveness Over Modal States
 
 **Exhaustiveness requirement:**
 
@@ -2853,7 +2572,7 @@ Diagnostics for statement and control-flow behaviour are catalogued in Foundatio
 3. **Control transfer** — Break, continue, return outcome propagation through statement sequences
 4. **Defer execution** — LIFO ordering and interaction with all control-flow exits
 5. **Labeled statements** — Usage of labels on loops and blocks; typed early-exit semantics
-6. **Modal-aware control** — State refinement in branches, transition arms, exhaustiveness over modal states
+6. **Modal-aware control** — State refinement in branches, exhaustiveness over modal states
 7. **Loop verification** — Invariants, variants, and postconditions on loops
 8. **Block-level contracts** — Block preconditions, postconditions, and effect narrowing
 9. **No-panic discipline** — Integration and usage rules for [[no_panic]] attribute
@@ -2973,8 +2692,7 @@ Diagnostics for statement and control-flow behaviour are catalogued in Foundatio
 | Defer                    | Expressions §5.15      | LIFO execution order specification         |
 | Assignment               | This chapter (§6.4)    | Authoritative for statement form           |
 | Modal refinement         | This chapter (§6.10.2) | Authoritative for state refinement rules   |
-| Transition arms          | This chapter (§6.10.3) | Authoritative for syntax and semantics     |
-| Modal exhaustiveness     | This chapter (§6.10.4) | Authoritative for state coverage           |
+| Modal exhaustiveness     | This chapter (§6.10.3) | Authoritative for state coverage           |
 | Loop invariants/variants | This chapter (§6.11.2) | Authoritative for loop contracts           |
 | Loop postconditions      | This chapter (§6.11.3) | Authoritative for loop result guarantees   |
 | Region iteration         | This chapter (§6.12)   | Authoritative for per-iteration discipline |
@@ -3109,23 +2827,23 @@ modal Connection {
 
 procedure handle_connection(conn: Connection@Disconnected ∨ Connection@Failed) {
     let active: Connection@Connected ∨ Connection@Failed = match conn {
-        Connection@Disconnected => connect() => {
-            // Transitioned to @Connecting, but connect() returns @Connected ∨ @Failed
-            result $  // $ is the transitioned value
+        c @ Connection@Disconnected => {
+            // Call transition procedure directly
+            result c::connect()
         },
-        Connection@Failed => {
-            println("Already failed: {$.error}")
-            result conn  // No transition
+        c @ Connection@Failed => {
+            println("Already failed: {c.error}")
+            result c  // No transition
         },
     }
 
     // active : Connection@Connected ∨ Connection@Failed
     match active {
-        Connection@Connected => {
-            send_data(active)
+        c @ Connection@Connected => {
+            send_data(c)
         },
-        Connection@Failed => {
-            handle_error(active.error)
+        c @ Connection@Failed => {
+            handle_error(c.error)
         },
     }
 }

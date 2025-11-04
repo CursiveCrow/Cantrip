@@ -64,99 +64,7 @@ This chapter provides complete normative rules for:
 
 ### 9.0.2 Cross-Part Dependencies
 
-Other parts remain authoritative for their topics; this chapter depends on them as follows:
-
-**Part I (Foundations):**
-- §1.3: Metavariables and notational conventions
-- §1.4: Judgment forms and inference rules
-- §1.5: Conformance requirements
-- §1.6: Lexical structure and identifiers
-
-CITE: Part I — Foundations.
-
-**Part II (Type System):**
-- §2.1.5: Never type `!` for diverging functions
-- §2.10: Function types `(T₁, …, Tₙ) → U ! ε`, subtyping, well-formedness
-- §2.9.4: Effect polymorphism type rules (`∀ε. τ`)
-- §2.8: Tuple types for multiple returns
-- §2.3: Modal types for state-dependent procedures
-- §2.4: Variant types and pattern matching
-
-CITE: Part II — Type System.
-
-**Part III (Declarations and Scope):**
-- §3.1.3: Two-phase compilation enabling forward references
-- §3.3: Compile-time evaluation and const contexts
-- §3.11: Name resolution, imports, qualified names
-- §3.9.2: Region allocation boundaries
-
-CITE: Part III — Declarations and Scope.
-
-**Part IV (Lexical Permissions):**
-- §4.2: Permission lattice `own ≥ mut ≥ imm`
-- §4.5: Move semantics and consumption
-- §4.9: Call-boundary permission checking
-- §4.10: Closure capture classifications (own, mut, imm) and effect aggregation
-
-CITE: Part IV — Lexical Permissions.
-
-**Part V (Expressions and Operators):**
-- §5.4: Call expressions syntax
-- §5.10: Closure expressions `|params| -> body`
-- §5.5.9: Pipeline operator `=>`
-- §5.2: Evaluation order and determinism
-- §5.3: Required explicitness (block `result`, typed bindings)
-
-CITE: Part V — Expressions and Operators.
-
-**Part VI (Statements and Control Flow):**
-- §6.3: `return` statement semantics
-- §6.9: Defer execution (LIFO before exit)
-- §6.2: Blocks and `result` keyword
-- §6.7: Control flow completeness analysis
-
-CITE: Part VI — Statements and Control Flow.
-
-**Part VII (Contracts and Effects):**
-- §7.3: `uses ε` effect clauses
-- §7.4: `must P` preconditions
-- §7.5: `will Q` postconditions
-- §7.6: Effect availability and principal effects
-- §7.7: `with { … }` blocks for effect implementation overrides
-- §7.2.10: Contract clauses in unsafe contexts
-
-CITE: Part VII — Contracts and Effects.
-
-**Part X (Modal Types):**
-- §10.3: Modal state transitions and typestate
-- §10.5: State-dependent procedures
-
-CITE: Part X — Modal Types.
-
-**Part XI (Metaprogramming):**
-- §11.4: Compile-time execution contexts
-- §11.5: Comptime blocks and evaluation
-
-CITE: Part XI — Metaprogramming.
-
-**Part XIII (Memory, Permissions, and Concurrency):**
-- §13.3: Region boundaries and escape analysis
-- §13.4: Region-polymorphic functions
-- §13.7: Thread safety and `Send`/`Sync`
-
-CITE: Part XIII — Memory, Permissions, and Concurrency.
-
-**Part XV (Unsafe Behaviors and FFI):**
-- §15.3: Unsafe blocks and boundaries
-- §15.5: FFI type interoperability
-- §15.6: Calling conventions
-
-CITE: Part XV — Unsafe Behaviors and FFI.
-
-**Appendix A (Grammar):**
-- Authoritative grammar productions for all constructs
-
-CITE: Appendix A — Grammar.
+This chapter depends on: Part I (notation, judgments, conformance, lexical structure); Part II (function types §2.10, never type §2.1.5, effect polymorphism §2.9.4, tuples §2.8, modals §2.3); Part III (two-phase compilation §3.1.3, const evaluation §3.3, name resolution §3.11, regions §3.9.2); Part IV (permission lattice §4.2, moves §4.5, call-boundary checks §4.9, closure captures §4.10); Part V (call syntax §5.4, closures §5.10, pipeline §5.5.9, evaluation order §5.2, explicitness §5.3); Part VI (`return` §6.3, `defer` §6.9, blocks §6.2, control flow §6.7); Part VII (contract clauses §7.3-7.7, effect availability §7.6); Part X (modal states §10.3, state-dependent procedures §10.5); Part XI (comptime contexts §11.4-11.5); Part XIII (region escape §13.3-13.4, thread safety §13.7); Part XV (unsafe §15.3, FFI §15.5-15.6); Appendix A (grammar).
 
 ### 9.0.3 Design Principles
 
@@ -267,102 +175,35 @@ The remainder of Part IX is organized as follows:
 
 ### 9.1.1 Terminology
 
-This section establishes terminology used throughout Part IX:
-
-**Callable** — A function or procedure; any named declaration that can be invoked with arguments.
-
-**Function** — A callable declared at module scope (or as an associated function in a type's scope) without an implicit receiver parameter `self`. Functions are the default form for pure computation and module-level code organization. Functions may be pure (effects `∅`) or effectful (effects `ε ≠ ∅`).
-
-**Associated Function** — A function declared within a type's scope but without a `self` parameter. Called using fully qualified syntax `Type::function_name(args)`. Commonly used for constructors and type-level operations.
-
-**Procedure** — A callable declared within a type's scope with an explicit receiver parameter (`self: perm Self`). Procedures are invoked using type-scope syntax `receiver::procedure_name(args)`, which desugars to fully qualified calls `Type::procedure_name(receiver, args)`. Procedures enable type-directed operations with permission-checked receivers.
-
-**Receiver** — The expression before `::` in a procedure call; it is bound to the procedure's `self` parameter. The receiver's type determines which procedure is resolved, and the receiver's permission must satisfy the procedure's declared `self` permission requirement.
-
-**Closure** — An anonymous callable expression (lambda) that may capture variables from its environment. Closures have function types but may carry captured data, making them non-zero-sized. Non-capturing closures may coerce to function pointers.
-
-**Function Pointer** — A zero-sized callable value referring to a named function or non-capturing closure. Function pointers are first-class values with function types.
-
-**Higher-Order Function** (or **Functional**) — A function or procedure that accepts function-typed parameters or returns function-typed values. Higher-order functions enable abstraction over computation patterns (map, filter, fold, compose).
-
-**Argument** — An expression provided at a call site; corresponds to a parameter in the callable's signature.
-
-**Parameter** — A declared input in a callable's signature. Parameters have names, types, optional defaults, and optional permissions.
-
-**Effect Signature** — The set of effects ε that a callable may perform, declared via `uses ε` clause or inferred from the function type `→ U ! ε`.
-
-**Dispatch** — The process of resolving a callable name to a concrete declaration and verifying that the call is well-formed (types, permissions, effects).
+**Callable** — Function or procedure; any named declaration invocable with arguments. **Function** — Module-scope or type-scope callable without `self` parameter; called as `function_name(args)` or `Type::function_name(args)`. **Associated Function** — Function within type's scope, no `self`; commonly used for constructors. **Procedure** — Type-scope callable with explicit `self: perm Self`; invoked as `receiver::procedure_name(args)` (desugars to `Type::procedure_name(receiver, args)`). **Receiver** — Expression before `::`; bound to `self` parameter. **Closure** — Anonymous callable capturing environment variables. **Function Pointer** — Zero-sized callable value referencing named function or non-capturing closure. **Higher-Order Function** — Accepts or returns function-typed values. **Parameter/Argument** — Declared input / call-site expression. **Effect Signature** — Set of effects `ε` declared via `uses ε`. **Dispatch** — Static resolution of callable name to declaration with well-formedness verification.
 
 ### 9.1.2 Functions vs Procedures
 
-**Functions** are module-scope or associated callables:
-- Declared without `self` parameter
-- Invoked as `function_name(args)` or `Type::function_name(args)`
-- Pure or effectful, determined by body and signature
-- No implicit receiver; all arguments are explicit
-
-**Procedures** are type-scope callables with receivers:
-- Declared with `self: perm Self` parameter
-- Invoked as `receiver::procedure_name(args)` (desugars to `Type::procedure_name(receiver, args)`)
-- First parameter (`self`) is the receiver, passed implicitly via `::` syntax
-- Receiver permission checked at call site
-
-**Design rationale:** Separating functions and procedures provides:
-1. **Clarity**: The syntax immediately shows whether a call is type-directed
-2. **Explicitness**: No hidden lookups or UFCS confusion
-3. **Predictability**: `::` always means scope navigation, `.` always means field access
-4. **Flexibility**: Both forms available depending on use case
+**Functions**: No `self` parameter; invoked as `function_name(args)` or `Type::function_name(args)`. **Procedures**: With `self: perm Self`; invoked as `receiver::procedure_name(args)` (desugars to `Type::procedure_name(receiver, args)`). Separation provides clarity (`::` for scope navigation, `.` for field access), explicitness (no UFCS), and predictability.
 
 ### 9.1.3 First-Class Functions
 
-Functions in Cursive are first-class values:
-- Function names denote callable values with function types
-- Functions can be passed as arguments to higher-order functions
-- Functions can be returned from other functions
-- Functions can be stored in data structures
-- Closures extend functions with environment capture
-
-Function types are described in Part II §2.10; this chapter specifies how callables produce and consume those types.
+Functions are first-class values: names denote callable values with function types (Part II §2.10); can be passed as arguments, returned from functions, stored in data structures; closures extend with environment capture.
 
 ### 9.1.4 Calling Model
 
-Cursive uses a **call-by-value** model with explicit permissions:
-- Arguments are evaluated before the call (strictly left-to-right after receiver)
-- Values are bound to parameters according to parameter permissions
-- `imm` parameters receive read-only access (no consumption)
-- `mut` parameters receive temporary mutable access (no consumption)
-- `own` parameters consume the argument (move semantics)
-- Returned `own` values transfer ownership to the caller
+**Call-by-value** with explicit permissions: arguments evaluated left-to-right after receiver; `imm` (read-only), `mut` (temporary mutable), `own` (consuming move); returned `own` transfers ownership. Effects checked at compile time: callee's `uses ε` ⊆ caller's available effects; effect polymorphism abstracts over effect sets.
 
-Effects are checked at compile time:
-- Callee's `uses ε` must be a subset of caller's available effects
-- Argument evaluation effects are also checked
-- Effect polymorphism allows abstracting over effects
+### 9.1.5 Canonical Example
 
-### 9.1.5 Quick Examples
+This comprehensive example demonstrates functions, procedures, permissions, defaults, closures, and effect polymorphism:
 
 ```cursive
-// Module-scope function (pure)
-function add(a: i32, b: i32): i32 {
-    result a + b
-}
-
-// Associated functions and procedures are declared inside the record body
+// Record with associated functions (constructors) and procedures (self methods)
 record Point {
     x: f64
     y: f64
 
-    function new(x: f64, y: f64): Point {
-        Point { x, y }
-    }
-
-    function origin(): Point {
-        Point { x: 0.0, y: 0.0 }
-    }
+    function new(x: f64, y: f64): Point { result Point { x, y } }
+    function origin(): Point = Point { x: 0.0, y: 0.0 }
 
     procedure translate(self: mut Point, dx: f64, dy: f64) {
-        self.x += dx
-        self.y += dy
+        self.x += dx; self.y += dy
     }
 
     procedure distance(self: Point, other: Point): f64 {
@@ -370,92 +211,35 @@ record Point {
         let dy = self.y - other.y
         result ((dx * dx) + (dy * dy)).sqrt()
     }
-
-    procedure into_tuple(self: own Point): (f64, f64) {
-        result (self.x, self.y)
-    }
 }
 
-// Usage demonstrating different call forms
-let p1 = Point::new(0.0, 0.0)           // Associated function
-let p2 = Point::origin()                 // Associated function
-p1::translate(1.0, 1.0)                  // Type-scope procedure (mut)
-let d = p1::distance(p2)                 // Type-scope procedure (imm)
-let t = p1::into_tuple()                 // Type-scope procedure (own, consumes p1)
-// let x = p1.x                          // ERROR: p1 consumed by into_tuple
-
-// Named and default arguments
-function configure(host: string, port: i32 = 80, *, tls: bool = false): () {
-    // ... configuration logic
+// Named and default parameters
+function connect(host: string, port: i32 = 80, *, tls: bool = false): ()
+    uses io.network
+{
+    // ... implementation
 }
-
-configure("example.com")                              // Uses defaults: port=80, tls=false
-configure("example.com", 443)                         // Uses default: tls=false
-configure("example.com", 443, tls: true)              // All explicit
-configure("example.com", tls: true)                   // port uses default, tls explicit
-
-// Expression-bodied functions
-function square(x: i32): i32 = x * x
-function double(x: i32): i32 = x * 2
 
 // Higher-order function with effect polymorphism
-procedure map<T, U, ε>(xs: [T], f: (T) → U ! ε): [U]
+function map<T, U, ε>(xs: [T], f: (T) → U ! ε): [U]
     uses alloc.heap, ε
 {
     let out = Vec::new()
-    loop x in xs {
-        out::push(f(x))
-    }
+    loop x in xs { out::push(f(x)) }
     result out::into_array()
 }
 
-let doubled = map([1, 2, 3], |x| -> x * 2)             // ε = ∅ (pure)
-let logged = map([1, 2, 3], |x| -> {
-    println("{}", x)
-    result x
-})                                                      // ε = {io.write}
+// Usage examples
+let p1 = Point::new(0.0, 0.0)                   // Associated function call
+p1::translate(1.0, 1.0)                         // Procedure (mut permission)
+let d = p1::distance(Point::origin())           // Procedure (imm permission)
 
-// Closure capturing environment
+connect("example.com")                          // Defaults: port=80, tls=false
+connect("example.com", 443, tls: true)          // Named argument
+
+let doubled = map([1, 2, 3], |x| -> x * 2)      // Pure closure
 let multiplier = 10
-let scale: (i32) → i32 ! ∅ = |x| -> x * multiplier    // Captures multiplier
-
-// Function pointer (no capture)
-let fp: (i32, i32) → i32 ! ∅ = add                     // Points to `add` function
-
-// Recursion
-function factorial(n: i32): i32 {
-    if n <= 1 {
-        result 1
-    } else {
-        result n * factorial(n - 1)
-    }
-}
-
-// Unsafe and FFI
-extern "C" {
-    [[no_mangle]]
-    function puts(s: *u8): i32;
-}
-
-unsafe function dangerous_operation(): () {
-    // ... unsafe operations
-}
-
-procedure call_unsafe()
-    uses ffi.call
-{
-    unsafe {
-        puts(c"Hello from FFI\n")
-        dangerous_operation()
-    }
-}
-
-// Comptime function
-comptime function double_const(x: i32): i32 {
-    result x * 2
-}
-
-const BUFFER_SIZE: usize = double_const(512)    // Evaluated at compile time
+let scaled = map([1, 2, 3], |x| -> x * multiplier)  // Capturing closure
 ```
 
 ### 9.1.6 Core Semantic Summary
@@ -1288,56 +1072,25 @@ function returns own T
 caller receives new binding with own permission
 ```
 
-#### Examples
+#### Example
 
 ```cursive
-// Function parameters with permissions
-function read_value(x: imm i32): i32 {
-    result x
-}
+function consume(s: own String): usize { result s.len() }
+procedure increment(x: mut i32) { x += 1 }
+function read_value(x: imm i32): i32 { result x }
 
-procedure increment(x: mut i32) {
-    x += 1
-}
-
-function consume(s: own String): usize {
-    result s.len()
-}
-
-// Call examples
 let a: own i32 = 42
-read_value(a)         // OK: own → imm weakening
-increment(mut a)      // OK: own → mut weakening, `mut` annotation required in call
-let b = a             // OK: a still valid (not consumed)
+read_value(a)             // OK: own → imm weakening
+increment(mut a)          // OK: own → mut weakening (explicit `mut` annotation)
+let b = a                 // OK: a still valid (not consumed)
 
 let s: own String = String::from("hello")
-let len = consume(move s)  // OK: move s to own parameter
-// let c = s.len()          // ERROR: s consumed, no longer valid
+consume(move s)           // OK: move consumes binding
+// let c = s.len()        // ERROR: s consumed, no longer valid
 
 let x: imm i32 = 10
-// increment(mut x)      // ERROR E9F/P-0204: cannot upgrade imm to mut
-read_value(x)          // OK: imm → imm exact match
-
-// Return ownership
-function create_string(): own String {
-    result String::from("new")
-}
-
-let s = create_string()  // s receives own permission
-```
-
-**Invalid examples:**
-
-```cursive
-function bad_upgrade(x: imm i32): i32 {
-    // increment(mut x)   // ERROR E9F/P-0204: x is imm, cannot upgrade to mut
-    result x
-}
-
-function bad_consume() {
-    let s: imm String = String::from("hello")
-    // consume(move s)     // ERROR E9F/P-0204: s is imm, cannot upgrade to own
-}
+// increment(mut x)       // ERROR E9F/P-0204: cannot upgrade imm to mut
+read_value(x)             // OK: imm → imm exact match
 ```
 
 #### Permission Annotations in Calls
@@ -1409,10 +1162,10 @@ Unsafe operations (pointer dereference, FFI calls) may require specific effects:
 
 These must be declared in the `uses` clause.
 
-#### Examples
+#### Example
 
 ```cursive
-// Unsafe function for raw pointer dereference
+// Unsafe function for raw pointer operations
 unsafe function deref<T>(ptr: *T): T
     uses unsafe.ptr
     must ptr != null
@@ -1420,62 +1173,28 @@ unsafe function deref<T>(ptr: *T): T
     result *ptr
 }
 
-// Unsafe function establishing an invariant
-unsafe function assume_sorted<T>(xs: [T])
-    must xs.len() > 0
-{
-    // Establishes that xs is sorted without checking
-    // Caller must ensure this is true
-}
-
-// Usage requires unsafe block
-procedure use_unsafe() {
-    let ptr: *i32 = get_pointer()
-
-    unsafe {
-        let value = deref(ptr)
-        assume_sorted([1, 2, 3, 4])
-    }
-
-    // deref(ptr)  // ERROR E9F-0101: requires unsafe block
-}
-
-// Unsafe function using inline assembly (hypothetical)
-unsafe function fast_copy(dest: *mut u8, src: *u8, len: usize)
-    uses unsafe.ptr
-    must dest != null
-    must src != null
-{
-    // Platform-specific optimized copy using assembly
-    // ...
-}
-```
-
-**Safe wrappers:**
-
-A common pattern is to wrap unsafe functions in safe interfaces that enforce invariants:
-
-```cursive
-// Unsafe primitive
+// Safe wrapper pattern - unsafe primitive wrapped in safe interface
 unsafe function raw_alloc(size: usize): *mut u8
     uses unsafe.ptr, alloc.heap
-{
-    // ... raw allocation
-}
+{ /* ... */ }
 
-// Safe wrapper
 function allocate<T>(): own Box<T>
     uses alloc.heap
 {
     unsafe {
         let ptr = raw_alloc(size_of::<T>())
-        // Initialize and wrap in safe Box type
         result Box::from_raw(ptr as *mut T)
     }
 }
 
-// Users call safe wrapper, no unsafe block needed
-let b = allocate::<i32>()  // Safe to call
+// Usage: unsafe functions require unsafe blocks
+procedure use_unsafe() {
+    let ptr: *i32 = get_pointer()
+    unsafe { let value = deref(ptr) }
+    // deref(ptr)  // ERROR E9F-0101: requires unsafe block
+}
+
+let b = allocate::<i32>()  // Safe wrapper, no unsafe block needed
 ```
 
 ### 9.2.7 Extern / FFI Declarations
@@ -1578,59 +1297,28 @@ record Point {
 // Guaranteed C-compatible layout
 ```
 
-#### Examples
+#### Example
 
 ```cursive
-// Basic C FFI
+// C FFI with variadic function
 extern "C" {
-    function strlen(s: *u8): usize;
-    function strcmp(s1: *u8, s2: *u8): i32;
+    function printf(fmt: *u8, ...): i32;
     function puts(s: *u8): i32;
 }
 
-procedure demo_c_ffi()
+procedure demo_ffi(value: i32)
     uses ffi.call
 {
     unsafe {
-        let msg = c"Hello from Cursive!\n"
-        puts(msg)
+        puts(c"Hello from Cursive!\n")
+        printf(c"Value: %d\n", value)
     }
 }
 
-// Variadic extern (printf)
-extern "C" {
-    function printf(fmt: *u8, ...): i32;
-}
-
-procedure print_formatted(value: i32)
-    uses ffi.call
-{
-    unsafe {
-        printf(c"The value is: %d\n", value)
-    }
-}
-
-// Platform-specific extern
-extern "system" {
-    function GetCurrentProcessId(): u32;
-}
-
-// Safe wrapper around unsafe extern
-function current_process_id(): u32
-    uses ffi.call
-{
-    unsafe {
-        result GetCurrentProcessId()
-    }
-}
-
-// Export Cursive function for use in C
-[[no_mangle]]
-[[export_name("cursive_process_data")]]
+// Export Cursive function for C interop
+[[no_mangle, export_name("cursive_process")]]
 function process_data(data: *u8, len: usize): i32 {
-    // Process data and return status code
-    // ...
-    result 0
+    result 0  // Status code
 }
 ```
 
@@ -1656,10 +1344,7 @@ procedure call_extern(buffer: mut [u8])
     uses ffi.call, unsafe.ptr
 {
     unsafe {
-        let ptr = &mut buffer[0] as *mut u8
-        let len = buffer.len()
-        let status = process_buffer(ptr, len)
-        // Check status...
+        let status = process_buffer(&mut buffer[0] as *mut u8, buffer.len())
     }
 }
 ```
@@ -1736,40 +1421,19 @@ ERROR (E9F-0106): entry point `main` not found
 
 Libraries (non-executable compilation units) do NOT require `main`.
 
-#### Examples
+#### Example
 
 ```cursive
-// Minimal program
-function main(): i32 {
-    result 0
-}
-
-// With command-line arguments
-function main(args: [string]): i32 {
+// Main with command-line arguments and effects
+function main(args: [string]): i32
+    uses io.write, fs
+{
     if args.len() < 2 {
         eprintln("Usage: program <input>")
         result 1
     }
 
-    let input = args[1]
-    // Process input...
-
-    result 0
-}
-
-// Effectful main
-procedure main()
-    uses io.write, io.read, fs, alloc.heap
-: i32 {
-    println("Enter your name:")
-    let name = io::read_line()
-    println("Hello, {}!", name)
-    result 0
-}
-
-// Early exit on error
-function main(): i32 {
-    let config = load_config() match {
+    let config = load_config(args[1]) match {
         Ok(c) => c,
         Err(e) => {
             eprintln("Config error: {}", e)
@@ -1777,7 +1441,7 @@ function main(): i32 {
         }
     }
 
-    // Continue with config...
+    // Process with config...
     result 0
 }
 ```
@@ -1879,258 +1543,37 @@ comptime function evaluation exceeds implementation limits
 ERROR (E9F-0108): comptime evaluation exceeded limits
 ```
 
-#### Examples
+#### Example
 
 ```cursive
-// Simple comptime function
+// Comptime function for compile-time computation
 comptime function factorial(n: i32): i32 {
-    if n <= 1 {
-        result 1
-    } else {
-        result n * factorial(n - 1)
-    }
+    if n <= 1 { result 1 }
+    else { result n * factorial(n - 1) }
 }
 
-const FACT_10: i32 = factorial(10)  // Evaluated at compile time
+const FACT_10: i32 = factorial(10)          // Const initializer
+type Buffer = [u8; factorial(4) * 256]      // Array length expression
 
-// Comptime function for array size
-comptime function buffer_size(n: usize): usize {
-    result n * 1024
+function connect(host: string, timeout: i32 = factorial(5) * 100): () {
+    // Default parameter uses comptime function
 }
 
-type Buffer = [u8; buffer_size(4)]  // [u8; 4096]
-
-// Comptime function in default parameter
-comptime function default_timeout(): i32 {
-    result 5000
-}
-
-function connect(host: string, timeout: i32 = default_timeout()): Result<Connection, Error> {
-    // ...
-}
-
-// Conditional compilation with comptime
-comptime function is_debug_build(): bool {
-    // Implementation-specific query
-    // ...
-}
-
-function log_debug(msg: string) {
-    comptime {
-        if is_debug_build() {
-            // Debug-only logging code injected at compile time
-        }
-    }
-}
-
-// Comptime string manipulation
-comptime function concat_prefix(prefix: string, name: string): string {
-    result prefix + "_" + name
-}
-
-const CONFIG_KEY: string = concat_prefix("app", "database")  // "app_database"
-```
-
-**Invalid examples:**
-
-```cursive
-// ERROR: Comptime function with effects
-comptime function read_file(path: string): string  // ERROR E9F-0107
-    uses fs.read
-{
-    fs::read_to_string(path)
-}
-
-// ERROR: Calling comptime function at runtime
-comptime function double(x: i32): i32 { x * 2 }
-
+// ERROR: Runtime call to comptime function
 function runtime(n: i32): i32 {
-    double(n)  // ERROR E9F-0103
+    // factorial(n)  // ERROR E9F-0103: requires compile-time context
+    result n
 }
 
-// ERROR: Non-evaluable body
-comptime function random(): i32 {  // ERROR E9F-0102
-    std::random::gen()  // Not compile-time evaluable
-}
+// ERROR: Comptime with effects
+// comptime function read_cfg(): string  // ERROR E9F-0107: must be pure
+//     uses fs.read
+// { ... }
 ```
 
-### 9.2.10 Examples and Diagnostics Summary
+### 9.2.10 Summary
 
-This subsection provides comprehensive examples demonstrating function declarations and common error scenarios.
-
-#### Comprehensive Examples
-
-```cursive
-// =============================================================================
-// MODULE-SCOPE FUNCTIONS
-// =============================================================================
-
-// Pure function
-function add(x: i32, y: i32): i32 {
-    result x + y
-}
-
-// Generic function with bounds
-function max<T: Ordered>(a: T, b: T): T {
-    if a > b { result a } else { result b }
-}
-
-// Effect-polymorphic function
-function transform<T, U, ε>(xs: [T], f: (T) → U ! ε): [U]
-    uses alloc.heap, ε
-{
-    let result = Vec::new()
-    loop x in xs {
-        result::push(f(x))
-    }
-    result result::into_array()
-}
-
-// Function with defaults and named parameters
-function request(url: string, method: string = "GET", *, timeout_ms: i32 = 5000, retry: bool = true): Result<Response, Error>
-    uses io.network
-{
-    // ... implementation
-}
-
-// Expression-bodied functions
-function square(x: i32): i32 = x * x
-function is_positive(x: i32): bool = x > 0
-
-// =============================================================================
-// ASSOCIATED FUNCTIONS (TYPE-SCOPE, NO SELF)
-// =============================================================================
-
-record Point {
-    x: f64
-    y: f64
-
-    function origin(): Point {
-        Point { x: 0.0, y: 0.0 }
-    }
-
-    function new(x: f64, y: f64): Point = Point { x, y }
-
-    function from_tuple(t: (f64, f64)): Point = Point { x: t.0, y: t.1 }
-}
-
-// =============================================================================
-// SPECIAL CALLABLES
-// =============================================================================
-
-// Unsafe function
-unsafe function transmute<T, U>(value: T): U
-    uses unsafe.ptr
-    must size_of::<T>() == size_of::<U>()
-{
-    // Reinterpret bits of T as U
-    // ...
-}
-
-// Extern declaration
-extern "C" {
-    [[no_mangle]]
-    function puts(s: *u8): i32;
-
-    function printf(fmt: *u8, ...): i32;
-}
-
-// Comptime function
-comptime function compile_time_hash(s: string): u64 {
-    // Hash computation at compile time
-    // ...
-}
-
-// Entry point
-function main(args: [string]): i32 {
-    if args.len() < 2 {
-        eprintln("Usage: {} <input>", args[0])
-        return 1
-    }
-
-    let result = process(args[1])
-    println("Result: {}", result)
-    result 0
-}
-```
-
-#### Common Error Scenarios
-
-```cursive
-// ERROR E9F-0301: Missing return on some paths
-function bad_incomplete(x: i32): i32 {  // ERROR
-    if x > 0 {
-        result x
-    }
-    // Missing else branch or final result
-}
-
-// ERROR E9F-0302: return in expression-bodied function
-function bad_return(x: i32): i32 = return x  // ERROR
-
-// ERROR E9F/P-0201: Unknown named argument
-function config(*, port: i32): () { }
-// config(host: "localhost")  // ERROR: 'host' not a parameter
-
-// ERROR E9F/P-0202: Duplicate named argument
-// config(port: 80, port: 443)  // ERROR: duplicate 'port'
-
-// ERROR E9F/P-0203: Missing required argument
-function required(x: i32, y: i32): i32 { x + y }
-// required(1)  // ERROR: missing 'y'
-
-// ERROR E9F/P-0204: Insufficient permission
-function needs_mut(x: mut i32) { x += 1 }
-let immut: imm i32 = 10
-// needs_mut(mut immut)  // ERROR: cannot upgrade imm to mut
-
-// ERROR E9F/P-0205: Positional parameter passed by name
-function pos(x: i32, y: i32): i32 { x + y }
-// pos(x: 1, y: 2)  // ERROR: x and y are positional
-
-// ERROR E9F/P-0206: Default references later parameter
-// function bad_default(x: i32 = y, y: i32): i32 { x + y }  // ERROR
-
-// ERROR E9F-0101: Unsafe call without unsafe block
-unsafe function dangerous(): () { }
-procedure call_it() {
-    // dangerous()  // ERROR: requires unsafe block
-    unsafe { dangerous() }  // OK
-}
-
-// ERROR E9F-0102: Non-evaluable comptime function body
-// comptime function read(): string {  // ERROR
-//     fs::read_to_string("file.txt")
-// }
-
-// ERROR E9F-0103: Comptime call outside const context
-comptime function double(x: i32): i32 { x * 2 }
-function runtime(n: i32): i32 {
-    // double(n)  // ERROR: not a const context
-    result n * 2  // Must use runtime computation
-}
-
-// ERROR E9F-0104: Generic defaults on functions
-// function invalid<T = i32>(x: T): T { x }  // ERROR: no defaults on function generics
-
-// ERROR E9F-0105: Multiple main definitions
-// function main(): i32 { 0 }
-// function main(args: [string]): i32 { 0 }  // ERROR: duplicate main
-
-// ERROR E9F-0107: Comptime function with effects
-// comptime function impure(): i32  // ERROR
-//     uses io.write
-// { println("hi"); 0 }
-
-// ERROR E9F-0601: Variadic in non-extern
-// function variadic(fmt: string, ...): i32 { 0 }  // ERROR: only in extern
-
-// ERROR E9F-0602: Extern call without ffi.call effect
-extern "C" { function ext(): i32; }
-procedure call_ext() {  // ERROR: missing uses ffi.call
-    unsafe { ext() }
-}
-```
+See preceding subsections (§9.2.1-9.2.9) for detailed examples and diagnostics for each function declaration feature.
 
 ---
 
@@ -2454,36 +1897,16 @@ The following operations ARE allowed on `self`:
 
 **Rule**: The `self` binding **cannot be shadowed** by inner `let` or `var` declarations.
 
-**Rationale**: Shadowing `self` would create confusion about which object is being operated on, violating local reasoning principles. The `self` binding must remain unambiguous throughout the procedure body.
-
-```cursive
-record Example {
-    value: i32
-
-    procedure bad_shadow(self: Example) {
-        let self = Example { value: 99 }  // ❌ ERROR E9F-9302: cannot shadow self
-        println(self.value)
-    }
-
-    procedure ok_rename(self: Example) {
-        let other = Example { value: 99 }  // ✅ OK: different name
-        println(self.value)  // self is unchanged
-        println(other.value)
-    }
-}
-```
-
-**Pattern matching on self**: The `self` value CAN be used in pattern matching (e.g., destructuring), but this does not rebind or shadow `self`:
+**Rationale**: Shadowing `self` would create confusion about which object is being operated on, violating local reasoning principles.
 
 ```cursive
 record Point {
-    x: f64,
-    y: f64
+    x: f64, y: f64
+
+    // procedure bad(self: Point) { let self = ...; }  // ERROR E9F-9302: cannot shadow self
 
     procedure describe(self: Point): String {
-        // Destructure self's fields (doesn't shadow self)
-        let Point { x, y } = self  // ✅ OK: extract fields, self remains valid
-
+        let Point { x, y } = self  // OK: destructure fields, self remains valid
         result format("Point at ({}, {})", x, y)
     }
 }
@@ -2492,51 +1915,21 @@ record Point {
 **Error E9F-9302**: Cannot shadow `self` parameter
 The `self` binding is reserved and cannot be shadowed by inner declarations.
 
-**Examples:**
+**Example:**
 
 ```cursive
 record Stack<T> {
     items: Vec<T>
 
-    // Block-bodied immutable procedure
-    procedure peek(self: Stack<T>): Option<T> {
-        if self.items.is_empty() {
-            result None
-        } else {
-            result Some(self.items[self.items.len() - 1])
-        }
-    }
-
-    // Block-bodied mutable procedure
-    procedure push(self: mut Stack<T>, item: T) {
+    procedure push(self: mut Stack<T>, item: T) {       // mut permission
         self.items::push(item)
     }
 
-    // Block-bodied consuming procedure
-    procedure into_vec(self: own Stack<T>): Vec<T> {
+    procedure into_vec(self: own Stack<T>): Vec<T> {    // own permission (consuming)
         result self.items
     }
 
-    // Expression-bodied procedures
-    procedure len(self: Stack<T>): usize = self.items.len()
-
-    procedure is_empty(self: Stack<T>): bool = self.items.len() == 0
-
-    procedure pop(self: mut Stack<T>): Option<T> = self.items::pop()
-
-    // Early return with deferred cleanup
-    procedure pop_multiple(self: mut Stack<T>, count: usize): Vec<T> {
-        let result = Vec::new()
-        defer { println("Popped {} items", result.len()) }
-
-        loop i in 0..count {
-            match self::pop() {
-                Some(item) => result::push(item),
-                None => return result  // Defer executes before return
-            }
-        }
-        result result
-    }
+    procedure len(self: Stack<T>): usize = self.items.len()  // imm permission (expression-bodied)
 }
 ```
 
@@ -2566,39 +1959,23 @@ procedure effect signature valid
 call permitted
 ```
 
-**Examples:**
+**Example:**
 
 ```cursive
 record Logger {
     file: File
 
-    // Effectful procedure
     procedure log(self: mut Logger, msg: string)
         uses io.write
     {
         self.file::write_line(msg)
     }
 
-    // Effect propagation
-    procedure log_error(self: mut Logger, error: Error)
-        uses io.write
-    {
-        self::log("ERROR: " + error.message())  // Propagates io.write
-    }
-
-    // Multiple effects
-    procedure rotate_and_log(self: mut Logger, msg: string)
-        uses io.write, fs.rename
-    {
-        fs::rename(self.file.path(), self.file.path() + ".old")
-        self::log(msg)
-    }
-
     // Effect-polymorphic procedure
     procedure log_with<F, ε>(self: mut Logger, f: () → string ! ε)
         uses io.write, ε
     {
-        self::log(f())
+        self::log(f())  // Combines io.write + ε
     }
 }
 ```
@@ -2629,14 +2006,13 @@ at call site: P must hold
 at return: Q must hold
 ```
 
-**Examples:**
+**Example:**
 
 ```cursive
 record BoundedCounter {
     value: i32
     max: i32
 
-    // Precondition on parameter
     procedure set(self: mut BoundedCounter, n: i32)
         must n >= 0
         must n <= self.max
@@ -2645,7 +2021,6 @@ record BoundedCounter {
         self.value = n
     }
 
-    // Postcondition with result
     procedure increment(self: mut BoundedCounter): bool
         will result == (self.value < self.max)
     {
@@ -2656,28 +2031,6 @@ record BoundedCounter {
             result false
         }
     }
-
-    // Invariant preservation
-    procedure double(self: mut BoundedCounter)
-        must self.value * 2 <= self.max
-        will self.value <= self.max
-    {
-        self.value *= 2
-    }
-
-    // Complex contract with consuming receiver
-    procedure into_validated(self: own BoundedCounter): Result<i32, Error>
-        will match result {
-            Ok(v) => v >= 0 && v <= self.max,
-            Err(_) => true
-        }
-    {
-        if self.value >= 0 && self.value <= self.max {
-            result Ok(self.value)
-        } else {
-            result Err(Error::new("Counter out of bounds"))
-        }
-    }
 }
 ```
 
@@ -2685,34 +2038,28 @@ record BoundedCounter {
 
 Procedures on modal types (Part X) may specify state transitions. The receiver's modal state determines which procedures are callable.
 
-**State constraints:**
+**Example:**
 
 ```cursive
 modal File {
     states { Closed, Open }
 
-    // Only callable in Closed state
     procedure File@Closed::open(self: own File@Closed): Result<File@Open, Error>
         uses fs.open
     {
-        // Transition Closed → Open
-        // ...
+        // Transition: Closed → Open
     }
 
-    // Only callable in Open state
     procedure File@Open::read(self: File@Open, buf: mut [u8]): Result<usize, Error>
         uses fs.read
     {
         // Remains in Open state
-        // ...
     }
 
-    // Transition Open → Closed
     procedure File@Open::close(self: own File@Open): File@Closed
         uses fs.close
     {
-        // Transition Open → Closed
-        // ...
+        // Transition: Open → Closed
     }
 }
 ```
@@ -2794,175 +2141,9 @@ Point::translate(p1, 1.0, 1.0)     // Explicit receiver
 let d2 = Point::distance(p1, p2)   // Explicit receiver
 ```
 
-### 9.3.8 Examples and Diagnostics
+### 9.3.8 Summary
 
-**Comprehensive examples:**
-
-```cursive
-// =============================================================================
-// TYPICAL RECORD WITH PROCEDURES
-// =============================================================================
-
-record Vec2 {
-    x: f64
-    y: f64
-
-    // Constructor (associated function)
-    function zero(): Vec2 = Vec2 { x: 0.0, y: 0.0 }
-
-    // Immutable procedures
-    procedure length(self: Vec2): f64 = (self.x * self.x + self.y * self.y).sqrt()
-
-    procedure normalized(self: Vec2): Vec2 {
-        let len = self::length()
-        result Vec2 { x: self.x / len, y: self.y / len }
-    }
-
-    procedure dot(self: Vec2, other: Vec2): f64 =
-        self.x * other.x + self.y * other.y
-
-    // Mutable procedures
-    procedure scale(self: mut Vec2, factor: f64) {
-        self.x *= factor
-        self.y *= factor
-    }
-
-    procedure normalize(self: mut Vec2) {
-        let len = self::length()
-        self.x /= len
-        self.y /= len
-    }
-
-    // Consuming procedure
-    procedure into_array(self: own Vec2): [f64; 2] = [self.x, self.y]
-}
-
-// =============================================================================
-// BUILDER PATTERN
-// =============================================================================
-
-record HttpRequestBuilder {
-    url: string,
-    method: string,
-    headers: Map<string, string>
-
-    function new(url: string): HttpRequestBuilder {
-        HttpRequestBuilder {
-            url,
-            method: "GET",
-            headers: Map::new()
-        }
-    }
-
-    procedure with_method(self: mut HttpRequestBuilder, method: string) {
-        self.method = method
-    }
-
-    procedure with_header(self: mut HttpRequestBuilder, key: string, value: string) {
-        self.headers::insert(key, value)
-    }
-
-    procedure build(self: own HttpRequestBuilder): HttpRequest {
-        HttpRequest {
-            url: self.url,
-            method: self.method,
-            headers: self.headers
-        }
-    }
-}
-
-// Usage
-let request = HttpRequestBuilder::new("https://example.com")
-    |> (|b| { b::with_method("POST") })
-    |> (|b| { b::with_header("Content-Type", "application/json") })
-    |> (|b| -> b::build())
-
-// =============================================================================
-// STATE MACHINE
-// =============================================================================
-
-modal Connection {
-    states { Disconnected, Connecting, Connected, Failed }
-
-    function Connection@Disconnected::new(host: string): Connection@Disconnected {
-        // ...
-    }
-
-    procedure Connection@Disconnected::connect(self: own Connection@Disconnected): Connection@Connecting
-        uses io.network
-    {
-        // Start connection attempt
-        // ...
-    }
-
-    procedure Connection@Connecting::poll(self: Connection@Connecting): ConnectionState
-        uses io.network
-    {
-        // Check connection status
-        // ...
-    }
-
-    procedure Connection@Connected::send(self: Connection@Connected, data: [u8]): Result<(), Error>
-        uses io.network
-    {
-        // Send data
-        // ...
-    }
-
-    procedure Connection@Connected::disconnect(self: own Connection@Connected): Connection@Disconnected
-        uses io.network
-    {
-        // Close connection
-        // ...
-    }
-}
-```
-
-**Common errors:**
-
-```cursive
-record Example {
-    value: i32
-
-    // ERROR E9P-0101: Missing self parameter
-    // procedure bad(): i32 {  // ERROR: no self parameter provided
-    //     result 0
-    // }
-
-    // ERROR E9P-0102: Self must be type Self
-    // procedure bad(self: Example2): i32 {  // ERROR: wrong type
-    //     result self.value
-    // }
-
-    // ERROR E9P-0103: Both $ and explicit self
-    // procedure bad($, self: Example): i32 {  // ERROR: conflicting forms
-    //     result 0
-    // }
-
-    // ERROR E9F/P-0402: Insufficient receiver permission
-    procedure mutate(self: mut Example) { self.value += 1 }
-
-    // ERROR E9F-0301: Missing return
-    // procedure incomplete(self: Example): i32 {  // ERROR
-    //     if self.value > 0 {
-    //         result self.value
-    //     }
-    //     // Missing else or final result
-    // }
-
-    // ERROR E9F-0302: return in expression-bodied
-    // procedure bad_expr($): i32 = return self.value  // ERROR
-
-    // ERROR: Cannot reassign self
-    procedure bad_reassign(self: mut Example) {
-        // self = Example { value: 10 }  // ERROR: self is not reassignable
-        self.value = 10  // OK: mutate field
-    }
-}
-
-let e: imm Example = Example { value: 0 }
-// e::mutate()  // ERROR: imm cannot satisfy mut
-```
+See preceding subsections (§9.3.1-9.3.7) for detailed examples and diagnostics for procedure declarations, receiver permissions, state transitions, and contract integration.
 
 ---
 

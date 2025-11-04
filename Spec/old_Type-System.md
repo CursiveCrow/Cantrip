@@ -1213,40 +1213,7 @@ There are currently no open Type System issues. Historical discussion items have
 
 ### 2.1.0 Overview
 
-#### 2.1.0.1 Scope
-
-Section §2.1 governs the syntax, typing, and runtime behavior of primitive scalar and text types. This section specifies:
-
-- **Integer types** (§2.1.1): Fixed-width signed and unsigned integers
-- **Floating-point types** (§2.1.2): IEEE 754 binary floating-point numbers
-- **Boolean type** (§2.1.3): Two-valued logic type
-- **Character type** (§2.1.4): Unicode scalar values
-- **Never type** (§2.1.5): Bottom type for diverging computations
-- **String types** (§2.1.6): UTF-8 encoded text with modal states
-
-#### 2.1.0.2 Dependencies and Notation
-
-Primitive types rely on:
-
-- The Lexical Permission System (Part XII) for move semantics and permission tracking
-- The effect taxonomy (Part VI) for operations requiring `alloc.heap` (owned strings)
-- Metavariables from §2.0.4 and §1.3
-
-CITE: §2.0.4 — Notational Conventions; §1.3 — Metavariables; Part XII — Memory, Permissions, and Concurrency; Part VI — Contracts and Effects.
-
-#### 2.1.0.3 Guarantees
-
-Primitive types provide the following compile-time guarantees:
-
-1. **Memory safety:** All primitive operations preserve memory safety. Out-of-range accesses, invalid UTF-8, and undefined arithmetic MUST be detected or prevented.
-
-2. **Permission respect:** All primitive types honor LPS permissions. Immutable references prohibit mutation; owned values enable transfer.
-
-3. **Effect isolation:** Operations with side effects (heap allocation, panics) MUST declare effects via `uses ε` clauses.
-
-4. **Overflow semantics:** Integer overflow behavior is well-defined: checked in debug mode (panic), wrapping in release mode, with explicit methods for other strategies.
-
-5. **UTF-8 invariant:** String types MUST maintain UTF-8 validity at all times. Invalid UTF-8 construction MUST be rejected.
+Section §2.1 specifies primitive scalar and text types: integers (§2.1.1), floats (§2.1.2), boolean (§2.1.3), character (§2.1.4), never type (§2.1.5), and strings (§2.1.6). These types integrate with the Lexical Permission System (Part IV), effect system (Part VII), and provide compile-time guarantees for memory safety, permission tracking, effect isolation, well-defined overflow semantics, and UTF-8 validity. CITE: §2.0.4, §1.3, Part IV, Part VII.
 
 ### 2.1.1 Integer Types
 
@@ -1260,37 +1227,12 @@ Integer types provide fixed-width signed and unsigned integer values with explic
 
 **Literal syntax:** Integer literal forms (decimal, hexadecimal, octal, binary, and optional suffixes) are defined in Appendix A.1 under numeric literals.
 
-**Underscore separators:**
-
-- Underscores (`_`) MAY appear between digits for readability
-- Underscores are ignored during value computation
-- Underscores MUST NOT appear at the start or end of the literal
-- Underscores MUST NOT appear adjacent to the base prefix (`0x`, `0b`, `0o`)
-
-**Examples:**
-
-```cursive
-// Decimal literals
-let a: i32 = 42
-let b: u64 = 1_000_000    // Underscores for readability
-let c = 42i8              // Type suffix
-
-// Hexadecimal
-let hex: u32 = 0xDEAD_BEEF
-
-// Octal
-let oct: u16 = 0o755
-
-// Binary
-let bin: u8 = 0b1010_1010
-```
+Underscore separators (`_`) MAY appear between digits for readability but MUST NOT appear at the start, end, or adjacent to base prefixes.
 
 **Abstract syntax:**
 
 ```
-τ ::= i8 | i16 | i32 | i64 | isize      (signed integers)
-    | u8 | u16 | u32 | u64 | usize      (unsigned integers)
-
+τ ::= i8 | i16 | i32 | i64 | isize | u8 | u16 | u32 | u64 | usize
 v ::= n    (integer value)
 ```
 
@@ -1340,20 +1282,16 @@ n ∈ ⟦T⟧    (n fits in range of T)
 
 Context annotations override the default when the value fits in the target type.
 
-**Type inference priority:**
-
-1. Explicit suffix (highest): `42u64 : u64`
-2. Context annotation: `let x: u8 = 42` infers `42 : u8`
-3. Default type (lowest): `let x = 42` infers `42 : i32`
-
-**Examples:**
+**Canonical example:**
 
 ```cursive
 let x = 42           // Type: i32 (default)
-let y: u8 = 42       // Type: u8 (context)
-let z = 42u64        // Type: u64 (suffix)
-let w: i8 = 200      // ERROR E2101: 200 doesn't fit in i8 range [-128, 127]
+let y: u8 = 42       // Type: u8 (context override)
+let z = 42u64        // Type: u64 (suffix override, highest priority)
+let w = 0xFF_00      // Hexadecimal with underscore separator
 ```
+
+Type inference priority: (1) Explicit suffix, (2) Context annotation, (3) Default (`i32`).
 
 **Type properties:**
 
@@ -1423,38 +1361,7 @@ Integer overflow semantics (debug panic vs release wrap) are specified in Part I
 
 CITE: Part IV §4.5.1.3 — Integer Arithmetic Evaluation; Part IV §4.5.1.6 — Overflow Control.
 
-**Memory representation:**
-
-Integers use two's complement representation (signed) or unsigned binary with platform-native byte order.
-
-**Two's complement (signed):** For signed integer n of bit-width w:
-
-```
-If n ≥ 0: binary representation of n
-If n < 0: binary representation of 2^w + n
-
-Example (i8):
-  127 → 0x7F → 01111111
-    0 → 0x00 → 00000000
-   -1 → 0xFF → 11111111
- -128 → 0x80 → 10000000
-```
-
-**Byte order:**
-
-```
-Value: 0x12345678 (i32)
-
-Little-endian (x86-64, ARM64):
-Address: [0]  [1]  [2]  [3]
-Value:   0x78 0x56 0x34 0x12
-
-Big-endian (some RISC):
-Address: [0]  [1]  [2]  [3]
-Value:   0x12 0x34 0x56 0x78
-```
-
-Cursive follows the platform's native byte order.
+**Memory representation:** Integers use two's complement representation (signed) or unsigned binary with platform-native byte order.
 
 ### 2.1.2 Floating-Point Types
 
@@ -1468,22 +1375,18 @@ Floating-point types conform to IEEE 754-2008 binary floating-point standard wit
 
 **Literal syntax:** Floating-point literal forms (decimal, fractional, exponential, suffix) are defined in Appendix A.1.
 
-**Examples:**
+**Canonical example:**
 
 ```cursive
-let pi: f64 = 3.14159
-let e: f32 = 2.71828f32
-let avogadro: f64 = 6.022e23
-let planck: f64 = 6.626e-34
-let x = 1.0f32
-let large: f64 = 299_792_458.0
+let x = 3.14         // Type: f64 (default)
+let y: f32 = 2.71    // Type: f32 (context override)
+let z = 6.022e23f64  // Scientific notation with suffix
 ```
 
 **Abstract syntax:**
 
 ```
 τ ::= f32 | f64
-
 v ::= f    (floating-point value, including ±0, ±∞, NaN)
 ```
 
@@ -1515,35 +1418,7 @@ T ∈ {f32, f64}
 
 **Type properties:**
 
-**Theorem 2.8 (IEEE 754 Representation):**
-
-Cursive floating-point types conform to IEEE 754-2008:
-
-| Type  | Format   | Sign  | Exponent | Mantissa | Total   |
-| ----- | -------- | ----- | -------- | -------- | ------- |
-| `f32` | binary32 | 1 bit | 8 bits   | 23 bits  | 32 bits |
-| `f64` | binary64 | 1 bit | 11 bits  | 52 bits  | 64 bits |
-
-**Theorem 2.9 (Floating-Point Value Set):**
-
-```
-⟦f32⟧ = IEEE754_single = {
-    ±0,                    (positive/negative zero)
-    ±∞,                    (positive/negative infinity)
-    NaN,                   (not-a-number)
-    normalized values,     (standard representation)
-    denormalized values    (gradual underflow)
-}
-
-⟦f64⟧ = IEEE754_double (same structure, higher precision)
-```
-
-**Theorem 2.10 (Copy Capability):**
-
-```
-f32 : Copy
-f64 : Copy
-```
+**Theorem 2.8 (IEEE 754 Conformance):** Cursive floating-point types conform to IEEE 754-2008 (`f32` = binary32, `f64` = binary64), including ±0, ±∞, NaN, normalized, and denormalized values. Both types implement `Copy`.
 
 #### 2.1.2.4 Dynamic Semantics
 
@@ -1555,55 +1430,7 @@ f64 : Copy
 ⟨f, σ⟩ ⇓ ⟨f, σ⟩
 ```
 
-**Arithmetic with special values:**
-
-```
-x + ∞ = ∞      (for x ≠ -∞)
-∞ + ∞ = ∞
-∞ - ∞ = NaN
-x × ∞ = ∞      (for x > 0)
-x × ∞ = -∞     (for x < 0)
-0 × ∞ = NaN
-x / 0 = ±∞     (for x ≠ 0)
-0 / 0 = NaN
-```
-
-**NaN properties:**
-
-```
-NaN ≠ NaN          (NaN is not equal to itself)
-NaN < x = false    (all comparisons with NaN return false)
-NaN ≤ x = false
-NaN > x = false
-NaN ≥ x = false
-NaN == x = false
-```
-
-**Signed zeros:**
-
-```
-+0.0 == -0.0       (equal for comparison)
-1.0 / +0.0 = +∞
-1.0 / -0.0 = -∞
-```
-
-**Memory representation:**
-
-```
-f32 layout (4 bytes):
-┌-┬--------┬-----------------------┐
-│S│Exponent│      Mantissa         │
-│ │(8 bits)│      (23 bits)        │
-└-┴--------┴-----------------------┘
-Size: 4 bytes, Alignment: 4 bytes
-
-f64 layout (8 bytes):
-┌-┬-----------┬--------------------------------┐
-│S│ Exponent  │         Mantissa               │
-│ │ (11 bits) │         (52 bits)              │
-└-┴-----------┴--------------------------------┘
-Size: 8 bytes, Alignment: 8 bytes
-```
+**Special value semantics:** Arithmetic with ∞, NaN, and ±0 follows IEEE 754-2008. Key properties: `NaN ≠ NaN`, comparisons with NaN return false, `+0.0 == -0.0`, division by zero produces ±∞.
 
 ### 2.1.3 Boolean Type
 

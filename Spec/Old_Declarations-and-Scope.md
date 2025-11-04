@@ -18,17 +18,7 @@ This chapter specifies how Cursive names are introduced, resolved, and made visi
 - The visibility system (public, internal, private, protected)
 - The name resolution algorithm
 
-The system MUST provide unambiguous name resolution, prevent redeclaration errors, support forward references through two-phase compilation, and integrate seamlessly with the permission system (Part IV — Lexical Permission System), effect system (Part VI — Contracts and Effects), and modal types (Part II).
-
-**Design Philosophy:** See Part I (Abstract - Design Philosophy) for Cursive's core design principles. This chapter applies those principles through:
-
-1. **Two-keyword model**: Only `let` (immutable binding) and `var` (mutable binding) exist; no `const` keyword
-2. **Explicit shadowing**: Shadowing requires explicit `shadow` keyword to prevent accidents
-3. **Single namespace**: Types and values share one namespace per scope for simplicity
-4. **Context-driven evaluation**: Compile-time constants are determined by usage context rather than a dedicated `const` keyword
-5. **Permission-aware**: Parameters explicitly declare permissions (`own`, `mut`, `imm`)
-
-**Conformance:** See Part I §1.5–1.7 for conformance criteria, RFC2119 keywords, and document conventions.
+The system MUST provide unambiguous name resolution, prevent redeclaration errors, support forward references through two-phase compilation, and integrate seamlessly with the permission system (Part IV), effect system (Part VI), and modal types (Part II).
 
 ---
 
@@ -58,15 +48,7 @@ This section provides the normative EBNF grammar for all declaration forms that 
 
 ### 3.0.2 Cross-Part Dependencies
 
-The declaration system integrates with other parts of the specification:
-
-- **Part I (Foundations):** This chapter relies on the judgment notation and statement termination rules (newline-terminated declarations) established in §1. CITE: §1.1 — Grammar Notation; §1.2 — Lexical Structure; §1.4 — Judgment Forms.
-
-- **Part II (Type System):** Variable declarations use primitive types (i32, f64, etc.) and modal types (File@Open, etc.) defined in Part II. Type declarations reference the type constructors and well-formedness rules from Part II.
-
-- **Part IV (Lexical Permission System):** Variable bindings and function parameters reference permission qualifiers (`own`, `mut`, `imm`) defined in Part IV. The distinction between binding mutability (`let`/`var`) and value mutability (permissions) is central to the declaration semantics.
-
-- **Part VI (Contracts and Effects):** Function and procedure declarations recognize effect declarations (`uses ...`) as detailed in Part VI. Contract clauses (`must`, `will`) are specified in the contract system.
+CITE: Part I (notation), Part II (types), Part IV (permissions), Part VI (effects).
 
 ### 3.0.3 Complete Declaration Grammar
 
@@ -81,189 +63,17 @@ The canonical EBNF for declarations resides in Appendix A.4. For convenience:
 
 ### 3.0.4 Single Namespace Policy
 
-**Policy Statement:** Types and values occupy a unified namespace per scope.
-
-**Normative requirement:** A record name and a variable name cannot collide in the same scope. This simplifies name resolution for both human programmers and AI assistants.
-
-**Examples:**
-
-```cursive
-record Point { x: f64, y: f64 }
-let Point = get_point()  // ERROR E3D03: conflicts with type Point
-
-let x = 5
-type x = i32  // ERROR E3D03: conflicts with variable x
-```
-
-CITE: §3.7.3 — Namespace Unification for complete rules.
+Types and values occupy a unified namespace per scope; names cannot collide. CITE: §3.7.3.
 
 ### 3.0.5 Scope Ownership
 
-**Scope Introduction Rules:**
-
-- **Module scope:** Top-level declarations introduce module-level names visible throughout the module after two-phase compilation.
-- **Block scope:** Declarations within `{}` introduce block-local names visible from the point of declaration to the end of the block.
-- **Import scope:** Use/import declarations introduce names in the enclosing scope (module or block).
-
-**Visibility rules:** Names introduced in a scope are subject to visibility modifiers that control cross-module access.
-
-CITE: §3.7 — Scope Rules; §3.10 — Visibility and Access Control.
+Module scope: top-level declarations. Block scope: declarations within `{}`. Import scope: use/import declarations. CITE: §3.7, §3.10.
 
 ---
 
 ## 3.1 Declarations Overview
 
-### 3.1.1 Taxonomy of Declarations
-
-Cursive supports six primary declaration forms, each introducing names into scopes:
-
-1. **Variable Declarations** (`let`, `var`): Introduce bindings to values with explicit mutability control.
-
-2. **Type Declarations**: Introduce new nominal types (records, enums, modals) or type aliases.
-
-3. **Function Declarations** (`function`): Introduce pure callable entities with no side effects.
-
-4. **Procedure Declarations** (`procedure`): Introduce callable entities that may perform side effects.
-
-5. **Contract Declarations** (`contract`): Introduce abstract interface types specifying behavioral requirements.
-
-6. **Trait Declarations** (`trait`): Introduce concrete code reuse abstractions with default implementations.
-
-**Key distinction:** Functions are pure (no effects), procedures may have effects. Both introduce callable names in module scope.
-
-### 3.1.2 Declaration Levels
-
-Declarations may appear at three levels:
-
-**Module Scope (File-Level):**
-
-- All six declaration forms permitted
-- Names visible throughout module after two-phase compilation
-- Visibility modifiers control cross-module access
-- Static storage duration for variables
-
-**Function Scope:**
-
-- Only variable declarations (`let`, `var`) permitted
-- Local function declarations NOT PERMITTED (E3D11)
-- Parameters occupy function's outermost local scope
-- Labels have function-wide visibility
-
-**Block Scope:**
-
-- Only variable declarations (`let`, `var`) permitted
-- Use/import declarations permitted (block-scoped imports)
-- Names visible from declaration point to end of block
-- Automatic storage duration for variables
-
-CITE: §3.5.1 — Function Declarations; §3.7.1 — Scope Hierarchy.
-
-### 3.1.3 Two-Phase Compilation Model
-
-Cursive employs two-phase compilation enabling forward references:
-
-**Phase 1 (Declaration Collection):**
-
-- Collect all declaration names and signatures
-- Build symbol tables for each scope
-- No type checking or body analysis
-
-**Phase 2 (Type Checking):**
-
-- Resolve all name references
-- Type check expression bodies
-- Verify contract clauses
-
-**Implication:** Functions, types, and other declarations may reference entities declared later in the same scope.
-
-**Example:**
-
-```cursive
-// Forward reference - OK
-function foo() {
-    bar()  // bar defined below
-}
-
-function bar() {
-    foo()  // mutual recursion allowed
-}
-
-// Type forward reference - OK
-record Node {
-    value: i32
-    next: Ptr<Node>  // references self
-}
-```
-
-CITE: §3.4.4 — Forward References; §3.7.1 — Module Scope.
-
-### 3.1.4 Two-Keyword Binding Model
-
-**Design Principle:** Cursive uses only two keywords for variable bindings to maximize LLM-friendliness and reduce cognitive load.
-
-**The two keywords:**
-
-1. **`let`** — Immutable binding (cannot reassign)
-2. **`var`** — Mutable binding (can reassign)
-
-**No `const` keyword exists in Cursive.**
-
-**Rationale:**
-
-- **LLM-friendly:** Binary decision tree (mutable? → var, else → let)
-- **Explicit:** Context determines compile-time vs runtime evaluation
-- **Simple:** Fewer keywords to remember and specify
-- **Composable:** Works naturally with modal types and permissions
-
-**Compile-time constants** are achieved through context-driven evaluation (§3.3), not a separate keyword.
-
-CITE: §3.2 — Variable Declarations; §3.3 — Compile-Time Evaluation.
-
-### 3.1.5 Single-Binding Rule (Overview)
-
-**Principle:** A name may be introduced at most once per lexical scope.
-
-**Purpose:**
-
-- Prevents accidental redeclaration bugs
-- Simplifies name resolution for LLMs
-- Makes rebinding intent explicit (use `shadow` in nested scope)
-
-**Example:**
-
-```cursive
-let x = 5
-let x = 10  // ERROR E3D01: redeclaration in same scope
-
-{
-    shadow let x = 10  // OK: nested scope with explicit shadow
-}
-```
-
-CITE: §3.2.2 — Single-Binding Rule (detailed specification).
-
-### 3.1.6 Explicit Shadowing (Overview)
-
-**Principle:** Shadowing an outer binding requires the `shadow` keyword.
-
-**Purpose:**
-
-- Prevents accidental shadowing (common source of bugs)
-- Makes shadowing intent explicit and machine-checkable
-- Improves code clarity for both humans and LLMs
-
-**Example:**
-
-```cursive
-let value = 10
-{
-    let value = 20  // ERROR E3D02: implicit shadowing
-
-    shadow let value = 20  // OK: explicit shadowing
-}
-```
-
-CITE: §3.2.3 — Explicit Shadowing (detailed specification).
+Cursive supports six declaration forms (variables, types, functions, procedures, contracts, traits) appearing at module, function, or block scope. Two-phase compilation enables forward references. The two-keyword binding model (`let` immutable, `var` mutable) maximizes LLM-friendliness. Single-binding rule prevents redeclaration; shadowing requires explicit `shadow` keyword to prevent bugs. CITE: §3.2–3.5 for detailed specifications.
 
 ---
 
@@ -291,19 +101,11 @@ var y = 5      // Mutable binding
 
 **Initializer:** Mandatory. All variables must be initialized at declaration.
 
-**Examples:**
+**Example:**
 
 ```cursive
-// Immutable bindings
-let x: i32 = 42
-let name = "Alice"  // Type inferred: string
-
-// Mutable bindings
-var counter: i32 = 0
-var buffer = Vec.new()  // Type inferred: Vec<T>
-
-// Type inference
-let point = Point { x: 10.0, y: 20.0 }  // Type inferred: Point
+let x: i32 = 42        // Immutable
+var counter = 0        // Mutable, type inferred
 ```
 
 ### 3.2.2 Single-Binding Rule (Normative)
@@ -383,9 +185,7 @@ outer x is type, attempting to shadow with value (or vice versa)
 ERROR E3D03: Cannot shadow type '{x}' with value (or vice versa)
 ```
 
-**Examples:**
-
-**Valid shadowing:**
+**Example:**
 
 ```cursive
 let value = 10
@@ -395,38 +195,6 @@ let value = 10
 }
 println(value)  // Prints 10 (original)
 ```
-
-**Implicit shadowing error:**
-
-```cursive
-let count = 5
-{
-    let count = 10  // ERROR E3D02: Implicit shadowing; use 'shadow let count'
-}
-```
-
-**Invalid shadow error:**
-
-```cursive
-{
-    shadow let x = 10  // ERROR E3D07: No outer binding 'x' to shadow
-}
-```
-
-**Namespace conflict error:**
-
-```cursive
-record Point { x: f64, y: f64 }
-{
-    shadow let Point = get_point()  // ERROR E3D03: Cannot shadow type with value
-}
-```
-
-**Diagnostics:**
-
-- **E3D02:** "Implicit shadowing of '{name}'; use 'shadow let {name}'"
-- **E3D07:** "Invalid shadow; no outer binding named '{name}'"
-- **E3D03:** "Namespace conflict: cannot shadow {type|value} '{name}' with {value|type}"
 
 ### 3.2.4 Uniform Binding Invariants (Normative)
 
@@ -439,35 +207,17 @@ record Point { x: f64, y: f64 }
 - **Binding immutability** (`let`): The binding itself cannot be reassigned to point to a different value.
 - **Value mutability** (permissions): Whether the value can be mutated in-place through the binding depends on permissions (`own`, `mut`, `imm`).
 
-**Example 1: Modal with immutable binding but mutable state**
+**Canonical example:**
 
 ```cursive
-let file: File@Open = open("data.txt")
-// Binding 'file' is immutable (cannot reassign)
-// file::read() may mutate internal state (modal transitions allowed)
-
-file::read()  // OK: modal procedure may modify state
-file = open("other.txt")  // ERROR E3D10: cannot reassign let binding
-```
-
-**Example 2: Mutable binding allows reassignment**
-
-```cursive
-var counter: i32 = 0
-counter = 5     // OK: var allows reassignment
-counter += 1    // OK: mutation through reassignment
-```
-
-**Example 3: Immutable binding with mutable permission**
-
-```cursive
+// Immutable binding with mutable permission
 let buffer: mut Vec<u8> = get_buffer()
-// Binding 'buffer' is immutable (cannot reassign buffer itself)
-// 'mut' permission allows mutating the Vec through the binding
-
-buffer.push(42)  // OK: mut permission allows mutation
-buffer.clear()   // OK: mut permission allows mutation
+buffer.push(42)     // OK: mut permission allows mutation
 buffer = other_vec  // ERROR E3D10: cannot reassign let binding
+
+// Mutable binding allows reassignment
+var counter: i32 = 0
+counter = 5         // OK: var allows reassignment
 ```
 
 **Formal integration:** This design integrates cleanly with:
@@ -563,41 +313,22 @@ dominates_initialization(path, var):
     return false
 ```
 
-**Example (Error - uninitialized path):**
+**Canonical example:**
 
 ```cursive
 var x: i32
 if condition {
     x = 5
-}
-use(x)  // ERROR E3D06: x may not be initialized (else branch missing)
-```
-
-**Example (Valid - all paths initialize):**
-
-```cursive
-var y: i32
-if condition {
-    y = 5
 } else {
-    y = 10
+    x = 10
 }
-use(y)  // OK: all paths initialize y
-```
+use(x)  // OK: all paths initialize x
 
-**Example (Complex control flow):**
-
-```cursive
-var result: i32
-match option {
-    Option::Some(value) => {
-        result = value
-    },
-    Option::None => {
-        result = 0
-    }
+var y: i32
+if other_condition {
+    y = 3
 }
-use(result)  // OK: all match arms initialize result
+use(y)  // ERROR E3D06: y may not be initialized (else branch missing)
 ```
 
 **Diagnostic E3D06:**
@@ -691,51 +422,17 @@ CITE: §3.3.2 — Compile-Time Evaluable Expressions; Part X — Comptime Metapr
 
 ### 3.3.2 Compile-Time Evaluable Expressions
 
-An expression is **compile-time evaluable** if it consists only of:
-
-**1. Literals:**
-
-- Integer literals: `42`, `0xFF`, `0b1010`
-- Float literals: `3.14`, `1.0e10`
-- Boolean literals: `true`, `false`
-- Character literals: `'A'`, `'\n'`
-- String literals: `"hello"`
-
-**2. Arithmetic and logical operations on compile-time values:**
-
-```cursive
-let A = 10
-let B = 20
-let C = A + B * 2  // Compile-time: 50
-```
-
-**3. Calls to compile-time functions:**
-
-```cursive
-comptime function double(x: i32): i32 { x * 2 }
-let VALUE = double(21)  // Compile-time: 42
-```
-
-**4. References to other compile-time constants:**
-
-```cursive
-let MAX = 1000
-let HALF_MAX = MAX / 2  // Compile-time: 500
-```
-
-**5. Type expressions and constructors:**
-
-```cursive
-let SIZE = 256
-let ARRAY_TYPE = [i32; SIZE]  // Type expression
-```
-
-**Non-evaluable expressions:**
-
-- Function calls to runtime functions
-- I/O operations
-- Heap allocations (unless in comptime context)
-- References to runtime variables
+| Category | Examples | Evaluable |
+|----------|----------|-----------|
+| Literals | `42`, `3.14`, `true`, `'A'`, `"hello"` | Yes |
+| Arithmetic/logical ops | `A + B * 2` (on const values) | Yes |
+| Comptime function calls | `comptime function f(x) {...}; f(21)` | Yes |
+| Const references | `let MAX = 1000; MAX / 2` | Yes |
+| Type expressions | `[i32; SIZE]` | Yes |
+| Runtime function calls | Regular function calls | No |
+| I/O operations | File/network operations | No |
+| Heap allocations | `new`, `alloc` (non-comptime) | No |
+| Runtime variables | Function-scope variables | No |
 
 ### 3.3.3 Type Position Usage (Normative)
 
@@ -763,88 +460,16 @@ N is not compile-time constant
 ERROR E3D08: Non-const name '{N}' used in type position
 ```
 
-**Examples:**
-
-**Valid (global scope):**
+**Example:**
 
 ```cursive
 let N = 100
 let buffer: [u8; N]  // OK: N is module-scope compile-time constant
-```
 
-**Invalid (function scope):**
-
-```cursive
 function foo() {
     let size = 1024  // Runtime binding (function scope)
     let arr: [i32; size]  // ERROR E3D08: size is not compile-time here
 }
-```
-
-**Valid (generic parameter):**
-
-```cursive
-function generic<M: usize>() {
-    let arr: [i32; M]  // OK: M is compile-time generic parameter
-}
-```
-
-**Valid (comptime block):**
-
-```cursive
-comptime {
-    let COUNT = compute_size()
-}
-let items: [Item; COUNT]  // OK: COUNT from comptime block
-```
-
-**Diagnostic E3D08:**
-
-- **Message:** "Non-const name '{name}' used in type position"
-- **Note:** "Type position requires compile-time constant"
-- **Fix:** "Use global-scope constant or const generic parameter"
-
-### 3.3.4 Examples
-
-**Global compile-time constant:**
-
-```cursive
-let MAX_CONNECTIONS: usize = 1000
-let connection_pool: [Connection; MAX_CONNECTIONS]  // OK
-```
-
-**Function-scope runtime:**
-
-```cursive
-function process(input: string) {
-    let len = input.length()  // Runtime value
-    let buffer: [u8; len]     // ERROR E3D08
-}
-```
-
-**Comptime block:**
-
-```cursive
-comptime {
-    let SIZES = [16, 32, 64, 128]
-    var max = 0
-    loop size in SIZES {
-        if size > max { max = size }
-    }
-    let MAX_SIZE = max  // Compile-time: 128
-}
-
-let cache: [Entry; MAX_SIZE]  // OK: from comptime
-```
-
-**Generic const parameter:**
-
-```cursive
-function make_buffer<const N: usize>(): [u8; N] {
-    [0; N]  // OK: N is compile-time parameter
-}
-
-let buf = make_buffer<256>()  // Type: [u8; 256]
 ```
 
 ---
@@ -992,91 +617,11 @@ procedure log(msg: string) uses io.write { println(msg) }
 
 **Local function declarations: NOT PERMITTED**
 
-**Policy:** Cursive does NOT allow nested function declarations within function bodies.
-
-**Rationale:**
-
-- Simplifies scope rules
-- Reduces nesting complexity
-- Encourages modular design
-- LLM-friendly (fewer nesting patterns)
-
-**Error example:**
-
-```cursive
-function outer() {
-    function inner() {  // ERROR E3D11: Local function declarations not permitted
-        ...
-    }
-}
-```
-
-**Alternative:** Use closures for local callable values:
-
-```cursive
-function outer() {
-    let inner = |x| -> x * 2  // OK: closure, not declaration
-}
-```
-
-**Diagnostic E3D11:**
-
-- **Message:** "Local function declarations not permitted"
-- **Note:** "Functions must be declared at module scope"
-- **Fix:** "Move function to module scope or use a closure"
-
-CITE: Part IX — Functions and Procedures (full syntax).
+Local function declarations are not permitted. Use closures for local callables. CITE: Part IX — Functions and Procedures.
 
 ### 3.5.2 Permission-Aware Parameters (Normative)
 
-**Rule 3.5.1 (Permission-Aware Parameters):** Function and procedure parameters have explicit permissions controlling aliasing and ownership.
-
-**Parameter syntax:** See Appendix A.4 (`Param`, `Permission`) for the formal grammar.
-
-**Default permission:** If no permission is specified, defaults to `imm` (immutable reference).
-
-**Semantics:**
-
-- **`imm T`** (or just `T`): Immutable reference, read-only access, unlimited aliasing
-- **`mut T`**: Mutable reference, read-write access, multiple mutable references allowed
-- **`own T`**: Ownership transfer, full control, caller loses access after call
-
-**Examples:**
-
-**Immutable parameter (default):**
-
-```cursive
-function read_value(x: i32) {
-    println(x)  // Read-only access
-    // x = 10   // ERROR: cannot mutate immutable parameter
-}
-```
-
-**Mutable parameter:**
-
-```cursive
-procedure increment(x: mut i32) {
-    x += 1  // OK: mut allows mutation
-}
-
-var count = 5
-increment(mut count)
-// count is now 6
-```
-
-**Owned parameter:**
-
-```cursive
-procedure consume(data: own string) {
-    // Takes ownership of data
-}
-
-let s = string.from("hello")
-consume(move s)
-// s is no longer accessible (moved)
-```
-
-CITE: Part IV — Lexical Permission System; Part IX §9.4 — Parameters.
+Parameters have explicit permissions (`imm`, `mut`, `own`) controlling aliasing and ownership. Default: `imm`. CITE: Part IV — Lexical Permission System for full semantics.
 
 ### 3.5.3 Parameter Scope
 
@@ -1439,42 +984,17 @@ reference to Symbol1 or Symbol2
 OK: explicit aliases resolve ambiguity
 ```
 
-**Examples:**
-
-**Ambiguous error:**
+**Example:**
 
 ```cursive
 use net::http::Request
 use net::websocket::Request
-
 let req = Request::new()  // ERROR E3D04: Ambiguous 'Request'
-```
 
-**Aliased success:**
-
-```cursive
+// Fix: use aliases or qualification
 use net::http::Request as HttpRequest
-use net::websocket::Request as WsRequest
-
 let http_req = HttpRequest::new()  // OK
-let ws_req = WsRequest::new()      // OK
 ```
-
-**Qualified success:**
-
-```cursive
-use net::http
-use net::websocket
-
-let req1 = http::Request::new()      // OK: qualified
-let req2 = websocket::Request::new() // OK: qualified
-```
-
-**Diagnostic E3D04:**
-
-- **Message:** "Ambiguous identifier '{name}'"
-- **Note:** "Multiple imports provide '{name}'"
-- **Fix:** "Use qualified name or alias imports"
 
 ### 3.8.4 Import Shadowing
 
@@ -2132,298 +1652,5 @@ Other specification parts define full syntax and semantics of their constructs b
 
 ---
 
-## 3.14 Complete Diagnostic Catalog
-
-This section enumerates all diagnostics introduced by the declaration and scope system.
-
-### E3D01: Redeclaration in Same Scope
-
-**Trigger:** Declaring a name that already exists in the current scope.
-
-**Example:**
-
-```cursive
-let x = 5
-let x = 10  // ERROR E3D01
-```
-
-**Fix:** Use a different name or shadow in a nested scope with `shadow let`.
-
----
-
-### E3D02: Implicit Shadowing
-
-**Trigger:** Declaring a name that exists in an outer scope without using `shadow`.
-
-**Example:**
-
-```cursive
-let x = 5
-{
-    let x = 10  // ERROR E3D02
-}
-```
-
-**Fix:** Add `shadow` keyword: `shadow let x = 10`
-
----
-
-### E3D03: Type/Value Namespace Conflict
-
-**Trigger:** A type and value with the same name in the same scope, or attempting to shadow across namespace categories.
-
-**Example:**
-
-```cursive
-record Point { x: f64 }
-let Point = get_point()  // ERROR E3D03
-```
-
-**Fix:** Rename one of the declarations.
-
----
-
-### E3D04: Ambiguous Unqualified Identifier
-
-**Trigger:** Multiple imports provide the same unqualified name.
-
-**Example:**
-
-```cursive
-use mod1::Symbol
-use mod2::Symbol
-let x = Symbol::new()  // ERROR E3D04
-```
-
-**Fix:** Use qualified name (`mod1::Symbol`) or alias imports.
-
----
-
-### E3D06: Use of Uninitialized Variable
-
-**Trigger:** Variable used before it is definitely initialized on all control flow paths.
-
-**Example:**
-
-```cursive
-var x: i32
-if condition { x = 5 }
-use(x)  // ERROR E3D06
-```
-
-**Fix:** Initialize on all paths or initialize at declaration.
-
----
-
-### E3D07: Invalid Shadow
-
-**Trigger:** Using `shadow` when no outer binding exists.
-
-**Example:**
-
-```cursive
-{
-    shadow let x = 10  // ERROR E3D07: no outer 'x'
-}
-```
-
-**Fix:** Remove `shadow` keyword or ensure outer binding exists.
-
----
-
-### E3D08: Non-Const Name in Type Position
-
-**Trigger:** Using a runtime binding where a compile-time constant is required.
-
-**Example:**
-
-```cursive
-function foo() {
-    let size = 1024
-    let arr: [i32; size]  // ERROR E3D08
-}
-```
-
-**Fix:** Use global-scope constant or const generic parameter.
-
----
-
-### E3D09: Region Value Escapes Region
-
-**Trigger:** Attempting to bind or return a region-allocated value outside its region.
-
-**Example:**
-
-```cursive
-region r {
-    let value = alloc_in<r>(data)
-    return value  // ERROR E3D09
-}
-```
-
-**Fix:** Use value within region or allocate with different lifetime.
-
----
-
-### E3D10: Assignment to Immutable Binding
-
-**Trigger:** Attempting to reassign a `let` binding.
-
-**Example:**
-
-```cursive
-let x = 5
-x = 10  // ERROR E3D10
-```
-
-**Fix:** Use `var x` if reassignment is needed.
-
----
-
-### E3D11: Local Function Declarations Not Permitted
-
-**Trigger:** Declaring a function inside a function body.
-
-**Example:**
-
-```cursive
-function outer() {
-    function inner() { ... }  // ERROR E3D11
-}
-```
-
-**Fix:** Move function to module scope or use a closure.
-
----
-
-### E3D12: Cannot Redefine/Shadow Predeclared Identifier
-
-**Trigger:** Attempting to use a built-in type, constant, or function name as a variable/type name.
-
-**Example:**
-
-```cursive
-let i32 = 42  // ERROR E3D12
-shadow let bool = value  // ERROR E3D12
-```
-
-**Fix:** Choose a different name.
-
----
-
-## 3.15 Examples and Idiomatic Patterns
-
-### 3.15.1 Global Compile-Time Constants
-
-```cursive
-// Module scope - compile-time evaluable
-let MAX_CONNECTIONS: usize = 1000
-let BUFFER_SIZE: usize = 4096
-let DEFAULT_TIMEOUT: f64 = 30.0
-let PI: f64 = 3.14159265359
-
-// Can be used in type positions
-let connection_pool: [Connection; MAX_CONNECTIONS]
-let buffer: [u8; BUFFER_SIZE]
-```
-
-### 3.15.2 Local Runtime Bindings
-
-```cursive
-function process(input: string) {
-    let size = input.len()          // Runtime value
-    let buffer = allocate(size)     // Runtime allocation
-    let result = transform(buffer)  // Runtime computation
-    result
-}
-```
-
-### 3.15.3 Explicit Shadowing
-
-```cursive
-let value = 10
-
-function process() {
-    println(value)  // Prints 10 (module-scope)
-
-    {
-        shadow let value = value * 2  // Explicit shadow
-        println(value)  // Prints 20 (shadowed)
-    }
-
-    println(value)  // Prints 10 (original restored)
-}
-```
-
-### 3.15.4 Permission-Aware Parameters
-
-```cursive
-procedure transfer(
-    from: mut Account,  // Mutable reference
-    to: mut Account,    // Mutable reference
-    amount: i64         // Immutable value (default)
-)
-    uses alloc.heap
-    must {
-        amount > 0,
-        from.balance >= amount
-    }
-{
-    from.balance -= amount  // Mutate through mut permission
-    to.balance += amount    // Mutate through mut permission
-}
-
-var alice = Account { balance: 100 }
-var bob = Account { balance: 50 }
-transfer(mut alice, mut bob, 25)
-// alice.balance = 75, bob.balance = 75
-```
-
-### 3.15.5 Type-Position Constants
-
-```cursive
-// Global scope - compile-time constant
-let CACHE_SIZE = 256
-
-record Cache {
-    entries: [Entry; CACHE_SIZE]  // OK: global compile-time
-}
-
-// Generic const parameter
-function make_array<const N: usize>(): [i32; N] {
-    [0; N]  // OK: N is compile-time parameter
-}
-```
-
-### 3.15.6 Import with Alias
-
-```cursive
-use std::collections::HashMap as Map
-use std::collections::HashSet as Set
-
-function example() {
-    let users: Map<string, User> = Map.new()
-    let ids: Set<u64> = Set.new()
-}
-```
-
-### 3.15.7 Region-Scoped Bindings
-
-```cursive
-function process_batch(items: [Item]) {
-    region temp {
-        let buffer = alloc_in<temp>(Buffer.new(1024))
-
-        loop item in items {
-            buffer.add(item)
-        }
-
-        send(buffer.finalize())
-    }
-    // buffer deallocated here (O(1) region cleanup)
-}
-```
-
----
 
 **Previous**: [Type System](02_Type-System.md) | **Next**: [Expressions and Operators](04_Expressions-and-Operators.md)

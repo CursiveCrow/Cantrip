@@ -357,8 +357,8 @@ procedure read(data: Data) {  // Implicitly imm Data
 4. **Permission weakening only:**
    ```cursive
    let data: own Data = Data::new()
-   read(data)          // OK: own → imm (automatic weakening)
-   modify(mut data)    // OK: own → mut (automatic weakening)
+   read(data)          // OK: own -> imm (automatic weakening)
+   modify(mut data)    // OK: own -> mut (automatic weakening)
    
    let readonly: imm Data = get_data()
    modify(mut readonly)  // ❌ ERROR: Cannot upgrade imm to mut
@@ -852,11 +852,11 @@ string@Owned  // Owning, heap-allocated buffer
 **Conversions:**
 
 ```cursive
-// Owned → View (automatic, zero-cost)
+// Owned -> View (automatic, zero-cost)
 let owned: string@Owned = string::from("hello")
 let view: string@View = owned  // Automatic coercion
 
-// View → Owned (explicit, requires allocation)
+// View -> Owned (explicit, requires allocation)
 let view: string@View = "hello"  // String literal is View
 let owned: string@Owned = view.to_owned()  // Requires alloc.heap
 ```
@@ -1007,25 +1007,25 @@ Result.Ok("success")
 
 ```cursive
 // Function taking two i32, returning i32, no effects
-(i32, i32) → i32
+(i32, i32) -> i32
 
 // Function taking string, returning bool, with io.read effect
-(string) → bool ! {io.read}
+(string) -> bool ! {io.read}
 
 // Function taking nothing, returning nothing, with multiple effects
-() → () ! {io.read, io.write, alloc.heap}
+() -> () ! {io.read, io.write, alloc.heap}
 ```
 
 **Function Values:**
 
 ```cursive
 // Function as parameter
-procedure apply(f: (i32) → i32, x: i32) -> i32 {
+procedure apply(f: (i32) -> i32, x: i32) -> i32 {
     result f(x)
 }
 
 // Function as return value
-procedure make_adder(n: i32) -> (i32) → i32 {
+procedure make_adder(n: i32) -> (i32) -> i32 {
     // Returns a closure
     result closure(x: i32) -> i32 {
         result x + n
@@ -1454,7 +1454,7 @@ modal File {
         error: ErrorInfo
     }
     
-    // Transition: Closed → Open
+    // Transition: Closed -> Open
     procedure @Closed -> @Open
         open(self: File@Closed): File@Open
         uses io.open
@@ -1463,14 +1463,14 @@ modal File {
         // Implementation
     }
     
-    // Transition: Closed → Error
+    // Transition: Closed -> Error
     procedure @Closed -> @Error
         fail_open(self: File@Closed, err: ErrorInfo): File@Error
     {
         // Implementation
     }
     
-    // Transition: Open → Closed
+    // Transition: Open -> Closed
     procedure @Open -> @Closed
         close(self: File@Open): File@Closed
         uses io.close
@@ -1478,7 +1478,7 @@ modal File {
         // Implementation
     }
     
-    // Self-loop: Open → Open
+    // Self-loop: Open -> Open
     procedure @Open -> @Open
         read(self: mut File@Open, buffer: mut [u8]): usize
         uses io.read
@@ -1505,7 +1505,7 @@ modal Connection {
         buffer: [u8; 1024]
     }
     
-    // Automatic coercion: Full → Minimal (fields are subset)
+    // Automatic coercion: Full -> Minimal (fields are subset)
     coerce @Full <: @Minimal {
         cost: O(1)
         uses: ∅
@@ -2908,16 +2908,16 @@ procedure tree_example() uses alloc.heap, io.write {
 START: Need to allocate memory?
   ↓
   Is the data long-lived (survives function return)?
-    YES → Use heap allocation (alloc.heap effect)
-    NO → Continue to next question
+    YES -> Use heap allocation (alloc.heap effect)
+    NO -> Continue to next question
   ↓
   Is the data used in a loop?
-    YES → Use per-iteration region
-    NO → Continue to next question
+    YES -> Use per-iteration region
+    NO -> Continue to next question
   ↓
   Is the data part of request/batch processing?
-    YES → Use per-request/batch region
-    NO → Use heap allocation (simpler)
+    YES -> Use per-request/batch region
+    NO -> Use heap allocation (simpler)
 
 RESULT:
   - Heap allocation: Data::new() with alloc.heap
@@ -2931,18 +2931,18 @@ RESULT:
 START: What permission should parameter have?
   ↓
   Does function consume the value?
-    YES → Use 'own T'
-    NO → Continue to next question
+    YES -> Use 'own T'
+    NO -> Continue to next question
   ↓
   Does function modify the value?
-    YES → Use 'mut T'
-    NO → Use 'imm T' (or plain 'T', which defaults to imm)
+    YES -> Use 'mut T'
+    NO -> Use 'imm T' (or plain 'T', which defaults to imm)
 
 SPECIAL CASES:
-  - Function needs both read and write → 'mut T'
-  - Function transfers ownership → 'own T'
-  - Function only observes → 'imm T' or 'T'
-  - Multiple functions need access → 'imm T' (can copy references)
+  - Function needs both read and write -> 'mut T'
+  - Function transfers ownership -> 'own T'
+  - Function only observes -> 'imm T' or 'T'
+  - Multiple functions need access -> 'imm T' (can copy references)
 ```
 
 ### 0.12.3 Type Annotation Requirements
@@ -2951,28 +2951,28 @@ SPECIAL CASES:
 START: Do I need a type annotation?
   ↓
   Is this a block expression result?
-    YES → Annotation required on binding: let x: T = { ... }
-    NO → Continue
+    YES -> Annotation required on binding: let x: T = { ... }
+    NO -> Continue
   ↓
   Is this a match expression result bound to variable?
-    YES → Annotation required on binding: let x: T = match { ... }
-    NO → Continue
+    YES -> Annotation required on binding: let x: T = match { ... }
+    NO -> Continue
   ↓
   Is this a pipeline stage?
-    YES → Annotation required: => stage: T
-    NO → Continue
+    YES -> Annotation required: => stage: T
+    NO -> Continue
   ↓
   Is this a loop iterator?
-    YES → Annotation required: loop item: T in items
-    NO → Continue
+    YES -> Annotation required: loop item: T in items
+    NO -> Continue
   ↓
   Is this a function parameter?
-    YES → Annotation always required: procedure f(x: T)
-    NO → Continue
+    YES -> Annotation always required: procedure f(x: T)
+    NO -> Continue
   ↓
   Is this a function return?
-    YES → Annotation always required: procedure f() -> T
-    NO → Continue
+    YES -> Annotation always required: procedure f() -> T
+    NO -> Continue
   ↓
   Annotation recommended but may be inferred
 
@@ -2985,25 +2985,25 @@ REMEMBER: When in doubt, add annotation (explicit over implicit)
 START: What effects does my procedure need?
   ↓
   Does it read files, sockets, or stdin?
-    YES → Add 'io.read' to uses clause
+    YES -> Add 'io.read' to uses clause
   ↓
   Does it write to files, sockets, or stdout?
-    YES → Add 'io.write' to uses clause
+    YES -> Add 'io.write' to uses clause
   ↓
   Does it create network connections?
-    YES → Add 'io.connect' to uses clause
+    YES -> Add 'io.connect' to uses clause
   ↓
   Does it allocate on heap (String, Vec, etc.)?
-    YES → Add 'alloc.heap' to uses clause
+    YES -> Add 'alloc.heap' to uses clause
   ↓
   Does it call foreign functions?
-    YES → Add 'ffi.call' to uses clause
+    YES -> Add 'ffi.call' to uses clause
   ↓
   Does it use raw pointers?
-    YES → Add 'unsafe.ptr' to uses clause
+    YES -> Add 'unsafe.ptr' to uses clause
   ↓
   Does it call other procedures?
-    YES → Add all effects from called procedures
+    YES -> Add all effects from called procedures
   ↓
   RESULT: uses clause = union of all needed effects
 ```
@@ -3014,20 +3014,20 @@ START: What effects does my procedure need?
 START: Should I use a modal type?
   ↓
   Does my type have distinct states?
-    NO → Use regular record/enum
-    YES → Continue
+    NO -> Use regular record/enum
+    YES -> Continue
   ↓
   Are some operations only valid in certain states?
-    NO → Use regular record/enum with runtime checks
-    YES → Continue
+    NO -> Use regular record/enum with runtime checks
+    YES -> Continue
   ↓
   Can the type be in multiple states simultaneously?
-    YES → Use regular enum (not modal)
-    NO → Continue
+    YES -> Use regular enum (not modal)
+    NO -> Continue
   ↓
   Are state transitions explicit and important?
-    YES → Use modal type
-    NO → Consider modal type, but runtime checks may suffice
+    YES -> Use modal type
+    NO -> Consider modal type, but runtime checks may suffice
 
 EXAMPLES OF GOOD MODAL CANDIDATES:
   - File (Closed/Open)
@@ -3047,16 +3047,16 @@ EXAMPLES OF BAD MODAL CANDIDATES:
 START: How should I handle errors?
   ↓
   Is the error recoverable?
-    NO → Use panic! or assertion
-    YES → Continue
+    NO -> Use panic! or assertion
+    YES -> Continue
   ↓
   Is the error expected/common?
-    YES → Use Result<T, E>
-    NO → Continue
+    YES -> Use Result<T, E>
+    NO -> Continue
   ↓
   Is it a missing value (not an error)?
-    YES → Use Option<T>
-    NO → Use Result<T, E>
+    YES -> Use Option<T>
+    NO -> Use Result<T, E>
 
 ERROR PROPAGATION:
   - ❌ NEVER use ? operator (doesn't exist)
@@ -3140,9 +3140,9 @@ procedure process() uses io.read, alloc.heap {
 
 **How to Avoid:**
 - Think: "What side effects does my code have?"
-- Check: File I/O → io.read/io.write
-- Check: Allocation → alloc.heap
-- Check: Network → io.connect/io.listen
+- Check: File I/O -> io.read/io.write
+- Check: Allocation -> alloc.heap
+- Check: Network -> io.connect/io.listen
 - Include effects from all called procedures
 
 ### 0.13.4 Mistake: Trying to Escape Regions
@@ -3196,7 +3196,7 @@ let y: f64 = 3.14_f32.to_f64()  // Explicit conversion
 
 **How to Avoid:**
 - Cursive has NO implicit numeric conversions
-- Exception: string@Owned → string@View (modal coercion)
+- Exception: string@Owned -> string@View (modal coercion)
 - Always use explicit .to_* methods for conversions
 
 ### 0.13.6 Mistake: Wrong Permission for Operation
@@ -3216,9 +3216,9 @@ procedure modify(data: mut Data) {  // Mutable permission
 ```
 
 **How to Avoid:**
-- Need to mutate → Use `mut T`
-- Need to consume → Use `own T`
-- Just reading → Use `imm T` or `T`
+- Need to mutate -> Use `mut T`
+- Need to consume -> Use `own T`
+- Just reading -> Use `imm T` or `T`
 
 ### 0.13.7 Mistake: Enum Variant Syntax
 
@@ -3428,7 +3428,7 @@ let x: i32 = {
 **Effect polymorphism allows procedures to be generic over effects:**
 
 ```cursive
-procedure with_logging<E>(action: () → () ! E) uses io.write, E {
+procedure with_logging<E>(action: () -> () ! E) uses io.write, E {
     println("Starting action")
     action()  // May have effect E
     println("Action complete")
@@ -3481,9 +3481,9 @@ modal Container<T> {
 
 ```cursive
 procedure compose<A, B, C, E1, E2>(
-    f: (A) → B ! E1,
-    g: (B) → C ! E2
-) -> (A) → C ! (E1 ∪ E2) {
+    f: (A) -> B ! E1,
+    g: (B) -> C ! E2
+) -> (A) -> C ! (E1 ∪ E2) {
     result closure(x: A) -> C uses E1, E2 {
         let intermediate: B = f(x)
         result g(intermediate)
@@ -3529,8 +3529,8 @@ let squares: [i32; 5] = generate_array()  // Computed at compile time
 | Lifetimes | `'a` annotations in types | Regions, no annotations in types |
 | Error propagation | `?` operator | Explicit `match` |
 | Block returns | Implicit last expression | Explicit `result` keyword |
-| Function types | `Fn`, `FnMut`, `FnOnce` traits | `(T) → U ! E` with effects |
-| Effects | Implicit in traits | Explicit `uses` clause |
+| Function types | `Fn`, `FnMut`, `FnOnce` predicates | `(T) -> U ! E` with effects |
+| Effects | Implicit in predicates | Explicit `uses` clause |
 | State machines | Enums with runtime checks | Modal types with compile-time checks |
 
 ### 0.17.2 Cursive vs. C++

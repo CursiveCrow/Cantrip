@@ -13,7 +13,7 @@ This chapter depends on Part VIII (Regions) for runtime semantics of region st
 
 **Definition 4.1 (Lexical Permission System):** The LPS comprises
 
-1. the permission universe {`own`, `mut`, `imm`} and their attachment to types,
+1. the permission universe {`owned`, `unique`, `shared`, `readonly`} and their attachment to types,
 2. the typing and coercion judgments that track permissions,
 3. the ownership transfer semantics for moves and copies,
 4. the interaction between permissions, control-flow constructs, data structures, and regions, and
@@ -39,13 +39,13 @@ This chapter depends on Part VIII (Regions) for runtime semantics of region st
 
 | Term | Definition |
 |------|------------|
-| **Permission wrapper** | A type of the form `own T`, `mut T`, or `imm T`, denoting ownership, mutable access, or immutable access to a value of type `T`. |
+| **Permission wrapper** | A type of the form `owned T`, `unique T`, `shared T`, or `readonly T`, denoting ownership, exclusive mutable access, shared mutable access, or immutable access to a value of type `T`. |
 | **Place** | A value category representing a memory location paired with its permission (Part V §5.0.4). |
-| **Move** | An operation that transfers an `own` permission, invalidating the source binding (Part V §4.4.5). |
-| **Use-after-move** | Any attempted read or write of a binding invalidated by a move; diagnosed as E4006. |
-| **Permission coercion** | Implicit conversion from a stronger permission to a weaker one (`own → mut → imm`) or explicit operations for the reverse direction. |
+| **Ownership transfer** | An operation that transfers `owned` permission from one binding to another, invalidating the source binding. Occurs when passing to `owned` parameter, assignment, or return. |
+| **Use-after-transfer** | Any attempted read or write of a binding invalidated by ownership transfer; diagnosed as E4006. |
+| **Permission coercion** | Implicit conversion from a stronger permission to a weaker one (`owned → unique → shared → readonly`) or explicit operations for the reverse direction. |
 | **Permission judgment** | A typing form `Γ ⊢ e : perm τ` recording that expression `e` is accessed through permission `perm`. |
-| **Permission lattice** | The partial order `own ≥ mut ≥ imm`, defining allowable coercions and implicit conversions. |
+| **Permission lattice** | The partial order `owned ≥ unique ≥ shared ≥ readonly`, defining allowable coercions and implicit conversions. |
 | **Region value** | A value allocated inside a lexical region (`region r { ... }`) that must not escape past the region boundary. |
 
 ---
@@ -54,36 +54,53 @@ This chapter depends on Part VIII (Regions) for runtime semantics of region st
 
 ### 4.2.1 Syntax and Formation
 
-Every type constructor `T` admits permission wrappers `own T`, `mut T`, and `imm T`. The canonical grammar is established in Part II §2.0.5.1; this section supplies the semantics.
+Every type constructor `T` admits four permission wrappers: `owned T`, `unique T`, `shared T`, and `readonly T`. The canonical grammar is established in Part II §2.0.5.1; this section supplies the semantics.
 
 ```
-[Perm-Own]
+[Perm-Owned]
 Γ ⊢ T : Type
 ----------------------
-Γ ⊢ own T : Type
+Γ ⊢ owned T : Type
 
-[Perm-Mut]
+[Perm-Unique]
 Γ ⊢ T : Type
 ----------------------
-Γ ⊢ mut T : Type
+Γ ⊢ unique T : Type
 
-[Perm-Imm]
+[Perm-Shared]
 Γ ⊢ T : Type
 ----------------------
-Γ ⊢ imm T : Type
+Γ ⊢ shared T : Type
+
+[Perm-Readonly]
+Γ ⊢ T : Type
+----------------------
+Γ ⊢ readonly T : Type
 ```
 
-The unadorned type `T` is shorthand for `imm T` unless otherwise stated.
+**Context-sensitive defaults:**
+- **Bindings** (`let`, `var`): Bare type `T` means `owned T` (implied)
+- **Parameters**: Bare type `T` means `readonly T` (implied)
+- **Returns**: Bare type `T` means `readonly T` (implied)
+- **Fields**: Bare type `T` means `owned T` (implied, and ONLY `owned` is valid)
+
 
 ### 4.2.2 Guarantees and Responsibilities
 
 | Permission | Guarantees | Responsibilities |
 |------------|------------|------------------|
-| `own T` | Exactly one owning access exists; destruction of the binding drops the value; implicit coercion to `mut T`/`imm T` permitted. | Caller must not alias the value after a move; must release resources (RAII). |
-| `mut T` | Arbitrarily many mutable accesses may coexist (no exclusivity guarantee). | Programmer must avoid aliasing races and maintain invariants; may coerce to `imm T`. |
-| `imm T` | Read-only access; unlimited sharing; coercible from `own` or `mut`. | No mutation through this binding; operations requiring mutation must obtain `mut` or `own`. |
+| `owned T` | Exactly one owning access exists; exclusive mutable access; can transfer ownership; destruction drops the value; implicit coercion to `unique T`/`shared T`/`readonly T` permitted. | Caller must not use binding after ownership transfer; must release resources (RAII). |
+| `unique T` | Exclusive mutable access (no other `unique` or `shared` aliases); cannot transfer ownership (temporary view only); compiler-verified exclusivity; coerces to `readonly T`. | Caller must not create `unique` or `shared` aliases while this binding is active. |
+| `shared T` | Non-exclusive mutable access; multiple `shared` references may coexist; cannot transfer ownership; **no exclusivity guarantee** (explicit opt-in to aliasing). | Programmer must manually coordinate access across aliases to avoid data races and maintain invariants. |
+| `readonly T` | Immutable read-only access; unlimited sharing; coercible from any permission. | No mutation through this binding; operations requiring mutation must obtain `unique`, `shared`, or `owned`. |
 
-Permissions are part of the type identity. Subtyping and equivalence rules are defined in Part II §2.0.6.1; this chapter provides the coercion lattice in §4.6.
+**Design rationale:** The four-tier permission system provides graduated control over aliasing:
+- `owned` enables resource management through ownership transfer and RAII
+- `unique` prevents aliasing bugs while allowing mutation (compiler-verified safety)
+- `shared` explicitly opts into aliasing when coordination is necessary (type-documented flexibility)
+- `readonly` allows unrestricted sharing for immutable access (safe default)
+
+Permissions are part of the type identity. Subtyping and equivalence rules are defined in Part II §2.0.6.1; this chapter provides the coercion lattice in §4.6.
 
 ### 4.2.3 Wrapper Nesting
 
@@ -228,43 +245,167 @@ Array and slice indexing follow the same permission as the aggregate. Mutable in
 ### 4.6.1 Implicit Lattice
 
 ```
-own T  →  mut T  →  imm T
+owned T  →  unique T  →  shared T  →  readonly T
 ```
 
 Implicit coercions are allowed only in the direction of the arrows. The compiler inserts them automatically at call sites, assignments, and pattern matches where a weaker permission is expected.
 
 ```
-[Coerce-Own-Mut]
-Γ ⊢ e : own τ
+[Coerce-Owned-Unique]
+Γ ⊢ e : owned τ
 ----------------------
-Γ ⊢ e : mut τ
+Γ ⊢ e : unique τ
 
-[Coerce-Own-Imm]
-Γ ⊢ e : own τ
+[Coerce-Owned-Shared]
+Γ ⊢ e : owned τ
 ----------------------
-Γ ⊢ e : imm τ
+Γ ⊢ e : shared τ
 
-[Coerce-Mut-Imm]
-Γ ⊢ e : mut τ
+[Coerce-Owned-Readonly]
+Γ ⊢ e : owned τ
 ----------------------
-Γ ⊢ e : imm τ
+Γ ⊢ e : readonly τ
+
+[Coerce-Unique-Readonly]
+Γ ⊢ e : unique τ
+----------------------
+Γ ⊢ e : readonly τ
+
+[Coerce-Shared-Readonly]
+Γ ⊢ e : shared τ
+----------------------
+Γ ⊢ e : readonly τ
 ```
+
+**Note:** `unique` → `shared` is **NOT** allowed implicitly, as it would violate the exclusivity guarantee of `unique`.
 
 ### 4.6.2 Explicit Reversal
 
-The reverse direction (`imm` → `mut`, `mut` → `own`) requires explicit operations:
+The reverse direction (`readonly` → `unique`/`shared`/`owned`) requires explicit operations:
 
 - **Constructors or cloning** – Creating a new owned value from immutable data (`string.to_owned()`).
-- **Moves** – Transferring ownership from an existing `own` binding (see §4.7).
+- **Ownership transfer** – Receiving ownership from an `owned` binding (via function parameter, return, or assignment).
 - **Unsafe operations** – `unsafe` code may reinterpret handles but MUST re-establish invariants before returning a value.
 
-There is no implicit or direct upgrade from `mut T` to `own T` for the same storage. Any code that needs ownership MUST obtain it by moving from an owner or constructing/cloning a fresh value, paying the advertised effects.
+There is no implicit upgrade from weaker to stronger permissions. Any code that needs a stronger permission MUST:
+1. Receive it from an existing `owned` binding (via coercion), OR
+2. Construct/clone a fresh value with the desired permission
 
-### 4.6.3 Modal State Coercions
+### 4.6.3 Context-Sensitive Defaults
 
-Modal types may expose custom coercions between states; string modal states provide `string@Owned <: string@View` implicitly (Part II §2.1.6).
+Permission annotations may be omitted in certain contexts, with the following defaults:
 
----
+| Context | Omitted Permission | Default Meaning |
+|---------|-------------------|-----------------| | `let x = expr` | Always `owned` | Binding owns the value |
+| `var x = expr` | Always `owned` | Binding owns the value |
+| `f(x: T)` | `readonly T` | Parameter is readonly (safe default) |
+| `f(): T` | `readonly T` | Return is readonly (safe default) |
+| `record R { f: T }` | `owned T` | Field owns its data (only valid permission for fields) |
+
+**Explicit annotations required for:**
+- Parameters needing `owned` (ownership transfer): `f(x: owned T)`
+- Parameters needing `unique` (exclusive mutation): `f(x: unique T)`
+- Parameters needing `shared` (coordinated mutation): `f(x: shared T)`
+- Returns transferring ownership: `f(): owned T`
+
+**Field restrictions:**
+Record fields MUST be `owned` (implied by default). Other permissions are invalid:
+```cursive
+record Invalid {
+    data: unique Data,    // ERROR E4022: fields cannot be 'unique'
+    ref: readonly Data,   // ERROR E4022: fields cannot be 'readonly'
+    cache: shared Cache   // ERROR E4022: fields cannot be 'shared'
+}
+```
+
+### 4.6.4 Ownership Transfer Semantics
+
+Ownership transfer occurs automatically (no explicit `transfer` keyword) when:
+
+1. **Passing to `owned` parameter:**
+   ```cursive
+   function consume(f: owned File) { ... }
+   let file = File::open("data.txt")
+   consume(file)  // Ownership automatically transferred
+   // file is now INVALID
+   ```
+
+2. **Assignment between bindings:**
+   ```cursive
+   let file1 = File::open("a.txt")
+   let file2 = file1  // Ownership transferred
+   // file1 is now INVALID
+   ```
+
+3. **Returning `owned` from function:**
+   ```cursive
+   function create(): owned File {
+       let f = File::open("data.txt")
+       result f  // Ownership transferred to caller
+   }
+   ```
+
+4. **Constructing record with `owned` fields:**
+   ```cursive
+   record Container {
+       file: File  // Owned (implied)
+   }
+   let f = File::open("data.txt")
+   let c = Container { file: f }  // f becomes INVALID
+   ```
+
+**No transfer occurs for other permissions:**
+- `readonly` parameters/returns: Caller retains ownership
+- `unique` parameters: Caller retains ownership (exclusive view only)
+- `shared` parameters: Caller retains ownership (shared view only)
+
+### 4.6.5 Permission Checking and Diagnostics
+
+#### Unique Exclusivity Checking
+
+The compiler MUST enforce that `unique` permissions are exclusive:
+
+```
+[Unique-Exclusive]
+Γ ⊢ x : unique τ active in scope S
+Γ ⊢ attempt to create y : unique τ from x in S
+Γ ⊢ attempt to create y : shared τ from x in S
+───────────────────────────────────────────────
+ERROR E4020 (unique permission violation)
+```
+
+**Algorithm**: For each scope, track active `unique` bindings. When a new `unique` or `shared` binding is created from the same source, emit E4020.
+
+#### Ownership Transfer Tracking
+
+The compiler MUST track ownership transfer:
+
+```
+[Transfer-Tracking]
+Γ ⊢ x : owned τ
+x passed to owned parameter / assigned to owned target / returned as owned
+───────────────────────────────────────────────
+x marked as INVALID in Γ
+
+[Use-After-Transfer]
+Γ ⊢ x : INVALID
+Γ ⊢ use of x
+───────────────────────────────────────────────
+ERROR E4006 (use after transfer)
+```
+
+#### Field Permission Validation
+
+```
+[Field-Permission-Check]
+Γ ⊢ record R { f: perm T }
+perm ∉ {owned, (omitted)}
+───────────────────────────────────────────────
+ERROR E4022 (invalid field permission)
+```
+
+Fields MUST be `owned` (or omit annotation, which defaults to `owned`).
+
 
 ## 4.7 Ownership Transfer and Move Semantics
 

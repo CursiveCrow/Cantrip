@@ -490,24 +490,6 @@ caller provides ε_call
 call permitted; else ERROR E4004
 ```
 
-Examples:
-
-```cursive
-// Success: principal effect within bound
-procedure wrap<T, ε>(f: (T) → () ! _?): (T) → () ! ε
-    where ε ⊆ {io.write}
-{
-    // principal ε⋆ = {io.write} from body/captures; ε⋆ ⊆ {io.write}
-}
-
-// Failure: hole cannot be instantiated within bound (E7C17)
-procedure wrap2<T, ε>(f: (T) → () ! _?): (T) → () ! ε
-    where ε ⊆ {io.write}
-{
-    // body of f requires fs.write OR io.write in incomparable ways ⇒ no unique ε⋆ within {io.write}
-}
-```
-
 ### 8.4.3 Diagnostic Precedence
 
 When multiple conditions apply at the same site, report diagnostics in the following precedence:
@@ -530,16 +512,6 @@ Tuple/Array/Record (invariant fields)
 --------------------------------------
 Decompose only when fields structurally match; otherwise keep <: and check post-unification
 ```
-
-Examples:
-
-```cursive
-// Function variance
-let g: (i32) → i64 ! ∅
-let h: (i32) → i32 ! ∅
-// constraint: type(_?) <: type(h) enforces result covariance and arg contravariance as above
-```
- 
 
 ---
 
@@ -887,152 +859,7 @@ pattern elaborates to Modal@S; else ERROR E4414
 
 ---
 
-## 8.12 Examples (Informative)
-
-### 8.12.1 Expression and Type Holes
-
-```cursive
-let x: i32 = _?                 // OK → x = _? : i32
-let y = _?: string              // OK → y: string
-let w = _?                      // ERROR E4411 (insufficient context)
-```
-
-### 8.12.2 Permission Holes
-
-```cursive
-procedure mutate(p: mut Point) { p.x += 1.0 }
-let p: _? Point = Point { x: 0.0, y: 0.0 }
-mutate(mut p)                   // OK → _? = mut
-```
-
-### 8.12.3 Modal-State Holes
-
-```cursive
-modal Conn { @New { } @Open { } @New -> open() -> @Open }
-let c: Conn@_? = Conn.new()
-let d = c.open()               // OK → resolves @New
-```
-
-### 8.12.4 Effect Holes
-
-```cursive
-// Principal effect from body
-let logger: (string) → () ! _? = |m| -> println(m)
-// Becomes (string) → () ! io.write
-
-// Ambiguity example (two incomparable minima)
-// Implementation SHOULD report E7C17 with notes listing candidates
-```
-
-### 8.12.5 Public Signature Prohibitions
-
-```cursive
-contract C {
-    procedure p(x: _? i32)           // ERROR E4415: hole in public signature
-}
-
-contract D {
-    procedure q(x: i32) will { x > _? }  // ERROR E4415: hole in predicate block
-}
-
-procedure g<T, ε>(x: T) uses _?      // ERROR E4415: hole in effect annotation
-```
-
-### 8.12.6 Where-Bound Holes and Bounds Failures
-
-```cursive
-// Hole in where effect bound is prohibited in public signatures
-procedure h<ε>(x: i32)
-    where ε ⊆ { _? }              // ERROR E4415
-{
-}
-
-// Bounded effect hole under ∀ε with failure (E7C17)
-procedure k<T, ε>(f: (T) → () ! _?): (T) → () ! ε
-    where ε ⊆ {io.write}
-{
-    // principalization produces {fs.delete} in some paths ⇒ not within bound → E7C17
-}
-```
-
-### 8.12.7 Region and Attribute Interactions
-
-```cursive
-// Region non-escape with type hole
-region r {
-    let v: _? = alloc_in<r>(Buffer.new(128))
-    // returning v would cause region escape; solver must respect Δ; otherwise E4014
-}
-
-// Forbidden effects under [[no_panic]] with effect hole
-[[no_panic]]
-procedure nop() {
-    let f: (i32) → () ! _? = |x| -> { panic("oops") }
-    // substitution would include panic → reject by Part VI diagnostics
-}
-```
-
-### 8.12.8 Generic Type Interaction
-
-```cursive
-// Type hole with generic container
-let v: Vec<_?> = Vec.new()     // TypeHole inside generic argument; context determines element type later
-
-// Generic function instantiation with holes
-function id<T>(x: T): T { x }  // pure
-let f: (_?) → _? = id       // Both holes refer to the same unknown T; instantiation fixes T at use-site
-
-// Trait/contract-bounded type hole (hypothetical bounds)
-// let b: _? where _? : Copy   // If bounds cannot be satisfied, E4412 at binding site
-```
-
-### 8.12.9 Pipelines, Blocks, Closures, Slices, Deref (Pass/Fail)
-
-```cursive
-// Pipelines
-let out: string = "x"
-    => parse: Data        // OK: stage type matches declared
-    => to_string: string
-
-let bad: string = "x"
-    => parse: i32         // ERROR: mismatch with actual stage result
-
-// Labeled block + break join
-let ok: i32 = 'b: {
-    if cond { break 'b 1 }
-    break 'b 2
-}
-
-let bad_join: i32 = 'b2: {
-    if cond { break 'b2 1 } else { break 'b2 true }
-    // ERROR: no join between i32 and bool
-}
-
-// Closure captures and effects
-let log: (string) → () ! _? = |m| -> println(m)  // OK: principal effect {io.write}
-procedure run() uses io.write { log("hi") }        // OK
-procedure fail() { log("hi") }                      // ERROR E4004: missing io.write
-
-// Slices and ranges
-let a = [1,2,3]
-let s = a[0..2]            // OK: result [i32]
-let e = a[true..2]         // ERROR: index not integral domain
-
-// Pointer deref
-procedure raw(p: *i32) uses unsafe.ptr { let v = *p }   // OK
-procedure raw_fail(p: *i32) { let v = *p }              // ERROR: requires unsafe.ptr
-
-// Regions
-region r {
-    let buf = alloc_in<r>(Buffer.new(8))
-    use(buf)
-}
-// Returning buf from region would be ERROR E4014
-```
-
----
-
-## 8.13 Meta-theory (Informative)
+## 8.12 Meta-theory (Informative)
 
 **Theorem 8.1 (Principal Solutions).** For each well-formed hole site whose constraints are satisfiable, the solver yields a principal solution unique up to definitional equality (types) and lattice equivalence (effects/permissions).  
 Sketch: Types-by standard unification with occurs-check; Effects-by effect lattice minimization (§4.19.4); Permissions-by total order lattice `imm < mut < own`; Modal states-by finite intersection over a finite graph (§2.3.3).
@@ -1044,7 +871,7 @@ Sketch: Each constraint set is finite; unification strictly decreases unknown si
 
 ---
 
-## 8.14 Conformance Test Matrix (Informative)
+## 8.13 Conformance Test Matrix (Informative)
 
 Implementations SHOULD provide tests covering:
 
@@ -1059,7 +886,7 @@ Each test SHOULD specify the expected diagnostic IDs verbatim.
 
 ---
 
-## 8.15 Change Tracking
+## 8.14 Change Tracking
 
 This chapter is normative as of 2025-11-01. Any future amendments MUST update Appendix A productions and the diagnostics table in Part I.
 
