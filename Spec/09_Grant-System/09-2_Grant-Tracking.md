@@ -28,13 +28,13 @@ Where:
 **Example (informative)**:
 ```cursive
 procedure helper()
-    grants fs::read
+    sequent { [fs::read] |- true => true }
 {
     result read_file_bytes("config.txt")
 }
 
 procedure caller()
-    grants fs::read, fs::write
+    sequent { [fs::read, fs::write] |- true => true }
 {
     // Valid: {fs::read} <: {fs::read, fs::write}
     let data = helper()
@@ -81,7 +81,7 @@ category::* = {category::op₁, category::op₂, ..., category::opₙ}
 **Example (informative)**:
 ```cursive
 procedure caller()
-    grants fs::*  // Expands to {fs::read, fs::write, fs::delete, fs::metadata}
+    sequent { [fs::*] |- true => true }  // Expands to {fs::read, fs::write, fs::delete, fs::metadata}
 {
     // Valid: {fs::read} <: {fs::read, fs::write, fs::delete, fs::metadata}
     read_file("data.txt")
@@ -112,13 +112,13 @@ required_grants(P) = ⋃{grants(Q) | Q ∈ calls(P)} ∪ ⋃{required_grants(Q) 
 **Example (informative)**:
 ```cursive
 procedure level3()
-    grants fs::read
+    sequent { [fs::read] |- true => true }
 {
     result read_file_bytes("data.txt")
 }
 
 procedure level2()
-    grants fs::read, alloc::heap
+    sequent { [fs::read, alloc::heap] |- true => true }
 {
     let data = level3()         // Requires fs::read
     let buffer = allocate(1024) // Requires alloc::heap
@@ -126,7 +126,7 @@ procedure level2()
 }
 
 procedure level1()
-    grants fs::read, fs::write, alloc::heap
+    sequent { [fs::read, fs::write, alloc::heap] |- true => true }
 {
     let buffer = level2()      // Requires {fs::read, alloc::heap}
     write_file("out.txt", buffer)  // Requires fs::write
@@ -142,7 +142,7 @@ procedure level1()
 **Example (informative)**:
 ```cursive
 procedure process()
-    grants fs::read, fs::write, alloc::heap
+    sequent { [fs::read, fs::write, alloc::heap] |- true => true }
 {
     // Direct operation: requires fs::read
     let data = read_file_bytes("input.txt")
@@ -163,14 +163,14 @@ procedure process()
 ```cursive
 // Good: Minimal grant set
 procedure read_config(): [u8]
-    grants fs::read
+    sequent { [fs::read] |- true => true }
 {
     result read_file_bytes("config.txt")
 }
 
 // Discouraged: Over-privileged
 procedure read_config_bad(): [u8]
-    grants fs::read, fs::write, fs::delete, net::*, alloc::heap  // Excessive
+    sequent { [fs::read, fs::write, fs::delete, net::*, alloc::heap] |- true => true }  // Excessive
 {
     result read_file_bytes("config.txt")
 }
@@ -206,7 +206,7 @@ For each procedure P:
 **Example (informative)**:
 ```cursive
 procedure example()
-    grants fs::read, alloc::heap, fs::write
+    sequent { [fs::read, alloc::heap, fs::write] |- true => true }
 {
     // grants(example) = {fs::read, alloc::heap, fs::write}
 }
@@ -226,10 +226,10 @@ For each grant g in grants(P):
 **Example (informative)**:
 ```cursive
 // Before expansion:
-grants fs::*, alloc::heap
+sequent { [fs::*, alloc::heap] |- true => true }
 
 // After expansion:
-grants fs::read, fs::write, fs::delete, fs::metadata, alloc::heap
+sequent { [fs::read, fs::write, fs::delete, fs::metadata, alloc::heap] |- true => true }
 ```
 
 ### 9.2.3.4 Call Graph Analysis
@@ -296,7 +296,7 @@ Error: Insufficient grants for call to `write_log`
 **Example (informative)**:
 ```cursive
 procedure recursive_process(data: [i32], depth: i32)
-    grants fs::write, alloc::heap
+    sequent { [fs::write, alloc::heap] |- true => true }
 {
     if depth > 0 {
         let buffer = allocate(depth)  // Requires alloc::heap
@@ -313,7 +313,7 @@ procedure recursive_process(data: [i32], depth: i32)
 **Example (informative)**:
 ```cursive
 procedure even_process(n: i32)
-    grants fs::read
+    sequent { [fs::read] |- true => true }
 {
     if n > 0 {
         let data = read_file_bytes("even.txt")
@@ -322,7 +322,7 @@ procedure even_process(n: i32)
 }
 
 procedure odd_process(n: i32)
-    grants fs::read
+    sequent { [fs::read] |- true => true }
 {
     if n > 0 {
         let data = read_file_bytes("odd.txt")
@@ -339,10 +339,10 @@ procedure odd_process(n: i32)
 
 **Example (informative)**:
 ```cursive
-type FileProcessor = (string) -> () grants fs::read, fs::write
+type FileProcessor = (string) -> () sequent { [fs::read, fs::write] |- true => true }
 
 procedure apply_processor(f: FileProcessor, path: string)
-    grants fs::read, fs::write  // Must have all grants from FileProcessor
+    sequent { [fs::read, fs::write] |- true => true }  // Must have all grants from FileProcessor
 {
     f(path)
 }
@@ -358,9 +358,9 @@ procedure apply_processor(f: FileProcessor, path: string)
 ```cursive
 procedure for_each<T>(
     items: [T],
-    f: (T) -> () grants alloc::heap
+    f: (T) -> () sequent { [alloc::heap] |- true => true }
 )
-    grants alloc::heap  // Must have grants to call f
+    sequent { [alloc::heap] |- true => true }  // Must have grants to call f
 {
     for i in 0..items.length {
         f(items[i])
@@ -382,13 +382,13 @@ procedure for_each<T>(
 
 ### 9.2.5.2 Code Generation
 
-**Normative Statement 9.2.12**: After grant verification, code generation shall proceed as if grant clauses were not present.
+**Normative Statement 9.2.12**: After grant verification, code generation shall proceed as if sequent clauses with grants were not present.
 
 **Example (informative)**:
 ```cursive
 // Source:
 procedure process()
-    grants fs::read
+    sequent { [fs::read] |- true => true }
 {
     let data = read_file_bytes("data.txt")
     result data
@@ -397,7 +397,7 @@ procedure process()
 // Generated code (conceptual):
 // - No grant checking code
 // - Direct call to read_file_bytes
-// - Same as procedure without grant clause
+// - Same as procedure without sequent clause
 ```
 
 ---
@@ -433,7 +433,7 @@ procedure process()
 **Example (informative)**:
 ```cursive
 procedure allocate_buffer(size: usize): [u8]
-    grants alloc::heap
+    sequent { [alloc::heap] |- true => true }
 {
     // Operation: heap_allocate_array
     // Required grant: alloc::heap
@@ -441,7 +441,7 @@ procedure allocate_buffer(size: usize): [u8]
 }
 
 procedure caller()
-    grants alloc::heap
+    sequent { [alloc::heap] |- true => true }
 {
     // Valid: caller has alloc::heap
     let buffer = allocate_buffer(1024)
@@ -473,7 +473,7 @@ error[E0412]: insufficient grants for call to `write_file`
    |
    = note: procedure grants: {fs::read, alloc::heap}
    = note: call requires: {fs::write}
-   = help: add `grants fs::write` to procedure signature
+   = help: add `fs::write` to grant context in sequent clause
 ```
 
 ### 9.2.7.2 Undeclared Operations
@@ -489,7 +489,7 @@ error[E0413]: operation requires undeclared grant
    |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ requires grant `fs::read`
    |
    = note: procedure grants: {alloc::heap}
-   = help: add `grants fs::read` to procedure signature
+   = help: add `fs::read` to grant context in sequent clause
 ```
 
 ### 9.2.7.3 Transitive Violations
@@ -509,7 +509,7 @@ error[E0414]: insufficient grants for transitive call
        -> process_file (grants: {fs::read, fs::write})
          -> write_output (grants: {fs::write})
    |
-   = help: add `grants fs::write` to procedure `caller` signature
+   = help: add `fs::write` to grant context in procedure `caller` sequent clause
 ```
 
 ---
@@ -529,19 +529,19 @@ error[E0414]: insufficient grants for transitive call
 
 ### 9.2.8.2 Inference Hole Syntax
 
-**Syntax**: `grants _?` indicates that grants should be inferred.
+**Syntax**: `[_?]` in the grant context indicates that grants should be inferred.
 
 **Example (informative)**:
 ```cursive
 procedure example()
-    grants _?  // Infer grants from body
+    sequent { [_?] |- true => true }  // Infer grants from body
 {
     let data = read_file_bytes("config.txt")  // Infers fs::read
     let buffer = allocate(1024)               // Infers alloc::heap
     write_file("output.txt", buffer)          // Infers fs::write
 }
 
-// Inferred: grants fs::read, alloc::heap, fs::write
+// Inferred: sequent { [fs::read, alloc::heap, fs::write] |- true => true }
 ```
 
 **Forward Reference**: Complete inference specification in Part VIII (Type Inference and Holes).

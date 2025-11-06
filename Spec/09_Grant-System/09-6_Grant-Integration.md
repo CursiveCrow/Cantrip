@@ -20,14 +20,12 @@
 
 ### 9.6.2.1 Contract Clause Ordering
 
-**Normative Statement 9.6.1**: In procedure signatures, grant clauses shall appear before contract clauses (preconditions, postconditions).
+**Normative Statement 9.6.1**: In procedure signatures, grants shall be specified as the context portion of the sequent clause, before the turnstile `|-`.
 
 **Syntax Order**:
 ```
 procedure name(parameters): return_type
-    grants grant_set
-    must precondition
-    will postcondition
+    sequent { [grant_set] |- precondition => postcondition }
 {
     body
 }
@@ -36,9 +34,11 @@ procedure name(parameters): return_type
 **Example (informative)**:
 ```cursive
 procedure allocate_aligned(size: usize, align: usize): [u8]
-    grants alloc::heap
-    must { align.is_power_of_two() && size > 0 }
-    will { result.length == size }
+    sequent {
+        [alloc::heap]
+        |- align.is_power_of_two() && size > 0
+        => result.length == size
+    }
 {
     result heap_allocate_aligned<u8>(size, align)
 }
@@ -54,8 +54,7 @@ procedure allocate_aligned(size: usize, align: usize): [u8]
 ```cursive
 // ERROR: Precondition cannot require grants
 procedure bad_example(path: string)
-    grants fs::write
-    must { file_exists(path) }  // ERROR if file_exists requires fs::read
+    sequent { [fs::write] |- file_exists(path) => true }  // ERROR if file_exists requires fs::read
 {
     write_file(path, [0; 10])
 }
@@ -69,14 +68,14 @@ procedure bad_example(path: string)
 ```cursive
 contract Serializable {
     procedure serialize(self: const Self): string
-        grants alloc::heap
+        sequent { [alloc::heap] |- true => true }
 }
 
 record Data: Serializable {
     value: i32
 
     procedure serialize(self: const Self): string
-        grants alloc::heap
+        sequent { [alloc::heap] |- true => true }
     {
         result format_number(self.value)
     }
@@ -105,7 +104,7 @@ procedure process_data(
     buffer: unique [u8],     // Permission: unique (exclusive access)
     path: readonly string    // Permission: readonly (immutable)
 )
-    grants fs::write, alloc::heap  // Grants: file write and heap allocation
+    sequent { [fs::write, alloc::heap] |- true => true }  // Grants: file write and heap allocation
 {
     let expanded = heap_allocate_array<u8>(buffer.length * 2)
     write_file_bytes(path, expanded)
@@ -120,7 +119,7 @@ procedure process_data(
 ```cursive
 // Permission and grant are independent
 procedure example(data: const Data)  // const permission
-    grants alloc::heap                 // heap grant
+    sequent { [alloc::heap] |- true => true }                 // heap grant
 {
     // const permission: cannot mutate data
     // alloc::heap grant: can allocate memory
@@ -151,7 +150,7 @@ modal File {
     }
 
     procedure @Closed -> @Open open(self): File@Open
-        grants fs::read
+        sequent { [fs::read] |- true => true }
     {
         let handle = open_file(self.path)
         result File@Open { path: self.path, handle }
@@ -200,7 +199,7 @@ modal Connection {
 **Example (informative)**:
 ```cursive
 procedure safe_wrapper()
-    grants unsafe::ptr  // Grant required even for unsafe block
+    sequent { [unsafe::ptr] |- true => true }  // Grant required even for unsafe block
 {
     unsafe {
         let ptr: *i32 = get_raw_pointer()
@@ -221,7 +220,7 @@ procedure safe_wrapper()
 **Example (informative)**:
 ```cursive
 procedure transmute_example(x: u32): f32
-    grants unsafe::transmute
+    sequent { [unsafe::transmute] |- true => true }
 {
     unsafe {
         result transmute<u32, f32>(x)
@@ -271,7 +270,7 @@ function pure_computation(x: i32): i32 {
 }
 
 procedure caller()
-    grants fs::write
+    sequent { [fs::write] |- true => true }
 {
     let value = pure_computation(42)  // No grants needed
     write_result(value)                // Requires fs::write
@@ -289,7 +288,7 @@ procedure caller()
 **Example (informative)**:
 ```cursive
 procedure outer()
-    grants fs::write, alloc::heap
+    sequent { [fs::write, alloc::heap] |- true => true }
 {
     let closure = || {
         // Closure can use fs::write and alloc::heap (from outer)
@@ -309,9 +308,9 @@ procedure outer()
 ```cursive
 procedure for_each<T>(
     items: [T; 100],
-    f: (T) -> () grants alloc::heap
+    f: (T) -> () sequent { [alloc::heap] |- true => true }
 )
-    grants alloc::heap  // Must have grants to call f
+    sequent { [alloc::heap] |- true => true }  // Must have grants to call f
 {
     for i in 0..100 {
         f(items[i])
@@ -329,8 +328,8 @@ procedure for_each<T>(
 
 **Example (informative)**:
 ```cursive
-procedure process<T, G>(data: T): T
-    grants<G>, alloc::heap
+procedure process<T, grants G>(data: T): T
+    sequent { [grants(G), alloc::heap] |- true => true }
 {
     // Generic over type T and grant set G
     result transform(data)
@@ -343,8 +342,8 @@ procedure process<T, G>(data: T): T
 
 **Example (informative)**:
 ```cursive
-procedure process_array<const N: usize, G>(data: [i32; N])
-    grants<G>
+procedure process_array<const N: usize, grants G>(data: [i32; N])
+    sequent { [grants(G)] |- true => true }
 {
     // Generic over array size N and grant set G
     loop i in 0..N {
@@ -365,14 +364,14 @@ procedure process_array<const N: usize, G>(data: [i32; N])
 ```cursive
 predicate Loadable {
     procedure load(path: string): Self
-        grants fs::read, alloc::heap
+        sequent { [fs::read, alloc::heap] |- true => true }
 }
 
 record Config: Loadable {
     data: [u8; 1024]
 
     procedure load(path: string): Config
-        grants fs::read, alloc::heap  // Matches predicate requirements
+        sequent { [fs::read, alloc::heap] |- true => true }  // Matches predicate requirements
     {
         let bytes = read_file_bytes(path)
         result Config::from_bytes(bytes)
@@ -439,7 +438,7 @@ procedure trusted_operation()
 ```cursive
 // module: file_utils
 public procedure load_config(path: string): [u8]
-    grants fs::read
+    sequent { [fs::read] |- true => true }
 {
     result read_file_bytes(path)
 }
@@ -448,7 +447,7 @@ public procedure load_config(path: string): [u8]
 import file_utils
 
 procedure main()
-    grants fs::read
+    sequent { [fs::read] |- true => true }
 {
     let config = file_utils::load_config("config.txt")  // Requires fs::read
 }
@@ -492,21 +491,21 @@ procedure example() {
 ```cursive
 // Layer 1: Full capabilities
 procedure unrestricted()
-    grants fs::*, net::*, alloc::*
+    sequent { [fs::*, net::*, alloc::*] |- true => true }
 {
     // Can do anything
 }
 
 // Layer 2: Restricted to file system
 procedure fs_only()
-    grants fs::read, fs::write
+    sequent { [fs::read, fs::write] |- true => true }
 {
     // Can only access file system
 }
 
 // Layer 3: Read-only
 procedure read_only()
-    grants fs::read
+    sequent { [fs::read] |- true => true }
 {
     // Can only read files
 }
@@ -518,10 +517,10 @@ procedure read_only()
 
 **Example (informative)**:
 ```cursive
-procedure sandbox_execute<T, G>(
-    operation: () -> T grants<G>
+procedure sandbox_execute<T, grants G>(
+    operation: () -> T sequent { [grants(G)] |- true => true }
 ): T
-    grants<G>
+    sequent { [grants(G)] |- true => true }
     where G <: {alloc::heap}  // Restrict to heap allocation only
 {
     // operation can only allocate, cannot perform I/O
@@ -540,14 +539,14 @@ record FileSystem {
 }
 
 procedure FileSystem.read_file(self: const Self, path: string): [u8]
-    grants fs::read
+    sequent { [fs::read] |- true => true }
 {
     let full_path = self.root + "/" + path
     result read_file_bytes(full_path)
 }
 
 procedure process_with_fs(fs: const FileSystem)
-    grants fs::read, alloc::heap
+    sequent { [fs::read, alloc::heap] |- true => true }
 {
     // Capabilities provided through fs parameter and grants
     let data = fs::read_file("config.txt")

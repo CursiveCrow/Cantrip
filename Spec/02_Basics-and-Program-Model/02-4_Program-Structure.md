@@ -117,7 +117,7 @@ The following declaration forms are permitted at module scope (top level of a co
 ```ebnf
 VariableDeclaration   ::= Visibility? ("let" | "var") Identifier (":" Type)? "=" Expr Separator
 FunctionDeclaration   ::= Visibility? "function" Identifier GenericParams? "(" ParamList? ")" (":" Type)? ContractClauses? BlockExpr
-ProcedureDeclaration  ::= Visibility? "procedure" Identifier GenericParams? "(" ParamList? ")" UsesClause (":" Type)? ContractClauses? BlockExpr
+ProcedureDeclaration  ::= Visibility? "procedure" Identifier GenericParams? "(" ParamList? ")" GrantsClause (":" Type)? ContractClauses? BlockExpr
 TypeDeclaration       ::= Visibility? "type" Identifier GenericParams? "=" Type Separator
 RecordDeclaration     ::= Visibility? "record" Identifier GenericParams? "{" FieldList? "}"
 EnumDeclaration       ::= Visibility? "enum" Identifier GenericParams? "{" VariantList? "}"
@@ -440,18 +440,18 @@ function main(): i32 {
 **Effectful main** (typical):
 
 ```cursive
-procedure main(args: [string])
-    uses io.read, io.write, fs, alloc.heap, process.spawn
-: i32 {
-    println("Hello, world!")  // I/O permitted via uses clause
+procedure main(args: [string]): i32
+    sequent { [fs::read, fs::write, alloc::heap, thread::spawn] |- true => true }
+{
+    println("Hello, world!")  // I/O permitted via grant context
     result 0
 }
 ```
 
-**Implementation-provided effect handlers**: If `main` is declared as a `procedure` with a `uses` clause, the implementation provides standard effect handlers for the declared effects:
+**Implementation-provided effect handlers**: If `main` is declared as a `procedure` with a `sequent` clause containing grants, the implementation provides standard effect handlers for the declared grants:
 
-- `io.read`, `io.write`: Standard input/output
-- `fs`: File system operations
+- `fs::read`, `fs::write`: File system operations
+- `net::*`: Network operations
 - `alloc.heap`: Dynamic memory allocation
 - `process.spawn`: Process spawning
 
@@ -581,8 +581,8 @@ private function create_point(x: f64, y: f64): Point {
 }
 
 // Entry point with command-line arguments
-function main(args: [string]): i32
-    uses io.write
+procedure main(args: [string]): i32
+    sequent { [fs::write] |- true => true }
 {
     let origin = ORIGIN
     let point = create_point(3.0, 4.0)
@@ -647,10 +647,10 @@ function create_node(value: i32): Node {
 use std::io::{println, eprintln}
 use std::fs
 
-procedure main(args: [string])
-    uses io.read, io.write, fs, alloc.heap
-: i32 {
-    // Effects explicitly declared via uses clause
+procedure main(args: [string]): i32
+    sequent { [fs::read, fs::write, alloc::heap] |- true => true }
+{
+    // Grants explicitly declared in sequent context
 
     if args.len() < 2 {
         eprintln("Usage: program <config>")

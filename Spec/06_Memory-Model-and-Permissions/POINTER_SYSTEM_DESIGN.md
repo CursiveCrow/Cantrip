@@ -1,28 +1,48 @@
 # Cursive Pointer and Reference System - Design Document
 
-**Status**: Approved Design
+**Status**: ⚠️ **OUTDATED** - Requires Major Revision
 **Date**: 2025-01-04
 **Version**: 1.0
 
 ---
 
-## Executive Summary
+## ⚠️ CRITICAL NOTICE - DOCUMENT OUTDATED
+
+**This document contains incorrect design information and must be revised.**
+
+**INCORRECT CLAIMS IN THIS DOCUMENT:**
+- Claims `alias` is a binding category keyword ❌ **WRONG** - `alias` is NOT a keyword
+- Claims there are 3 binding categories ❌ **WRONG** - there are only 2: `let` and `var`
+- Various examples use `alias` syntax ❌ **WRONG** - this syntax does not exist
+
+**CORRECT CURSIVE DESIGN:**
+- **Two binding categories only**: `let`, `var`
+- **Assignment operators**: `=` (value), `<-` (reference of value)
+- **NO `alias` keyword exists**
+- **NO `ref` keyword exists**
+
+**Sections requiring major revision:** 2, 5, 15.2, 17.1, 17.4, 19, and all examples using `alias`
+
+---
+
+## Executive Summary (NEEDS REVISION)
 
 This document specifies the complete design for Cursive's pointer and reference system, including:
 
-- **Three binding categories**: `let`, `var`, `alias`
-- **Region allocation operator**: `^expr` returns value type `T`
-- **Alias bindings**: Pure syntactic aliases with no memory location
-- **Modal pointers**: `Ptr<T>` with four states (@Null, @Valid, @Weak, @Expired)
-- **Address-of operator**: `&expr` for creating pointers
-- **Dereference operator**: `*ptr` for accessing values through pointers
-- **Escape analysis**: Compile-time prevention of dangling pointers
+- ~~**Three binding categories**: `let`, `var`, `alias`~~ ❌ **INCORRECT**
+- **Two binding categories**: `let`, `var` ✅ **CORRECT**
+- **Assignment operators**: `=` (value), `<-` (reference of value) ✅
+- **Region allocation operator**: `^expr` returns value type `T` ✅
+- **Modal pointers**: `Ptr<T>` with four states (@Null, @Valid, @Weak, @Expired) ✅
+- **Address-of operator**: `&expr` for creating pointers ✅
+- **Dereference operator**: `*ptr` for accessing values through pointers ✅
+- **Escape analysis**: Compile-time prevention of dangling pointers ✅
 
 This design achieves memory safety through:
-1. Compile-time escape analysis (no runtime overhead)
-2. Modal type states (null safety, weak reference tracking)
-3. Explicit operations (no implicit pointer creation)
-4. Integration with Cursive's permission system
+1. Compile-time escape analysis (no runtime overhead) ✅
+2. Modal type states (null safety, weak reference tracking) ✅
+3. Explicit operations (no implicit pointer creation) ✅
+4. Integration with Cursive's permission system ✅
 
 ---
 
@@ -41,31 +61,38 @@ The pointer system adheres to Cursive's core principles:
 
 ---
 
-## 2. Binding Categories
+## 2. Binding Categories ⚠️ **CORRECTED**
 
-Cursive defines three binding category keywords:
+~~Cursive defines three binding category keywords~~ ❌ **WRONG**
 
-### 2.1 Binding Category Table
+**Cursive defines TWO binding categories:**
 
-| Keyword | Ownership | Has Location? | Mutability | Purpose |
-|---------|-----------|---------------|------------|---------|
-| `let` | Owning | ✅ Yes | Immutable | Immutable owning binding |
-| `var` | Owning | ✅ Yes | Mutable | Mutable owning binding |
-| `alias` | Non-owning | ❌ No | Follows target | Pure syntactic alias |
+### 2.1 Binding Category Table ✅ **CORRECTED**
 
-### 2.2 Semantics
+| Keyword | Ownership | Rebindable | Transferable | Purpose |
+|---------|-----------|------------|--------------|---------|
+| `let` | Owning | ❌ No | ✅ Yes via `move` | Non-rebindable owning binding |
+| `var` | Owning | ✅ Yes | ❌ No | Rebindable owning binding |
+
+### 2.2 Assignment Operators
+
+| Operator | Meaning | Creates |
+|----------|---------|---------|
+| `=` | Value assignment | Owning binding |
+| `<-` | Reference of value | Non-owning binding |
+
+### 2.3 Semantics ✅ **CORRECTED**
 
 ```cursive
-let value = ^Data::new();    // Owning binding with memory location
-var counter = 0;              // Owning mutable binding with location
-alias a = value;              // Non-owning alias, NO memory location
+let value = ^Data::new();     // Owning binding via =
+var counter = 0;               // Rebindable owning binding via =
+let ref_value <- value;        // Non-owning binding via <-
 ```
 
-**Critical distinction**: `alias` is purely syntactic sugar for aliasing. It has:
-- Zero runtime representation
-- No addressable memory location
-- Auto-dereferences like the target value
-- Cannot have its address taken (`&alias` is a compile error)
+**Note**: The `<-` operator creates a non-owning binding that:
+- Does not call destructor
+- Cannot be transferred with `move`
+- Refers to an existing value
 
 ---
 
@@ -154,55 +181,52 @@ let ptr: Ptr<i32> = &value; // ✅ Create pointer explicitly
 
 ---
 
-## 5. Alias Bindings
+## 5. Non-Owning Bindings via `<-` Operator ⚠️ **SECTION REWRITTEN**
 
-### 5.1 Syntax
+~~### 5.1 Alias Bindings~~ ❌ **REMOVED** - `alias` keyword does not exist
 
+### 5.1 Reference of Value Assignment (`<-`)
+
+**Syntax**:
 ```cursive
-alias name = expr;
+let name <- expr;    // Non-rebindable non-owning binding
+var name <- expr;    // Rebindable non-owning binding
 ```
 
 ### 5.2 Semantics
 
-An `alias` binding:
-1. Creates a non-owning reference to an existing value
-2. Auto-dereferences transparently (no `*` needed)
-3. Has **no memory location** (cannot take its address)
-4. Has zero runtime cost (purely compile-time construct)
-5. Cannot be stored in data structures
-6. Cannot be returned from functions
-7. Cannot have its address taken
+The `<-` operator creates a non-owning binding:
+1. Does not take ownership (original owner remains responsible for cleanup)
+2. Cannot be transferred with `move`
+3. Can still be used to take addresses (`&name` creates a pointer)
+4. Rebindability controlled by `let` vs `var`
 
-### 5.3 Examples
+### 5.3 Examples ✅ **CORRECTED**
 
 ```cursive
 let data = ^Data::new();
-alias a1 = data;            // a1 is another name for data
-alias a2 = data;            // a2 is another name for data
+let ref1 <- data;           // Non-owning binding to data
+let ref2 <- data;           // Another non-owning binding
 
-// All auto-dereference:
+// All can be used normally:
 println("{}", data);        // ✅ OK
-println("{}", a1);          // ✅ OK
-println("{}", a2);          // ✅ OK
+println("{}", ref1);        // ✅ OK
+println("{}", ref2);        // ✅ OK
 
-// Address operations:
+// Address operations - all valid:
 let ptr1: Ptr<Data> = &data; // ✅ OK - data has location
-let ptr2: Ptr<Data> = &a1;   // ❌ ERROR E4030: alias has no location
+let ptr2: Ptr<Data> = &ref1; // ✅ OK - ref1 also has location
 ```
 
-### 5.4 Error: Address of Alias
+### 5.4 Ownership Rules
 
-```
-error[E4030]: cannot take address of alias binding
-  --> example.cursive:5:28
-   |
-5  | let ptr: Ptr<Data> = &a;
-   |                       ^^ alias bindings have no memory location
-   |
-   = note: alias is a pure syntactic alias to another value
-   = help: take the address of the original value instead:
+```cursive
+let owner = Data::new();
+let borrowed <- owner;
 
-           let ptr: Ptr<Data> = &data;
+// owner still responsible for cleanup
+// borrowed cannot transfer ownership
+consume(move borrowed);  // ❌ ERROR: cannot move from non-owning binding
 ```
 
 ---
@@ -359,8 +383,8 @@ expr has memory location
 let value = ^Data::new();
 let ptr: Ptr<Data> = &value;  // ✅ OK: value has location
 
-alias a = value;
-let ptr: Ptr<Data> = &a;      // ❌ ERROR: alias has no location
+let ref_value <- value;
+let ptr2: Ptr<Data> = &ref_value;  // ✅ OK: non-owning bindings also have locations
 ```
 
 ### 8.2 Dereference Operator
@@ -435,7 +459,7 @@ procedure returns_dangling(): Ptr<Data> {
 **Valid: Heap escape**
 ```cursive
 procedure returns_valid(): Ptr<Data>
-    grants alloc.region, alloc.heap
+    sequent { [alloc::region, alloc::heap] |- true => true }
 {
     region r {
         let data = ^Data::new();
@@ -529,7 +553,7 @@ record TreeNode {
 }
 
 procedure build_tree(): Ptr<TreeNode>
-    grants alloc.region, alloc.heap
+    sequent { [alloc::region, alloc::heap] |- true => true }
 {
     region temp {
         var root = ^TreeNode {
@@ -554,7 +578,7 @@ procedure build_tree(): Ptr<TreeNode>
 }
 
 procedure traverse_up(node: Ptr<TreeNode>) {
-    alias current = node;
+    var current <- node;  // ⚠️ Using <- for non-owning binding
     loop {
         match current.parent.upgrade() {
             @Valid => {
@@ -680,7 +704,7 @@ record Node {
 }
 
 procedure build_list(): Ptr<Node>
-    grants alloc.region, alloc.heap
+    sequent { [alloc::region, alloc::heap] |- true => true }
 {
     region temp {
         var node1 = ^Node { value: 1, next: Ptr::null() };
@@ -690,7 +714,7 @@ procedure build_list(): Ptr<Node>
         node3.next = &node2;
         node2.next = &node1;
 
-        alias head = node3;
+        let head <- node3;  // ⚠️ Non-owning binding via <-
 
         let heap_list = head.to_heap();
         result &heap_list
@@ -709,7 +733,7 @@ record TreeNode {
 }
 
 procedure insert(root: Ptr<TreeNode>, value: i32)
-    grants alloc.heap
+    sequent { [alloc::heap] |- true => true }
 {
     match root {
         @Null => {
@@ -786,13 +810,14 @@ BitwiseAndExpr  ::= CompareExpr ("&" CompareExpr)*
 MulExpr         ::= UnaryExpr ("*" UnaryExpr)*
 ```
 
-### 15.2 Binding Declarations
+### 15.2 Binding Declarations ⚠️ **CORRECTED**
 
 ```ebnf
-LetDecl     ::= "let" Pattern (":" Type)? "=" Expr
-VarDecl     ::= "var" Pattern (":" Type)? "=" Expr
-AliasDecl   ::= "alias" Identifier (":" Type)? "=" Expr
+LetDecl     ::= "let" Pattern (":" Type)? ("=" | "<-") Expr
+VarDecl     ::= "var" Pattern (":" Type)? ("=" | "<-") Expr
 ```
+
+**Note**: `=` creates owning binding, `<-` creates non-owning binding
 
 ### 15.3 Pointer Type
 
@@ -827,16 +852,11 @@ A conforming implementation SHALL:
 
 ## 17. Design Rationale
 
-### 17.1 Why `alias` instead of `ref`?
+### 17.1 ~~Why `alias` instead of `ref`?~~ ❌ **OUTDATED SECTION**
 
-**Problem**: `ref` collides with pointer terminology (C++ references, Rust &T)
+**This section is obsolete.** Neither `alias` nor `ref` are keywords in Cursive.
 
-**Solution**: `alias` clearly means "another name" with no pointer implications
-
-**Benefits**:
-- Zero confusion with pointer concepts
-- Aligns with "aliasing" terminology already in spec
-- Makes "no memory location" property obvious
+**Actual design**: The `<-` operator creates non-owning bindings (reference of value assignment).
 
 ### 17.2 Why `^expr` returns `T` not `Ptr<T>`?
 
@@ -863,17 +883,11 @@ A conforming implementation SHALL:
 - Prevents memory leaks from cycles
 - Still simple enough to understand
 
-### 17.4 Why alias has no location?
+### 17.4 ~~Why alias has no location?~~ ❌ **OUTDATED SECTION**
 
-**Problem**: If alias had location, what does &alias mean?
+**This section is obsolete.** `alias` is not a keyword in Cursive.
 
-**Solution**: Alias is pure syntactic sugar with zero storage
-
-**Benefits**:
-- Clear semantics: just another name
-- Zero runtime cost (compile-time only)
-- Forces explicit pointer creation from original values
-- Avoids "pointer to alias" confusion
+**Actual design**: Non-owning bindings created with `<-` **DO** have memory locations and can have their addresses taken with `&`.
 
 ---
 
@@ -898,23 +912,24 @@ A conforming implementation SHALL:
 
 ---
 
-## 19. Conformance Checklist
+## 19. Conformance Checklist ⚠️ **CORRECTED**
 
 A conforming implementation of this design SHALL:
 
-- [ ] Support three binding categories: `let`, `var`, `alias`
-- [ ] Implement `^` operator returning value type `T`
-- [ ] Support region stacking: `^^`, `^^^`
-- [ ] Implement `&` operator for address-of
-- [ ] Implement `*` operator for dereference
-- [ ] Define `Ptr<T>` modal type with four states
-- [ ] Implement escape analysis preventing region escapes
-- [ ] Reject `&alias` with error E4030
-- [ ] Support `&expr` producing `Ptr<T>`, `Ptr::null()`, `.downgrade()`, `.upgrade()`
-- [ ] Implement pattern matching state refinement
-- [ ] Integrate with permission system (const, unique, shared)
-- [ ] Provide all specified error codes with clear diagnostics
-- [ ] Achieve zero runtime overhead for all safety checks
+- [ ] Support ~~three~~ **two** binding categories: `let`, `var` ✅
+- [ ] Support assignment operators: `=` (value), `<-` (reference of value) ✅
+- [ ] Implement `^` operator returning value type `T` ✅
+- [ ] Support region stacking: `^^`, `^^^` ✅
+- [ ] Implement `&` operator for address-of ✅
+- [ ] Implement `*` operator for dereference ✅
+- [ ] Define `Ptr<T>` modal type with four states ✅
+- [ ] Implement escape analysis preventing region escapes ✅
+- [ ] ~~Reject `&alias` with error E4030~~ ❌ **OBSOLETE** - `alias` doesn't exist
+- [ ] Support `&expr` producing `Ptr<T>`, `Ptr::null()`, `.downgrade()`, `.upgrade()` ✅
+- [ ] Implement pattern matching state refinement ✅
+- [ ] Integrate with permission system (const, unique, shared) ✅
+- [ ] Provide all specified error codes with clear diagnostics ✅
+- [ ] Achieve zero runtime overhead for all safety checks ✅
 
 ---
 

@@ -144,7 +144,7 @@ cursive build  # Defaults to latest 1.x
 - **May** have performance improvements
 - **May** have new optional capabilities (non-breaking additions)
 
-**Example**: The two-axis memory model (binding categories `let`/`var`/`ref` and permissions `const`/`unique`/`shared`) is stable in version 1.0.
+**Example**: The two-axis memory model (binding categories `let`/`var` and permissions `const`/`unique`/`shared`) is stable in version 1.0.
 
 **Breaking changes only in major versions**: Stable features can only have breaking changes in major version increments (1.x -> 2.0).
 
@@ -397,9 +397,9 @@ $ cursive fix --target-version 2.0
 ```bash
 $ cursive fix --target-version 2.0
 Migrating from Cursive 1.3 to 2.0...
-✓ Updated 15 uses of deprecated 'var' keyword
+✓ Updated 15 uses of deprecated array subscript syntax
 ✓ Converted 3 deprecated function signatures
-⚠ Manual review required: 2 changes to effect system (see migration guide)
+⚠ Manual review required: 2 changes to grant system (see migration guide)
 Migration complete. Review changes and run tests.
 ```
 
@@ -519,7 +519,7 @@ let first = items::get(0);  // Required syntax in 2.0
 
 The following major features are **stable** in Cursive 1.0:
 
-- ✅ Lexical Permission System (owned, unique, shared, readonly)
+- ✅ Lexical Permission System (const, unique, shared)
 - ✅ Grant System (grants, grant tracking)
 - ✅ Contract System (must, will, where)
 - ✅ Modal Types (state machines)

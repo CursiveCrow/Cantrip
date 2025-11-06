@@ -14,7 +14,7 @@
 This document specifies the syntax, semantics, and constraints of the Cursive programming language, Version 1.0. It defines:
 
 1. The lexical structure, grammar, and syntactic rules of Cursive programs
-2. The static semantics, including type system, effect system, and permission system
+2. The static semantics, including type system, grant system, and permission system
 3. The dynamic semantics and execution model
 4. The requirements for conforming implementations
 5. The requirements for conforming programs
@@ -43,8 +43,8 @@ This specification applies to all implementations claiming conformance to Cursiv
 - Lexical structure (tokens, keywords, literals, comments)
 - Syntactic structure (grammar productions for expressions, statements, declarations)
 - Type system (primitive types, composite types, generic types, subtyping)
-- Memory model (two-axis system: binding categories `let`/`var`/`ref` and permissions `const`/`unique`/`shared`)
-- Effect system (compile-time tracking of side effects, I/O, allocation)
+- Memory model (two-axis system: binding categories `let`/`var` and permissions `const`/`unique`/`shared`)
+- Grant system (compile-time tracking of side effects, I/O, allocation)
 - Contract system (preconditions, postconditions, invariants)
 - Modal types (state machines as types with compile-time transition verification)
 - Resource management (regions, storage duration, object lifetime, RAII)

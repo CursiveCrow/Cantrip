@@ -1,0 +1,627 @@
+# Part III: Type System
+## Section 3.0: Type System Foundations
+
+**File**: `03-0_Type-Foundations.md`
+**Version**: 2.0
+**Status**: Normative
+**Previous**: [Part II] | **Next**: [03-1_Subtyping-Equivalence.md](03-1_Subtyping-Equivalence.md)
+
+---
+
+## 3.0.1 Overview
+
+[1] This section specifies the core typing infrastructure of Cursive, including type formation, well-formedness, type environments, equivalence relations, and the foundational properties that ensure type safety.
+
+**Definition 3.0.1** (*Type System*):
+The Cursive type system is a static, primarily nominal type system with:
+- Structural typing for tuples and function types
+- Bidirectional type inference
+- Subtyping relation with explicit variance
+- Integration with permission system (Part IV)
+- Integration with grant system (Part X)
+
+[2] A well-typed program shall not exhibit undefined behavior arising from type errors.
+
+### 3.0.1.1 Type Categories
+
+[3] Cursive types shall be classified into the following categories:
+    (3.1) **Primitive Types** (§3.2): Integer, floating-point, boolean, character, unit, never
+    (3.2) **Composite Types** (§3.3): Product types (tuples, records), sum types (enums), union types
+    (3.3) **Collection Types** (§3.4): Arrays, slices, strings, range types
+    (3.4) **Function Types** (§3.5): Function and procedure types with grant annotations
+    (3.5) **Pointer Types** (§3.6): Modal pointers with state annotations
+    (3.6) **Type Aliases** (§3.7): Transparent and opaque type aliases
+    (3.7) **Type Introspection** (§3.8): typeof operator and type predicates
+
+> **Note**: The distinction between nominal and structural typing:
+> - **Nominal types**: Records, enums, modals, predicates (identity by name)
+> - **Structural types**: Tuples, arrays, primitives, slices, function types (identity by structure)
+
+### 3.0.1.2 Cross-Part Dependencies
+
+[4] The type system integrates with other parts of the specification as follows:
+    (4.1) **Part I (Foundations)**: Uses notation, metavariables, and judgment forms from §1.3
+    (4.2) **Part II (Program Model)**: Builds on scopes (§2.5) and memory model overview (§2.8)
+    (4.3) **Part IV (Memory Model and Permissions)**: Every typing judgment is parameterized by permission annotations
+    (4.4) **Part VII (Declarations)**: Variable bindings, type declarations, scope rules
+    (4.5) **Part X (Grant System)**: Function and procedure types carry explicit grant signatures
+    (4.6) **Part XI (Contract System)**: Procedure types carry contract clauses
+
+> **Note**: Metavariable Convention - This part uses type-specific metavariables (`τ, υ` for types; `α, β, γ` for type variables; `Γ` for type environments) as defined in §1.3.2.
+
+---
+
+## 3.0.2 Syntax
+
+[5] The syntax of types shall conform to the following grammar.
+
+**Syntax:**
+```
+Type τ ::= PrimitiveType
+         | CompositeType
+         | CollectionType
+         | FunctionType
+         | PointerType
+         | GenericType⟨τ₁, ..., τₙ⟩
+         | τ₁ \/ τ₂              (union type)
+         | Self                  (self type in predicate/modal)
+         | α                     (type variable)
+
+PrimitiveType ::= IntType | FloatType | bool | char | () | !
+
+IntType ::= i8 | i16 | i32 | i64 | i128 | isize
+          | u8 | u16 | u32 | u64 | u128 | usize
+
+FloatType ::= f32 | f64
+
+CollectionType ::= [τ; n] | [τ] | string | RangeType⟨T⟩
+
+RangeType⟨T⟩ ::= Range⟨T⟩ | RangeInclusive⟨T⟩ | RangeFrom⟨T⟩
+               | RangeTo⟨T⟩ | RangeToInclusive⟨T⟩ | RangeFull
+
+CompositeType ::= TupleType | RecordType | EnumType
+
+FunctionType ::= (τ₁, ..., τₙ) -> τ_ret GrantAnnotation?
+
+GrantAnnotation ::= '!' GrantSet
+
+PointerType ::= Ptr⟨τ⟩@State
+```
+
+> **Note**: Complete grammar in Annex A.2. Forward references: Detailed primitive types (§3.2), Composite types (§3.3), Collection types (§3.4), Function types (§3.5), Pointer types (§3.6), Generic types (Part IX).
+
+---
+
+## 3.0.3 Type Formation
+
+[6] A type shall be well-formed when all its constructors are defined, type arguments match parameter arity, type bounds are satisfied, and all component types are well-formed.
+
+**Definition 3.0.2** (*Well-Formed Type*):
+The judgment `Γ ⊢ τ : Type` holds when the conditions in paragraph [6] are satisfied.
+
+### 3.0.3.1 Well-Formedness Rules
+
+[7] The well-formedness rules for types shall be:
+
+**Type Well-Formedness Rules:**
+```
+[WF-TypeVar]
+(α : κ) ∈ Γ
+--------------
+Γ ⊢ α : Type
+
+
+[WF-Prim]
+T ∈ PrimTypes
+--------------
+Γ ⊢ T : Type
+
+where PrimTypes = {i8, i16, i32, i64, i128, isize,
+                   u8, u16, u32, u64, u128, usize,
+                   f32, f64, bool, char, string, !, ()}
+
+
+[WF-Tuple]
+Γ ⊢ τ₁ : Type    ...    Γ ⊢ τₙ : Type
+n ≥ 2
+-------------------------------------
+Γ ⊢ (τ₁, ..., τₙ) : Type
+
+
+[WF-Array]
+Γ ⊢ τ : Type    n ∈ ℕ⁺
+--------------------------
+Γ ⊢ [τ; n] : Type
+
+
+[WF-Slice]
+Γ ⊢ τ : Type
+--------------
+Γ ⊢ [τ] : Type
+
+
+[WF-Function]
+Γ ⊢ τ₁ : Type    ...    Γ ⊢ τₙ : Type
+Γ ⊢ τ_ret : Type
+ε valid grant set
+----------------------------------------------
+Γ ⊢ (τ₁, ..., τₙ) -> τ_ret ! ε : Type
+
+
+[WF-Union]
+Γ ⊢ τ₁ : Type    Γ ⊢ τ₂ : Type
+--------------------------------
+Γ ⊢ τ₁ \/ τ₂ : Type
+
+
+[WF-Modal]
+Γ ⊢ ModalName : Type
+@S is a valid state of ModalName
+--------------------------------
+Γ ⊢ ModalName@S : Type
+```
+
+**Example 1**: Well-formed primitive types ✅
+```cursive
+// All primitive types are well-formed
+let x: const i32 = 42
+let y: const f64 = 3.14
+let z: const bool = true
+```
+
+**Example 2**: Well-formed composite types ✅
+```cursive
+// Tuples: structural equivalence
+let pair: const (i32, f64) = (42, 3.14)
+let triple: const (i32, f64, bool) = (42, 3.14, true)
+
+// Arrays
+let arr: const [i32; 5] = [1, 2, 3, 4, 5]
+let slice: const [i32] = arr[..]
+```
+
+[8] A conforming implementation shall reject any type that is not well-formed according to the rules in paragraph [7].
+
+### 3.0.3.2 Grant Set Well-Formedness
+
+[9] Grant sets shall be well-formed according to the following rules:
+
+**Grant Set Well-Formedness:**
+```
+[WF-Grant-Empty]
+------------------
+∅ valid grant set
+
+
+[WF-Grant-Single]
+grant_path is a declared grant
+------------------------------
+grant_path valid grant set
+
+
+[WF-Grant-Union]
+ε₁ valid grant set    ε₂ valid grant set
+-----------------------------------------
+ε₁ ∪ ε₂ valid grant set
+```
+
+> **Forward reference**: Complete grant system specification in Part X.
+
+### 3.0.3.3 Kinding Rules
+
+[10] Kinds shall classify type-level expressions.
+
+**Definition 3.0.3** (*Kind*):
+Kinds classify type-level expressions. The kind system includes:
+```
+Kind κ ::= Type                (inhabited types)
+         | Type -> Kind        (type constructor)
+         | Eff                 (grant sets)
+         | Region              (region lifetime)
+```
+
+[11] Kinding judgments shall determine the kind of type-level expressions:
+
+**Kinding Rules:**
+```
+[K-Type]
+T ∈ PrimTypes
+-------------
+T : Type
+
+
+[K-Constructor]
+T has arity n
+κ₁, ..., κₙ are parameter kinds
+κ_ret is result kind
+--------------------------------
+T : κ₁ -> ... -> κₙ -> κ_ret
+
+
+[K-Grant]
+ε is a grant set
+---------------
+ε : Eff
+
+
+[K-Application]
+Γ ⊢ F : κ₁ -> κ₂
+Γ ⊢ T : κ₁
+-------------------
+Γ ⊢ F⟨T⟩ : κ₂
+```
+
+**Example 3**: Type constructor kinding ✅
+```cursive
+// Array is a type constructor: Type -> Type
+type IntArray = [i32; 10]
+
+// Generic record is a type constructor: Type -> Type
+record Container<T> { value: T }
+let container: Container<i32> = Container { value: 42 }
+```
+
+---
+
+## 3.0.4 Type Environments
+
+[12] A type environment shall map term variables to types and type variables to kinds with optional bounds.
+
+**Definition 3.0.4** (*Type Environment*):
+A type environment (context) Γ maps identifiers to types and kinds:
+```
+Γ ::= ∅                                    (empty context)
+    | Γ, x : τ                             (term binding)
+    | Γ, α : κ                             (type variable binding)
+    | Γ, α : κ where φ                     (constrained type parameter)
+    | Γ, grants G                          (grant parameter binding)
+```
+where φ is a predicate bound of the form `α : PredicateName`.
+
+### 3.0.4.1 Environment Operations
+
+[13] Environment lookup shall retrieve bindings:
+
+**Lookup Rules:**
+```
+[Env-Lookup-Term]
+(x : τ) ∈ Γ
+-----------
+Γ(x) = τ
+
+
+[Env-Lookup-Type]
+(α : κ) ∈ Γ
+-----------
+Γ(α) = κ
+```
+
+[14] Environment extension shall add new bindings:
+
+**Extension Rule:**
+```
+[Env-Extend]
+x ∉ dom(Γ)
+-----------------------
+Γ, x : τ extends Γ
+```
+
+[15] A new binding `x : τ` may shadow a previous binding of `x` in an outer scope. The most recent binding shall take precedence.
+
+[16] Within a single scope, a conforming implementation shall reject duplicate bindings of the same identifier. Shadowing is permitted only across nested scopes.
+
+### 3.0.4.2 Well-Formed Environments
+
+[17] An environment Γ shall be well-formed when:
+    (17.1) Each term variable appears at most once in the current scope
+    (17.2) Each type variable appears at most once in the current scope
+    (17.3) All types in Γ are well-formed under Γ itself
+    (17.4) All bounds in Γ are satisfied
+
+**Definition 3.0.5** (*Well-Formed Environment*):
+An environment Γ is well-formed when the conditions in paragraph [17] hold.
+
+**Well-Formed Environment Rules:**
+```
+[WF-Env-Empty]
+--------------
+⊢ ∅ ok
+
+
+[WF-Env-Term]
+⊢ Γ ok
+Γ ⊢ τ : Type
+x ∉ dom(Γ)    (within current scope)
+------------------------------------
+⊢ Γ, x : τ ok
+
+
+[WF-Env-TypeVar]
+⊢ Γ ok
+α ∉ dom(Γ)    (within current scope)
+------------------------------------
+⊢ Γ, α : κ ok
+
+
+[WF-Env-Bounded]
+⊢ Γ ok
+Γ, α : κ ⊢ φ valid
+α ∉ dom(Γ)    (within current scope)
+------------------------------------
+⊢ Γ, α : κ where φ ok
+```
+
+**Example 4**: Type environment evolution ✅
+```cursive
+// Initial environment: ∅
+{
+    // Environment: Γ = { x : i32 }
+    let x: const i32 = 42
+
+    {
+        // Environment: Γ' = Γ, { y : f64 }
+        let y: const f64 = 3.14
+
+        // Inner scope can shadow outer binding
+        let x: const f64 = 1.0  // OK: shadows outer x
+
+        // x here refers to the inner binding (f64)
+    }
+
+    // x here refers to the outer binding (i32)
+}
+```
+
+---
+
+## 3.0.5 Type Equality and Equivalence
+
+[18] Types shall be equivalent when they denote the same type under the applicable equivalence relation.
+
+**Definition 3.0.6** (*Type Equivalence*):
+Types τ₁ and τ₂ are equivalent (`τ₁ ≡ τ₂`) when they denote the same type after expanding aliases, substituting generic arguments, and normalizing associated types.
+
+[19] Cursive shall employ:
+    (19.1) **Nominal equivalence** for records, enums, modals, predicates, and contracts
+    (19.2) **Structural equivalence** for tuples, arrays, slices, primitives, and function types
+
+### 3.0.5.1 Equivalence Rules
+
+[20] Type equivalence shall satisfy reflexivity, symmetry, and transitivity:
+
+**Basic Equivalence Rules:**
+```
+[Equiv-Refl]
+------------
+τ ≡ τ
+
+
+[Equiv-Sym]
+τ₁ ≡ τ₂
+------------
+τ₂ ≡ τ₁
+
+
+[Equiv-Trans]
+τ₁ ≡ τ₂    τ₂ ≡ τ₃
+--------------------
+τ₁ ≡ τ₃
+
+
+[Equiv-Alias]
+type A = τ
+----------
+A ≡ τ
+
+
+[Equiv-Generic-Alias]
+type F⟨α⟩ = τ[α]
+----------------------
+F⟨υ⟩ ≡ τ[α ↦ υ]
+```
+
+### 3.0.5.2 Nominal Equivalence
+
+[21] Two nominal types shall be equivalent if and only if they have the same name and were declared by the same type declaration.
+
+**Definition 3.0.7** (*Nominal Equivalence*):
+For nominal types, equivalence is based on type identity, not structure.
+
+**Example 5**: Nominal types with identical structure are not equivalent ❌
+```cursive
+record Point { x: f64, y: f64 }
+record Vector { x: f64, y: f64 }
+
+let p: const Point = Point { x: 1.0, y: 2.0 }
+// let v: Vector = p  // ERROR: Point ≢ Vector
+```
+
+### 3.0.5.3 Structural Equivalence
+
+[22] Two structural types shall be equivalent if and only if they have the same structure.
+
+**Definition 3.0.8** (*Structural Equivalence*):
+For structural types, equivalence is based on the structure of the type, not its name.
+
+**Structural Equivalence Rules:**
+```
+[Equiv-Tuple]
+τ₁ ≡ υ₁    ...    τₙ ≡ υₙ
+-----------------------------
+(τ₁, ..., τₙ) ≡ (υ₁, ..., υₙ)
+
+
+[Equiv-Array]
+τ ≡ υ    n = m
+--------------------
+[τ; n] ≡ [υ; m]
+
+
+[Equiv-Slice]
+τ ≡ υ
+-----------
+[τ] ≡ [υ]
+
+
+[Equiv-Function]
+τ₁ ≡ υ₁    ...    τₙ ≡ υₙ
+τ_ret ≡ υ_ret
+ε₁ = ε₂    (grant sets equal)
+---------------------------------------------------------
+(τ₁, ..., τₙ) -> τ_ret ! ε₁ ≡ (υ₁, ..., υₙ) -> υ_ret ! ε₂
+```
+
+**Example 6**: Structural type equivalence ✅
+```cursive
+// Tuples: structurally equivalent
+let t1: const (i32, f64) = (42, 3.14)
+let t2: const (i32, f64) = (100, 2.71)
+// t1 and t2 have the same type
+
+// Function types: structurally equivalent
+type BinaryOp = (i32, i32) -> i32
+function add(a: i32, b: i32): i32 { result a + b }
+let op: const BinaryOp = add  // OK: types equivalent
+```
+
+> **Forward reference**: Detailed subtyping and equivalence rules in §3.1.
+
+---
+
+## 3.0.6 Subtyping Overview
+
+[23] The subtyping relation determines when one type can safely substitute for another.
+
+**Definition 3.0.9** (*Subtyping Relation*):
+The subtyping relation `τ <: υ` (read "τ is a subtype of υ") indicates that a value of type τ can be used safely wherever a value of type υ is expected.
+
+[24] The subtyping relation shall be reflexive and transitive.
+
+**Basic Subtyping Properties:**
+```
+[Sub-Refl]
+----------
+τ <: τ
+
+
+[Sub-Trans]
+τ₁ <: τ₂    τ₂ <: τ₃
+--------------------
+τ₁ <: τ₃
+
+
+[Sub-Never]
+----------
+! <: τ
+```
+
+[25] The never type `!` shall be the bottom type, a subtype of all types.
+
+**Example 7**: Never type as bottom type ✅
+```cursive
+function diverge(): ! {
+    loop {
+        // Never returns
+    }
+}
+
+function example(): i32 {
+    diverge()  // OK: ! <: i32
+}
+```
+
+> **Forward reference**: Complete subtyping rules and variance in §3.1.
+
+---
+
+## 3.0.7 Type Safety Properties
+
+[26] The type system shall guarantee type safety through progress and preservation properties.
+
+**Theorem 3.0.1** (*Type Safety*):
+If a program is well-typed, then it shall not exhibit undefined behavior arising from type errors.
+
+*Proof*: By progress and preservation theorems. See Annex C.1 for complete proof.
+
+### 3.0.7.1 Progress
+
+[27] If an expression is well-typed, it shall either evaluate to a value or diverge.
+
+**Theorem 3.0.2** (*Progress*):
+If `∅ ⊢ e : τ`, then either:
+  (a) `e` is a value, or
+  (b) `e ⇓ e'` for some `e'`, or
+  (c) `e` diverges
+
+### 3.0.7.2 Preservation
+
+[28] If a well-typed expression evaluates, the result shall preserve the type.
+
+**Theorem 3.0.3** (*Preservation*):
+If `Γ ⊢ e : τ` and `e ⇓ e'`, then `Γ ⊢ e' : τ`.
+
+### 3.0.7.3 Parametricity
+
+[29] Generic functions shall preserve type abstraction.
+
+**Theorem 3.0.4** (*Parametricity*):
+For all well-typed generic functions `f⟨α⟩`, the behavior of `f` shall be uniform across all instantiations of `α`.
+
+*Interpretation*: Functions cannot inspect or depend on the specific type argument.
+
+### 3.0.7.4 Integration with Permission System
+
+[30] Type safety shall integrate with the permission system to ensure memory safety.
+
+[31] The typing judgment shall be extended with permission annotations:
+```
+Γ; Π ⊢ e : τ @ p
+```
+where:
+- Γ is the type environment
+- Π is the permission context
+- τ is the type
+- p is the permission (const, shared, unique)
+
+> **Forward reference**: Complete permission system in Part IV §4.2.
+
+### 3.0.7.5 Integration with Grant System
+
+[32] Type safety shall integrate with the grant system to ensure effect safety.
+
+[33] Function and procedure types shall carry explicit grant annotations:
+```
+(τ₁, ..., τₙ) -> τ_ret ! ε
+```
+where ε is the grant set required by the function.
+
+> **Forward reference**: Complete grant system in Part X.
+
+---
+
+## 3.0.8 Integration
+
+[34] The type system foundations integrate with the following language components:
+
+**Cross-references:**
+- Detailed subtyping and equivalence: §3.1
+- Primitive types: §3.2
+- Composite types: §3.3
+- Collection types: §3.4
+- Function types: §3.5
+- Pointer types: §3.6
+- Type aliases: §3.7
+- Type introspection: §3.8
+- Generic types and parametric polymorphism: Part IX
+- Predicate system and type constraints: Part VIII
+- Permission system: Part IV §4.2
+- Grant system: Part X
+- Contract system: Part XI
+- Memory model: Part IV
+- Scopes and name resolution: §2.5, Part VII
+
+[35] The formal semantics specified in this section shall be elaborated in Annex C (Formal Semantics), which provides complete typing rules, operational semantics, and meta-theoretic proofs.
+
+---
+
+**Previous**: [Part II] | **Next**: [03-1_Subtyping-Equivalence.md](03-1_Subtyping-Equivalence.md)

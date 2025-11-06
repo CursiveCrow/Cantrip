@@ -509,19 +509,37 @@ Permission      ::= "owned" | "unique" | "shared" | "readonly"
 ## A.7 Contract Grammar
 
 ```ebnf
-ContractClause  ::= GrantClause
-                 | MustClause
-                 | WillClause
+ContractClause  ::= SequentClause
 
-GrantClause     ::= "grants" GrantSet
-MustClause      ::= "must" PredicateBlock
-WillClause      ::= "will" PredicateBlock
+SequentClause   ::= "sequent" "{" SequentSpec "}"
+
+SequentSpec     ::= "[" GrantSet "]" "|-" Antecedent "=>" Consequent
+                 | "[" GrantSet "]" "|-" Antecedent
+                 | "|-" Antecedent "=>" Consequent
+                 | Antecedent "=>" Consequent
+
+Antecedent      ::= PredicateBlock
+Consequent      ::= PredicateBlock
 
 PredicateBlock  ::= Assertion
-                 | "{" AssertionList "}"
-AssertionList   ::= Assertion ("," Assertion)* ","?
+                 | AssertionList
+AssertionList   ::= Assertion ("&&" Assertion)*
 ```
 
+**Explanation:**
+- `SequentClause` — Unified contract specification in sequent calculus form
+- `SequentSpec` — The sequent proper: `[ε] ⊢ P ⇒ Q`
+  - `[ε]` — Grant context (capability assumptions)
+  - `|-` — Turnstile (entailment), ASCII representation of `⊢`
+  - `P` — Antecedent (preconditions)
+  - `=>` — Implication, ASCII representation of `⇒`
+  - `Q` — Consequent (postconditions)
+- Sequent components may be omitted:
+  - No grants: omit `[GrantSet]` portion
+  - No preconditions: omit Antecedent (or use `true`)
+  - No postconditions: omit `=> Consequent` portion
+
+**Note:** Conjunction within antecedents and consequents uses explicit `&&` operator, not comma separation.
 
 `Assertion` is defined in Appendix A.8.
 

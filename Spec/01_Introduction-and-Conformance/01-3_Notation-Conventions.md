@@ -175,7 +175,7 @@ The following notational conventions apply to contexts:
 ```
 
 **Examples**:
-- `unique T <: shared T <: const T` — subtyping in the permission lattice
+- `unique T <: const T` and `shared T <: const T` — permission coercion (note: `unique` and `shared` are not subtypes of each other)
 - `Γ ⊢ e : T` — in context Γ, expression e has type T
 
 ### Substitution Notation
@@ -283,18 +283,18 @@ conclusion
 
 **Reading**: "If function f has type T₁ -> T₂, and expression e has type T₁, then the application f(e) has type T₂."
 
-### Example: Effect Aggregation Rule
+### Example: Grant Aggregation Rule
 
 ```
-[Effect-Aggregate-Call]
-Γ ⊢ f : (τ₁, ..., τₙ) -> U ! ε_f
-Γ ⊢ aᵢ : τᵢ ! ε_aᵢ  (for all i)
-ε_total = ε_f ∪ ε_a₁ ∪ ... ∪ ε_aₙ
+[Grant-Aggregate-Call]
+Γ ⊢ f : (τ₁, ..., τₙ) -> U ! G_f
+Γ ⊢ aᵢ : τᵢ ! G_aᵢ  (for all i)
+G_total = G_f ∪ G_a₁ ∪ ... ∪ G_aₙ
 --------------------------------------------------------
-Γ ⊢ f(a₁, ..., aₙ) : U ! ε_total
+Γ ⊢ f(a₁, ..., aₙ) : U ! G_total
 ```
 
-**Reading**: "To type a function call, compute the union of the function's effects and all argument effects."
+**Reading**: "To type a function call, compute the union of the function's grant set and all argument grant sets."
 
 ### Axioms (Rules with No Premises)
 

@@ -455,15 +455,15 @@ defer       effect      else        enum        exists
 false       forall      function    if          import
 internal    invariant   let         loop
 match       modal       module      move        must
-new         none        owned       private     procedure
-protected   public      readonly    record      ref
+new         none        private     procedure
+protected   public      record
 region      result      select      self        Self
 shadow      shared      state       static      predicate
 true        type        unique      uses        var
 where       will        with
 ```
 
-**Keyword Count:** 59 reserved keywords
+**Keyword Count:** 56 reserved keywords
 
 **NORMATIVE REQUIREMENT:**
 
@@ -508,33 +508,6 @@ contract Example {
 
 // ✅ OK: 'effects' as identifier
 let effects = vec![effect1, effect2]
-```
-
-#### 2.2.6.3 Deprecated Keywords
-
-The following keywords are DEPRECATED and SHOULD NOT be used:
-
-| Deprecated | Replacement | Reason |
-|------------|-------------|--------|
-| `needs` | `must` | Contract clause renaming |
-| `requires` | `must` | Contract clause renaming |
-| `ensures` | `will` | Contract clause renaming |
-
-**NORMATIVE RECOMMENDATION:**
-
-> "Deprecated keywords should not be used. Implementations may issue warnings when deprecated keywords are encountered."
-
-**Diagnostic (Warning):**
-
-```
-warning[W2001]: deprecated keyword 'requires'
-  --> src/example.cur:8:5
-   |
- 8 |     requires x > 0
-   |     ^^^^^^^^ use 'must' instead
-   |
-   = note: 'requires' is deprecated, replaced by 'must'
-   = help: change to: must x > 0
 ```
 
 ---

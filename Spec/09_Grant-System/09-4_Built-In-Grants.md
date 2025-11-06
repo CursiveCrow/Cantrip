@@ -34,7 +34,7 @@
 **Example (informative)**:
 ```cursive
 procedure create_buffer(size: usize): [u8]
-    grants alloc::heap
+    sequent { [alloc::heap] |- true => true }
 {
     result heap_allocate_array<u8>(size)
 }
@@ -56,7 +56,7 @@ procedure create_buffer(size: usize): [u8]
 **Example (informative)**:
 ```cursive
 procedure process_in_region(data: [i32]): i32
-    grants alloc::region
+    sequent { [alloc::region] |- true => true }
 {
     region temp {
         let buffer = alloc_in<temp>([0; 1024])
@@ -94,7 +94,7 @@ procedure process_in_region(data: [i32]): i32
 **Example (informative)**:
 ```cursive
 procedure unrestricted_allocation()
-    grants alloc::*
+    sequent { [alloc::*] |- true => true }
 {
     // Can perform any allocation operation
 }
@@ -119,7 +119,7 @@ procedure unrestricted_allocation()
 **Example (informative)**:
 ```cursive
 procedure load_config(path: string): [u8]
-    grants fs::read
+    sequent { [fs::read] |- true => true }
 {
     result read_file_bytes(path)
 }
@@ -143,7 +143,7 @@ procedure load_config(path: string): [u8]
 **Example (informative)**:
 ```cursive
 procedure save_data(path: string, data: [u8])
-    grants fs::write
+    sequent { [fs::write] |- true => true }
 {
     write_file_bytes(path, data)
 }
@@ -165,7 +165,7 @@ procedure save_data(path: string, data: [u8])
 **Example (informative)**:
 ```cursive
 procedure cleanup(path: string)
-    grants fs::delete
+    sequent { [fs::delete] |- true => true }
 {
     delete_file(path)
 }
@@ -188,7 +188,7 @@ procedure cleanup(path: string)
 **Example (informative)**:
 ```cursive
 procedure get_file_size(path: string): usize
-    grants fs::metadata
+    sequent { [fs::metadata] |- true => true }
 {
     let metadata = file_metadata(path)
     result metadata.size
@@ -206,7 +206,7 @@ procedure get_file_size(path: string): usize
 **Example (informative)**:
 ```cursive
 procedure file_manager()
-    grants fs::*
+    sequent { [fs::*] |- true => true }
 {
     // Can perform any file system operation
 }
@@ -231,7 +231,7 @@ procedure file_manager()
 **Example (informative)**:
 ```cursive
 procedure receive_data(socket: Socket): [u8]
-    grants net::read, alloc::heap
+    sequent { [net::read, alloc::heap] |- true => true }
 {
     let buffer = heap_allocate_array<u8>(1024)
     socket_recv(socket, buffer)
@@ -253,7 +253,7 @@ procedure receive_data(socket: Socket): [u8]
 **Example (informative)**:
 ```cursive
 procedure send_data(socket: Socket, data: [u8])
-    grants net::write
+    sequent { [net::write] |- true => true }
 {
     socket_send(socket, data)
 }
@@ -274,7 +274,7 @@ procedure send_data(socket: Socket, data: [u8])
 **Example (informative)**:
 ```cursive
 procedure connect_to_server(host: string, port: u16): Socket
-    grants net::connect
+    sequent { [net::connect] |- true => true }
 {
     result tcp_connect(host, port)
 }
@@ -294,7 +294,7 @@ procedure connect_to_server(host: string, port: u16): Socket
 **Example (informative)**:
 ```cursive
 procedure start_server(port: u16): Socket
-    grants net::listen
+    sequent { [net::listen] |- true => true }
 {
     result tcp_listen(port)
 }
@@ -327,7 +327,7 @@ procedure start_server(port: u16): Socket
 **Example (informative)**:
 ```cursive
 procedure get_timestamp(): i64
-    grants time::read
+    sequent { [time::read] |- true => true }
 {
     result system_time_now()
 }
@@ -349,7 +349,7 @@ procedure get_timestamp(): i64
 **Example (informative)**:
 ```cursive
 procedure rate_limit()
-    grants time::sleep
+    sequent { [time::sleep] |- true => true }
 {
     sleep_milliseconds(100)
 }
@@ -369,7 +369,7 @@ procedure rate_limit()
 **Example (informative)**:
 ```cursive
 procedure measure_duration(): i64
-    grants time::monotonic
+    sequent { [time::monotonic] |- true => true }
 {
     let start = monotonic_now()
     perform_operation()
@@ -404,7 +404,7 @@ procedure measure_duration(): i64
 **Example (informative)**:
 ```cursive
 procedure spawn_worker()
-    grants thread::spawn
+    sequent { [thread::spawn] |- true => true }
 {
     thread_spawn(|| worker_function())
 }
@@ -426,7 +426,7 @@ procedure spawn_worker()
 **Example (informative)**:
 ```cursive
 procedure wait_for_worker(handle: ThreadHandle)
-    grants thread::join
+    sequent { [thread::join] |- true => true }
 {
     thread_join(handle)
 }
@@ -447,7 +447,7 @@ procedure wait_for_worker(handle: ThreadHandle)
 **Example (informative)**:
 ```cursive
 procedure atomic_increment(counter: unique AtomicI32)
-    grants thread::atomic
+    sequent { [thread::atomic] |- true => true }
 {
     counter.fetch_add(1)
 }
@@ -483,7 +483,7 @@ procedure atomic_increment(counter: unique AtomicI32)
 external procedure c_function(x: i32): i32
 
 procedure call_c(x: i32): i32
-    grants ffi::call
+    sequent { [ffi::call] |- true => true }
 {
     result c_function(x)
 }
@@ -520,7 +520,7 @@ procedure call_c(x: i32): i32
 **Example (informative)**:
 ```cursive
 procedure dereference_raw(ptr: *i32): i32
-    grants unsafe::ptr
+    sequent { [unsafe::ptr] |- true => true }
 {
     unsafe {
         result *ptr
@@ -546,7 +546,7 @@ procedure dereference_raw(ptr: *i32): i32
 **Example (informative)**:
 ```cursive
 procedure bits_to_float(bits: u32): f32
-    grants unsafe::transmute
+    sequent { [unsafe::transmute] |- true => true }
 {
     unsafe {
         result transmute<u32, f32>(bits)
@@ -582,7 +582,7 @@ procedure bits_to_float(bits: u32): f32
 **Example (informative)**:
 ```cursive
 procedure checked_divide(a: i32, b: i32): i32
-    grants panic
+    sequent { [panic] |- true => true }
 {
     if b == 0 {
         panic("Division by zero")

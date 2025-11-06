@@ -86,7 +86,7 @@ Where:
 import storage::database
 
 procedure fetch_records()
-    grants storage::database::query
+    sequent { [storage::database::query] |- true => true }
 {
     // Implementation
 }
@@ -112,7 +112,7 @@ procedure fetch_records()
 ```cursive
 // Even if module 'alloc' exists with grant 'heap':
 procedure example()
-    grants alloc::heap  // Always refers to built-in alloc::heap
+    sequent { [alloc::heap] |- true => true }  // Always refers to built-in alloc::heap
 {
     // ...
 }
@@ -152,7 +152,7 @@ private grant vacuum
 import storage::database
 
 procedure maintenance()
-    grants storage::database::vacuum  // ERROR: grant is private
+    sequent { [storage::database::vacuum] |- true => true }  // ERROR: grant is private
 {
     // ...
 }
@@ -172,7 +172,7 @@ procedure maintenance()
 public grant query
 
 procedure execute_select(sql: string): [i32]
-    grants query
+    sequent { [query] |- true => true }
 {
     // Low-level query implementation
 }
@@ -181,7 +181,7 @@ procedure execute_select(sql: string): [i32]
 import storage::database
 
 procedure list_items(): [i32]
-    grants storage::database::query
+    sequent { [storage::database::query] |- true => true }
 {
     result storage::database::execute_select("SELECT id FROM items")
 }
@@ -196,7 +196,7 @@ procedure list_items(): [i32]
 import storage::database
 
 procedure process_query(): [i32]
-    grants storage::database::query, alloc::heap, fs::write
+    sequent { [storage::database::query, alloc::heap, fs::write] |- true => true }
 {
     // Uses database query, heap allocation, and file writing
 }
@@ -221,19 +221,19 @@ This rule applies to all grants, regardless of whether they are built-in or user
 import storage::database
 
 procedure low_level()
-    grants storage::database::query
+    sequent { [storage::database::query] |- true => true }
 {
     // Direct operation
 }
 
 procedure mid_level()
-    grants storage::database::query, alloc::heap
+    sequent { [storage::database::query, alloc::heap] |- true => true }
 {
     low_level()  // Valid: {storage::database::query} <: {storage::database::query, alloc::heap}
 }
 
 procedure high_level()
-    grants storage::database::query, alloc::heap, fs::write
+    sequent { [storage::database::query, alloc::heap, fs::write] |- true => true }
 {
     mid_level()  // Valid: {storage::database::query, alloc::heap} <: {storage::database::query, alloc::heap, fs::write}
 }
@@ -254,7 +254,7 @@ procedure high_level()
 import storage::database
 
 procedure admin_operation()
-    grants storage::database::*
+    sequent { [storage::database::*] |- true => true }
 {
     // Has all visible grants from storage::database module
 }
@@ -285,8 +285,8 @@ Where `g₁, g₂, ..., gₙ` are all grants declared in module M that satisfy t
 ```cursive
 import storage::database
 
-procedure with_grant<G>(operation: () -> () grants<G>)
-    grants<G>
+procedure with_grant<grants G>(operation: () -> () sequent { [grants(G)] |- true => true })
+    sequent { [grants(G)] |- true => true }
     where G <: {storage::database::query, alloc::heap}
 {
     operation()
@@ -301,11 +301,11 @@ procedure with_grant<G>(operation: () -> () grants<G>)
 ```cursive
 import storage::database
 
-procedure mixed_bounds<G>()
-    grants<G>, fs::write
+procedure mixed_bounds<grants G>()
+    sequent { [grants(G), fs::write] |- true => true }
     where G <: {storage::database::query, storage::database::write, alloc::heap}
 {
-    // Can use grants<G> and fs::write
+    // Can use grants(G) and fs::write
 }
 ```
 

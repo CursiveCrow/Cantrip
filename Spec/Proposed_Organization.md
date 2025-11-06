@@ -1,10 +1,11 @@
 # Cursive Language Specification — Organization
 
-**Version**: 3.1 (Standards-Aligned + Best Practice Enhancements)
-**Date**: 2025-11-02
+**Version**: 3.3 (ISO Style with Embedded Formal Elements)
+**Date**: 2025-11-05
 **Status**: Proposal (ISO-Ready)
 **Purpose**: Formal specification aligned with ISO/ECMA standards practice
 **Review**: Evaluated against C++, C, Rust, Go, Zig standards (Grade: A, ISO-ready with industry best practices integrated)
+**Update**: Updated Universal Section Template to use ISO-style numbered paragraphs with embedded formal elements (definitions, theorems, typing rules), following ISO/IEC 14882 (C++) model for optimal balance of accessibility and mathematical rigor
 
 ---
 
@@ -19,6 +20,432 @@
 7. **Explicit Dependencies**: Forward references and circular dependencies are documented with clear cross-references
 8. **Usability and Clarity**: Complex rules accompanied by informative examples; grammar presented both in-context and consolidated (Annex A)
 9. **Future-Proofing**: Edition system enables language evolution while maintaining backward compatibility
+10. **Consistent Section Structure**: All specification sections follow a universal template with standardized content ordering (definition → syntax → semantics → examples → integration), numbered paragraphs for traceability, and progressive disclosure from common to advanced cases (see "Section-Level Content Organization" below)
+
+---
+
+## Section-Level Content Organization
+
+This section defines how to structure content **within** individual specification sections, based on best practices from ISO/IEC 14882 (C++), ECMA-334 (C#), and the Rust Reference.
+
+### Content Structure Principles
+
+1. **Definition First**: Begin with clear, concise definition establishing what the feature is
+2. **Syntax Early**: Present formal grammar after conceptual introduction
+3. **Progressive Detail**: Move from simple/common cases to complex/edge cases
+4. **Examples Illuminate**: Place examples immediately after the concepts they demonstrate
+5. **Numbered Paragraphs**: Use sequential numbering for traceability and cross-referencing
+6. **Layered Information**: Structure content in progressive layers (essential → important → advanced)
+
+### Universal Section Template
+
+Every normative section should follow this structure combining **ISO-style numbered paragraphs** with **embedded formal elements** (following ISO/IEC 14882 C++ Standard model):
+
+```markdown
+# N. [Topic Name] [stable-label]
+
+## N.1 Overview [stable-label.overview]
+
+[1] [One-sentence definition establishing what this is]
+
+**Definition N.1.1** (*Feature Name*):
+A [feature] is [formal mathematical definition using precise notation].
+
+[2] [Purpose and context - why this feature exists]
+
+[Optional: Simple motivating example]
+```cursive
+// Immediate practical demonstration
+```
+
+## N.2 Syntax [stable-label.syntax]
+
+[3] The syntax of [feature] shall conform to the following grammar.
+
+**Syntax:**
+```
+production_rule
+    : alternative_1
+    | alternative_2 optional_part?
+    | alternative_3
+    ;
+```
+
+[4] A [production_rule] shall satisfy the following well-formedness constraints:
+    (4.1) [First constraint]
+    (4.2) [Second constraint]
+
+**Formal Well-Formedness Rule:**
+```
+[Rule-Name]
+Premise 1    Premise 2
+────────────────────────
+Γ ⊢ production wf
+```
+
+[Cross-reference to complete grammar in Annex A §A.X]
+
+## N.3 [Main Concept 1] [stable-label.concept1]
+
+[5] [Basic semantic rule - common case, using "shall" for requirements]
+
+**Type Formation Rule:**
+```
+[Formation-Rule-Name]
+Γ ⊢ component₁ : τ₁    Γ ⊢ component₂ : τ₂
+──────────────────────────────────────────
+Γ ⊢ construct(component₁, component₂) : τ
+```
+
+[6] The type of [construct] shall be determined according to the formation rule above.
+
+**Example N**: [Descriptive title]
+```cursive
+// Clear, compilable code demonstrating paragraph [5] and formation rule
+let example: Type = construct(value1, value2);
+```
+
+This demonstrates [specific aspect]. The type is [τ] as determined by the formation rule.
+
+[7] Additional semantic constraints shall apply:
+    (7.1) [First constraint with normative "shall"]
+    (7.2) [Second constraint]
+
+**Theorem N.1** (*Soundness Property*):
+If Γ ⊢ e : τ according to the formation rules, then e evaluates to a value of type τ.
+
+*Proof sketch*: By structural induction on typing derivation. See Annex C.X for complete proof.
+
+> **Note**: This property ensures type safety as specified in §1.0.6.
+
+[8] [More detailed semantics]
+
+**Example N+1**: [Another aspect] ✅
+```cursive
+// Demonstrating additional behavior from paragraph [8]
+```
+
+## N.4 [Main Concept 2] [stable-label.concept2]
+
+[9] [Related semantic rules with "shall"]
+
+**Evaluation Semantics:**
+```
+[Eval-Rule-Name]
+e₁ ⇓ v₁    e₂ ⇓ v₂
+────────────────────
+construct(e₁, e₂) ⇓ construct_value(v₁, v₂)
+```
+
+[10] Constraints and restrictions shall be:
+    (10.1) [Constraint condition]
+    (10.2) [Restriction]
+
+> **Warning**: [Safety-critical information, undefined behavior conditions]
+
+**Example N+2**: [Error case] ❌
+```cursive
+// Code that violates rule from paragraph [10.1]
+// error: explanation of why this is ill-formed
+```
+
+This is invalid because it violates the constraint specified in paragraph [10.1].
+
+## N.5 [Edge Cases / Special Topics] [stable-label.special]
+
+[11] [Less common scenarios]
+
+[12] [Advanced interactions]
+
+## N.6 Integration [stable-label.integration]
+
+[13] This feature interacts with the following language components:
+
+**Cross-references**:
+- See §X.Y for [related topic]
+- As described in §A.B, ...
+- Cross-reference to Part IV §C.D for [memory/permission interaction]
+
+[14] The interaction with [other feature] shall satisfy the compatibility requirements specified in §X.Y.
+```
+
+### Documentation Elements
+
+#### Syntax Grammar Formatting
+
+**EBNF Notation** (defined in §1.3.1):
+- **Non-terminals**: `production_rule`, `type_expression`
+- **Optional elements**: `element?` (zero or one)
+- **Repetition**: `element*` (zero or more), `element+` (one or more)
+- **Alternatives**: `|` separator
+- **Terminals**: Keywords in quotes `'let'`, `'fn'`
+- **Grouping**: Parentheses `( ... )`
+
+**Example:**
+```
+variable_declaration
+    : 'let' identifier (':' type_expression)? '=' expression
+    | 'var' identifier (':' type_expression)? '=' expression
+    ;
+```
+
+#### Semantic Rules Formatting
+
+**Normative Language** (per ISO/IEC Directives Part 2 external standard, §1.4.2):
+- **shall** / **shall not** — Mandatory requirement
+- **should** / **should not** — Recommendation (strongly advised)
+- **may** / **may not** — Permission (optional)
+- **can** / **cannot** — Capability (informative, not normative)
+
+**Numbered Paragraphs**:
+- Use sequential numbering `[1]`, `[2]`, `[3]` within each section
+- Use sub-numbering `(4.1)`, `(4.2)` for multi-part conditions
+- Enables precise cross-referencing: "See §3.2 paragraph 5"
+
+**Example (Hybrid Approach):**
+```markdown
+[4] An integer literal shall have a type determined by its suffix or context.
+
+**Definition 3.2.5** (*Integer Literal Type*):
+The type of an integer literal lit is:
+- iN or uN if lit has explicit suffix (e.g., 42i32, 255u8)
+- type inferred from context if no suffix
+- i32 if no suffix and context does not constrain type
+
+[5] An integer literal without a suffix shall be:
+    (5.1) assigned type τ if context requires type τ and value fits in τ, or
+    (5.2) assigned default type i32 if context does not constrain type.
+
+**Typing Rule:**
+```
+[T-IntLit-Default]
+value ∈ range(i32)    Γ does not constrain literal type
+───────────────────────────────────────────────────────
+Γ ⊢ value : i32
+```
+
+[6] If the literal value does not fit in the target type, the program shall be ill-formed.
+
+**Example 3**: Integer literal typing ✅
+```cursive
+let x: i32 = 42;        // Rule [T-IntLit-Default] with explicit context
+let y = 42;             // Rule [T-IntLit-Default], defaults to i32
+let z: i64 = 1000;      // Context constrains to i64
+```
+
+**Example 4**: Type mismatch ❌
+```cursive
+let w: u8 = 256;        // error: value 256 does not fit in u8
+```
+This violates paragraph [6] because 256 ∉ range(u8).
+```
+
+#### Example Formatting
+
+**Requirements**:
+- **Placement**: Immediately after the concept being demonstrated
+- **Compilability**: All examples should be compilable (or clearly marked as errors)
+- **Numbering**: Sequential within each section
+- **Titles**: Descriptive titles indicating what is demonstrated
+- **Comments**: Inline comments explaining behavior
+- **Both paths**: Show correct usage AND common errors
+
+**Format:**
+```markdown
+**Example N**: [Descriptive title]
+```cursive
+let x: i32 = 42;        // explicit type annotation
+let y = 42;             // type inferred as i32
+// Both are valid and equivalent
+```
+
+**Example N+1**: [Invalid case]
+```cursive
+let z: i32;             // error: missing initializer
+```
+This is ill-formed because §X.Y requires an initial value.
+```
+
+**Markers**:
+- Use ✅ for valid/recommended patterns
+- Use ❌ for invalid/discouraged patterns
+- Keep examples minimal yet complete
+- Progress from simple to complex
+
+**Quantity Guidance**:
+- **Major concepts**: Exactly 1 canonical example demonstrating the primary use case
+- **Complex features**: 2-3 examples (common case, edge case, error case)
+- **Error scenarios**: 1 example showing typical mistake with clear ❌ marker
+- **Progressive series**: Simple → intermediate → advanced (when teaching progression)
+
+**Canonical Example Characteristics**:
+- Self-contained and minimal (5-15 lines typical)
+- Demonstrates the 80% use case
+- Uses naming conventions from §1.5.2a
+- Becomes the reference implementation for that concept
+- Compilable (or clearly marked as demonstrating an error)
+
+#### Notes and Warnings
+
+**Note Format** (Informative):
+```markdown
+> **Note**: Clarifying information that aids understanding but does not
+> impose normative requirements. May include rationale, implementation
+> guidance, or comparisons to other languages.
+```
+
+**Warning Format** (Safety-Critical):
+```markdown
+> **Warning**: [Undefined Behavior] Violating this constraint results in
+> undefined behavior [UB: B.2 #N]. See Annex B.2 for catalog.
+```
+
+**Rationale Format** (Design Decisions):
+```markdown
+> **Rationale**: This restriction ensures [goal] and prevents [problem].
+> Alternative designs were considered but rejected because [reason].
+```
+
+**Placement**: Immediately after the rule or concept being clarified.
+
+#### Cross-Reference Format
+
+**Section References**:
+- Within same part: `§3.2`, `§4.5.1`
+- Across parts: `Part IV §4.2`, `Part III §3.8`
+- Annexes: `Annex A §A.3`, `Annex B.2`
+- Specific paragraphs: `§3.2 paragraph 5`, `§3.2[5]`
+
+**Bidirectional Linking**:
+- Forward reference: "See §X.Y for detailed semantics"
+- Backward reference: "As described in §A.B, ..."
+- Integration reference: "Cross-reference to Part IV for memory model interaction"
+
+**Hyperlinks**: In digital versions, all cross-references shall be clickable hyperlinks.
+
+### Progressive Disclosure Patterns
+
+#### Layer 1: Essential Definition (What?)
+```markdown
+[1] A [term] is [concise definition in one sentence].
+```
+
+#### Layer 2: Basic Syntax (How to write?)
+```markdown
+**Syntax:**
+```
+basic_construct
+    : common_form
+    ;
+```
+```
+
+#### Layer 3: Core Semantics (How does it behave?)
+```markdown
+[2] [Basic rule for the 80% common case]
+
+**Example**: [Common usage]
+```
+
+#### Layer 4: Constraints and Rules (What are the limits?)
+```markdown
+[3] [Requirements using "shall"]
+[4] [Restrictions and conditions]
+```
+
+#### Layer 5: Advanced Topics (What about edge cases?)
+```markdown
+## N.5 Advanced [Topic]
+
+[5] [Less common scenarios]
+[6] [Complex interactions]
+```
+
+#### Layer 6: Integration (How does it fit together?)
+```markdown
+## N.6 Integration
+
+[7] This feature interacts with:
+- [Feature A]: See §X.Y
+- [Feature B]: See §P.Q
+```
+
+### Section Flow Best Practices
+
+#### Opening Structure
+
+✅ **DO:**
+- Start with clear, one-sentence definition
+- Provide immediate context (why this exists)
+- Include simple example early (especially for practical features)
+- Establish scope and boundaries
+
+❌ **DON'T:**
+- Dive into technical details immediately
+- Assume reader knows related concepts
+- Start with exceptions or edge cases
+- Use undefined terms in opening
+
+#### Ordering Within Sections
+
+**Standard Flow:**
+1. **Definition** (1-2 paragraphs)
+2. **Syntax** (formal grammar)
+3. **Basic Semantics** (common cases, numbered paragraphs)
+4. **Detailed Semantics** (complex interactions, constraints)
+5. **Examples** (interspersed after relevant concepts)
+6. **Notes** (clarifications where needed)
+7. **Edge Cases** (advanced topics, special conditions)
+8. **Integration** (cross-references, interactions)
+
+**Progressive Complexity:**
+- Start with most common use case (80/20 rule)
+- Introduce basic rules before exceptions
+- Show concrete examples before abstractions
+- Present familiar concepts before novel ones
+
+#### Multi-Part Rules
+
+When a rule has multiple conditions, use sub-numbering:
+
+```markdown
+[4] An expression is well-formed if and only if:
+    (4.1) all subexpressions are well-formed,
+    (4.2) the types of operands match operator requirements, and
+    (4.3) no undefined behavior conditions are triggered.
+```
+
+#### Example Placement
+
+✅ **DO:**
+- Place examples immediately after the concept they illustrate
+- Show both valid and invalid usage
+- Progress from simple to complex
+- Include explanatory comments
+- Number examples for reference
+
+❌ **DON'T:**
+- Batch all examples at end of section
+- Show only "happy path" code
+- Use contrived, unrealistic examples
+- Omit expected output or behavior
+
+### Comparative Note
+
+This section-level organization draws on proven patterns from:
+
+- **C++ Standard (ISO/IEC 14882)**: Numbered paragraphs, normative language, **embedded formal semantics in boxes**, distributed integration
+- **Rust Reference**: Syntax-first presentation, compilable examples, safety warnings
+- **C# Specification (ECMA-334)**: Hierarchical structure, example integration, clear terminology
+
+Cursive adopts a **hybrid approach** that combines:
+- **ISO/IEC numbered paragraphs** for conformance clarity and standards compliance
+- **Embedded formal elements** (definitions, theorems, inference rules) for mathematical precision
+- **Practical-first prose** (C#-inspired) for accessibility
+- **Rigorous formalism** (C++-inspired) for type system correctness
+- **Safety emphasis** (Rust-inspired) with formal verification support
+
+This balances accessibility for developers, precision for implementers, and formalism for researchers.
 
 ---
 
@@ -87,6 +514,7 @@ The following documents accompany this specification:
   - Permissions (may)
   - Capability vs. requirement (can vs. shall)
   - Note on RFC 2119 equivalence
+  - **Application in sections**: See "Section-Level Content Organization" → "Documentation Elements" → "Semantic Rules Formatting" for usage in numbered paragraphs and multi-part rules
 - 1.4.3 Conforming Implementation
 - 1.4.4 Conforming Program
 - 1.4.5 Implementation-Defined Behavior
@@ -114,6 +542,7 @@ The following documents accompany this specification:
   - Cross-reference requirements (every dependency shall cite target section)
   - Bidirectional cross-referencing (key definitions list referencing sections)
   - Digital hyperlinks required in electronic versions
+  - **Detailed formatting guidance**: See "Section-Level Content Organization" → "Documentation Elements" → "Cross-Reference Format" for complete notation conventions and bidirectional linking patterns
 - 1.5.1a Cross-Reference Validation
   - All references shall resolve to existing sections before publication
   - Automated validation tooling required
@@ -124,15 +553,120 @@ The following documents accompany this specification:
   - Example purpose and status (informative, do not impose normative requirements)
   - Example coverage requirements (non-trivial semantics should include examples; complex features must include examples)
   - Example formatting (fenced code blocks with ```cursive, ✅/❌ markers)
-  - Example quality (minimal yet complete, consistent naming)
+  - Example quality (minimal yet complete, consistent naming per §1.5.2a)
+  - **Detailed formatting guidance**: See "Section-Level Content Organization" → "Documentation Elements" → "Example Formatting" for complete requirements on placement, numbering, and structure
+  - **Naming conventions**: See §1.5.2a for comprehensive naming standards and avoidance lists
+- 1.5.2a Example Naming Conventions (Informative)
+  - **Purpose**: Establish consistent, language-neutral naming patterns that avoid implying Rust-specific or non-Cursive types
+  - **Naming Reference Table**:
+
+| Category | Element | Standard Names | Example | Usage Context |
+|----------|---------|----------------|---------|---------------|
+| **Syntax Examples** | Variables | `x`, `y`, `z`, `w` | `let x = 5` | Grammar demonstrations only |
+| | Type parameters | `T`, `U`, `V`, `W` | `f<T>(x: T)` | Generic syntax only |
+| | Functions | `f`, `g`, `h` | `proc f(x: i32)` | Minimal syntax examples |
+| | Metasyntactic | `foo`, `bar`, `baz` | `let foo = bar` | Pure syntax (avoid in semantics) |
+| **Semantics Examples** | Simple values | `value`, `item`, `element` | `let value = 42` | General-purpose demonstrations |
+| | Numeric values | `count`, `total`, `result` | `let count = items.len()` | Arithmetic/counting |
+| | Boolean values | `found`, `is_valid`, `ready` | `let found = true` | Predicate results |
+| | Collections | `items`, `elements`, `values` | `let items = [1, 2, 3]` | Arrays, slices, sequences |
+| | Iterators | `iter`, `current`, `next` | `let iter = items.iter()` | Iterator patterns |
+| | Text values | `text`, `message`, `name` | `let name = "Alice"` | String/text data |
+| | Record types | `Container`, `Holder`, `Wrapper` | `record Container<T>` | Generic containers |
+| | Record instances | `container`, `holder` | `let container = Container { ... }` | Container instances |
+| | Enum types | `Status`, `State`, `Mode` | `enum Status` | State machines, variants |
+| | Enum instances | `status`, `state`, `mode` | `let status = Status::Ready` | Enum values |
+| | Functions | `process`, `compute`, `transform` | `proc process(items: [i32])` | Semantic operations |
+| | Procedures | `update`, `validate`, `initialize` | `proc update(var state: State)` | State-changing operations |
+| | Generic functions | `map`, `filter`, `fold` | `proc map<T, U>(...)` | Higher-order patterns |
+| | Closures | `predicate`, `transform`, `action` | `let predicate = \|x\| x > 0` | Lambda/closure parameters |
+| | Type aliases | `ValueType`, `ElementType` | `type ValueType = i32` | Generic type naming |
+| **Domain Examples** | Domain-specific | `Point`, `Connection`, `User` | `record Point { x: f64, y: f64 }` | Only when demonstrating domain modeling |
+| | Domain values | `point`, `connection`, `user` | `let point = Point { x: 0.0, y: 0.0 }` | Domain instances (use sparingly) |
+
+  - **Decision Matrix**:
+    - Use **syntax names** (x, y, T) when demonstrating pure grammar/syntax rules
+    - Use **semantics names** (value, items, Container) for teaching language semantics
+    - Use **domain names** (Point, User) ONLY when the example specifically demonstrates domain modeling
+    - Use **metasyntactic names** (foo, bar) sparingly and only for abstract syntax patterns
+
+  - **Avoidance List** (Critical):
+    - ❌ **Rust types**: `Vec`, `String`, `Option`, `Box`, `Rc`, `Arc`, `HashMap`, `BTreeMap`, `RefCell`, `Cell`
+    - ❌ **Rust patterns**: `Some`, `None`, `Ok`, `Err`, `unwrap`, `expect`
+    - ❌ **C++ types**: `std::`, `vector`, `unique_ptr`, `shared_ptr`, `optional`, `variant`
+    - ❌ **C# types**: `List<T>`, `Dictionary`, `IEnumerable`, `Nullable<T>`
+    - ❌ **Java types**: `ArrayList`, `HashMap`, `Optional`, `List`
+    - ❌ **Python patterns**: `dict`, `list` (as type names)
+
+  - **Rationale**: Cursive is a distinct language with its own type system. Using other languages' type names in examples creates false associations and implies semantics that may not match Cursive's design. Generic, descriptive names keep examples focused on Cursive's actual semantics.
+
 - 1.5.3 Notes (Informative)
+  - **Detailed formatting guidance**: See "Section-Level Content Organization" → "Documentation Elements" → "Notes and Warnings" for complete requirements on note types, placement, and formatting
+- 1.5.3a Visual Diagrams (Optional, Informative)
+  - **Purpose**: Strategic use of visual diagrams to clarify complex relationships, state machines, and architectural patterns
+  - **When to Use Diagrams**:
+    - Complex permission/ownership relationships
+    - State machine transitions
+    - Type hierarchies and subtyping relationships
+    - Memory layout and pointer relationships
+    - Control flow for complex constructs
+    - Do NOT use for simple syntax (prose is clearer)
+  - **Diagram Format**:
+    - **Primary format**: ASCII art (70-character width maximum)
+    - **Rationale**: Version control friendly, accessible, renders in all contexts
+    - **Optional enhancement**: SVG generation via mdbook-svgbob for HTML rendering
+    - **Tools**: asciiflow.com for creation, mdbook-svgbob for rendering
+  - **Accessibility Requirements** (Mandatory):
+    - Every diagram MUST have a complete prose description in a numbered paragraph
+    - Describe all elements, relationships, and semantics in text
+    - The prose description must be sufficient to understand the concept without viewing the diagram
+    - Diagrams supplement prose; they do not replace it
+  - **Diagram Formatting**:
+    - Place in fenced code blocks (no language tag for ASCII art)
+    - Number diagrams per-section: `**Figure §4.2-1**: [Title]`
+    - Follow with numbered paragraph describing the diagram
+  - **Example Diagram** (showing how a figure would appear in §4.2):
+
+```
+**Figure §4.2-1**: Cursive Permission System
+
+    ┌──────────┐
+    │  unique  │ ──── Exclusive access (mutable)
+    └─────┬────┘
+          │
+    ┌─────▼────┐
+    │  shared  │ ──── Shared access (read-write under constraints)
+    └─────┬────┘
+          │
+    ┌─────▼────┐
+    │  const   │ ──── Constant access (immutable)
+    └──────────┘
+```
+
+[1] This diagram illustrates the Cursive permission system. The three
+permission levels are: `unique` (exclusive access allowing mutation),
+`shared` (non-exclusive access with constraints), and `const` (immutable
+read-only access). Arrows indicate permission subtyping relationships,
+where more restrictive permissions can be used where less restrictive
+permissions are expected.
+
 - 1.5.4 Section Organization
+  - **Detailed structural guidance**: See "Section-Level Content Organization" for complete templates, best practices, and progressive disclosure patterns
 - 1.5.4a Grammar Presentation
   - Dual presentation: in-context (within semantic sections) and consolidated (Annex A)
   - In-context grammar requirements (sections introducing syntactic constructs shall include relevant grammar)
   - In-line grammar formatting (EBNF notation per §1.3.1, 2-5 productions typical)
   - Grammar synchronization (in-line must match Annex A; Annex A is authoritative)
+  - **Detailed formatting guidance**: See "Section-Level Content Organization" → "Documentation Elements" → "Syntax Grammar Formatting" for EBNF notation details and formatting conventions
 - 1.5.5 Forward References and Dependencies
+  - Forward reference policy (minimize where possible; use when pedagogically necessary)
+  - Dependency order (Part II → Part III → Part IV progressive build-up)
+  - Cross-reference conventions (use §X.Y notation; link to specific numbered paragraphs when possible)
+  - Documentation element references:
+    - Example naming: §1.5.2a
+    - Visual diagrams: §1.5.3a
+    - Grammar presentation: §1.5.4a
+    - Cross-reference validation: §1.5.1a
 - 1.5.6 Reading Guide for Different Audiences
 
 #### **Section 1.6: Versioning and Evolution**
@@ -254,7 +788,7 @@ The following documents accompany this specification:
 - 2.8.3 Object Lifetime (Overview)
 - 2.8.4 Storage Duration (Overview)
 - 2.8.5 Alignment
-- 2.8.6 Cross-reference to Part VI for detailed memory model
+- 2.8.6 Cross-reference to Part IV for detailed memory model
 
 #### **Section 2.9: Namespaces**
 **File**: `02-9_Namespaces.md`
@@ -266,7 +800,16 @@ The following documents accompany this specification:
 
 ---
 
-### **PART III: TYPE SYSTEM** *(Normative)*
+### **PART III: TYPE SYSTEM FOUNDATIONS** *(Normative)*
+
+**Binding System Overview:**
+
+Cursive uses an orthogonal binding system with three independent axes:
+- **Rebindability**: `let` (non-rebindable) vs `var` (rebindable)
+- **Ownership**: `=` (responsible) vs `<-` (reference)
+- **Permission**: `const` / `unique` / `shared`
+
+This enables precise control through compositional declarations like `let x: const <- value` (non-rebindable reference with immutable access).
 
 #### **Section 3.0: Type System Foundations**
 **File**: `03-0_Type-Foundations.md`
@@ -295,13 +838,12 @@ The following documents accompany this specification:
 - 3.2.4 Character Type
 - 3.2.5 Unit Type
 - 3.2.6 Never Type
-- 3.2.7 Range Types
 
 #### **Section 3.3: Composite Types**
 **File**: `03-3_Composite-Types.md`
 
-- 3.3.1 Product Types (Tuples, Records, Newtypes)
-- 3.3.2 Sum Types (Enums, Option, Result)
+- 3.3.1 Product Types (Tuples, Records)
+- 3.3.2 Sum Types (Enums)
 - 3.3.3 Union Types
 
 #### **Section 3.4: Collection Types**
@@ -310,6 +852,7 @@ The following documents accompany this specification:
 - 3.4.1 Arrays
 - 3.4.2 Slices
 - 3.4.3 Strings
+- 3.4.4 Range Types
 
 #### **Section 3.5: Function Types**
 **File**: `03-5_Function-Types.md`
@@ -325,281 +868,258 @@ The following documents accompany this specification:
 - 3.6.1 Safe Pointers
 - 3.6.2 Raw Pointers
 
-#### **Section 3.7: Predicates**
-**File**: `03-7_Predicates.md`
+#### **Section 3.7: Type Aliases**
+**File**: `03-7_Type-Aliases.md`
 
-- 3.7.1 Predicate Concept and Purpose
-- 3.7.2 Marker Predicates (Copy, Send, Sync, Sized)
-- 3.7.3 Predicate Bounds and Constraints
-- 3.7.4 Standard Library Predicates (Preview)
+- 3.7.1 Type Alias Declaration
+- 3.7.2 Transparent vs Opaque Aliases
+- 3.7.3 Generic Type Aliases
 
-#### **Section 3.8: Type Constructors and Generics**
-**File**: `03-8_Generics.md`
+#### **Section 3.8: Type Introspection**
+**File**: `03-8_Type-Introspection.md`
 
-- 3.8.1 Type Parameters
-- 3.8.2 Generic Types
-- 3.8.3 Generic Functions
-- 3.8.4 Const Generics
-- 3.8.5 Associated Types
+- 3.8.1 typeof operator
+- 3.8.2 Type predicates
+- 3.8.3 Compile-time type queries
 
-#### **Section 3.9: Type Bounds and Constraints**
-**File**: `03-9_Type-Bounds.md`
-
-- 3.9.1 Predicate Bounds
-- 3.9.2 Lifetime Bounds
-- 3.9.3 Grant Bounds
-- 3.9.4 Where Clauses
-
-#### **Section 3.10: Type Aliases**
-**File**: `03-10_Type-Aliases.md`
-
-- 3.10.1 Type Alias Declaration
-- 3.10.2 Transparent vs Opaque Aliases
-- 3.10.3 Generic Type Aliases
-
-#### **Section 3.11: Type Introspection**
-**File**: `03-11_Type-Introspection.md`
-
-- 3.11.1 typeof operator
-- 3.11.2 Type predicates
-- 3.11.3 Compile-time type queries
+> **Note**: Predicates and marker predicates (former §3.7) have been moved to Part VIII (Predicates and Type Constraints). Generics and type constructors (former §3.8) have been moved to Part IX (Generics and Parametric Polymorphism). Type bounds and constraints (former §3.9) have been integrated into Part VIII §8.3.
 
 ---
 
-### **PART IV: EXPRESSIONS AND CONVERSIONS** *(Normative)*
+### **PART IV: MEMORY MODEL AND PERMISSIONS** *(Normative)*
 
-#### **Section 4.0: Expression Fundamentals**
-**File**: `04-0_Expression-Fundamentals.md`
+#### **Section 4.0: Memory Model Overview**
+**File**: `04-0_Memory-Model-Overview.md`
 
-- 4.0.1 Expression Evaluation Model
-- 4.0.2 Value Categories (lvalue, rvalue, place) *Note: See §6.2 for interaction with permission system*
-- 4.0.3 Expression Classification
-- 4.0.4 Type and Effect of Expressions
+- 4.0.1 Memory Safety Goals
+- 4.0.2 Permission-Based Memory Management
+- 4.0.3 No Garbage Collection
+- 4.0.4 No Borrow Checker
+- 4.0.5 Relationship to Part II §2.8
 
-#### **Section 4.1: Primary Expressions**
-**File**: `04-1_Primary-Expressions.md`
+#### **Section 4.1: Objects and Memory Locations**
+**File**: `04-1_Objects-Memory.md`
 
-- 4.1.1 Literal Expressions
-- 4.1.2 Identifier Expressions
-- 4.1.3 Parenthesized Expressions
-- 4.1.4 Tuple Expressions
-- 4.1.5 Array Literals
-- 4.1.6 Block Expressions
+- 4.1.1 Object Definition
+- 4.1.2 Memory Location
+- 4.1.3 Object Creation
+- 4.1.4 Object Destruction
+- 4.1.5 Object Lifetime
 
-#### **Section 4.2: Postfix Expressions**
-**File**: `04-2_Postfix-Expressions.md`
+#### **Section 4.2: Permission System**
+**File**: `04-2_Permission-System.md`
 
-- 4.2.1 Field Access
-- 4.2.2 Index Expressions
-- 4.2.3 Function Calls
-- 4.2.4 Procedure Calls
-- 4.2.5 Type Ascription
+- 4.2.1 Permission Lattice (const / shared / unique)
+- 4.2.2 Permission Syntax
+- 4.2.3 Permission Declarations
+- 4.2.4 Permission Checking Rules
+- 4.2.5 Permission Propagation
+- 4.2.6 Permission Inference
+- 4.2.7 Permission Upgrades and Downgrades
 
-#### **Section 4.3: Unary Expressions**
-**File**: `04-3_Unary-Expressions.md`
+#### **Section 4.3: Move Semantics**
+**File**: `04-3_Move-Semantics.md`
 
-- 4.3.1 Unary Operators
-- 4.3.2 Dereferencing
-- 4.3.3 Address-of
-- 4.3.4 Negation
-- 4.3.5 Logical NOT
+- 4.3.1 Move Operations
+- 4.3.2 Move Checking
+- 4.3.3 Copy Types
+- 4.3.4 Clone Operations
+- 4.3.5 Dropped Values
 
-#### **Section 4.4: Binary Expressions**
-**File**: `04-4_Binary-Expressions.md`
+#### **Section 4.4: Regions and Lifetimes**
+**File**: `04-4_Regions-Lifetimes.md`
 
-- 4.4.1 Arithmetic Operators
-- 4.4.2 Comparison Operators
-- 4.4.3 Logical Operators
-- 4.4.4 Bitwise Operators
-- 4.4.5 Range Operators
+- 4.4.1 Region Concept
+- 4.4.2 Region Syntax
+- 4.4.3 Region Allocation
+- 4.4.4 Region Escape Analysis
+- 4.4.5 Region Stack (Δ)
+- 4.4.6 Region Cleanup
 
-#### **Section 4.5: Operator Precedence and Associativity**
-**File**: `04-5_Operator-Precedence.md`
+#### **Section 4.5: Storage Duration**
+**File**: `04-5_Storage-Duration.md`
 
-- 4.5.1 Precedence Table
-- 4.5.2 Associativity Rules
-- 4.5.3 Parenthesization
+- 4.5.1 Static Storage
+- 4.5.2 Function Storage
+- 4.5.3 Region Storage
+- 4.5.4 Heap Storage
 
-#### **Section 4.6: Structured Expressions**
-**File**: `04-6_Structured-Expressions.md`
+#### **Section 4.6: Memory Layout**
+**File**: `04-6_Memory-Layout.md`
 
-- 4.6.1 Record Construction
-- 4.6.2 Enum Construction
-- 4.6.3 Closure Expressions
-- 4.6.4 If Expressions
-- 4.6.5 Match Expressions
+- 4.6.1 Type Sizes and Alignment
+- 4.6.2 Record Layout
+- 4.6.3 Enum Layout
+- 4.6.4 Layout Attributes
+- 4.6.5 Padding and Packing
 
-#### **Section 4.7: Other Expressions**
-**File**: `04-7_Other-Expressions.md`
+#### **Section 4.7: Aliasing and Uniqueness**
+**File**: `04-7_Aliasing-Uniqueness.md`
 
-- 4.7.1 Pipeline Expressions
-- 4.7.2 Range Expressions
-- 4.7.3 Unsafe Blocks
+- 4.7.1 Aliasing Rules
+- 4.7.2 Aliasing Violations
+- 4.7.3 Uniqueness Guarantees
 
-#### **Section 4.8: Type Conversions and Coercions**
-**File**: `04-8_Conversions-Coercions.md`
+#### **Section 4.8: Unsafe Operations**
+**File**: `04-8_Unsafe-Operations.md`
 
-- 4.8.1 Implicit Conversions
-- 4.8.2 Explicit Conversions (as operator)
-- 4.8.3 Coercion Sites
-- 4.8.4 Numeric Conversions
-- 4.8.5 Pointer Conversions
-- 4.8.6 Reference Conversions
-- 4.8.7 Unsizing Coercions
-- 4.8.8 Well-formedness of Conversions
-
-#### **Section 4.9: Constant Expressions**
-**File**: `04-9_Constant-Expressions.md`
-
-- 4.9.1 Constant Expression Definition
-- 4.9.2 Constant Evaluation Context
-- 4.9.3 Constant Functions
-- 4.9.4 Compile-time Evaluation Rules
-- 4.9.5 Constant Propagation
-
-#### **Section 4.10: Expression Typing Rules**
-**File**: `04-10_Expression-Typing.md`
-
-- 4.10.1 Typing Judgments
-- 4.10.2 Type Checking Algorithm
-- 4.10.3 Type Inference Integration
-- 4.10.4 Ill-formed Expressions
+- 4.8.1 Unsafe Block Semantics
+- 4.8.2 Safety Obligations
+- 4.8.3 Unsafe Capabilities
+- 4.8.4 When Unsafe is Required
+- 4.8.5 Cross-reference to §15.2 for FFI-specific unsafe usage
 
 ---
 
-### **PART V: STATEMENTS AND CONTROL FLOW** *(Normative)*
+### **PART V: EXPRESSIONS AND CONVERSIONS** *(Normative)*
 
-#### **Section 5.0: Statement Fundamentals**
-**File**: `05-0_Statement-Fundamentals.md`
+#### **Section 5.0: Expression Fundamentals**
+**File**: `05-0_Expression-Fundamentals.md`
 
-- 5.0.1 Statement Classification
-- 5.0.2 Statement Execution
-- 5.0.3 Statement Termination
+- 5.0.1 Expression Evaluation Model
+- 5.0.2 Value Categories (lvalue, rvalue, place) *Note: See §4.2 for interaction with permission system*
+- 5.0.3 Expression Classification
+- 5.0.4 Type and Effect of Expressions
 
-#### **Section 5.1: Simple Statements**
-**File**: `05-1_Simple-Statements.md`
+#### **Section 5.1: Primary Expressions**
+**File**: `05-1_Primary-Expressions.md`
 
-- 5.1.1 Expression Statements
-- 5.1.2 Let Statements
-- 5.1.3 Assignment Statements
-- 5.1.4 Return Statements
-- 5.1.5 Break and Continue
-- 5.1.6 Defer Statements
+- 5.1.1 Literal Expressions
+- 5.1.2 Identifier Expressions
+- 5.1.3 Parenthesized Expressions
+- 5.1.4 Tuple Expressions
+- 5.1.5 Array Literals
+- 5.1.6 Block Expressions
 
-#### **Section 5.2: Control Flow Statements**
-**File**: `05-2_Control-Flow-Statements.md`
+#### **Section 5.2: Postfix Expressions**
+**File**: `05-2_Postfix-Expressions.md`
 
-- 5.2.1 If Statements
-- 5.2.2 If-Let Statements
-- 5.2.3 While Loops
-- 5.2.4 For Loops
-- 5.2.5 Loop Labels
-- 5.2.6 Infinite Loops
+- 5.2.1 Field Access
+- 5.2.2 Index Expressions
+- 5.2.3 Function Calls
+- 5.2.4 Procedure Calls
+- 5.2.5 Type Ascription
 
-#### **Section 5.3: Pattern Matching**
-**File**: `05-3_Pattern-Matching.md`
+#### **Section 5.3: Unary Expressions**
+**File**: `05-3_Unary-Expressions.md`
 
-- 5.3.1 Pattern Syntax
-- 5.3.2 Pattern Semantics
-- 5.3.3 Irrefutable Patterns
-- 5.3.4 Refutable Patterns
-- 5.3.5 Pattern Exhaustiveness
-- 5.3.6 Pattern Guards
-- 5.3.7 Or Patterns
+- 5.3.1 Unary Operators
+- 5.3.2 Dereferencing
+- 5.3.3 Address-of
+- 5.3.4 Negation
+- 5.3.5 Logical NOT
 
-#### **Section 5.4: Evaluation Order and Semantics**
-**File**: `05-4_Evaluation-Semantics.md`
+#### **Section 5.4: Binary Expressions**
+**File**: `05-4_Binary-Expressions.md`
 
-- 5.4.1 Evaluation Order
-- 5.4.2 Sequencing
-- 5.4.3 Short-circuit Evaluation
-- 5.4.4 Divergence
-- 5.4.5 Determinism Guarantees
+- 5.4.1 Arithmetic Operators
+- 5.4.2 Comparison Operators
+- 5.4.3 Logical Operators
+- 5.4.4 Bitwise Operators
+- 5.4.5 Range Operators
+
+#### **Section 5.5: Operator Precedence and Associativity**
+**File**: `05-5_Operator-Precedence.md`
+
+- 5.5.1 Precedence Table
+- 5.5.2 Associativity Rules
+- 5.5.3 Parenthesization
+
+#### **Section 5.6: Structured Expressions**
+**File**: `05-6_Structured-Expressions.md`
+
+- 5.6.1 Record Construction
+- 5.6.2 Enum Construction
+- 5.6.3 Closure Expressions
+- 5.6.4 If Expressions
+- 5.6.5 Match Expressions
+
+#### **Section 5.7: Other Expressions**
+**File**: `05-7_Other-Expressions.md`
+
+- 5.7.1 Pipeline Expressions
+- 5.7.2 Range Expressions
+- 5.7.3 Unsafe Blocks
+
+#### **Section 5.8: Type Conversions and Coercions**
+**File**: `05-8_Conversions-Coercions.md`
+
+- 5.8.1 Implicit Conversions
+- 5.8.2 Explicit Conversions (as operator)
+- 5.8.3 Coercion Sites
+- 5.8.4 Numeric Conversions
+- 5.8.5 Pointer Conversions
+- 5.8.6 Reference Conversions
+- 5.8.7 Unsizing Coercions
+- 5.8.8 Well-formedness of Conversions
+
+#### **Section 5.9: Constant Expressions**
+**File**: `05-9_Constant-Expressions.md`
+
+- 5.9.1 Constant Expression Definition
+- 5.9.2 Constant Evaluation Context
+- 5.9.3 Constant Functions
+- 5.9.4 Compile-time Evaluation Rules
+- 5.9.5 Constant Propagation
+
+#### **Section 5.10: Expression Typing Rules**
+**File**: `05-10_Expression-Typing.md`
+
+- 5.10.1 Typing Judgments
+- 5.10.2 Type Checking Algorithm
+- 5.10.3 Type Inference Integration
+- 5.10.4 Ill-formed Expressions
 
 ---
 
-### **PART VI: MEMORY MODEL AND PERMISSIONS** *(Normative)*
+### **PART VI: STATEMENTS AND CONTROL FLOW** *(Normative)*
 
-#### **Section 6.0: Memory Model Overview**
-**File**: `06-0_Memory-Model-Overview.md`
+#### **Section 6.0: Statement Fundamentals**
+**File**: `06-0_Statement-Fundamentals.md`
 
-- 6.0.1 Memory Safety Goals
-- 6.0.2 Permission-Based Memory Management
-- 6.0.3 No Garbage Collection
-- 6.0.4 No Borrow Checker
-- 6.0.5 Relationship to Part II §2.8
+- 6.0.1 Statement Classification
+- 6.0.2 Statement Execution
+- 6.0.3 Statement Termination
 
-#### **Section 6.1: Objects and Memory Locations**
-**File**: `06-1_Objects-Memory.md`
+#### **Section 6.1: Simple Statements**
+**File**: `06-1_Simple-Statements.md`
 
-- 6.1.1 Object Definition
-- 6.1.2 Memory Location
-- 6.1.3 Object Creation
-- 6.1.4 Object Destruction
-- 6.1.5 Object Lifetime
+- 6.1.1 Expression Statements
+- 6.1.2 Let Statements
+- 6.1.3 Assignment Statements
+- 6.1.4 Return Statements
+- 6.1.5 Break and Continue
+- 6.1.6 Defer Statements
 
-#### **Section 6.2: Permission System**
-**File**: `06-2_Permission-System.md`
+#### **Section 6.2: Control Flow Statements**
+**File**: `06-2_Control-Flow-Statements.md`
 
-- 6.2.1 Permission Lattice (imm < mut < own)
-- 6.2.2 Permission Syntax
-- 6.2.3 Permission Declarations
-- 6.2.4 Permission Checking Rules
-- 6.2.5 Permission Propagation
-- 6.2.6 Permission Inference
-- 6.2.7 Permission Upgrades and Downgrades
+- 6.2.1 If Statements
+- 6.2.2 If-Let Statements
+- 6.2.3 While Loops
+- 6.2.4 For Loops
+- 6.2.5 Loop Labels
+- 6.2.6 Infinite Loops
 
-#### **Section 6.3: Move Semantics**
-**File**: `06-3_Move-Semantics.md`
+#### **Section 6.3: Pattern Matching**
+**File**: `06-3_Pattern-Matching.md`
 
-- 6.3.1 Move Operations
-- 6.3.2 Move Checking
-- 6.3.3 Copy Types
-- 6.3.4 Clone Operations
-- 6.3.5 Dropped Values
+- 6.3.1 Pattern Syntax
+- 6.3.2 Pattern Semantics
+- 6.3.3 Irrefutable Patterns
+- 6.3.4 Refutable Patterns
+- 6.3.5 Pattern Exhaustiveness
+- 6.3.6 Pattern Guards
+- 6.3.7 Or Patterns
 
-#### **Section 6.4: Regions and Lifetimes**
-**File**: `06-4_Regions-Lifetimes.md`
+#### **Section 6.4: Evaluation Order and Semantics**
+**File**: `06-4_Evaluation-Semantics.md`
 
-- 6.4.1 Region Concept
-- 6.4.2 Region Syntax
-- 6.4.3 Region Allocation
-- 6.4.4 Region Escape Analysis
-- 6.4.5 Region Stack (Δ)
-- 6.4.6 Region Cleanup
-
-#### **Section 6.5: Storage Duration**
-**File**: `06-5_Storage-Duration.md`
-
-- 6.5.1 Static Storage
-- 6.5.2 Function Storage
-- 6.5.3 Region Storage
-- 6.5.4 Heap Storage
-
-#### **Section 6.6: Memory Layout**
-**File**: `06-6_Memory-Layout.md`
-
-- 6.6.1 Type Sizes and Alignment
-- 6.6.2 Record Layout
-- 6.6.3 Enum Layout
-- 6.6.4 Layout Attributes
-- 6.6.5 Padding and Packing
-
-#### **Section 6.7: Aliasing and Uniqueness**
-**File**: `06-7_Aliasing-Uniqueness.md`
-
-- 6.7.1 Aliasing Rules
-- 6.7.2 Aliasing Violations
-- 6.7.3 Uniqueness Guarantees
-
-#### **Section 6.8: Unsafe Operations**
-**File**: `06-8_Unsafe-Operations.md`
-
-- 6.8.1 Unsafe Block Semantics
-- 6.8.2 Safety Obligations
-- 6.8.3 Unsafe Capabilities
-- 6.8.4 When Unsafe is Required
-- 6.8.5 Cross-reference to §14.2 for FFI-specific unsafe usage
+- 6.4.1 Evaluation Order
+- 6.4.2 Sequencing
+- 6.4.3 Short-circuit Evaluation
+- 6.4.4 Divergence
+- 6.4.5 Determinism Guarantees
 
 ---
 
@@ -713,7 +1233,7 @@ The following documents accompany this specification:
 
 ---
 
-### **PART VIII: PREDICATES AND DISPATCH** *(Normative)*
+### **PART VIII: PREDICATES AND TYPE CONSTRAINTS** *(Normative)*
 
 #### **Section 8.0: Predicate System Overview**
 **File**: `08-0_Predicate-Overview.md`
@@ -738,13 +1258,18 @@ The following documents accompany this specification:
 - 8.2.3 Implementation Completeness
 - 8.2.4 Blanket Implementations
 
-#### **Section 8.3: Predicate Bounds**
-**File**: `08-3_Predicate-Bounds.md`
+#### **Section 8.3: Type Bounds and Constraints**
+**File**: `08-3_Type-Bounds-Constraints.md`
 
 - 8.3.1 Bound Syntax
-- 8.3.2 Bound Checking
+- 8.3.2 Predicate Bounds
 - 8.3.3 Where Clauses
-- 8.3.4 Higher-ranked Predicate Bounds
+- 8.3.4 Type Constraints
+- 8.3.5 Constraint Solving
+- 8.3.6 Higher-ranked Predicate Bounds
+- 8.3.7 Associated Type Constraints
+
+> **Note**: This section consolidates type bounds and constraints previously in Part III §3.9, integrating them with the predicate system.
 
 #### **Section 8.4: Predicate Coherence**
 **File**: `08-4_Predicate-Coherence.md`
@@ -779,390 +1304,464 @@ The following documents accompany this specification:
 
 ---
 
-### **PART IX: GRANT SYSTEM** *(Normative)*
+### **PART IX: GENERICS AND PARAMETRIC POLYMORPHISM** *(Normative)*
 
-#### **Section 9.0: Grant System Overview**
-**File**: `09_Grant-System/09-0_Grant-System-Overview.md`
+#### **Section 9.0: Generics Overview**
+**File**: `09-0_Generics-Overview.md`
 
-- 9.0.1 Grant System Purpose
-- 9.0.2 Grant Tracking Goals
-- 9.0.3 Grant System Model
-- 9.0.4 Terminology
-- 9.0.5 Relationship to Other Language Features
-- 9.0.6 Conformance Requirements
-- 9.0.7 Organization of Part IX
+- 9.0.1 Parametric Polymorphism Goals
+- 9.0.2 Type Parameters vs Value Parameters
+- 9.0.3 Monomorphization Model
+- 9.0.4 Relationship to Predicates
 
-#### **Section 9.1: Grant Clauses**
-**File**: `09_Grant-System/09-1_Grant-Clauses.md`
+> **Note**: This part consolidates generic type system content previously in Part III §3.8, providing comprehensive coverage of parametric polymorphism.
 
-- 9.1.1 Grant Clause Syntax
-- 9.1.2 Grant Sets
-- 9.1.3 Grant Paths
-- 9.1.4 Procedure Grant Requirements
-- 9.1.5 Grant Clause Composition
-- 9.1.6 Deprecated Syntax
-- 9.1.7 Grammar Reference
-- 9.1.8 Well-Formedness Constraints
-- 9.1.9 Interaction with Functions
-- 9.1.10 Conformance Requirements
+#### **Section 9.1: Type Parameters**
+**File**: `09-1_Type-Parameters.md`
 
-#### **Section 9.2: Grant Tracking and Propagation**
-**File**: `09_Grant-System/09-2_Grant-Tracking.md`
+- 9.1.1 Type Parameter Declaration
+- 9.1.2 Type Parameter Scope
+- 9.1.3 Type Parameter Bounds
+- 9.1.4 Default Type Parameters
+- 9.1.5 Lifetime Parameters
 
-- 9.2.1 Grant Propagation Fundamentals
-- 9.2.2 Transitive Grant Propagation
-- 9.2.3 Grant Verification Algorithm
-- 9.2.4 Special Cases
-- 9.2.5 Compile-Time Erasure
-- 9.2.6 Grant Checking for Operations
-- 9.2.7 Grant Violations and Diagnostics
-- 9.2.8 Grant Inference
-- 9.2.9 Conformance Requirements
+#### **Section 9.2: Generic Functions and Procedures**
+**File**: `09-2_Generic-Functions.md`
 
-#### **Section 9.3: Grant Polymorphism**
-**File**: `09_Grant-System/09-3_Grant-Polymorphism.md`
+- 9.2.1 Generic Function Declaration
+- 9.2.2 Generic Procedure Declaration
+- 9.2.3 Type Parameter Inference
+- 9.2.4 Turbofish Syntax
+- 9.2.5 Generic Function Constraints
 
-- 9.3.1 Grant Parameter Fundamentals
-- 9.3.2 Grant Parameter Bounds
-- 9.3.3 Grant Parameter Instantiation
-- 9.3.4 Grant Parameter Composition
-- 9.3.5 Grant Polymorphic Patterns
-- 9.3.6 Grant Parameter Verification
-- 9.3.7 Advanced Grant Polymorphism
-- 9.3.8 Limitations and Restrictions
-- 9.3.9 Conformance Requirements
+#### **Section 9.3: Generic Types**
+**File**: `09-3_Generic-Types.md`
 
-#### **Section 9.4: Built-In Grants**
-**File**: `09_Grant-System/09-4_Built-In-Grants.md`
+- 9.3.1 Generic Record Declarations
+- 9.3.2 Generic Enum Declarations
+- 9.3.3 Generic Type Aliases
+- 9.3.4 Phantom Type Parameters
+- 9.3.5 Associated Types
 
-- 9.4.1 Built-In Grant Catalog
-- 9.4.2 Allocation Grants (`alloc`)
-- 9.4.3 File System Grants (`fs`)
-- 9.4.4 Network Grants (`net`)
-- 9.4.5 Time Grants (`time`)
-- 9.4.6 Thread Grants (`thread`)
-- 9.4.7 FFI Grants (`ffi`)
-- 9.4.8 Unsafe Grants (`unsafe`)
-- 9.4.9 Panic Grant (`panic`)
-- 9.4.10 Grant Hierarchy Summary
-- 9.4.11 Grant Subsumption
-- 9.4.12 Conformance Requirements
+#### **Section 9.4: Generic Implementations**
+**File**: `09-4_Generic-Implementations.md`
 
-#### **Section 9.5: User-Defined Grants**
-**File**: `09_Grant-System/09-5_User-Defined-Grants.md`
+- 9.4.1 Generic Implementation Blocks
+- 9.4.2 Implementation Constraints
+- 9.4.3 Blanket Implementations
+- 9.4.4 Specialization (if supported)
 
-- 9.5.1 Grant Declaration Fundamentals
-- 9.5.2 Grant Path Resolution
-- 9.5.3 Visibility and Access Control
-- 9.5.4 Grant Usage and Propagation
-- 9.5.5 Wildcard Grants
-- 9.5.6 Grant Polymorphism with User Grants
-- 9.5.7 Well-Formedness Constraints
-- 9.5.8 Verification Algorithm
-- 9.5.9 Compile-Time Erasure
-- 9.5.10 Interaction with Built-In Grants
-- 9.5.11 Grammar Reference
-- 9.5.12 Conformance Requirements
+#### **Section 9.5: Type Constructors**
+**File**: `09-5_Type-Constructors.md`
 
-#### **Section 9.6: Grant Integration**
-**File**: `09_Grant-System/09-6_Grant-Integration.md`
+- 9.5.1 Type Constructor Kinds
+- 9.5.2 Higher-kinded Types
+- 9.5.3 Type-level Functions
+- 9.5.4 Partial Application
 
-- 9.6.1 Integration Overview
-- 9.6.2 Grants and Contracts
-- 9.6.3 Grants and Permissions
-- 9.6.4 Grants and Modal Types
-- 9.6.5 Grants and Unsafe Code
-- 9.6.6 Grants and Functions vs Procedures
-- 9.6.7 Grants and Closures
-- 9.6.8 Grants and Generics
-- 9.6.9 Grants and Predicates
-- 9.6.10 Grants and Attributes
-- 9.6.11 Grants and Modules
-- 9.6.12 Grants and Metaprogramming
-- 9.6.13 Grant Composition Patterns
-- 9.6.14 Conformance Requirements
+#### **Section 9.6: Variance**
+**File**: `09-6_Variance.md`
+
+- 9.6.1 Covariance
+- 9.6.2 Contravariance
+- 9.6.3 Invariance
+- 9.6.4 Variance Inference
+- 9.6.5 Variance and Subtyping
+
+#### **Section 9.7: Generic Constraints and Resolution**
+**File**: `09-7_Generic-Constraints.md`
+
+- 9.7.1 Constraint Specification
+- 9.7.2 Constraint Checking
+- 9.7.3 Resolution Algorithm
+- 9.7.4 Ambiguity Resolution
 
 ---
 
-### **PART X: CONTRACT SYSTEM** *(Normative)*
+### **PART X: GRANT SYSTEM** *(Normative)*
 
-#### **Section 10.0: Contract System Overview**
-**File**: `10-0_Contract-Overview.md`
+#### **Section 10.0: Grant System Overview**
+**File**: `10_Grant-System/10-0_Grant-System-Overview.md`
 
-- 10.0.1 Design by Contract Philosophy
-- 10.0.2 Contract Components
-- 10.0.3 Static and Dynamic Checking
+- 10.0.1 Grant System Purpose
+- 10.0.2 Grant Tracking Goals
+- 10.0.3 Grant System Model
+- 10.0.4 Terminology
+- 10.0.5 Relationship to Other Language Features
+- 10.0.6 Conformance Requirements
+- 10.0.7 Organization of Part X
 
-#### **Section 10.1: Behavioral Contracts**
-**File**: `10-1_Behavioral-Contracts.md`
+#### **Section 10.1: Grant Clauses**
+**File**: `10_Grant-System/10-1_Grant-Clauses.md`
 
-- 10.1.1 Contract Declaration
-- 10.1.2 Contract Procedures
-- 10.1.3 Contract Associated Types
-- 10.1.4 Contract Implementation
-- 10.1.5 Contract Extension
-- 10.1.6 Contract Coherence
-- 10.1.7 Contract vs Predicate
+- 10.1.1 Grant Clause Syntax
+- 10.1.2 Grant Sets
+- 10.1.3 Grant Paths
+- 10.1.4 Procedure Grant Requirements
+- 10.1.5 Grant Clause Composition
+- 10.1.6 Deprecated Syntax
+- 10.1.7 Grammar Reference
+- 10.1.8 Well-Formedness Constraints
+- 10.1.9 Interaction with Functions
+- 10.1.10 Conformance Requirements
 
-#### **Section 10.2: Preconditions**
-**File**: `10-2_Preconditions.md`
+#### **Section 10.2: Grant Tracking and Propagation**
+**File**: `10_Grant-System/10-2_Grant-Tracking.md`
 
-- 10.2.1 Precondition Syntax (must)
-- 10.2.2 Precondition Semantics
-- 10.2.3 Precondition Checking
-- 10.2.4 Precondition Predicates
-- 10.2.5 Precondition Weakening
-- 10.2.6 Precondition Composition
+- 10.2.1 Grant Propagation Fundamentals
+- 10.2.2 Transitive Grant Propagation
+- 10.2.3 Grant Verification Algorithm
+- 10.2.4 Special Cases
+- 10.2.5 Compile-Time Erasure
+- 10.2.6 Grant Checking for Operations
+- 10.2.7 Grant Violations and Diagnostics
+- 10.2.8 Grant Inference
+- 10.2.9 Conformance Requirements
 
-#### **Section 10.3: Postconditions**
-**File**: `10-3_Postconditions.md`
+#### **Section 10.3: Grant Polymorphism**
+**File**: `10_Grant-System/10-3_Grant-Polymorphism.md`
 
-- 10.3.1 Postcondition Syntax (will)
-- 10.3.2 Postcondition Semantics
-- 10.3.3 Postcondition Checking
-- 10.3.4 Postcondition Predicates
-- 10.3.5 Postcondition Strengthening
-- 10.3.6 @old Capture Semantics
+- 10.3.1 Grant Parameter Fundamentals
+- 10.3.2 Grant Parameter Bounds
+- 10.3.3 Grant Parameter Instantiation
+- 10.3.4 Grant Parameter Composition
+- 10.3.5 Grant Polymorphic Patterns
+- 10.3.6 Grant Parameter Verification
+- 10.3.7 Advanced Grant Polymorphism
+- 10.3.8 Limitations and Restrictions
+- 10.3.9 Conformance Requirements
 
-#### **Section 10.4: Type Invariants**
-**File**: `10-4_Type-Invariants.md`
+#### **Section 10.4: Built-In Grants**
+**File**: `10_Grant-System/10-4_Built-In-Grants.md`
 
-- 10.4.1 Type Invariant Syntax (where)
-- 10.4.2 Type Invariant Semantics
-- 10.4.3 Invariant Checking
-- 10.4.4 Invariant Predicates
-- 10.4.5 Invariant Preservation
-- 10.4.6 Invariant Performance
+- 10.4.1 Built-In Grant Catalog
+- 10.4.2 Allocation Grants (`alloc`)
+- 10.4.3 File System Grants (`fs`)
+- 10.4.4 Network Grants (`net`)
+- 10.4.5 Time Grants (`time`)
+- 10.4.6 Thread Grants (`thread`)
+- 10.4.7 FFI Grants (`ffi`)
+- 10.4.8 Unsafe Grants (`unsafe`)
+- 10.4.9 Panic Grant (`panic`)
+- 10.4.10 Grant Hierarchy Summary
+- 10.4.11 Grant Subsumption
+- 10.4.12 Conformance Requirements
 
-#### **Section 10.5: Verification Modes**
-**File**: `10-5_Verification-Modes.md`
+#### **Section 10.5: User-Defined Grants**
+**File**: `10_Grant-System/10-5_User-Defined-Grants.md`
 
-- 10.5.1 Verification Attributes
-- 10.5.2 Static Verification
-- 10.5.3 Runtime Verification
-- 10.5.4 No Verification
-- 10.5.5 Verification Mode Inheritance
+- 10.5.1 Grant Declaration Fundamentals
+- 10.5.2 Grant Path Resolution
+- 10.5.3 Visibility and Access Control
+- 10.5.4 Grant Usage and Propagation
+- 10.5.5 Wildcard Grants
+- 10.5.6 Grant Polymorphism with User Grants
+- 10.5.7 Well-Formedness Constraints
+- 10.5.8 Verification Algorithm
+- 10.5.9 Compile-Time Erasure
+- 10.5.10 Interaction with Built-In Grants
+- 10.5.11 Grammar Reference
+- 10.5.12 Conformance Requirements
 
-#### **Section 10.6: Contract Clause Composition**
-**File**: `10-6_Clause-Composition.md`
+#### **Section 10.6: Grant Integration**
+**File**: `10_Grant-System/10-6_Grant-Integration.md`
 
-- 10.6.1 Effect Propagation with Contracts
-- 10.6.2 Precondition Composition
-- 10.6.3 Postcondition Composition
-- 10.6.4 Clause Compatibility
-
-#### **Section 10.7: Contract Integration**
-**File**: `10-7_Contract-Integration.md`
-
-- 10.7.1 Contracts and Permissions
-- 10.7.2 Contracts and Effects
-- 10.7.3 Contracts and Modals
-- 10.7.4 Contracts and Unsafe Code
-
----
-
-### **PART XI: TYPE-LEVEL ADVANCED FEATURES** *(Normative)*
-
-**Note:** This part covers advanced type-level features that build upon and integrate multiple concepts from Parts III-X. These features are grouped here because they require comprehensive understanding of the type system, permissions, effects, and contracts.
-
-#### **Section 11.0: Advanced Features Overview**
-**File**: `11-0_Advanced-Features-Overview.md`
-
-- 11.0.1 Modal Types (state-dependent type systems)
-- 11.0.2 Contract Witnesses (runtime evidence of contract satisfaction)
-- 11.0.3 Type Inference and Holes (automated type derivation)
-
-#### **Section 11.1: Modal Types and State Machines**
-**File**: `11-1_Modal-Types.md`
-
-- 11.1.1 Modal Type Declaration
-- 11.1.2 Modal States
-- 11.1.3 State Transitions
-- 11.1.4 Modal Type Instantiation
-- 11.1.5 State-Dependent Operations
-- 11.1.6 Modal Patterns
-- 11.1.7 Modal State Inference
-- 11.1.8 Modal Type Checking
-- 11.1.9 Modal Integration
-
-#### **Section 11.2: Contract Witnesses**
-**File**: `11-2_Contract-Witnesses.md`
-
-- 11.2.1 Witness Concept
-- 11.2.2 Witness Construction
-- 11.2.3 Witness Types
-- 11.2.4 Witness Operations
-- 11.2.5 Witness Memory Management
-- 11.2.6 Effect Polymorphism in Witnesses
-
-#### **Section 11.3: Type Inference and Holes**
-**File**: `11-3_Type-Inference-Holes.md`
-
-- 11.3.1 Type Inference Overview
-- 11.3.2 Hole Syntax
-- 11.3.3 Constraint Generation
-- 11.3.4 Constraint Solving
-- 11.3.5 Type Hole Resolution
-- 11.3.6 Permission Hole Resolution
-- 11.3.7 Modal State Hole Resolution
-- 11.3.8 Effect Hole Resolution
-- 11.3.9 Inference Limitations
-- 11.3.10 Elaboration
+- 10.6.1 Integration Overview
+- 10.6.2 Grants and Contracts
+- 10.6.3 Grants and Permissions
+- 10.6.4 Grants and Modal Types
+- 10.6.5 Grants and Unsafe Code
+- 10.6.6 Grants and Functions vs Procedures
+- 10.6.7 Grants and Closures
+- 10.6.8 Grants and Generics
+- 10.6.9 Grants and Predicates
+- 10.6.10 Grants and Attributes
+- 10.6.11 Grants and Modules
+- 10.6.12 Grants and Metaprogramming
+- 10.6.13 Grant Composition Patterns
+- 10.6.14 Conformance Requirements
 
 ---
 
-### **PART XII: METAPROGRAMMING** *(Normative)*
+### **PART XI: CONTRACT SYSTEM** *(Normative)*
 
-#### **Section 12.0: Metaprogramming Overview**
-**File**: `12-0_Metaprogramming-Overview.md`
+#### **Section 11.0: Contract System Overview**
+**File**: `11-0_Contract-Overview.md`
 
-- 12.0.1 Compile-Time Computation
-- 12.0.2 Code Generation
-- 12.0.3 Reflection Capabilities
+- 11.0.1 Design by Contract Philosophy
+- 11.0.2 Contract Components
+- 11.0.3 Static and Dynamic Checking
 
-#### **Section 12.1: Attributes**
-**File**: `12-1_Attributes.md`
+#### **Section 11.1: Behavioral Contracts**
+**File**: `11-1_Behavioral-Contracts.md`
 
-- 12.1.1 Attribute Syntax
-- 12.1.2 Attribute Placement
-- 12.1.3 Core Attributes (repr, verify, inline, etc.)
-- 12.1.4 User-Defined Attributes
-- 12.1.5 Attribute Semantics
+- 11.1.1 Contract Declaration
+- 11.1.2 Contract Procedures
+- 11.1.3 Contract Associated Types
+- 11.1.4 Contract Implementation
+- 11.1.5 Contract Extension
+- 11.1.6 Contract Coherence
+- 11.1.7 Contract vs Predicate
 
-#### **Section 12.2: Compile-Time Evaluation**
-**File**: `12-2_Compile-Time-Evaluation.md`
+#### **Section 11.2: Preconditions**
+**File**: `11-2_Preconditions.md`
 
-- 12.2.1 Const Expressions (detailed)
-- 12.2.2 Const Functions (detailed)
-- 12.2.3 Const Context
-- 12.2.4 Comptime Blocks
-- 12.2.5 Const Propagation
+- 11.2.1 Precondition Syntax (must)
+- 11.2.2 Precondition Semantics
+- 11.2.3 Precondition Checking
+- 11.2.4 Precondition Predicates
+- 11.2.5 Precondition Weakening
+- 11.2.6 Precondition Composition
 
-#### **Section 12.3: Code Generation**
-**File**: `12-3_Code-Generation.md`
+#### **Section 11.3: Postconditions**
+**File**: `11-3_Postconditions.md`
 
-- 12.3.1 Macros
-- 12.3.2 Derive Macros
-- 12.3.3 Procedural Macros
-- 12.3.4 Template Expansion
+- 11.3.1 Postcondition Syntax (will)
+- 11.3.2 Postcondition Semantics
+- 11.3.3 Postcondition Checking
+- 11.3.4 Postcondition Predicates
+- 11.3.5 Postcondition Strengthening
+- 11.3.6 @old Capture Semantics
 
-#### **Section 12.4: Reflection**
-**File**: `12-4_Reflection.md`
+#### **Section 11.4: Type Invariants**
+**File**: `11-4_Type-Invariants.md`
 
-- 12.4.1 Type Reflection
-- 12.4.2 Compile-Time Type Queries
-- 12.4.3 Runtime Type Information
-- 12.4.4 Reflection Limitations
+- 11.4.1 Type Invariant Syntax (where)
+- 11.4.2 Type Invariant Semantics
+- 11.4.3 Invariant Checking
+- 11.4.4 Invariant Predicates
+- 11.4.5 Invariant Preservation
+- 11.4.6 Invariant Performance
 
----
+#### **Section 11.5: Verification Modes**
+**File**: `11-5_Verification-Modes.md`
 
-### **PART XIII: CONCURRENCY AND MEMORY ORDERING** *(Normative)*
+- 11.5.1 Verification Attributes
+- 11.5.2 Static Verification
+- 11.5.3 Runtime Verification
+- 11.5.4 No Verification
+- 11.5.5 Verification Mode Inheritance
 
-**Note:** The memory model (§13.2) and atomic operations (§13.3) are mandatory for all conforming implementations. Thread and task primitives (§13.1, §13.4) may be library-provided, but the memory model must be normatively specified to define data race semantics and memory ordering guarantees.
+#### **Section 11.6: Contract Clause Composition**
+**File**: `11-6_Clause-Composition.md`
 
-#### **Section 13.0: Concurrency Model Overview**
-**File**: `13-0_Concurrency-Overview.md`
+- 11.6.1 Effect Propagation with Contracts
+- 11.6.2 Precondition Composition
+- 11.6.3 Postcondition Composition
+- 11.6.4 Clause Compatibility
 
-- 13.0.1 Concurrency Concepts
-- 13.0.2 Thread Model (may be library-provided)
-- 13.0.3 Memory Model Goals
+#### **Section 11.7: Contract Integration**
+**File**: `11-7_Contract-Integration.md`
 
-#### **Section 13.1: Threads and Tasks**
-**File**: `13-1_Threads-Tasks.md`
-
-- 13.1.1 Thread Creation
-- 13.1.2 Thread Lifetime
-- 13.1.3 Task Concept
-
-#### **Section 13.2: Memory Model**
-**File**: `13-2_Memory-Model.md`
-
-- 13.2.1 Happens-Before Relation
-- 13.2.2 Synchronizes-With Relation
-- 13.2.3 Sequential Consistency
-- 13.2.4 Data Races
-- 13.2.5 Race Freedom
-
-#### **Section 13.3: Atomic Operations**
-**File**: `13-3_Atomic-Operations.md`
-
-- 13.3.1 Atomic Types
-- 13.3.2 Memory Ordering
-- 13.3.3 Acquire-Release Semantics
-- 13.3.4 Sequentially Consistent Ordering
-- 13.3.5 Relaxed Ordering
-
-#### **Section 13.4: Synchronization Primitives**
-**File**: `13-4_Synchronization.md`
-
-- 13.4.1 Mutexes
-- 13.4.2 Condition Variables
-- 13.4.3 Barriers
-- 13.4.4 Channels (if applicable)
+- 11.7.1 Contracts and Permissions
+- 11.7.2 Contracts and Effects
+- 11.7.3 Contracts and Modals
+- 11.7.4 Contracts and Unsafe Code
 
 ---
 
-### **PART XIV: INTEROPERABILITY AND UNSAFE** *(Normative)*
+### **PART XII: TYPE-LEVEL ADVANCED FEATURES** *(Normative)*
 
-#### **Section 14.0: Interoperability Overview**
-**File**: `14-0_Interop-Overview.md`
+> **Note**: This part covers advanced type-level features that build upon and integrate multiple concepts from Parts III-X. These features are grouped here because they require comprehensive understanding of the type system, permissions, effects, and contracts.
 
-- 14.0.1 Foreign Function Interface
-- 14.0.2 C Compatibility Goals
-- 14.0.3 Safety Boundaries
+#### **Section 12.0: Advanced Features Overview**
+**File**: `12-0_Advanced-Features-Overview.md`
 
-#### **Section 14.1: Foreign Function Interface**
-**File**: `14-1_FFI.md`
+- 12.0.1 Modal Types (state-dependent type systems)
+- 12.0.2 Contract Witnesses (runtime evidence of contract satisfaction)
+- 12.0.3 Type Inference and Holes (automated type derivation)
 
-- 14.1.1 External Declarations
-- 14.1.2 Calling Conventions
-- 14.1.3 FFI Types
-- 14.1.4 FFI Safety
-- 14.1.5 Name Mangling
+#### **Section 12.1: Modal Types and State Machines**
+**File**: `12-1_Modal-Types.md`
 
-#### **Section 14.2: Unsafe Operations in FFI Context**
-**File**: `14-2_Unsafe-FFI.md`
+- 12.1.1 Modal Type Declaration
+- 12.1.2 Modal States
+- 12.1.3 State Transitions
+- 12.1.4 Modal Type Instantiation
+- 12.1.5 State-Dependent Operations
+- 12.1.6 Modal Patterns
+- 12.1.7 Modal State Inference
+- 12.1.8 Modal Type Checking
+- 12.1.9 Modal Integration
 
-**Note:** General unsafe block semantics are specified in §6.8. This section covers FFI-specific unsafe operations and obligations.
+#### **Section 12.2: Contract Witnesses**
+**File**: `12-2_Contract-Witnesses.md`
 
-- 14.2.1 Unsafe Blocks in FFI (see §6.8 for general semantics)
-- 14.2.2 Unsafe External Functions
-- 14.2.3 FFI Safety Obligations
-- 14.2.4 Raw Pointers from External Code
-- 14.2.5 Memory Safety Across FFI Boundaries
+- 12.2.1 Witness Concept
+- 12.2.2 Witness Construction
+- 12.2.3 Witness Types
+- 12.2.4 Witness Operations
+- 12.2.5 Witness Memory Management
+- 12.2.6 Effect Polymorphism in Witnesses
 
-#### **Section 14.3: C Compatibility**
-**File**: `14-3_C-Compatibility.md`
+#### **Section 12.3: Type Inference and Holes**
+**File**: `12-3_Type-Inference-Holes.md`
 
-- 14.3.1 C Type Representations
-- 14.3.2 C String Handling
-- 14.3.3 C Function Pointers
-- 14.3.4 C Variadic Functions
-- 14.3.5 C Macros and Preprocessing
+- 12.3.1 Type Inference Overview
+- 12.3.2 Hole Syntax
+- 12.3.3 Constraint Generation
+- 12.3.4 Constraint Solving
+- 12.3.5 Type Hole Resolution
+- 12.3.6 Permission Hole Resolution
+- 12.3.7 Modal State Hole Resolution
+- 12.3.8 Effect Hole Resolution
+- 12.3.9 Inference Limitations
+- 12.3.10 Elaboration
 
-#### **Section 14.4: Platform-Specific Features**
-**File**: `14-4_Platform-Specific.md`
+---
 
-- 14.4.1 Target Architecture
-- 14.4.2 Operating System Interface
-- 14.4.3 Inline Assembly
-- 14.4.4 SIMD and Intrinsics
+### **PART XIII: METAPROGRAMMING** *(Normative)*
 
-#### **Section 14.5: Linkage and Symbol Visibility**
-**File**: `14-5_Linkage-Symbols.md`
+#### **Section 13.0: Metaprogramming Overview**
+**File**: `13-0_Metaprogramming-Overview.md`
 
-- 14.5.1 Linkage Semantics
-- 14.5.2 Symbol Visibility
-- 14.5.3 Name Mangling Rules
-- 14.5.4 Static and Dynamic Linking
+- 13.0.1 Compile-Time Computation
+- 13.0.2 Code Generation
+- 13.0.3 Reflection Capabilities
 
-#### **Section 14.6: ABI Considerations**
-**File**: `14-6_ABI-Considerations.md`
+#### **Section 13.1: Attributes**
+**File**: `13-1_Attributes.md`
 
-- 14.6.1 ABI Stability (Implementation-Defined)
-- 14.6.2 Platform Calling Conventions
-- 14.6.3 Data Layout Guarantees
-- 14.6.4 ABI Versioning
+- 13.1.1 Attribute Syntax
+- 13.1.2 Attribute Placement
+- 13.1.3 Core Attributes (repr, verify, inline, etc.)
+- 13.1.4 User-Defined Attributes
+- 13.1.5 Attribute Semantics
+
+#### **Section 13.2: Compile-Time Evaluation**
+**File**: `13-2_Compile-Time-Evaluation.md`
+
+- 13.2.1 Const Expressions (detailed)
+- 13.2.2 Const Functions (detailed)
+- 13.2.3 Const Context
+- 13.2.4 Comptime Blocks
+- 13.2.5 Const Propagation
+
+#### **Section 13.3: Code Generation**
+**File**: `13-3_Code-Generation.md`
+
+- 13.3.1 Macros
+- 13.3.2 Derive Macros
+- 13.3.3 Procedural Macros
+- 13.3.4 Template Expansion
+
+#### **Section 13.4: Reflection**
+**File**: `13-4_Reflection.md`
+
+- 13.4.1 Type Reflection
+- 13.4.2 Compile-Time Type Queries
+- 13.4.3 Runtime Type Information
+- 13.4.4 Reflection Limitations
+
+---
+
+### **PART XIV: CONCURRENCY AND MEMORY ORDERING** *(Normative)*
+
+> **Note**: The memory model (§13.2) and atomic operations (§13.3) are mandatory for all conforming implementations. Thread and task primitives (§13.1, §13.4) may be library-provided, but the memory model must be normatively specified to define data race semantics and memory ordering guarantees.
+
+#### **Section 14.0: Concurrency Model Overview**
+**File**: `14-0_Concurrency-Overview.md`
+
+- 14.0.1 Concurrency Concepts
+- 14.0.2 Thread Model (may be library-provided)
+- 14.0.3 Memory Model Goals
+
+#### **Section 14.1: Threads and Tasks**
+**File**: `14-1_Threads-Tasks.md`
+
+- 14.1.1 Thread Creation
+- 14.1.2 Thread Lifetime
+- 14.1.3 Task Concept
+
+#### **Section 14.2: Memory Model**
+**File**: `14-2_Memory-Model.md`
+
+- 14.2.1 Happens-Before Relation
+- 14.2.2 Synchronizes-With Relation
+- 14.2.3 Sequential Consistency
+- 14.2.4 Data Races
+- 14.2.5 Race Freedom
+
+#### **Section 14.3: Atomic Operations**
+**File**: `14-3_Atomic-Operations.md`
+
+- 14.3.1 Atomic Types
+- 14.3.2 Memory Ordering
+- 14.3.3 Acquire-Release Semantics
+- 14.3.4 Sequentially Consistent Ordering
+- 14.3.5 Relaxed Ordering
+
+#### **Section 14.4: Synchronization Primitives**
+**File**: `14-4_Synchronization.md`
+
+- 14.4.1 Mutexes
+- 14.4.2 Condition Variables
+- 14.4.3 Barriers
+- 14.4.4 Channels (if applicable)
+
+---
+
+### **PART XV: INTEROPERABILITY AND UNSAFE** *(Normative)*
+
+#### **Section 15.0: Interoperability Overview**
+**File**: `15-0_Interop-Overview.md`
+
+- 15.0.1 Foreign Function Interface
+- 15.0.2 C Compatibility Goals
+- 15.0.3 Safety Boundaries
+
+#### **Section 15.1: Foreign Function Interface**
+**File**: `15-1_FFI.md`
+
+- 15.1.1 External Declarations
+- 15.1.2 Calling Conventions
+- 15.1.3 FFI Types
+- 15.1.4 FFI Safety
+- 15.1.5 Name Mangling
+
+#### **Section 15.2: Unsafe Operations in FFI Context**
+**File**: `15-2_Unsafe-FFI.md`
+
+> **Note**: General unsafe block semantics are specified in §4.8. This section covers FFI-specific unsafe operations and obligations.
+
+- 15.2.1 Unsafe Blocks in FFI (see §4.8 for general semantics)
+- 15.2.2 Unsafe External Functions
+- 15.2.3 FFI Safety Obligations
+- 15.2.4 Raw Pointers from External Code
+- 15.2.5 Memory Safety Across FFI Boundaries
+
+#### **Section 15.3: C Compatibility**
+**File**: `15-3_C-Compatibility.md`
+
+- 15.3.1 C Type Representations
+- 15.3.2 C String Handling
+- 15.3.3 C Function Pointers
+- 15.3.4 C Variadic Functions
+- 15.3.5 C Macros and Preprocessing
+
+#### **Section 15.4: Platform-Specific Features**
+**File**: `15-4_Platform-Specific.md`
+
+- 15.4.1 Target Architecture
+- 15.4.2 Operating System Interface
+- 15.4.3 Inline Assembly
+- 15.4.4 SIMD and Intrinsics
+
+#### **Section 15.5: Linkage and Symbol Visibility**
+**File**: `15-5_Linkage-Symbols.md`
+
+- 15.5.1 Linkage Semantics
+- 15.5.2 Symbol Visibility
+- 15.5.3 Name Mangling Rules
+- 15.5.4 Static and Dynamic Linking
+
+#### **Section 15.6: ABI Considerations**
+**File**: `15-6_ABI-Considerations.md`
+
+- 15.6.1 ABI Stability (Implementation-Defined)
+- 15.6.2 Platform Calling Conventions
+- 15.6.3 Data Layout Guarantees
+- 15.6.4 ABI Versioning
 
 ---
 
@@ -1274,7 +1873,7 @@ The following documents accompany this specification:
 #### **Section A.11: Grammar Reference**
 **File**: `Annex-A-11_Grammar-Reference.md`
 
-**Note:** This section provides a consolidated EBNF reference for implementers. Sections A.1-A.10 contain grammar productions integrated with explanatory prose; this section consolidates all productions in pure EBNF format without prose for quick reference.
+> **Note**: This section provides a consolidated EBNF reference for implementers. Sections A.1-A.10 contain grammar productions integrated with explanatory prose; this section consolidates all productions in pure EBNF format without prose for quick reference.
 
 - Complete EBNF listing (all productions from A.1-A.10, consolidated)
 - Cross-references to normative text
@@ -1482,21 +2081,22 @@ Alphabetical listing of all technical terms with definitions and cross-reference
 - `01-6_Versioning-Evolution.md` (new in v3.1)
 - `02-3_Syntax-Notation.md`
 - `02-5_Scopes-Name-Lookup.md`
-- `04-8_Conversions-Coercions.md`
+- `04-2_Permission-System.md` (Memory Model - Part IV)
+- `05-8_Conversions-Coercions.md` (Expressions - Part V)
 - `Annex-A-11_Grammar-Reference.md`
 - `Annex-B-2_Undefined-Behavior.md`
 - `Annex-D-4_Edition-System.md` (new in v3.1)
 - `Annex-E-0_Stdlib-Organization.md`
 
 **Rules**:
-- Use two digits for part number (01-14)
+- Use two digits for part number (01-15)
 - Use one or two digits for section number (0-99)
 - Use hyphens for multi-word section names
 - Use descriptive but concise names
 - Prefix annexes with "Annex-"
 - Maintain alphabetical sorting by filename
 
-**New Files in Version 3.1:**
+**Files Added in Version 3.1:**
 - `01-6_Versioning-Evolution.md` - Edition system and language evolution policy
 - `Annex-D-4_Edition-System.md` - Implementation guidance for edition support
 

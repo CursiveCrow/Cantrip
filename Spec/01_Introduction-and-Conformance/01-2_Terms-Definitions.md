@@ -119,9 +119,18 @@ type with compile-time state machine semantics
 **Cross-reference**: [REF_TBD]
 
 ### binding category
-classification of variable bindings determining cleanup responsibility
+classification of variable bindings determining cleanup responsibility and rebindability
 
-Cursive defines three binding categories: `let` (immutable binding with automatic cleanup), `var` (mutable binding with automatic cleanup), and `ref` (borrowed binding without cleanup responsibility).
+Cursive defines two binding categories (`let` and `var`) combined with two assignment operators (`=` for owning, `<-` for reference of value), creating four binding forms:
+
+- `let x = ...`: non-rebindable owning binding, transferable via `move`
+- `var x = ...`: rebindable owning binding, cannot transfer ownership
+- `let x <- ...`: non-rebindable non-owning binding (reference of value)
+- `var x <- ...`: rebindable non-owning binding (reference of value)
+
+Non-owning bindings (using `<-`) do not call destructors and cannot be transferred.
+
+**Note**: Mutability is determined by permissions (`const`, `unique`, `shared`), not by binding category. A `let` binding can be immutable (with `const` permission) or mutable (with `unique` or `shared` permission).
 
 **Cross-reference**: [REF_TBD]
 
@@ -134,7 +143,7 @@ Cursive's permission system operates on the second axis of the memory model, ort
 
 **Cross-reference**: [REF_TBD]
 
-**Note**: The three permissions form a lattice: `const` (read-only, freely aliasable) `<:` `shared` (read-write, aliasable) `<:` `unique` (read-write, no aliasing).
+**Note**: The three permissions form a lattice with `const` at the bottom: both `unique` and `shared` can coerce to `const`, but `unique` and `shared` cannot coerce to each other. Coercion is always weakening (unique→const, shared→const), never strengthening.
 
 ### pipeline stage
 expression of the form `expr => stage: Type` chaining transformations

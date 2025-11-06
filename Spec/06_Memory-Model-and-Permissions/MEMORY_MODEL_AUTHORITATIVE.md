@@ -119,7 +119,7 @@ Generated assembly for safe code is identical to unsafe code performing the same
 - Permissions (const/unique/shared) for aliasing control
 - Regions for scoped allocation
 - Partitioning for shared safety
-- `ref` bindings (non-owning references, not borrows)
+- `<-` operator for non-owning bindings (reference of value assignment)
 
 **Rationale**: Borrow checking requires complex lifetime tracking and non-local reasoning. Cursive achieves memory safety through simpler mechanisms that maintain local reasoning.
 
@@ -159,7 +159,6 @@ Cursive's memory model separates two independent concerns:
 **AXIS 1: Binding Categories** - Who is responsible for calling the destructor?
 - `let`: Responsible, can transfer via move
 - `var`: Responsible, cannot transfer
-- `ref`: Not responsible
 
 **AXIS 2: Permissions** - What operations are allowed?
 - `const`: Read-only, unlimited aliasing
@@ -168,7 +167,7 @@ Cursive's memory model separates two independent concerns:
 
 These axes are **completely orthogonal**: every combination of binding category and permission is valid and meaningful.
 
-**Result**: 3 × 3 = **9 valid combinations**, each with distinct semantics.
+**Result**: 2 × 3 = **6 valid combinations**, each with distinct semantics.
 
 ```
                const          unique         shared
@@ -180,10 +179,6 @@ These axes are **completely orthogonal**: every combination of binding category 
    var   │ Immutable   │ Exclusive    │ Shared       │
          │ owned       │ mutable      │ mutable      │
          │ rebindable  │ rebindable   │ rebindable   │
-         ├─────────────┼──────────────┼──────────────┤
-   ref   │ Immutable   │ Exclusive    │ Shared       │
-         │ reference   │ mutable ref  │ mutable ref  │
-         │             │              │              │
          └─────────────┴──────────────┴──────────────┘
 ```
 
@@ -197,15 +192,15 @@ These axes are **completely orthogonal**: every combination of binding category 
 
 **Examples of Independence**:
 ```cursive
-// Responsibility: let (owns), Permission: const (immutable)
+// Owning binding (=), Permission: const (immutable)
 let x: const = Data::new();
 // Will call destructor, but cannot mutate through x
 
-// Responsibility: ref (doesn't own), Permission: unique (mutable)
-ref y: unique = some_data;
-// Can mutate, but won't call destructor
+// Reference of value assignment (<-), Permission: unique (mutable)
+let y: unique <- some_data;
+// Non-owning binding via <-, can mutate, won't call destructor
 
-// Responsibility: var (owns, rebindable), Permission: const (immutable)
+// Owning binding (=), Rebindable (var), Permission: const (immutable)
 var state: const = State::Initial;
 // Will call destructor, can rebind, but cannot mutate
 ```
@@ -214,22 +209,25 @@ These are genuinely independent concerns that deserve separate expression.
 
 ---
 
-### 2.5. Orthogonality Clarification: Pointer Types vs Binding Categories
+### 2.5. Orthogonality Clarification: Pointer Types vs Binding System
 
-**Important Distinction**: Binding categories (`let`, `var`, `ref`) are NOT pointer types. They are orthogonal to the type system.
+**Important Distinction**: The binding system (rebindability + ownership) is NOT part of the type system. Bindings are orthogonal to types.
 
-#### 2.5.1 Binding Categories Are NOT Types
+#### 2.5.1 Binding System Is NOT Part of Types
 
-Binding categories control **binding behavior** (ownership, transferability, rebindability), not the **type** of the value:
+The binding system controls **binding behavior** (ownership, transferability, rebindability), not the **type** of the value:
 
 ```cursive
 // These all have type i32
-let x: i32 = 42;    // let binding of i32
-var y: i32 = 42;    // var binding of i32
-ref z: i32 = x;     // ref binding of i32
+let x: i32 = 42;     // Owning binding of i32
+var y: i32 = 42;     // Rebindable owning binding of i32
+let z: i32 <- x;     // Non-owning binding via <- (reference of value)
+var w: i32 <- x;     // Rebindable non-owning binding via <-
 ```
 
-The binding category (`let`/`var`/`ref`) is part of the **declaration syntax**, not part of the **type**.
+The binding form (`let`/`var` + `=`/`<-`) is part of the **declaration syntax**, not part of the **type**.
+
+**Note**: `<-` is the "reference of value" assignment operator. It creates a non-owning binding to an existing value.
 
 #### 2.5.2 Pointer Types ARE Types
 
@@ -249,33 +247,33 @@ These are actual types that can be stored in fields, passed as parameters, and r
 Binding categories and pointer types compose orthogonally:
 
 ```cursive
-// Binding category × Pointer type:
-let p: Ptr<i32>@Valid = Ptr::new(&x);      // let binding of Ptr type
-var p: Ptr<i32>@Valid = Ptr::new(&x);      // var binding of Ptr type
-ref p: Ptr<i32>@Valid = some_pointer;      // ref binding of Ptr type
+// Binding form × Pointer type:
+let p: Ptr<i32>@Valid = Ptr::new(&x);      // Owning binding of Ptr type
+var p: Ptr<i32>@Valid = Ptr::new(&x);      // Rebindable owning binding of Ptr type
+let p: Ptr<i32>@Valid <- some_pointer;     // Reference binding of Ptr type
 
-// Binding category × Permission × Pointer type:
+// Binding form × Permission × Pointer type:
 let p: const Ptr<i32>@Valid = ...;         // Immutable pointer (can't reassign)
 let p: unique Ptr<i32>@Valid = ...;        // Exclusive pointer
-ref p: const Ptr<i32>@Valid = ...;         // Non-owning reference to pointer
+let p: const Ptr<i32>@Valid <- ...;        // Non-owning reference to pointer
 ```
 
-#### 2.5.4 Common Confusion: ref vs Pointers
+#### 2.5.4 Common Confusion: Reference Bindings vs Pointers
 
-**`ref` is NOT a pointer type**. It's a binding category:
+**Reference bindings (`<-`) are NOT pointer types**. They're a binding form:
 
 ```cursive
-// ref binding - NOT a pointer type
-ref x: i32 = some_value;     // x is a non-owning binding to an i32
-                             // Type is still i32, not a pointer
+// Reference binding - NOT a pointer type
+let x: i32 <- some_value;   // x is a non-owning binding to an i32
+                            // Type is still i32, not a pointer
 
 // Pointer type - actual pointer value
 let p: Ptr<i32>@Valid = Ptr::new(&value);  // p's type is Ptr<i32>@Valid
 ```
 
 **Key difference**:
-- `ref x: i32` - x IS an i32 (accessed through a non-owning binding)
-- `let p: Ptr<i32>@Valid` - p IS a pointer (a value containing an address)
+- `let x: i32 <- value` - x IS an i32 (accessed through a non-owning binding)
+- `let p: Ptr<i32>@Valid = ...` - p IS a pointer (a value containing an address)
 
 #### 2.5.5 Why This Matters
 
@@ -302,11 +300,12 @@ procedure use_socket(conn: const Connection) {
 
 | Concept | Category | Examples | What It Controls |
 |---------|----------|----------|------------------|
-| **Binding Categories** | Declaration syntax | `let`, `var`, `ref` | Ownership, transferability, rebindability |
+| **Binding Categories** | Declaration syntax | `let`, `var` | Ownership, transferability, rebindability |
+| **Assignment Operators** | Syntax | `=`, `<-` | Value assignment vs reference of value |
 | **Permissions** | Type qualifier | `const`, `unique`, `shared` | Mutability, aliasing rules |
 | **Pointer Types** | Actual types | `Ptr<T>@S`, `*T`, `*mut T` | Memory indirection, dereferencing |
 
-**Takeaway**: `let`/`var`/`ref` are NOT different pointer types. They are different ways to BIND to a value (which may itself be a pointer type or any other type).
+**Takeaway**: `let` and `var` are binding categories that control rebindability and transferability. Combined with assignment operators (`=` or `<-`), they control whether a binding owns a value or creates a non-owning reference.
 
 ---
 
@@ -357,10 +356,10 @@ var x = Data::new();
 let y = move x;  // ERROR: cannot transfer from var
 ```
 
-**Mechanism 3: Non-Responsible ref**
+**Mechanism 3: Non-Owning Reference Binding**
 ```cursive
 let owner = Data::new();
-ref viewer = owner;
+let viewer <- owner;
 // viewer doesn't own, won't call destructor
 // Only owner calls destructor
 ```
@@ -466,8 +465,8 @@ Conforming implementations MUST:
 **Mechanism 1: Unique Permission (Compile-Time)**
 ```cursive
 let data: unique = Data::new();
-ref a: unique = data;  // Locks unique access
-ref b: unique = data;  // ERROR: unique already accessed
+let a: unique <- data;  // Locks unique access
+let b: unique <- data;  // ERROR: unique already accessed
 ```
 
 **Mechanism 2: Field-Level Partitioning (Compile-Time)**
@@ -477,8 +476,8 @@ record World {
 }
 
 let world: shared = World::new();
-ref p1: shared = world.positions;
-ref p2: shared = world.positions;  // ERROR: Partition already active
+let p1: shared <- world.positions;
+let p2: shared <- world.positions;  // ERROR: Partition already active
 ```
 
 Prevents accessing same field twice through `shared`, avoiding iterator invalidation bugs.
@@ -523,7 +522,7 @@ let y = move x;  // Ownership transfers from x to y
 ❌ **Common Misconception**: "Bindings are references" does NOT mean:
 - Rust-style `&T` references
 - Values are copied by default
-- `ref` is the only binding that refers to data
+- Only reference bindings (`<-`) refer to data
 
 ✅ **Correct Understanding**: "Bindings are references" means:
 - The binding mechanism: names refer to objects
@@ -552,11 +551,13 @@ Binding:          y ──┘
 
 #### 4.2 Syntax Conventions
 
-**Binding Categories** (required in local declarations):
+**Binding System** (orthogonal axes):
 ```cursive
-let x = ...    // let binding: owns, can transfer
-var x = ...    // var binding: owns, can rebind
-ref x = ...    // ref binding: doesn't own
+// Rebindability × Ownership
+let x = ...     // Non-rebindable owning: owns, can transfer
+var x = ...     // Rebindable owning: owns, can rebind
+let x <- ...    // Non-rebindable reference: doesn't own
+var x <- ...    // Rebindable reference: doesn't own, can rebind
 ```
 
 **Permissions** (optional, defaults to const):
@@ -598,15 +599,16 @@ record World {
 
 Binding categories answer the question: **Who is responsible for calling the destructor?**
 
-Three categories exist:
+Two binding categories exist (`let` and `var`), combined with two assignment operators (`=` for owning, `<-` for reference binding):
 
-| Category | Responsible for Cleanup | Rebindable | Transferable via move |
-|----------|------------------------|------------|----------------------|
-| `let`    | YES                    | NO         | YES                  |
-| `var`    | YES                    | YES        | NO                   |
-| `ref`    | NO                     | NO         | NO                   |
+| Binding Form | Ownership | Rebindable | Transferable via move |
+|--------------|-----------|------------|----------------------|
+| `let x = ...`    | YES (owns)  | NO         | YES                  |
+| `var x = ...`    | YES (owns)  | YES        | NO                   |
+| `let x <- ...`   | NO (reference)    | NO         | NO                   |
+| `var x <- ...`   | NO (reference)    | YES        | NO                   |
 
-**Key Insight**: Responsibility for cleanup is independent from mutability and aliasing (which are controlled by permissions).
+**Key Insight**: Responsibility for cleanup is independent from mutability and aliasing (which are controlled by permissions). The `<-` operator creates a reference binding (non-owning), not a third binding category.
 
 ---
 
@@ -798,23 +800,24 @@ result builder.build_in_place();  // Takes unique ref, not ownership
 
 ---
 
-### 8. `ref` - Non-Responsible, Non-Rebindable, Non-Transferable
+### 8. Reference Bindings (`<-`) - Non-Owning, Non-Rebindable (when `let`), Non-Transferable
 
-**Definition**: A `ref` binding creates a non-owning reference to a value. The binding is not responsible for cleanup and cannot be reassigned or transferred.
+**Definition**: A reference binding (`let x <- value` or `var x <- value`) creates a non-owning reference to a value. The binding is not responsible for cleanup and cannot be transferred. Rebindability depends on using `let` (non-rebindable) or `var` (rebindable).
 
 #### 8.1 Syntax
 
 ```cursive
-ref identifier: permission Type = expression
+let identifier: permission Type <- expression   // Non-rebindable reference
+var identifier: permission Type <- expression   // Rebindable reference
 ```
 
 #### 8.2 Semantics
 
-**Non-Responsible**: Does NOT call destructor:
+**Non-Owning**: Does NOT call destructor:
 ```cursive
 let owner = Resource::new();
 {
-    ref viewer = owner;
+    let viewer <- owner;
     // Use viewer...
 }  // viewer.drop() NOT called
 // owner still valid
@@ -823,7 +826,7 @@ let owner = Resource::new();
 **Stays Valid After Owner Moves**:
 ```cursive
 let owner = Data::new();
-ref viewer = owner;
+let viewer <- owner;
 
 consume(move owner);  // owner moved
 
@@ -836,39 +839,46 @@ This is safe because:
 2. viewer is just a reference, not an ownership claim
 3. At most one responsible binding exists at any time
 
-**Non-Rebindable**: Cannot reassign:
+**Non-Rebindable (when using `let`)**: Cannot reassign:
 ```cursive
-ref x = data1;
-x = data2;  // ERROR: cannot reassign to ref binding
+let x <- data1;
+x = data2;  // ERROR: cannot reassign to let binding
+```
+
+**Rebindable (when using `var`)**: Can reassign:
+```cursive
+var x <- data1;
+x = data2;  // OK: var allows rebinding to different reference
 ```
 
 **Non-Transferable**: Cannot move:
 ```cursive
-ref x = data;
-consume(move x);  // ERROR: cannot transfer from ref
+let x <- data;
+consume(move x);  // ERROR: cannot transfer from reference binding
 ```
 
-#### 8.3 Default for Function Parameters
+#### 8.3 Function Parameters and Ownership
 
-`ref` is the default binding category for function parameters:
+Function parameters are non-owning by default (similar to reference bindings):
 ```cursive
-// Explicit:
-procedure process(ref data: const Data) { }
-
-// Shorthand (ref implicit):
+// Default: non-owning parameter
 procedure process(data: const Data) { }
 
-// Both are equivalent
+// Explicit ownership transfer with `move`
+procedure consume(move data: const Data) { }
 ```
 
 This makes sense: most functions don't want to take ownership.
 
+**Note**: Parameter passing semantics are conceptually similar to reference bindings but use distinct syntax. See Part IV for complete parameter passing specification.
+
 #### 8.4 Use Cases
 
-**Function Parameters** (most common):
+**Local Reference Bindings** (most common):
 ```cursive
 procedure inspect(data: const Data) {
-    // data is 'ref data: const Data'
+    // Create local reference to parameter
+    let local_ref <- data;
     // Read-only access, no ownership
 }
 ```
@@ -878,7 +888,7 @@ procedure inspect(data: const Data) {
 let collection = load_data();
 
 {
-    ref item = collection.items[0];
+    let item <- collection.items[0];
     analyze(item);
 }
 
@@ -889,11 +899,11 @@ let collection = load_data();
 ```cursive
 let data = load_data();
 
-ref view1 = data;
-ref view2 = data;
-ref view3 = data;
+let view1 <- data;
+let view2 <- data;
+let view3 <- data;
 
-// All three refs valid simultaneously
+// All three references valid simultaneously
 // None will call destructor
 ```
 
@@ -903,27 +913,28 @@ ref view3 = data;
 
 #### 9.1 Local Declarations: REQUIRED
 
-Binding category is **required** for local variable declarations:
+Binding form is **required** for local variable declarations:
 ```cursive
-x = Data::new();  // ERROR: must specify binding category
+x = Data::new();  // ERROR: must specify binding form
 
-let x = Data::new();  // OK
-var x = Data::new();  // OK
-ref x = data;         // OK
+let x = Data::new();   // OK: owning binding
+var x = Data::new();   // OK: rebindable owning binding
+let x <- data;         // OK: reference binding
 ```
 
 **Rationale**: Explicit ownership clarity. No ambiguity about who cleans up.
 
-#### 9.2 Function Parameters: Defaults to `ref`
+#### 9.2 Function Parameters: Non-Owning by Default
 
 ```cursive
-// These are equivalent:
+// Non-owning parameter (default):
 procedure process(data: Data) { }
-procedure process(ref data: Data) { }
 
-// To take ownership, be explicit:
-procedure consume(let data: Data) { }
+// To take ownership, use move:
+procedure consume(move data: Data) { }
 ```
+
+**Note**: See Section 8.3 for details on function parameter semantics.
 
 #### 9.3 Record Fields: N/A
 
@@ -980,9 +991,9 @@ x.mutate();  // ERROR: cannot mutate through const
 ```cursive
 let data: const = Data::new();
 
-ref a: const = data;  // OK
-ref b: const = data;  // OK
-ref c: const = data;  // OK
+let a: const <- data;  // OK
+let b: const <- data;  // OK
+let c: const <- data;  // OK
 
 // All can read simultaneously
 a.read();
@@ -990,7 +1001,7 @@ b.read();
 c.read();
 ```
 
-**No Coordination Needed**: Multiple const refs are always safe - no mutation means no conflicts.
+**No Coordination Needed**: Multiple const aliases are always safe - no mutation means no conflicts.
 
 #### 11.2 Default Permission
 
@@ -1104,7 +1115,7 @@ let data: unique = Data::new();
 
 data.mutate();  // OK: Can mutate
 
-ref alias: unique = data;  // ERROR: Already have unique access
+let second: unique <- data;  // ERROR: Already have unique access
 ```
 
 **Compiler Enforcement**: The compiler tracks active unique references and prevents creating multiple:
@@ -1112,7 +1123,7 @@ ref alias: unique = data;  // ERROR: Already have unique access
 let data: unique = Data::new();
 
 {
-    ref writer: unique = data;  // Locks unique access
+    let writer: unique <- data;  // Locks unique access
     writer.mutate();
 }  // Lock released
 
@@ -1131,24 +1142,24 @@ let coll: unique = Collection::new();
 coll.add(1);
 coll.add(2);
 
-ref iter = coll.items;     // Creates const ref to array
-coll.add(3);               // ERROR: Cannot mutate while iter active
+let iter <- coll.items;     // Creates const reference to array
+coll.add(3);                // ERROR: Cannot mutate while iter active
 ```
 
 #### 12.2 Temporary Downgrade to Const
 
-Can temporarily create const refs from unique:
+Can temporarily create const references from unique:
 ```cursive
 let data: unique = Data::new();
 
 {
-    ref reader: const = data;  // Downgrade to const
+    let reader: const <- data;  // Downgrade to const
 
     reader.read();   // OK
-    data.mutate();   // ERROR: Cannot mutate while const ref active
+    data.mutate();   // ERROR: Cannot mutate while const reference active
 }
 
-// After const ref goes out of scope
+// After const reference goes out of scope
 data.mutate();  // OK: unique access restored
 ```
 
@@ -1188,8 +1199,8 @@ let config: unique = Config::new();
 ```cursive
 let data: shared = Data::new();
 
-ref a: shared = data;  // OK
-ref b: shared = data;  // OK
+let a: shared <- data;  // OK
+let b: shared <- data;  // OK
 
 a.mutate();  // OK: Programmer coordinates
 b.mutate();  // OK: Programmer coordinates
@@ -1204,8 +1215,8 @@ record List {
 }
 
 let list: shared = List::new();
-ref a = list;
-ref b = list;  // OK with shared permission
+let a <- list;
+let b <- list;  // OK with shared permission
 
 // Custom types:
 record World {
@@ -1216,11 +1227,11 @@ let world: shared = World::new();
 // Multiple systems can access with shared permission
 ```
 
-**NO Compiler Enforcement**: Unlike `unique`, the compiler does NOT prevent creating multiple `shared` refs.
+**NO Compiler Enforcement**: Unlike `unique`, the compiler does NOT prevent creating multiple `shared` aliases.
 
 #### 13.2 Programmer Coordination
 
-**Responsibility**: The programmer must ensure aliased `shared` refs don't cause conflicts.
+**Responsibility**: The programmer must ensure aliased `shared` bindings don't cause conflicts.
 
 **Safe Patterns**:
 ```cursive
@@ -1254,16 +1265,16 @@ record World {
 }
 
 let world: shared = World::new();
-ref p1: shared = world.positions;
-ref p2: shared = world.positions;  // ERROR: Partition active
+let p1: shared <- world.positions;
+let p2: shared <- world.positions;  // ERROR: Partition active
 ```
 
 **Doesn't Prevent** (programmer responsibility):
 ```cursive
-ref positions: shared = world.positions;
+let positions: shared <- world.positions;
 
-ref pos1 = positions[0];
-ref pos2 = positions[0];  // Same element - programmer must coordinate
+let pos1 <- positions[0];
+let pos2 <- positions[0];  // Same element - programmer must coordinate
 ```
 
 **Design Decision**: Field-level partitioning is sufficient. Element-level tracking would require borrow checker complexity, which we explicitly reject.
@@ -1337,10 +1348,10 @@ let data: unique = Data::new();
 read_data(data);  // Automatic coercion unique → const
 ```
 
-**Ref Binding**:
+**Reference Binding**:
 ```cursive
 let data: unique = Data::new();
-ref reader: const = data;  // Automatic coercion unique → const
+let reader: const <- data;  // Automatic coercion unique → const
 ```
 
 #### 15.3 Forbidden Coercions
@@ -1348,16 +1359,16 @@ ref reader: const = data;  // Automatic coercion unique → const
 **Cannot Upgrade**:
 ```cursive
 let data: const = Data::new();
-ref writer: unique = data;  // ERROR: Cannot upgrade const → unique
+let writer: unique <- data;  // ERROR: Cannot upgrade const → unique
 ```
 
 **Cannot Cross Between unique and shared**:
 ```cursive
 let data: unique = Data::new();
-ref alias: shared = data;  // ERROR: Cannot coerce unique → shared
+let shared_alias: shared <- data;  // ERROR: Cannot coerce unique → shared
 
 let data: shared = Data::new();
-ref exclusive: unique = data;  // ERROR: Cannot coerce shared → unique
+let exclusive: unique <- data;  // ERROR: Cannot coerce shared → unique
 ```
 
 #### 15.4 Complete Coercion Rules
@@ -1534,8 +1545,8 @@ var y = Data::new();
 consume(move y);  // ERROR: var is not transferable
 
 let z = Data::new();
-ref w = z;
-consume(move w);  // ERROR: ref is not transferable
+let w <- z;
+consume(move w);  // ERROR: reference binding is not transferable
 ```
 
 #### 19.2 Moved Bindings Become Invalid
@@ -1547,11 +1558,11 @@ consume(move x);  // x transferred
 x.method();  // ERROR: use of moved value
 ```
 
-#### 19.3 `ref` Stays Valid After Owner Moves
+#### 19.3 Reference Bindings Stay Valid After Owner Moves
 
 ```cursive
 let owner = Data::new();
-ref viewer = owner;
+let viewer <- owner;
 
 consume(move owner);  // owner moved
 
@@ -2022,8 +2033,8 @@ record World {
 }
 
 let world: shared = World::new();
-ref p1: shared = world.positions;
-ref p2: shared = world.positions;  // Two mutable aliases!
+let p1: shared <- world.positions;
+let p2: shared <- world.positions;  // Two mutable references!
 
 // If positions were a growable container, modifications through p1
 // could invalidate p2 - this is the iterator invalidation problem
@@ -2088,14 +2099,14 @@ record Point {
 }
 
 let p: shared = Point::new();
-ref px = p.x;  // Activates Point::x partition
-ref py = p.y;  // OK: Point::y is different partition
+let px <- p.x;  // Activates Point::x partition
+let py <- p.y;  // OK: Point::y is different partition
 ```
 
 **Prevents Same-Field Double-Access**:
 ```cursive
-ref px1 = p.x;  // Activates Point::x
-ref px2 = p.x;  // ERROR: Point::x partition already active
+let px1 <- p.x;  // Activates Point::x
+let px2 <- p.x;  // ERROR: Point::x partition already active
 ```
 
 ---
@@ -2149,11 +2160,11 @@ record World {
 let world: shared = World::new();
 
 {
-    ref pos: shared = world.positions;  // Activates World::positions
+    let pos: shared <- world.positions;  // Activates World::positions
     // World::positions partition ACTIVE in this scope
 }  // pos out of scope, partition deactivated
 
-ref pos2: shared = world.positions;  // OK: Not active anymore
+let pos2: shared <- world.positions;  // OK: Not active anymore
 ```
 
 #### 32.2 Partition Conflict Detection
@@ -2168,8 +2179,8 @@ record World {
 }
 
 let world: shared = World::new();
-ref pos: shared = world.positions;  // Activates Physics
-ref vel: shared = world.velocities; // ERROR: Physics already active
+let pos: shared <- world.positions;  // Activates Physics
+let vel: shared <- world.velocities; // ERROR: Physics already active
 ```
 
 #### 32.3 Partition Independence
@@ -2186,8 +2197,8 @@ record World {
 }
 
 let world: shared = World::new();
-ref pos: shared = world.positions;  // Activates Physics
-ref hp: shared = world.healths;     // OK: Combat is separate
+let pos: shared <- world.positions;  // Activates Physics
+let hp: shared <- world.healths;     // OK: Combat is separate
 ```
 
 ---
@@ -2199,8 +2210,8 @@ ref hp: shared = world.healths;     // OK: Combat is separate
 **`unique` Permission**: Already enforces exclusivity, no partitioning needed:
 ```cursive
 let world: unique = World::new();
-ref pos: unique = world.positions;  // Locks unique access
-ref vel: unique = world.velocities; // ERROR: unique already accessed
+let pos: unique <- world.positions;  // Locks unique access
+let vel: unique <- world.velocities; // ERROR: unique already accessed
 // This is unique permission enforcement, not partitioning
 ```
 
@@ -2458,7 +2469,7 @@ region r {
 ```cursive
 // Example: Parser temporary data
 procedure parse_expression(source: const String): Expr
-    grants alloc.region
+    sequent { [alloc::region] |- true => true }
 {
     region parse {
         let tokens = ^tokenize(source);
@@ -2569,7 +2580,7 @@ procedure returns_dangling(): Ptr<Data> {
 **Valid Pattern - Pointer to Heap Data**:
 ```cursive
 procedure returns_valid(): Ptr<Data>
-    grants alloc.region, alloc.heap
+    sequent { [alloc::region, alloc::heap] |- true => true }
 {
     region r {
         let data = ^Data::new();
@@ -2683,7 +2694,7 @@ record Node {
 }
 
 procedure build_list(): Ptr<Node>
-    grants alloc.region, alloc.heap
+    sequent { [alloc::region, alloc::heap] |- true => true }
 {
     region temp {
         var node1 = ^Node { value: 1, next: Ptr::null() };
@@ -2694,7 +2705,7 @@ procedure build_list(): Ptr<Node>
         node3.next = &node2;
         node2.next = &node1;
 
-        alias head = node3;
+        let head <- node3;
 
         // Escape to heap before region ends
         let heap_list = head.to_heap();
@@ -2720,7 +2731,7 @@ record Collection {
 }
 
 procedure build_collection(): Collection
-    grants alloc.region, alloc.heap
+    sequent { [alloc::region, alloc::heap] |- true => true }
 {
     region temp {
         let collection = ^Collection::new();  // Allocate in region
@@ -2739,7 +2750,7 @@ procedure build_collection(): Collection
 **Key Properties**:
 - `.to_heap()` transfers ownership from region to heap
 - Explicit escape point visible in code
-- Requires `grants alloc.heap` permission
+- Requires `alloc::heap` grant in sequent context
 - Original region binding becomes invalid
 
 #### 43.2 No Direct Heap Allocation
@@ -2839,7 +2850,7 @@ region r {
 ```cursive
 // REGION: Temporary builder pattern
 procedure process_items(items: [Item; 100]): Summary
-    grants alloc.region
+    sequent { [alloc::region] |- true => true }
 {
     region work {
         let builder = ^SummaryBuilder::new();
@@ -2852,7 +2863,7 @@ procedure process_items(items: [Item; 100]): Summary
 
 // HEAP: Data must escape
 procedure load_config(): Config
-    grants alloc.region, alloc.heap
+    sequent { [alloc::region, alloc::heap] |- true => true }
 {
     region temp {
         let config = ^parse_config_file();
@@ -2867,11 +2878,11 @@ Heap allocation requires explicit permission via grant system:
 
 ```cursive
 procedure build_data(): Data
-    grants alloc.region, alloc.heap  // Both grants required
+    sequent { [alloc::region, alloc::heap] |- true => true }  // Both grants required
 {
     region temp {
-        let data = ^Data::new();    // Requires: alloc.region
-        result data.to_heap()       // Requires: alloc.heap
+        let data = ^Data::new();    // Requires: alloc::region
+        result data.to_heap()       // Requires: alloc::heap
     }
 }
 ```

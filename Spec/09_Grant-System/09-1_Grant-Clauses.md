@@ -8,28 +8,31 @@
 
 ---
 
-## 9.1.1 Grant Clause Syntax
+## 9.1.1 Grant Specification Syntax
 
-### 9.1.1.1 Grant Clause Declaration
+### 9.1.1.1 Grants in Sequent Clauses
 
 **Syntax**:
 
 ```ebnf
-GrantClause ::= "grants" GrantSet
-GrantSet    ::= GrantRef ("," GrantRef)* ","?
-GrantRef    ::= GrantPath
-             | "grants" "(" Ident ")"
-             | "_?"
+SequentClause ::= "sequent" "{" SequentSpec "}"
+SequentSpec   ::= "[" GrantSet "]" "|-" Antecedent "=>" Consequent
+               | "[" GrantSet "]" "|-" Antecedent
+               | /* other forms */
+GrantSet      ::= GrantRef ("," GrantRef)* ","?
+GrantRef      ::= GrantPath
+               | "grants" "(" Ident ")"
+               | "_?"
 ```
 
-**Normative Statement 9.1.1**: A grant clause shall be introduced by the `grants` keyword followed by a grant set.
+**Normative Statement 9.1.1**: Grants are specified as the context portion of a sequent clause, enclosed in square brackets before the turnstile `|-`.
 
-**Placement**: Grant clauses shall appear in procedure signatures after parameters and return type, before contract clauses.
+**Placement**: Grants appear within the sequent block as `[ε]`, forming the assumption context for the behavioral specification.
 
 **Example (informative)**:
 ```cursive
 procedure write_log(message: string)
-    grants fs::write
+    sequent { [fs::write] |- true => true }
 {
     append_to_file("log.txt", message)
 }
@@ -37,7 +40,7 @@ procedure write_log(message: string)
 
 ### 9.1.1.2 Empty Grant Set
 
-**Normative Statement 9.1.2**: A procedure with no grant clause has an empty grant set.
+**Normative Statement 9.1.2**: A procedure with no sequent clause or with an empty grant context `[]` has an empty grant set.
 
 **Equivalence**: The following are equivalent:
 ```cursive
@@ -45,24 +48,24 @@ procedure compute(x: i32): i32 {
     result x * 2
 }
 
-// Equivalent (explicit empty grant set - discouraged)
+// Equivalent (explicit empty grant set within sequent)
 procedure compute(x: i32): i32
-    grants  /* none */
+    sequent { [] |- true => true }
 {
     result x * 2
 }
 ```
 
-**Convention**: Omit the grant clause for procedures requiring no grants.
+**Convention**: Omit the sequent clause entirely for pure procedures requiring no grants and having no preconditions or postconditions.
 
 ### 9.1.1.3 Multiple Grants
 
-**Syntax**: Multiple grants are separated by commas.
+**Syntax**: Multiple grants within the context are separated by commas.
 
 **Example (informative)**:
 ```cursive
 procedure process_file(input_path: string, output_path: string)
-    grants fs::read, fs::write, alloc::heap
+    sequent { [fs::read, fs::write, alloc::heap] |- true => true }
 {
     let data = read_file_bytes(input_path)
     let buffer = heap_allocate_array<u8>(data.length * 2)
@@ -70,7 +73,7 @@ procedure process_file(input_path: string, output_path: string)
 }
 ```
 
-**Normative Statement 9.1.3**: The order of grants in a grant set is not significant. Duplicate grants shall be rejected as ill-formed.
+**Normative Statement 9.1.3**: The order of grants in a grant context is not significant. Duplicate grants shall be rejected as ill-formed.
 
 ### 9.1.1.4 Trailing Commas
 
@@ -79,7 +82,7 @@ procedure process_file(input_path: string, output_path: string)
 **Example (informative)**:
 ```cursive
 procedure example()
-    grants alloc::heap, fs::write,  // Trailing comma optional
+    sequent { [alloc::heap, fs::write,] |- true => true }  // Trailing comma optional
 {
     // ...
 }
@@ -123,9 +126,9 @@ G₁ <: G₂  ≡  ∀g ∈ G₁ : g ∈ G₂
 
 **Example (informative)**:
 ```cursive
-// These are equivalent:
-grants fs::read, fs::write, alloc::heap
-grants alloc::heap, fs::read, fs::write
+// These sequents have equivalent grant sets:
+sequent { [fs::read, fs::write, alloc::heap] |- true => true }
+sequent { [alloc::heap, fs::read, fs::write] |- true => true }
 ```
 
 ---
@@ -160,7 +163,7 @@ GrantPath ::= Ident ("::" Ident)*
 ```cursive
 // ERROR: Unknown grant path
 procedure example()
-    grants custom::operation  // ERROR unless custom::operation is defined
+    sequent { [custom::operation] |- true => true }  // ERROR unless custom::operation is defined
 {
     // ...
 }
@@ -175,7 +178,7 @@ procedure example()
 **Example (informative)**:
 ```cursive
 procedure unrestricted_io()
-    grants fs::*  // Grants fs::read, fs::write, fs::delete, fs::metadata
+    sequent { [fs::*] |- true => true }  // Grants fs::read, fs::write, fs::delete, fs::metadata
 {
     // Can perform any file system operation
 }
@@ -203,7 +206,7 @@ Where `category::op₁, ..., category::opₙ` are all built-in grants with prefi
 **Example (informative)**:
 ```cursive
 procedure create_buffer(size: usize): [u8]
-    grants alloc::heap
+    sequent { [alloc::heap] |- true => true }
 {
     // alloc::heap is available in this body
     result heap_allocate_array<u8>(size)
@@ -219,7 +222,7 @@ procedure create_buffer(size: usize): [u8]
 **Example (informative - INVALID)**:
 ```cursive
 procedure bad_example()
-    grants alloc::heap
+    sequent { [alloc::heap] |- true => true }
 {
     // ERROR: fs::write not granted
     write_file("data.txt", [1, 2, 3])  // ERROR
@@ -235,13 +238,13 @@ procedure bad_example()
 **Example (informative)**:
 ```cursive
 procedure helper()
-    grants fs::read
+    sequent { [fs::read] |- true => true }
 {
     result read_file_bytes("config.txt")
 }
 
 procedure caller()
-    grants fs::read, alloc::heap  // Must include fs::read for helper
+    sequent { [fs::read, alloc::heap] |- true => true }  // Must include fs::read for helper
 {
     let config = helper()        // Requires fs::read
     let buffer = allocate(1024)  // Requires alloc::heap
@@ -262,19 +265,19 @@ procedure caller()
 **Example (informative)**:
 ```cursive
 procedure reader()
-    grants fs::read
+    sequent { [fs::read] |- true => true }
 {
     result read_file_bytes("input.txt")
 }
 
 procedure writer()
-    grants fs::write
+    sequent { [fs::write] |- true => true }
 {
     write_file_bytes("output.txt", [0; 100])
 }
 
 procedure both()
-    grants fs::read, fs::write
+    sequent { [fs::read, fs::write] |- true => true }
 {
     let data = reader()  // OK: fs::read <: {fs::read, fs::write}
     writer()             // OK: fs::write <: {fs::read, fs::write}
@@ -297,16 +300,16 @@ procedure both()
 
 **Syntax (deprecated)**:
 ```cursive
-// Deprecated:
+// Deprecated (old standalone clause):
 procedure old_style()
     uses alloc::heap
 {
     // ...
 }
 
-// Canonical:
+// Canonical (sequent syntax):
 procedure new_style()
-    grants alloc::heap
+    sequent { [alloc::heap] |- true => true }
 {
     // ...
 }
@@ -314,7 +317,7 @@ procedure new_style()
 
 **Normative Statement 9.1.13**: Implementations may accept the `uses` keyword for backward compatibility but shall issue a deprecation warning. The `uses` and `grants` keywords are semantically identical.
 
-**Migration**: Replace `uses` with `grants` in all new code.
+**Migration**: Use sequent syntax with grant context `[...]` in all new code.
 
 ---
 
@@ -324,12 +327,16 @@ The complete grammar for grant clauses is specified in Appendix A.7 (Contract Gr
 
 **Productions**:
 ```ebnf
-GrantClause ::= "grants" GrantSet
-GrantSet    ::= GrantRef ("," GrantRef)* ","?
-GrantRef    ::= GrantPath
-             | "grants" "(" Ident ")"
-             | "_?"
-GrantPath   ::= Ident ("." Ident)*
+SequentClause ::= "sequent" "{" SequentSpec "}"
+SequentSpec   ::= "[" GrantSet "]" "|-" Antecedent "=>" Consequent
+               | "[" GrantSet "]" "|-" Antecedent
+               | "|-" Antecedent "=>" Consequent
+               | Antecedent "=>" Consequent
+GrantSet      ::= GrantRef ("," GrantRef)* ","?
+GrantRef      ::= GrantPath
+               | "grants" "(" Ident ")"
+               | "_?"
+GrantPath     ::= Ident ("::" Ident)*
 ```
 
 **Cross-Reference**: See Appendix A §A.7 and §A.9 for authoritative grammar.
@@ -349,21 +356,21 @@ A grant clause is well-formed if and only if:
 ```cursive
 // ERROR: Unknown grant path
 procedure bad1()
-    grants unknown::operation  // ERROR
+    sequent { [unknown::operation] |- true => true }  // ERROR
 {
     // ...
 }
 
 // ERROR: Duplicate grant
 procedure bad2()
-    grants fs::read, fs::read  // ERROR
+    sequent { [fs::read, fs::read] |- true => true }  // ERROR
 {
     // ...
 }
 
 // ERROR: Unbound grant parameter
-procedure bad3()
-    grants<G>  // ERROR: G not declared
+procedure bad3<grants G>()
+    sequent { [G] |- true => true }  // ERROR: G not declared in this scope
 {
     // ...
 }
@@ -373,15 +380,15 @@ procedure bad3()
 
 ## 9.1.9 Interaction with Functions
 
-**Normative Statement 9.1.14**: Functions shall not have grant clauses. Grant clauses are only permitted on procedures.
+**Normative Statement 9.1.14**: Functions shall not have sequent clauses with non-empty grant sets. Sequent clauses with grants are only permitted on procedures.
 
 **Rationale**: Functions are pure and side-effect-free by definition. Grants authorize side effects, which functions cannot perform.
 
 **Example (informative - INVALID)**:
 ```cursive
-// ERROR: Functions cannot have grants
+// ERROR: Functions cannot have sequent clauses with grants
 function bad_function(x: i32): i32
-    grants alloc::heap  // ERROR
+    sequent { [alloc::heap] |- true => true }  // ERROR
 {
     result x * 2
 }
@@ -393,12 +400,12 @@ function bad_function(x: i32): i32
 
 A conforming implementation shall:
 
-1. **Parse grant clauses** (§9.1.1): Accept grant clause syntax in procedure signatures
+1. **Parse sequent clauses** (§9.1.1): Accept sequent clause syntax with grant contexts in procedure signatures
 2. **Validate grant paths** (§9.1.3): Reject unknown grant paths
 3. **Enforce uniqueness** (§9.1.2): Reject grant sets with duplicate grants
 4. **Support wildcards** (§9.1.3.3): Expand wildcard grants to full grant sets
 5. **Compute transitive closure** (§9.1.4.3): Verify grant requirements propagate correctly
-6. **Reject function grants** (§9.1.9): Diagnose grant clauses on functions as ill-formed
+6. **Reject function grants** (§9.1.9): Diagnose sequent clauses with non-empty grant sets on functions as ill-formed
 
 ---
 

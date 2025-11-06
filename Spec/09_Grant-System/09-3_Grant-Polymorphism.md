@@ -23,8 +23,8 @@ GrantParam ::= Ident
 
 **Example (informative)**:
 ```cursive
-procedure process<T, G>(data: T): T
-    grants<G>, alloc::heap
+procedure process<T, grants G>(data: T): T
+    sequent { [grants(G), alloc::heap] |- true => true }
 {
     // Can use grants in G, plus alloc::heap
     result transform(data)
@@ -33,19 +33,19 @@ procedure process<T, G>(data: T): T
 
 ### 9.3.1.2 Grant Parameter Reference
 
-**Normative Statement 9.3.2**: A grant parameter is referenced in a grant clause using the syntax `grants<G>` where G is the grant parameter identifier.
+**Normative Statement 9.3.2**: A grant parameter is referenced in the grant context using the syntax `grants(G)` where G is the grant parameter identifier.
 
 **Syntax**:
 ```ebnf
-GrantRef ::= "grants" "<" Ident ">"
+GrantRef ::= "grants" "(" Ident ")"
 ```
 
-**Semantics**: `grants<G>` represents the set of grants bound to the parameter G at the call site.
+**Semantics**: `grants(G)` represents the set of grants bound to the parameter G at the call site.
 
 **Example (informative)**:
 ```cursive
-procedure generic<G>(x: i32)
-    grants<G>
+procedure generic<grants G>(x: i32)
+    sequent { [grants(G)] |- true => true }
 {
     // Procedure body can perform operations requiring grants in G
     operation_requiring_grants(x)
@@ -58,8 +58,8 @@ procedure generic<G>(x: i32)
 
 **Example (informative)**:
 ```cursive
-procedure multi_param<G₁, G₂>(a: i32, b: i32)
-    grants<G₁>, <G₂>, alloc::heap
+procedure multi_param<grants G₁, grants G₂>(a: i32, b: i32)
+    sequent { [grants(G₁), grants(G₂), alloc::heap] |- true => true }
 {
     // Can use grants in G₁, grants in G₂, and alloc::heap
     operation1()  // May require grants from G₁
@@ -85,8 +85,8 @@ WherePredicate ::= Ident "<:" "{" GrantSet "}"
 
 **Example (informative)**:
 ```cursive
-procedure constrained<G>(x: i32)
-    grants<G>
+procedure constrained<grants G>(x: i32)
+    sequent { [grants(G)] |- true => true }
     where G <: {fs::read, fs::write}
 {
     // G can only contain fs::read and/or fs::write
@@ -105,29 +105,29 @@ If G has bound G <: B, then at instantiation: G_actual <: B
 
 **Example (informative)**:
 ```cursive
-procedure bounded<G>()
-    grants<G>
+procedure bounded<grants G>()
+    sequent { [grants(G)] |- true => true }
     where G <: {fs::read, alloc::heap}
 {
     // Implementation
 }
 
 procedure caller1()
-    grants fs::read
+    sequent { [fs::read] |- true => true }
 {
     // Valid: {fs::read} <: {fs::read, alloc::heap}
     bounded::<fs::read>()
 }
 
 procedure caller2()
-    grants fs::read, alloc::heap
+    sequent { [fs::read, alloc::heap] |- true => true }
 {
     // Valid: {fs::read, alloc::heap} <: {fs::read, alloc::heap}
     bounded::<fs::read, alloc::heap>()
 }
 
 procedure caller3()
-    grants net::write
+    sequent { [net::write] |- true => true }
 {
     // ERROR: {net::write} ⊄ {fs::read, alloc::heap}
     // bounded::<net::write>()  // ERROR
@@ -140,8 +140,8 @@ procedure caller3()
 
 **Example (informative)**:
 ```cursive
-procedure unbounded<G>()
-    grants<G>
+procedure unbounded<grants G>()
+    sequent { [grants(G)] |- true => true }
 {
     // G can be any grant set
 }
@@ -153,8 +153,8 @@ procedure unbounded<G>()
 
 **Example (informative)**:
 ```cursive
-procedure multi_bounded<G₁, G₂>()
-    grants<G₁>, <G₂>
+procedure multi_bounded<grants G₁, grants G₂>()
+    sequent { [grants(G₁), grants(G₂)] |- true => true }
     where G₁ <: {fs::read, fs::write},
           G₂ <: {net::read, net::write}
 {
@@ -178,14 +178,14 @@ procedure_name::<grant_set>(arguments)
 
 **Example (informative)**:
 ```cursive
-procedure generic<G>(x: i32)
-    grants<G>, alloc::heap
+procedure generic<grants G>(x: i32)
+    sequent { [grants(G), alloc::heap] |- true => true }
 {
     process(x)
 }
 
 procedure caller()
-    grants fs::read, fs::write, alloc::heap
+    sequent { [fs::read, fs::write, alloc::heap] |- true => true }
 {
     // Explicit instantiation with {fs::read, fs::write}
     generic::<fs::read, fs::write>(42)
@@ -198,14 +198,14 @@ procedure caller()
 
 **Example (informative)**:
 ```cursive
-procedure generic<G>(x: i32)
-    grants<G>
+procedure generic<grants G>(x: i32)
+    sequent { [grants(G)] |- true => true }
 {
     operation_requiring_grants(x)
 }
 
 procedure caller()
-    grants fs::read
+    sequent { [fs::read] |- true => true }
 {
     // Grant inference: G inferred as {fs::read}
     generic(42)
@@ -226,14 +226,14 @@ For call A → B<G_inst>:
 
 **Example (informative)**:
 ```cursive
-procedure callee<G>()
-    grants<G>
+procedure callee<grants G>()
+    sequent { [grants(G)] |- true => true }
 {
     // ...
 }
 
 procedure caller()
-    grants fs::read, alloc::heap
+    sequent { [fs::read, alloc::heap] |- true => true }
 {
     // Valid: {fs::read} <: {fs::read, alloc::heap}
     callee::<fs::read>()
@@ -255,13 +255,13 @@ procedure caller()
 
 **Example (informative)**:
 ```cursive
-procedure mixed<G>(x: i32)
-    grants<G>, alloc::heap, fs::write
+procedure mixed<grants G>(x: i32)
+    sequent { [grants(G), alloc::heap, fs::write] |- true => true }
 {
-    // Can use: grants<G> ∪ {alloc::heap, fs::write}
+    // Can use: grants(G) ∪ {alloc::heap, fs::write}
     allocate(100)      // Uses alloc::heap
     write_file("log.txt", [0; 10])  // Uses fs::write
-    parameterized_operation(x)       // Uses grants<G>
+    parameterized_operation(x)       // Uses grants(G)
 }
 ```
 
@@ -271,19 +271,19 @@ procedure mixed<G>(x: i32)
 
 **Formal Rule**:
 ```
-grants<G₁>, <G₂> ≡ grants G₁ ∪ G₂
+grants(G₁), grants(G₂) ≡ grants G₁ ∪ G₂
 ```
 
 **Example (informative)**:
 ```cursive
-procedure multi<G₁, G₂>()
-    grants<G₁>, <G₂>
+procedure multi<grants G₁, grants G₂>()
+    sequent { [grants(G₁), grants(G₂)] |- true => true }
 {
     // Effective grants: G₁ ∪ G₂
 }
 
 procedure caller()
-    grants fs::read, net::write, alloc::heap
+    sequent { [fs::read, net::write, alloc::heap] |- true => true }
 {
     // Valid: {fs::read} ∪ {net::write} <: {fs::read, net::write, alloc::heap}
     multi::<fs::read, net::write>()
@@ -300,11 +300,11 @@ procedure caller()
 
 **Example (informative)**:
 ```cursive
-procedure with_logging<T, G>(operation: () -> T grants<G>): T
-    grants<G>, fs::write
+procedure with_logging<T, grants G>(operation: () -> T sequent { [grants(G)] |- true => true }): T
+    sequent { [grants(G), fs::write] |- true => true }
 {
     write_file("log.txt", [0; 10])  // Logging requires fs::write
-    result operation()               // Operation requires grants<G>
+    result operation()               // Operation requires grants(G)
 }
 ```
 
@@ -314,8 +314,8 @@ procedure with_logging<T, G>(operation: () -> T grants<G>): T
 
 **Example (informative)**:
 ```cursive
-procedure repeat<G>(count: i32, operation: () -> () grants<G>)
-    grants<G>
+procedure repeat<grants G>(count: i32, operation: () -> () sequent { [grants(G)] |- true => true })
+    sequent { [grants(G)] |- true => true }
 {
     loop i in 0..count {
         operation()
@@ -323,7 +323,7 @@ procedure repeat<G>(count: i32, operation: () -> () grants<G>)
 }
 
 procedure caller()
-    grants fs::write
+    sequent { [fs::write] |- true => true }
 {
     repeat::<fs::write>(10, || write_file("log.txt", [0; 1]))
 }
@@ -335,8 +335,8 @@ procedure caller()
 
 **Example (informative)**:
 ```cursive
-procedure io_processor<G>(path: string)
-    grants<G>
+procedure io_processor<grants G>(path: string)
+    sequent { [grants(G)] |- true => true }
     where G <: {fs::read, fs::write, fs::delete}
 {
     // Can perform file operations, but not network or other operations
@@ -352,7 +352,7 @@ procedure io_processor<G>(path: string)
 
 **Normative Statement 9.3.12**: A conforming implementation shall verify that:
 
-1. Grant parameter references `grants<G>` refer to declared grant parameters
+1. Grant parameter references `grants(G)` refer to declared grant parameters
 2. Grant parameter bounds are satisfied at instantiation
 3. Instantiated grant sets are subsets of caller's grants
 4. Procedure bodies respect the grant set including parameter grants
@@ -360,13 +360,13 @@ procedure io_processor<G>(path: string)
 **Algorithm** (informative):
 
 ```
-For each procedure P<G> with grants<G>, concrete_grants:
+For each procedure P<grants G> with sequent { [grants(G), concrete_grants] |- ... }:
   1. Verify G is declared in generic parameters
   2. For each call site P<G_inst>:
      a. If G has bound B: verify G_inst <: B
      b. Verify G_inst <: grants(caller)
   3. For procedure body of P:
-     a. Assume grants(P) = grants<G> ∪ concrete_grants
+     a. Assume grants(P) = grants(G) ∪ concrete_grants
      b. Verify all operations in body respect grants(P)
 ```
 
@@ -376,12 +376,12 @@ For each procedure P<G> with grants<G>, concrete_grants:
 
 **Example (informative)**:
 ```cursive
-procedure outer<G>()
-    grants<G>
+procedure outer<grants G>()
+    sequent { [grants(G)] |- true => true }
 {
     procedure inner()
         // ERROR: G not in scope
-        // grants<G>  // ERROR
+        // sequent { [grants(G)] |- true => true }  // ERROR
     {
         // ...
     }
@@ -398,11 +398,11 @@ procedure outer<G>()
 
 **Example (informative)**:
 ```cursive
-procedure map<T, U, G>(
+procedure map<T, U, grants G>(
     items: [T; 100],
-    f: (T) -> U grants<G>
+    f: (T) -> U sequent { [grants(G)] |- true => true }
 ): [U; 100]
-    grants<G>, alloc::heap
+    sequent { [grants(G), alloc::heap] |- true => true }
 {
     let result = heap_allocate_array<U>(100)
     loop i in 0..100 {
@@ -418,8 +418,8 @@ procedure map<T, U, G>(
 
 **Example (informative)**:
 ```cursive
-procedure constrained<G>()
-    grants<G>
+procedure constrained<grants G>()
+    sequent { [grants(G)] |- true => true }
     where G <: {fs::read, fs::write}
 {
     // G must be subset of {fs::read, fs::write}
@@ -433,21 +433,21 @@ procedure constrained<G>()
 
 **Example (informative)**:
 ```cursive
-procedure low_level<G>(x: i32)
-    grants<G>
+procedure low_level<grants G>(x: i32)
+    sequent { [grants(G)] |- true => true }
 {
     // Implementation
 }
 
-procedure mid_level<G>(x: i32)
-    grants<G>, alloc::heap
+procedure mid_level<grants G>(x: i32)
+    sequent { [grants(G), alloc::heap] |- true => true }
 {
     let buffer = allocate(100)
     low_level::<G>(x)
 }
 
 procedure high_level()
-    grants fs::read, alloc::heap
+    sequent { [fs::read, alloc::heap] |- true => true }
 {
     mid_level::<fs::read>(42)
 }
@@ -464,8 +464,8 @@ procedure high_level()
 **Example (informative - INVALID)**:
 ```cursive
 // INVALID: No grant set arithmetic
-procedure bad<G₁, G₂>()
-    // grants<G₁> ∪ <G₂>  // ERROR: No union operator
+procedure bad<grants G₁, grants G₂>()
+    // sequent { [grants(G₁) ∪ grants(G₂)] |- true => true }  // ERROR: No union operator
 {
     // ...
 }
@@ -474,10 +474,10 @@ procedure bad<G₁, G₂>()
 **Workaround**: Use explicit composition:
 ```cursive
 // Valid: Explicit listing
-procedure good<G₁, G₂>()
-    grants<G₁>, <G₂>
+procedure good<grants G₁, grants G₂>()
+    sequent { [grants(G₁), grants(G₂)] |- true => true }
 {
-    // Implicitly: grants<G₁> ∪ grants<G₂>
+    // Implicitly: grants(G₁) ∪ grants(G₂)
 }
 ```
 
@@ -488,7 +488,8 @@ procedure good<G₁, G₂>()
 **Example (informative - INVALID)**:
 ```cursive
 // INVALID: No exclusion syntax
-procedure bad<G>()
+procedure bad<grants G>()
+    sequent { [grants(G)] |- true => true }
     // where G ⊄ {fs::write}  // ERROR: No exclusion operator
 {
     // ...
@@ -502,7 +503,7 @@ procedure bad<G>()
 **Example (informative - INVALID)**:
 ```cursive
 // INVALID: Grant sets are not values
-// let g = grants<G>  // ERROR
+// let g = grants(G)  // ERROR
 // result g           // ERROR
 ```
 

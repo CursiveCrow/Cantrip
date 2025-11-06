@@ -22,25 +22,36 @@ Write a complete, correct, ISO/ECMA-compliant formal specification for PART III,
 
 ###
 
- 1. **Predicates (not "predicates")**:
-- ❌ **Old**: `predicate` for concrete code reuse
-- ✅ **New**: `predicate` for concrete code reuse
-- **Rationale**: Avoid confusion with Rust predicates (which mix abstract + concrete)
-- **Cursive design**:
-  - `predicate` = ALL procedures MUST have bodies (concrete code reuse)
-  - `contract` = NO bodies allowed (abstract interface)
+ 1. **Predicates (Cursive Keyword)**:
+- **Cursive uses**: `predicate` keyword for concrete code reuse
+- **Critical rule**: ALL procedures in predicates MUST have bodies (concrete implementations)
+- **Distinction**: `contract` keyword for abstract interfaces (NO bodies allowed)
+- **Not to confuse with**: Rust's `trait` (which allows both abstract and concrete methods)
+- **Rationale**: Clear separation between concrete code reuse (predicates) and behavioral contracts (contracts)
+- **Cursive design principle**:
+  - `predicate` = Concrete code reuse only
+  - `contract` = Abstract interface specification only
 
 ### 2. **Loop Syntax**:
 - ❌ **Old**: `for item in collection { }`
 - ✅ **New**: `loop item in collection { }`
 - **Rationale**: `for` keyword does not exist in Cursive
 
-### 3. **Permission System**:
+### 3. **Binding and Permission System**:
 - ❌ **System 1**: `imm / mut / own` (single axis)
-- ✅ **System 3**: Two orthogonal axes:
-  - **Binding Categories**: `let` / `var` / `alias`
+- ✅ **System 3**: Three orthogonal axes:
+  - **Rebindability**: `let` (non-rebindable) / `var` (rebindable)
+  - **Ownership**: `=` (owning) / `<-` (reference)
   - **Permissions**: `const` / `unique` / `shared`
-- **Important**: Use `alias` (not `ref`) for non-owning bindings that create aliases to existing values
+
+**Binding Matrix:**
+| | Owning (`=`) | Reference (`<-`) |
+|---|---|---|
+| **Non-rebindable (`let`)** | `let x: T = value` | `let x: T <- value` |
+| **Rebindable (`var`)** | `var x: T = value` | `var x: T <- value` |
+
+- **Rationale**: The `<-` operator creates reference bindings (non-owning), while `=` creates owning bindings
+- **Reading**: `let x <- value` reads as "x references from value" or "x is bound to reference value"
 
 ### 4. **Grant System**:
 - ❌ **Old**: "effects" or "effect polymorphism"
@@ -102,7 +113,7 @@ All files in `Spec/03_Type-System/` directory:
 - Sections: 2.0.0-2.0.9 (Type System Overview through Permission Integration)
 
 ### Strategy
-Transform comprehensive type foundations with System 3 permission updates throughout. This is the most extensive section requiring systematic permission system conversion from `own/mut/imm` to `let/var/ref` × `const/unique/shared`.
+Transform comprehensive type foundations with System 3 permission updates throughout. This is the most extensive section requiring systematic permission system conversion from `own/mut/imm` to the orthogonal system: rebindability (`let`/`var`) × ownership (`=`/`<-`) × permissions (`const`/`unique`/`shared`).
 
 ### Subsections
 
@@ -219,9 +230,9 @@ Single comprehensive program demonstrating:
 // Canonical Example 3.0: Type System Foundations
 
 // Primitive types with System 3 permissions
-// System 3 = Binding Categories (let/var/ref) × Permissions (const/unique/shared)
-let x: const i32 = 42       // Binding: let (owns, transferable) | Permission: const (immutable)
-var counter: const i32 = 0  // Binding: var (owns, rebindable) | Permission: const (immutable)
+// System 3 = Rebindability (let/var) × Ownership (=/←) × Permissions (const/unique/shared)
+let x: const i32 = 42       // Binding: let (non-rebindable, owning) | Permission: const (immutable)
+var counter: const i32 = 0  // Binding: var (rebindable, owning) | Permission: const (immutable)
 
 // Composite types (product)
 record Point {
@@ -269,7 +280,7 @@ let p2: const Coordinate = (1.0, 2.0)      // Structurally different (tuple vs r
 
 // Subtyping example (preview)
 let value: const i32 = 42
-alias immutable_ref: const i32 = value     // alias binding for subtype context
+let immutable_ref: const i32 <- value     // reference binding for subtype context
 ```
 
 ---
@@ -355,7 +366,7 @@ T ≡ τ
 | `(T₁, T₂)` | Covariant | Product type |
 | `T₁ -> T₂` | T₁: Contravariant, T₂: Covariant | Function subtyping |
 
-**Note**: Alias bindings (`alias x: T = value`) do not introduce type constructors but follow invariance for type safety. Complete variance rules for all Cursive type constructors will be specified in the final section.
+**Note**: Reference bindings (`let x: T <- value`) do not introduce type constructors but follow invariance for type safety. Complete variance rules for all Cursive type constructors will be specified in the final section.
 
 #### 3.1.4 Type Compatibility
 - Compatibility relation (weaker than equivalence)
@@ -427,8 +438,8 @@ function covariant_example() {
 // Invariant reference example
 function invariant_example() {
     var value: const i32 = 42
-    alias mutable_ref: const i32 = value
-    // Cannot treat alias binding as different type
+    let mutable_ref: const i32 <- value
+    // Cannot treat reference binding as different type
     // Type system enforces invariance
 }
 
@@ -448,10 +459,9 @@ procedure call_with_compatible() {
 ### Source
 - `old_Type-System.md` lines 1212-2050 (~838 lines, comprehensive)
 - Section 2.1: Primitive Types
-- NEW: Range Types (for `loop` syntax support)
 
 ### Strategy
-Transform existing comprehensive primitive type specification with correct `loop` syntax, add new Section 3.2.7 Range Types as essential language primitives for iteration.
+Transform existing comprehensive primitive type specification with correct `loop` syntax
 
 ### Subsections
 
@@ -527,7 +537,7 @@ For all types τ:
 ! <: τ
 ```
 
-#### 3.2.7 Range Types ⭐ NEW
+#### 3.4.# Range Types ⭐ NEW
 - Six range type constructors
 - Range syntax and semantics
 - Use in `loop` iteration (essential for language)
@@ -648,9 +658,8 @@ procedure demonstrate_primitives() {
     let standard: const i32 = 2_147_483_647
     let large: const i64 = 9_223_372_036_854_775_807
 
-    // Overflow behavior (explicit)
-    let wrapped = byte.wrapping_add(1)      // Wraps to 0
-    let checked = byte.checked_add(1)       // Returns an enum indicating overflow
+    // Note: Integer overflow behavior is implementation-defined
+    // Standard library may provide overflow-checking operations
 
     // Floating-point types
     let single: const f32 = 3.14159
@@ -725,58 +734,70 @@ procedure demonstrate_primitives() {
 ### Strategy
 Synthesize product types (2.2) and sum types (2.3) into unified composite types section. Add new Section 3.3.3 Union Types for discriminated unions. Update all examples with System 3 permissions.
 
+**Design Note on Product Types**: Cursive has **two** product type forms, not four:
+
+1. **Tuples**: Structural types with positional access only (`(T1, T2)`)
+2. **Records**: Nominal types with **both** named and positional access
+
+**Why tuple-structs are not separate**: Traditional languages (Rust) separate "tuple-structs" (nominal + positional) from "records" (nominal + named). Cursive unifies these: records support both access patterns. The grammar already supports `.0` syntax alongside `.field_name`. Developers choose the appropriate access style based on context:
+- Named access (`.field_name`) when field semantics are important
+- Positional access (`.0`, `.1`) for generic operations, coordinate-like data, or ergonomic terseness
+
+This design reduces language complexity while increasing expressiveness. Fields are indexed in declaration order (left-to-right, zero-based).
+
+**Why newtypes are not included**: For nominal type distinction, use single-field records (`record Meters { value: f64 }`). For transparent naming, use type aliases (`type Meters = f64`). Cursive's permission system (const/unique/shared), contract system (sequent clauses), and modal types provide more powerful type safety mechanisms than traditional newtypes, making dedicated newtype syntax redundant.
+
 ### Subsections
 
-#### 3.3.1 Product Types (Tuples, Records, Newtypes)
+#### 3.3.1 Product Types (Tuples, Records)
 - **Tuples**: Structural anonymous products
   - Tuple syntax: `(τ₁, τ₂, ..., τₙ)`
   - Field access by position: `.0`, `.1`
   - Structural typing (equivalence by shape)
   - Empty tuple as unit type `()`
 
-- **Records**: Nominal named products
+- **Records**: Nominal products with dual access
   - Record declaration syntax
-  - Field access by name
+  - Field access by name: `.field_name`
+  - Field access by position: `.0`, `.1`, `.2` etc. (zero-based, declaration order)
+  - Developers choose access style based on context
   - Nominal typing (equivalence by name)
   - Initialization and construction
   - Struct update syntax
-
-- **Newtypes**: Zero-cost wrappers
-  - Newtype pattern
-  - Type safety benefits
-  - No runtime overhead
-  - Conversion methods
 
 **From old lines 2051-2565**: Complete product type specification
 
 **Grammar**:
 ```
-ProductType ::= TupleType | RecordType | NewtypeDecl
+ProductType ::= TupleType | RecordType
 
 TupleType ::= '(' Type (',' Type)* ')'
 
 RecordDecl ::= 'record' Ident '{' FieldDecl* '}'
 
-NewtypeDecl ::= 'newtype' Ident '(' Type ')'
+FieldAccess ::= Expr '.' Ident              // Named field access
+             | Expr '.' IntegerLiteral      // Positional field access (0-based)
 ```
+
+**Note**: Both tuples and records support positional access (`.0`, `.1`). Only records additionally support named access (`.field_name`).
 
 **Example**:
 ```cursive
 // Tuple (structural)
-let point: (f64, f64) = (3.0, 4.0)
-let x = point.0
+let point_tuple: (f64, f64) = (3.0, 4.0)
+let x = point_tuple.0           // Positional only
 
-// Record (nominal)
+// Record (nominal with dual access)
 record Point {
     x: f64,
     y: f64
 }
 
 let p = Point { x: 1.0, y: 2.0 }
-
-// Newtype
-newtype Meters(f64)
-let distance: const Meters = Meters(100.0)
+let x1 = p.x                    // Named access
+let x2 = p.0                    // Positional access (same as p.x)
+let y1 = p.y                    // Named access
+let y2 = p.1                    // Positional access (same as p.y)
 ```
 
 #### 3.3.2 Sum Types (Enums)
@@ -814,30 +835,20 @@ enum Shape {
     Point                                     // Unit variant
 }
 
-// Generic enum for optional values
-enum Maybe<T> {
-    Value(T),
-    Nothing
+// Generic enum example
+enum Status<T> {
+    Ready(T),
+    Waiting,
+    Failed(i32)  // Error code
 }
 
-let maybe_value: Maybe<i32> = Maybe::Value(42)
+let status: Status<f64> = Status::Ready(3.14)
 
-match maybe_value {
-    Maybe::Value(v) => println("Value: {}", v),
-    Maybe::Nothing => println("No value")
+match status {
+    Status::Ready(v) => println("Ready with value: {}", v),
+    Status::Waiting => println("Waiting"),
+    Status::Failed(code) => println("Failed with code: {}", code)
 }
-
-// Generic enum for error handling
-function divide(a: i32, b: i32): Outcome<i32, string> {
-    if b == 0 {
-        result Outcome::Error("Division by zero")
-    } else {
-        result Outcome::Success(a / b)
-    }
-}
-
-// Note: These are language features. The standard library may provide
-// canonical types, but enums are first-class language constructs.
 ```
 
 #### 3.3.3 Union Types ⭐ NEW
@@ -884,7 +895,7 @@ function process(flag: bool): i32 \/ string {
 ```cursive
 modal Connection {
     @Disconnected { retry_count: u32 }
-    @Connected { socket: Socket }
+    @Connected { handle: i32 }
     @Error { message: string }
 
     // Transition can result in multiple possible states
@@ -923,14 +934,15 @@ function handle_result(value: i32 \/ string) {
 - "Union types shall not allow untagged reinterpretation. See Part XIV for unsafe unions."
 
 ### Formal Elements Required
-- **Definition 3.3.1**: Product type (tuple, record, newtype)
+- **Definition 3.3.1**: Product type (tuple, record with dual access)
 - **Definition 3.3.2**: Sum type (enum) with generic parameters
 - **Definition 3.3.3**: Union type (discriminated)
-- **Algorithm 3.3.1**: Record field access
+- **Definition 3.3.4**: Field indexing for records (zero-based, declaration order)
+- **Algorithm 3.3.1**: Record field access (both named and positional)
 - **Algorithm 3.3.2**: Enum variant matching
 - **Algorithm 3.3.3**: Union type discrimination
-- **Inference rules**: Type-Tuple, Type-Record, Type-Enum, Type-Union
-- **Error codes**: E0321-E0350 (composite type errors)
+- **Inference rules**: Type-Tuple, Type-Record, Type-Record-Positional-Access, Type-Enum, Type-Union
+- **Error codes**: E0321-E0350 (composite type errors, including positional access errors)
 
 ### Canonical Example
 Single comprehensive program demonstrating all composite types with System 3 permissions:
@@ -944,25 +956,28 @@ Single comprehensive program demonstrating all composite types with System 3 per
 let point_tuple: (f64, f64) = (3.0, 4.0)
 let x_coord = point_tuple.0
 
-// Record (nominal)
+// Record (nominal with dual access)
 record Point {
     x: f64,
     y: f64
 }
 
 let point_record = Point { x: 1.0, y: 2.0 }
-let y_coord = point_record.y
+
+// Named access
+let x_named = point_record.x
+let y_named = point_record.y
+
+// Positional access (fields indexed in declaration order, zero-based)
+let x_positional = point_record.0    // Same as point_record.x
+let y_positional = point_record.1    // Same as point_record.y
+
+// Choose access style based on context:
+// - Named when field meaning is important
+// - Positional for generic/coordinate-like operations
 
 // Struct update syntax
 let point_updated = Point { x: 5.0, ..point_record }
-
-// Newtype (zero-cost wrapper)
-newtype Meters(f64)
-newtype Seconds(f64)
-
-let distance: const Meters = Meters(100.0)
-let time: const Seconds = Seconds(10.0)
-// Type error: cannot add Meters + Seconds
 
 // ===== Sum Types =====
 
@@ -983,33 +998,20 @@ function process_message(msg: Message) {
     }
 }
 
-// Generic enum for optional values
-enum Maybe<T> {
-    Value(T),
-    Nothing
+// Generic enum with multiple type parameters
+enum Status<T> {
+    Ready(T),
+    Waiting,
+    Failed(i32)  // Error code
 }
 
-function find_value(array: [i32], target: i32): Maybe<i32> {
+function find_value(array: [i32], target: i32): Status<i32> {
     loop item in array {
         if item == target {
-            result Maybe::Value(item)
+            result Status::Ready(item)
         }
     }
-    result Maybe::Nothing
-}
-
-// Generic enum for error handling
-enum Outcome<T, E> {
-    Success(T),
-    Error(E)
-}
-
-function safe_divide(a: i32, b: i32): Outcome<i32, string> {
-    if b == 0 {
-        result Outcome::Error("Division by zero")
-    } else {
-        result Outcome::Success(a / b)
-    }
+    result Status::Waiting  // Not found
 }
 
 // ===== Union Types =====
@@ -1056,19 +1058,19 @@ function process_value(v: Value) {
 
 // System 3 permissions with composite types
 procedure demonstrate_permissions() {
-    // Immutable alias binding to record
+    // Immutable reference binding to record
     let p: const Point = Point { x: 1.0, y: 2.0 }
-    alias immutable_ref: const Point = p
+    let immutable_ref: const Point <- p
 
-    // Mutable unique alias binding
+    // Mutable unique reference binding
     var mut_point: const Point = Point { x: 0.0, y: 0.0 }
-    alias unique_ref: unique Point = mut_point
-    unique_ref.x = 10.0  // Mutation through unique alias binding
+    let unique_ref: unique Point <- mut_point
+    unique_ref.x = 10.0  // Mutation through unique reference binding
 
-    // Shared mutable alias binding
+    // Shared mutable reference binding
     var shared_data: const Point = Point { x: 5.0, y: 5.0 }
-    alias shared_ref1: shared Point = shared_data
-    alias shared_ref2: shared Point = shared_data  // OK: shared allows aliasing
+    let shared_ref1: shared Point <- shared_data
+    let shared_ref2: shared Point <- shared_data  // OK: shared allows aliasing
 }
 ```
 
@@ -1237,41 +1239,28 @@ procedure demonstrate_collections() {
     let greeting: string = "Hello, World!"
     let unicode: string = "Hello, 世界 🦀"
 
-    // Character iteration (Unicode scalar values)
-    loop ch in unicode.chars() {
-        println("Character: '{}'", ch)
-    }
-
-    // Byte iteration (UTF-8 bytes)
-    loop byte in unicode.bytes() {
-        println("Byte: {:#02x}", byte)
-    }
-
     // String slicing (BYTE indices, not character indices)
     let hello = greeting[0..5]      // "Hello"
 
-    // Line iteration
-    let multiline: string = "Line 1\nLine 2\nLine 3"
-    loop line in multiline.lines() {
-        println("Line: {}", line)
-    }
+    // Note: String iteration methods (characters, bytes, lines, etc.)
+    // are provided by the standard library
 
     // ===== System 3 Permissions with Collections =====
 
-    // Immutable array alias binding
+    // Immutable array reference binding
     let arr: [i32; 3] = [1, 2, 3]
-    alias immutable_ref: const [i32; 3] = arr
+    let immutable_ref: const [i32; 3] <- arr
     // Cannot mutate through immutable_ref
 
     // Mutable unique array
     var mut_arr: [i32; 3] = [10, 20, 30]
-    alias unique_ref: unique [i32; 3] = mut_arr
-    unique_ref[0] = 100              // Mutation through unique alias binding
+    let unique_ref: unique [i32; 3] <- mut_arr
+    unique_ref[0] = 100              // Mutation through unique reference binding
 
     // Shared mutable slice
     var shared_arr: [i32; 5] = [0; 5]
-    alias shared_slice1: shared [i32] = shared_arr[..]
-    alias shared_slice2: shared [i32] = shared_arr[..]  // OK: shared allows aliasing
+    let shared_slice1: shared [i32] <- shared_arr[..]
+    let shared_slice2: shared [i32] <- shared_arr[..]  // OK: shared allows aliasing
 }
 ```
 
@@ -1496,8 +1485,8 @@ function map<T, U, G>(
 // ===== System 3 Permissions with Functions =====
 
 procedure demonstrate_permissions() {
-    // Function alias with const permission
-    alias fn_ref: const = add
+    // Function reference binding with const permission
+    let fn_ref: const <- add
 
     // Cannot rebind fn_ref (const permission)
     // fn_ref = double;  // ERROR: cannot rebind const
@@ -1510,7 +1499,7 @@ procedure demonstrate_permissions() {
         result counter
     }
 
-    // Closure captures mutable alias to counter
+    // Closure captures mutable reference to counter
     let count1 = increment_counter()  // 1
     let count2 = increment_counter()  // 2
 }
@@ -1542,81 +1531,595 @@ Cursive uses a three-tier memory hierarchy (Stack, Region, Heap) with pointers i
 ### Subsections
 
 #### 3.6.1 Modal Pointers (Ptr<T>@State)
-- **Ptr<T>@State**: Safe pointers with modal state tracking
-  - Modal type system integration
-  - State transitions
-  - Compile-time state verification
-  - Ownership and reference semantics
 
-- **Four Modal States**:
-  - **@Null**: Pointer is null, cannot be dereferenced
-  - **@Valid**: Pointer points to valid data, can be dereferenced
-  - **@Weak**: Weak reference for breaking cycles, must upgrade before use
-  - **@Expired**: Weak reference whose target has been deallocated
-
-- **State-dependent operations**:
-  - Dereferencing only allowed in @Valid state
-  - `.downgrade()`: Convert Ptr<T>@Valid to Ptr<T>@Weak
-  - `.upgrade()`: Attempt to convert Ptr<T>@Weak to Ptr<T>@Valid
-  - Type-safe state transitions enforced at compile-time
-
-- **Escape Analysis**: Compile-time prevention of region-backed pointers escaping their region (Error E4027)
+**Overview:** Cursive's `Ptr<T>@State` provides safe pointers with compile-time modal state tracking. Modal states enable null-safety, weak references for cycle breaking, and escape analysis—all with zero runtime overhead.
 
 **Forward Reference**: Complete modal type system specified in Part XI §11.1 (Modal Types and State Machines).
 
 **From old lines 3684-3779**: Complete modal pointer specification
 
-**Example - Basic Pointers**:
-```cursive
-// Modal pointers with state tracking
-region r {
-    // Region allocation and pointer creation
-    let value: i32 = ^42
-    let ptr: Ptr<i32> = &value  // & operator produces Ptr<T> directly (not Rust-style reference); ptr is Ptr<i32>@Valid
+---
 
-    // Dereferencing valid pointer
-    let deref_value = *ptr  // OK: ptr is @Valid
+##### 3.6.1.1 Pointer Creation and Address-Of Operator
 
-    // Move semantics with modal states
-    let ptr2 = move ptr  // ptr no longer accessible, ptr2 is @Valid
-}
-// Automatic cleanup when region ends
+**Address-Of Operator Semantics:**
+- **Syntax**: `&expr`
+- **Returns**: `Ptr<T>@Valid` directly (NOT an intermediate reference type)
+- **Type declaration**: Required for pointer variables (no type inference for pointer declarations)
+
+**Critical Distinction from Rust:**
+- Cursive `&expr` produces `Ptr<T>` (a first-class modal pointer type)
+- **NOT** Rust-style references `&T` or `&mut T`
+- Cursive has no reference types—use `Ptr<T>` or reference bindings (`let x <- value`)
+
+**Type Formation Rule:**
+```
+[Address-Of]
+Γ ⊢ expr: T
+expr has memory location
+provenance(expr) = P
+───────────────────────────────
+Γ ⊢ &expr: Ptr<T>@Valid with provenance P
 ```
 
-**Example - Weak References**:
+**Examples:**
 ```cursive
-// Weak references for breaking cycles
-region r {
-    let value: i32 = ^100
-    let strong: Ptr<i32> = &value  // strong is Ptr<i32>@Valid
+// Valid pointer creation
+let value: i32 = ^42
+let ptr: Ptr<i32> = &value  // Type: Ptr<i32>@Valid
 
-    // Create weak reference
-    let weak: Ptr<i32>@Weak = strong.downgrade()
+// Type declaration required
+let ptr2 = &value  // ❌ ERROR: Type inference not allowed for pointers
+let ptr3: Ptr<i32> = &value  // ✅ OK: Type explicitly declared
 
-    // Weak reference must be upgraded before use
-    match weak.upgrade() {
-        some(valid_ptr) -> {
-            let v = *valid_ptr  // OK: upgraded to @Valid
-            println("Value: {}", v)
+// Error: Cannot take address of alias binding
+alias temp = value
+let bad_ptr = &temp  // ❌ ERROR E4030: alias has no memory location
+```
+
+**Normative Statements:**
+- "The address-of operator SHALL produce values of type `Ptr<T>@Valid` directly."
+- "Type annotations for pointer declarations SHALL be required; pointer types SHALL NOT be inferred."
+- "The address-of operator SHALL only be applicable to expressions with memory locations."
+
+**Error Codes:**
+- **E4030**: Cannot take address of alias binding (alias has no memory location)
+
+---
+
+##### 3.6.1.2 Four Modal States
+
+**Modal State Definition:**
+
+Cursive's `Ptr<T>` is a modal type with four distinct states that track pointer validity at compile time:
+
+```cursive
+modal Ptr<T> {
+    @Null      // Explicit null pointer
+    @Valid     // Strong reference, dereferenceable
+    @Weak      // Weak reference, breaks cycles
+    @Expired   // Weak reference after target destroyed
+}
+```
+
+**State Semantics Table:**
+
+| State | Meaning | Dereferenceable? | Reference Strength | Use Case |
+|-------|---------|------------------|-------------------|----------|
+| `@Null` | Explicit null | ❌ Compile error E4028 | N/A | Nullable pointers |
+| `@Valid` | Points to valid memory | ✅ Yes | Strong (prevents destruction) | Normal pointers |
+| `@Weak` | Weak reference | ❌ Must upgrade first (E4032) | Weak (allows destruction) | Breaking cycles |
+| `@Expired` | Target was destroyed | ❌ Target gone (E4033) | N/A | Detected dead refs |
+
+**State Transition Diagram:**
+
+```
+Ptr::null() ──────────→ [@Null]
+                           │
+                           │ widen (implicit)
+                           ↓
+                        [Ptr<T>] ←──── unconstrained type
+                           ↑
+                           │ widen (implicit)
+                           │
+&value ────────────────→ [@Valid]
+                           │
+                           │ .downgrade()
+                           ↓
+                        [@Weak]
+                           │
+                           │ .upgrade()
+                           ├─────→ @Valid (if target alive)
+                           │
+                           │ (target destroyed)
+                           ↓
+                       [@Expired]
+```
+
+**Type Widening and Narrowing:**
+
+```cursive
+// WIDENING (safe, implicit):
+let valid: Ptr<i32>@Valid = &value
+let unconstrained: Ptr<i32> = valid  // ✅ OK: widen to unconstrained Ptr<T>
+
+// NARROWING (requires pattern matching):
+let ptr: Ptr<i32> = get_ptr()
+let narrow: Ptr<i32>@Valid = ptr  // ❌ ERROR: must pattern match first
+
+// Correct narrowing:
+match ptr {
+    @Valid => {
+        // ptr has type Ptr<i32>@Valid in this branch
+        let narrow: Ptr<i32>@Valid = ptr  // ✅ OK: type refined by pattern match
+        let v = *ptr  // ✅ Safe to dereference
+    }
+    @Null => { /* handle null case */ }
+    @Weak => { /* handle weak case */ }
+    @Expired => { /* handle expired case */ }
+}
+```
+
+**Dereference Rules:**
+
+```
+[Deref-Valid]
+Γ ⊢ ptr: Ptr<T>@Valid
+─────────────────────
+Γ ⊢ *ptr: T
+
+[Deref-Null]
+Γ ⊢ ptr: Ptr<T>@Null
+─────────────────────
+ERROR E4028: Cannot dereference null pointer
+
+[Deref-Weak]
+Γ ⊢ ptr: Ptr<T>@Weak
+─────────────────────
+ERROR E4032: Cannot dereference weak pointer (must upgrade first)
+
+[Deref-Expired]
+Γ ⊢ ptr: Ptr<T>@Expired
+─────────────────────
+ERROR E4033: Cannot dereference expired pointer
+```
+
+**Pattern Matching and State Refinement:**
+
+```cursive
+// State refinement through pattern matching
+let ptr: Ptr<i32> = get_maybe_null()
+
+match ptr {
+    @Null => {
+        // In this branch: ptr has type Ptr<i32>@Null
+        println("Pointer is null")
+    }
+    @Valid => {
+        // In this branch: ptr has type Ptr<i32>@Valid
+        let value = *ptr  // ✅ Safe to dereference here
+        println("Value: {}", value)
+    }
+    @Weak => {
+        // In this branch: ptr has type Ptr<i32>@Weak
+        // Must upgrade before use
+        match ptr.upgrade() {
+            @Valid => { /* now usable */ }
+            @Null => { /* target expired */ }
         }
-        none -> {
-            println("Weak reference expired")
-        }
+    }
+    @Expired => {
+        // In this branch: ptr has type Ptr<i32>@Expired
+        println("Weak reference expired")
     }
 }
 ```
 
-**Example - Escape Analysis**:
+**Normative Statements:**
+- "Dereferencing SHALL only be permitted on pointers in the @Valid state."
+- "Pattern matching SHALL refine pointer state types within match branches."
+- "State transitions SHALL be tracked at compile time with zero runtime overhead."
+- "The compiler SHALL reject attempts to dereference pointers not in @Valid state."
+
+**Error Codes:**
+- **E4028**: Dereference of null pointer (@Null state)
+- **E4032**: Dereference of weak pointer (@Weak state) without upgrade
+- **E4033**: Dereference of expired weak reference (@Expired state)
+
+---
+
+##### 3.6.1.3 Weak Reference Semantics
+
+**Purpose:**
+
+Weak references solve the fundamental problem of cyclic data structures by allowing non-owning pointers that don't prevent target destruction.
+
+**Problem Without Weak References:**
 ```cursive
-// Error: Cannot return region-backed pointer
-function create_ptr(): Ptr<i32> {
+// ❌ MEMORY LEAK: Cyclic strong references
+record Node {
+    parent: Ptr<Node>,         // Strong → keeps parent alive
+    children: Vec<Ptr<Node>>,  // Strong → keeps children alive
+}
+// Parent and children keep each other alive forever → memory leak
+```
+
+**Solution With Weak References:**
+```cursive
+// ✅ NO LEAK: Weak references break cycles
+record Node {
+    parent: Ptr<Node>@Weak,         // Weak → doesn't keep parent alive
+    children: Vec<Ptr<Node>@Valid>, // Strong → parent owns children
+}
+// Parent can be destroyed even if children have weak refs to it
+```
+
+**Weak Reference API:**
+
+```cursive
+modal Ptr<T> {
+    // Downgrade strong reference to weak
+    procedure @Valid downgrade(self): Ptr<T>@Weak
+    {
+        // Creates weak reference from strong reference
+        // Original strong reference remains valid after downgrade
+    }
+
+    // Upgrade weak reference to strong (attempt)
+    procedure @Weak upgrade(self): Ptr<T>
+    {
+        // Returns @Valid if target still alive
+        // Returns @Null if target was destroyed
+        // Returns unconstrained Ptr<T>, must pattern match on result
+    }
+
+    // Check if weak reference expired
+    procedure @Weak is_expired(self): bool
+    {
+        // Returns true if target destroyed, false if still alive
+    }
+}
+```
+
+**Formal Specifications:**
+
+```
+[Weak-Downgrade]
+Γ ⊢ ptr: Ptr<T>@Valid
+────────────────────────
+Γ ⊢ ptr.downgrade(): Ptr<T>@Weak
+ptr remains valid after downgrade
+
+[Weak-Upgrade-Success]
+Γ ⊢ ptr: Ptr<T>@Weak
+target(ptr) is alive
+────────────────────────
+Γ ⊢ ptr.upgrade(): Ptr<T>@Valid (runtime check determines state)
+
+[Weak-Upgrade-Expired]
+Γ ⊢ ptr: Ptr<T>@Weak
+target(ptr) was destroyed
+────────────────────────
+Γ ⊢ ptr.upgrade(): Ptr<T>@Null (runtime check determines state)
+```
+
+**Usage Pattern 1: Parent-Child Trees**
+
+```cursive
+record TreeNode {
+    value: i32,
+    parent: Ptr<TreeNode>@Weak,      // Weak: child doesn't own parent
+    children: Vec<Ptr<TreeNode>>,     // Strong: parent owns children
+}
+
+procedure traverse_up(node: Ptr<TreeNode>) {
+    var current = node
+    loop {
+        match (*current).parent.upgrade() {
+            @Valid => {
+                println("Parent value: {}", (*current).value)
+                current = (*current).parent  // Move to parent
+            }
+            @Null => {
+                println("Reached root (no parent)")
+                break
+            }
+        }
+    }
+}
+
+procedure build_tree(): Ptr<TreeNode>
+    grants alloc::region, alloc::heap
+{
+    region temp {
+        var root = ^TreeNode {
+            value: 1,
+            parent: Ptr::null(),
+            children: Vec::new(),
+        }
+
+        var child = ^TreeNode {
+            value: 2,
+            parent: Ptr::null(),  // Set below
+            children: Vec::new(),
+        }
+
+        // Set up bidirectional links
+        child.parent = (&root).downgrade()  // Weak parent link (breaks cycle)
+        root.children.push(&child)          // Strong child link (parent owns child)
+
+        // Escape to heap
+        result &root.to_heap()
+    }
+}
+```
+
+**Usage Pattern 2: Observer Pattern**
+
+```cursive
+record Subject {
+    value: i32,
+    observers: Vec<Ptr<Observer>@Weak>,  // Weak: observers don't prevent destruction
+}
+
+record Observer {
+    id: i32,
+}
+
+procedure Subject.notify(self: unique Self)
+    grants io::write
+{
+    // Iterate over weak observer references
+    loop obs in self.observers {
+        match obs.upgrade() {
+            @Valid => {
+                println("Notifying observer {}", (*obs).id)
+                // Could call observer.on_update(self.value) here
+            }
+            @Null => {
+                // Observer was destroyed, can remove from list
+                println("Observer expired, removing from list")
+            }
+        }
+    }
+}
+
+procedure Subject.attach(self: unique Self, obs: Ptr<Observer>) {
+    // Store weak reference so observers don't keep subject alive
+    self.observers.push(obs.downgrade())
+}
+```
+
+**Usage Pattern 3: Cache Implementations**
+
+```cursive
+record Cache<K, V> {
+    entries: Map<K, Ptr<V>@Weak>,  // Weak: cache doesn't keep values alive
+}
+
+procedure Cache.get<K, V>(self: shared Self, key: K): Option<V>
+    where K: Eq + Hash
+{
+    match self.entries.lookup(key) {
+        Some(weak_ptr) => {
+            match weak_ptr.upgrade() {
+                @Valid => {
+                    // Cache hit: value still alive
+                    result Some(copy *weak_ptr)
+                }
+                @Null => {
+                    // Cache miss: value was evicted/destroyed
+                    result None
+                }
+            }
+        }
+        None => {
+            // Not in cache
+            result None
+        }
+    }
+}
+
+procedure Cache.insert<K, V>(self: unique Self, key: K, value_ptr: Ptr<V>) {
+    // Store weak reference: cache doesn't own the values
+    self.entries.insert(key, value_ptr.downgrade())
+}
+```
+
+**Additional Use Cases:**
+
+4. **Graph Back-Edges**: Forward edges strong, back edges weak (prevents cycles)
+5. **Doubly-Linked Lists**: Next pointers strong, previous pointers weak
+6. **Event Listeners**: Subject doesn't keep listeners alive
+
+**Normative Statements:**
+- "Weak references SHALL NOT prevent the destruction of their target."
+- "Upgrading a weak reference SHALL return @Null if the target has been destroyed."
+- "Weak reference checking SHALL have zero runtime overhead beyond the state discriminant."
+- "Downgrading a strong reference SHALL NOT invalidate the original strong reference."
+- "The `.downgrade()` operation SHALL create a new weak reference without consuming the strong reference."
+
+---
+
+##### 3.6.1.4 Escape Analysis and Provenance Tracking
+
+**Purpose:** Prevent dangling pointers through compile-time escape analysis with zero runtime overhead.
+
+**Provenance System:**
+
+Every `Ptr<T>` has compile-time provenance metadata tracking where the pointed-to data is allocated:
+
+```
+Provenance ::= Stack           // Stack-allocated data (function-local)
+             | Region(RegionId) // Region-allocated data (^expr)
+             | Heap             // Heap-allocated data (explicit .to_heap())
+```
+
+**Escape Rules:**
+
+```
+[Escape-Rule-Stack]
+ptr: Ptr<T>
+provenance(ptr) = Stack
+ptr escapes function scope
+──────────────────────────────
+ERROR: Stack-backed pointer cannot escape function
+
+[Escape-Rule-Region]
+ptr: Ptr<T>
+provenance(ptr) = Region(r)
+ptr escapes region r
+──────────────────────────────
+ERROR E4027: Region-backed pointer cannot escape region
+
+[Escape-Rule-Heap]
+ptr: Ptr<T>
+provenance(ptr) = Heap
+──────────────────────────────
+OK: Heap-backed pointers can escape (subject to ownership rules)
+```
+
+**Provenance Propagation:**
+
+```
+[Address-Of-Provenance]
+storage(value) = provenance
+────────────────────────────
+provenance(&value) = provenance
+
+[Pointer-Copy-Provenance]
+provenance(ptr₁) = P
+ptr₂ = ptr₁
+────────────────────────────
+provenance(ptr₂) = P
+
+[Pointer-Move-Provenance]
+provenance(ptr₁) = P
+ptr₂ = move ptr₁
+────────────────────────────
+provenance(ptr₂) = P
+```
+
+**Examples:**
+
+**❌ INVALID: Region Escape**
+```cursive
+procedure returns_dangling(): Ptr<i32> {
     region r {
         let value: i32 = ^42
         let ptr: Ptr<i32> = &value
-        result ptr  // ERROR E4027: Cannot escape region
+        result ptr  // ❌ ERROR E4027: Cannot escape region r
     }
 }
 ```
+
+**✅ VALID: Heap Escape**
+```cursive
+procedure returns_valid(): Ptr<Data>
+    grants alloc::region, alloc::heap
+{
+    region r {
+        let data = ^Data::new()
+        let heap_data = data.to_heap()  // Explicit heap escape
+        result &heap_data               // ✅ OK: heap-backed pointer
+    }
+}
+```
+
+**✅ VALID: Local Use Only**
+```cursive
+procedure process() {
+    let value: i32 = 42
+    let ptr: Ptr<i32> = &value  // Stack-backed pointer
+    println("{}", *ptr)         // ✅ OK: used locally within scope
+    // ptr destroyed at scope end, no escape
+}
+```
+
+**❌ INVALID: Stack Escape**
+```cursive
+procedure bad_stack_escape(): Ptr<i32> {
+    let value: i32 = 42
+    result &value  // ❌ ERROR: Stack pointer cannot escape function
+}
+```
+
+**Escape Check Algorithm:**
+
+```
+ALGORITHM: Check-Pointer-Escape(ptr, target_scope)
+INPUT: ptr: Ptr<T>, target_scope: Scope
+OUTPUT: OK | ERROR
+
+1. provenance ← get_provenance(ptr)
+2. MATCH provenance:
+   CASE Stack:
+     IF target_scope is outside current_function:
+       RETURN ERROR("Stack pointer cannot escape function")
+     ELSE:
+       RETURN OK
+   CASE Region(r):
+     IF target_scope is outside region r:
+       RETURN ERROR("E4027: Region pointer cannot escape region")
+     ELSE:
+       RETURN OK
+   CASE Heap:
+     // Heap pointers can escape (ownership rules still apply)
+     RETURN OK
+3. RETURN OK
+```
+
+**Diagnostic Requirements:**
+
+Error E4027 SHALL include:
+1. Location where pointer is created
+2. Region or scope where data is allocated
+3. Location where escape is attempted
+4. Suggestion to use `.to_heap()` for legitimate heap escape
+
+**Example Diagnostic:**
+```
+error[E4027]: cannot escape region-backed pointer
+  --> example.cursive:5:12
+   |
+3  |     region r {
+   |            - region 'r' declared here
+4  |         let data = ^Data::new()
+   |                    ------------ allocated in region 'r'
+5  |         result &data
+   |                ^^^^^ cannot return pointer to region-allocated data
+   |
+   = note: region-allocated data is destroyed when region ends (line 6)
+   = note: this pointer would become dangling after region destruction
+   = help: if you need to return this data, explicitly escape to heap:
+
+           let heap_data = data.to_heap()
+           result &heap_data
+
+   = help: alternatively, pass the data by value:
+
+           result data  // Moves data out of region (if type is movable)
+```
+
+**Provenance Tracking Implementation:**
+
+The compiler SHALL track provenance through:
+1. **Variable bindings**: Each binding records its storage location
+2. **Address-of operations**: Inherit provenance from target expression
+3. **Pointer copies**: Propagate provenance metadata
+4. **Function returns**: Check escape constraints
+5. **Control flow joins**: Unify provenance (conservative analysis)
+
+**Normative Statements:**
+- "Pointer provenance SHALL be tracked at compile time with zero runtime cost."
+- "Pointers to stack-allocated data SHALL NOT escape function scope."
+- "Pointers to region-allocated data SHALL NOT escape their allocating region."
+- "Escape analysis SHALL prevent all dangling pointer formation at compile time."
+- "Explicit heap escape via `.to_heap()` SHALL be the only mechanism for region data to outlive its region."
+- "All escape violations SHALL be detected during compilation and SHALL prevent program compilation."
+
+**Error Codes:**
+- **E4027**: Region-backed pointer escape attempt (includes region-to-outer-scope and region-to-heap without .to_heap())
 
 #### 3.6.2 Raw Pointers
 - **Raw pointer types**: `*const T`, `*mut T`
@@ -1642,8 +2145,8 @@ unsafe {
 }
 
 // Mutable raw pointer
-var mut_value: const i32 = 100
-let mut_ptr: *mut i32 = &mut_value as *mut i32
+var mutable: unique i32 = 100
+let mut_ptr: *mut i32 = (&mutable) as *mut i32
 
 unsafe {
     *mut_ptr = 200
@@ -1655,13 +2158,36 @@ unsafe {
 - "The validity of raw pointer operations is the responsibility of the programmer."
 
 ### Formal Elements Required
-- **Definition 3.6.1**: Ptr<T>@State modal pointer type
+
+**Definitions:**
+- **Definition 3.6.1.1**: Address-of operator semantics
+- **Definition 3.6.1.2**: Modal state (four states: @Null, @Valid, @Weak, @Expired)
+- **Definition 3.6.1.3**: Weak reference semantics
+- **Definition 3.6.1.4**: Provenance (Stack, Region, Heap)
 - **Definition 3.6.2**: Raw pointer types (*const T, *mut T)
-- **Algorithm 3.6.1**: Region allocation and deallocation
-- **Algorithm 3.6.2**: Pointer state transitions
-- **Algorithm 3.6.3**: Pointer conversion (safe to raw)
-- **Inference rules**: Type-Ptr, Type-RawPtr, Type-ModalState
-- **Error codes**: E0391-E0410 (pointer errors)
+
+**Algorithms:**
+- **Algorithm 3.6.1**: State transition for modal pointers
+- **Algorithm 3.6.2**: Weak reference upgrade
+- **Algorithm 3.6.3**: Escape check (Check-Pointer-Escape)
+- **Algorithm 3.6.4**: Provenance propagation
+- **Algorithm 3.6.5**: Pointer conversion (safe to raw)
+
+**Inference Rules:**
+- **Type Formation**: Type-Ptr, Type-RawPtr, Type-ModalState
+- **Address-Of**: [Address-Of], [Address-Of-Provenance]
+- **Dereference**: [Deref-Valid], [Deref-Null], [Deref-Weak], [Deref-Expired]
+- **Weak References**: [Weak-Downgrade], [Weak-Upgrade-Success], [Weak-Upgrade-Expired]
+- **Escape Analysis**: [Escape-Rule-Stack], [Escape-Rule-Region], [Escape-Rule-Heap]
+- **Provenance**: [Pointer-Copy-Provenance], [Pointer-Move-Provenance]
+
+**Error Codes:**
+- **E4027**: Region-backed pointer escape attempt
+- **E4028**: Dereference of null pointer (@Null state)
+- **E4030**: Cannot take address of alias binding
+- **E4032**: Dereference of weak pointer (@Weak state)
+- **E4033**: Dereference of expired pointer (@Expired state)
+- **E0391-E0410**: Additional pointer-related errors (to be specified in full section)
 
 ### Canonical Example
 Single program demonstrating allocation, pointers, and raw pointers with System 3 permissions:
@@ -1729,39 +2255,153 @@ procedure demonstrate_heap_escape()
 
 // ===== Safe Modal Pointers (Ptr<T>@State) =====
 
-procedure demonstrate_safe_pointers()
+// Demonstrates 3.6.1.1: Address-Of Operator
+procedure demonstrate_address_of()
     grants alloc::region
 {
     region r {
-        // Create region-allocated value and pointer
+        // Valid pointer creation with explicit type declaration
         let value: i32 = ^42
-        let ptr: Ptr<i32> = &value  // & operator produces Ptr<T> directly (not Rust-style reference); ptr is Ptr<i32>@Valid
+        let ptr: Ptr<i32> = &value  // ✅ Type: Ptr<i32>@Valid
 
-        // Dereference valid pointer
-        let deref_value = *ptr
-        println("Dereferenced value: {}", deref_value)
+        // Type declaration required (no inference for pointers)
+        // let bad = &value  // ❌ ERROR: Type inference not allowed
 
-        // Create weak reference for cycle breaking
-        let weak: Ptr<i32>@Weak = ptr.downgrade()
+        // Cannot take address of alias binding
+        alias temp = value
+        // let bad_ptr = &temp  // ❌ ERROR E4030: alias has no memory location
 
-        // Weak references must be upgraded before use
-        match weak.upgrade() {
-            some(valid_ptr) -> {
-                let v = *valid_ptr
-                println("Upgraded weak alias: {}", v)
+        println("Address-of demonstration complete")
+    }
+}
+
+// Demonstrates 3.6.1.2: Four Modal States
+procedure demonstrate_modal_states()
+    grants alloc::region
+{
+    region r {
+        // @Null state
+        let null_ptr: Ptr<i32> = Ptr::null()
+
+        // @Valid state
+        let value: i32 = ^100
+        let valid_ptr: Ptr<i32> = &value  // Ptr<i32>@Valid
+
+        // Pattern matching for state refinement
+        let ptr: Ptr<i32> = get_maybe_null()
+        match ptr {
+            @Null => {
+                println("Pointer is null")
+                // Cannot dereference here: *ptr would be E4028
             }
-            none -> {
-                println("Weak alias expired")
+            @Valid => {
+                // Type refined to Ptr<i32>@Valid in this branch
+                let value = *ptr  // ✅ Safe to dereference
+                println("Value: {}", value)
             }
         }
 
-        // Pointer with permissions
-        var mut_value: unique i32 = ^100
-        let mut_ptr: Ptr<i32> = &mut_value  // & produces Ptr<T> directly
-        *mut_ptr = 200  // Modify through pointer
-        println("Modified value: {}", *mut_ptr)
+        // Widening (safe, implicit)
+        let specific: Ptr<i32>@Valid = &value
+        let general: Ptr<i32> = specific  // ✅ OK: widen to unconstrained
+
+        // Narrowing requires pattern matching (shown above)
     }
-    // Pointers and values deallocated when region ends
+}
+
+// Demonstrates 3.6.1.3: Weak Reference Semantics
+procedure demonstrate_weak_references()
+    grants alloc::region
+{
+    region r {
+        let value: i32 = ^42
+        let strong: Ptr<i32> = &value  // Ptr<i32>@Valid
+
+        // Create weak reference (downgrade)
+        let weak: Ptr<i32>@Weak = strong.downgrade()
+
+        // Strong reference still valid after downgrade
+        println("Strong: {}", *strong)
+
+        // Weak reference must be upgraded before use
+        match weak.upgrade() {
+            @Valid => {
+                // Successfully upgraded
+                println("Upgraded weak: {}", *weak)
+            }
+            @Null => {
+                // Target was destroyed
+                println("Weak reference expired")
+            }
+        }
+
+        // Check if expired without upgrading
+        if weak.is_expired() {
+            println("Weak reference has expired")
+        }
+    }
+
+    // Example: Breaking cycles with weak references
+    record Node {
+        parent: Ptr<Node>@Weak,      // Weak: doesn't own parent
+        children: Vec<Ptr<Node>>,     // Strong: owns children
+    }
+}
+
+// Demonstrates 3.6.1.4: Escape Analysis
+procedure demonstrate_escape_analysis()
+    grants alloc::region, alloc::heap
+{
+    // ❌ This would fail escape analysis (commented out)
+    // procedure bad_region_escape(): Ptr<i32> {
+    //     region r {
+    //         let value: i32 = ^42
+    //         result &value  // ERROR E4027: Cannot escape region
+    //     }
+    // }
+
+    // ❌ This would fail escape analysis (commented out)
+    // procedure bad_stack_escape(): Ptr<i32> {
+    //     let value: i32 = 42
+    //     result &value  // ERROR: Stack pointer cannot escape function
+    // }
+
+    // ✅ Valid: Heap escape
+    procedure good_heap_escape(): Ptr<i32>
+        grants alloc::region, alloc::heap
+    {
+        region r {
+            let value: i32 = ^42
+            let heap_value = value.to_heap()  // Explicit heap escape
+            result &heap_value  // ✅ OK: heap-backed pointer
+        }
+    }
+
+    // ✅ Valid: Local use only (no escape)
+    region r {
+        let value: i32 = ^100
+        let ptr: Ptr<i32> = &value  // Region-backed pointer
+        println("{}", *ptr)         // ✅ OK: used locally
+        // ptr destroyed when region ends, no escape
+    }
+
+    // Demonstrate provenance tracking
+    region outer {
+        let outer_val: i32 = ^10
+
+        region inner {
+            let inner_val: i32 = ^20
+            let inner_ptr: Ptr<i32> = &inner_val  // Provenance: Region(inner)
+
+            // Can use within inner region
+            println("Inner: {}", *inner_ptr)
+
+            // Cannot escape to outer region
+            // let escaped = inner_ptr;  // ERROR E4027 if returned or stored in outer
+        }
+
+        // inner_ptr no longer accessible here
+    }
 }
 
 // ===== Raw Pointers (Unsafe) =====
@@ -1774,7 +2414,7 @@ procedure demonstrate_raw_pointers()
     let const_ptr: *const i32 = &value as *const i32
 
     var mutable: unique i32 = 100
-    let mut_ptr: *mut i32 = &mutable as *mut i32
+    let mut_ptr: *mut i32 = (&mutable) as *mut i32
 
     // Dereferencing raw pointer (unsafe operation)
     unsafe {
@@ -1802,6 +2442,7 @@ procedure demonstrate_raw_pointers()
 // ===== FFI Use Case =====
 
 // External C function declaration
+// Note: Grant clause placement in extern blocks - verify against Part IX §9.1
 extern "C" {
     function malloc(size: usize): *mut u8
         grants unsafe::ptr, ffi::call;
@@ -1838,18 +2479,18 @@ procedure demonstrate_permissions()
     region r {
         // Const permission (immutable binding, immutable data)
         let immutable: const i32 = ^42
-        alias const_ref: const i32 = immutable
+        let const_ref: const i32 <- immutable
         // Cannot mutate through const_ref
 
         // Unique permission (mutable, exclusive access)
         var mutable: unique i32 = ^100
-        alias unique_ref: unique i32 = mutable
-        *unique_ref = 200  // Mutation through unique alias binding
+        let unique_ref: unique i32 <- mutable
+        *unique_ref = 200  // Mutation through unique reference binding
 
         // Shared permission (shared read-only access)
         let shared_data: shared i32 = ^300
-        alias shared_ref: shared i32 = shared_data
-        // Multiple shared alias bindings allowed
+        let shared_ref: shared i32 <- shared_data
+        // Multiple shared reference bindings allowed
     }
 
     // Raw pointers bypass permission system
@@ -1859,9 +2500,17 @@ procedure demonstrate_permissions()
 }
 ```
 
+**Enhancement Note**: Section 3.6.1 has been expanded to include four detailed subsubsections:
+- 3.6.1.1: Pointer Creation and Address-Of Operator (type formation rules, E4030)
+- 3.6.1.2: Four Modal States (state semantics, transitions, pattern matching, E4028/E4032/E4033)
+- 3.6.1.3: Weak Reference Semantics (API, usage patterns, formal specifications)
+- 3.6.1.4: Escape Analysis and Provenance Tracking (escape rules, algorithm, E4027)
+
+This enhancement brings Section 3.6 to the same level of formal specification detail as other sections, with complete inference rules, algorithms, and implementer-ready specifications aligned with POINTER_SYSTEM_DESIGN.md.
+
 ---
 
-*Due to length constraints, I'll create the file with the remaining sections (3.7-3.11) included. The pattern continues with the same level of detail for Predicates, Generics, Type Bounds, Type Aliases, and Type Introspection.*
+*The pattern continues with the same level of detail for Predicates, Generics, Type Bounds, Type Aliases, and Type Introspection.*
 
 ---
 
@@ -1944,11 +2593,66 @@ record Shape: Drawable, DefaultRenderable {
 - "A predicate provides code reuse; it does not specify abstract requirements."
 - "Types may include multiple predicates to compose implementations."
 
+#### 3.7.1.1 Predicate Categories
+
+Cursive distinguishes two categories of predicates based on implementation origin:
+
+**1. User-Defined Predicates**
+- Declared by users with the `predicate` keyword
+- All procedures MUST have concrete bodies provided by user code
+- Users control procedure implementations and behavior
+- Example: `predicate Drawable { procedure draw(self) { /* user code */ } }`
+- Implementation: User-written procedure bodies executed at runtime
+
+**2. System-Defined Predicates (Marker Predicates)**
+- Provided by the Cursive compiler as language primitives
+- Examples: `Copy`, `Send`, `Sync`, `Sized`
+- Cannot be user-declared, overridden, or extended
+- Implementation: Compiler-intrinsic semantics (not user code)
+- Auto-implementation: Compiler automatically determines which types satisfy marker predicates through structural analysis
+- Zero user-definable procedures: Users cannot add custom methods to marker predicates
+- Zero user-definable associated types: Marker predicates have no user-customizable associated types
+
+**Comparison**:
+| Aspect | User-Defined | System-Defined (Marker) |
+|--------|-------------|-------------------------|
+| Declaration | Users declare with `predicate` keyword | Provided by compiler |
+| Procedure bodies | User-written code | Compiler-intrinsic implementation |
+| Customization | Full user control | No customization allowed |
+| Purpose | Code reuse, shared behavior | Compile-time type properties |
+| Examples | `Drawable`, `Serializable` | `Copy`, `Send`, `Sync`, `Sized` |
+
+**Auto-Implementation Distinction**:
+- **User-Defined**: Types declare predicate satisfaction in type definition (e.g., `record Shape: Drawable { }`)
+- **Marker Predicates**: Compiler automatically derives satisfaction based on structural rules
+
+**Normative statements**:
+- "Marker predicates shall be implemented by the compiler with intrinsic semantics."
+- "Users shall not declare predicates with reserved names: `Copy`, `Send`, `Sync`, or `Sized`."
+- "Users shall not provide procedure implementations for marker predicates."
+- "All marker predicates shall have zero user-definable procedures and zero user-definable associated types."
+
+**Important Note on "All Procedures Must Have Bodies"**:
+The requirement that "all procedures declared in a predicate shall have concrete implementations" (§3.7.1) applies to BOTH categories:
+- **User-Defined Predicates**: Bodies provided by user code
+- **Marker Predicates**: Bodies provided by compiler-intrinsic implementations
+
+Marker predicates satisfy the "must have bodies" requirement through compiler-provided semantics. The "zero-procedure" characteristic refers to zero USER-definable procedures, not zero implementations. The compiler provides the complete implementation for Copy (bitwise copy), Send (thread-transfer safety), Sync (shared-access safety), and Sized (compile-time size determination).
+
+**Forward Reference**: Complete predicate implementation mechanism specified in Part VIII §8.2.
+
+---
+
 #### 3.7.2 Marker Predicates (Copy, Send, Sync, Sized)
 **EXPAND** from old 24 lines to comprehensive specification.
 
-- **Marker predicate definition**: Zero-procedure, zero-association predicates
-- **Purpose**: Compile-time reasoning about type properties
+- **Marker predicate definition**: System-defined predicates with compiler-intrinsic implementations
+  - Zero user-definable procedures (users cannot add custom methods)
+  - Zero user-definable associated types (users cannot add associated types)
+  - Implementation provided by compiler, not user code
+  - Types automatically satisfy marker predicates via structural analysis
+  - Cannot be declared, overridden, or extended by users
+- **Purpose**: Compile-time reasoning about type properties through compiler-enforced semantics
 - **Four core marker predicates**:
   1. **Copy**: Bitwise-copyable types
   2. **Send**: Types safe to transfer across threads
@@ -2061,16 +2765,18 @@ record ImmutableData {
 // Therefore: ImmutableData : Sync
 
 // NOT Sync (contains interior mutability)
+// Note: Hypothetical example for illustration. Cursive's interior mutability
+// mechanisms are specified in Part XIV.
 record Cell<T> {
-    value: UnsafeCell<T>  // Interior mutability
+    value: InnerCell<T>  // Hypothetical interior mutability type
 }
 // Therefore: Cell<T> ∉ Sync (even if T : Sync)
 
-// Sync through atomic
-record AtomicCounter {
-    count: AtomicI32      // AtomicI32 : Sync
+// Sync through thread-safe primitives
+record Counter {
+    count: i32      // Assume atomic primitives : Sync
 }
-// Therefore: AtomicCounter : Sync
+// Therefore: Counter : Sync
 ```
 
 **Normative statement**:
@@ -2103,8 +2809,8 @@ function process<T>(value: T) {
 }
 
 // Generic function allowing ?Sized
-function process_unsized<T: ?Sized>(value: alias T) {
-    // T may or may not be Sized
+function process_unsized<T: ?Sized>(value: T) {
+    // T may or may not be Sized (unsized types passed by reference implicitly)
 }
 ```
 
@@ -2158,29 +2864,29 @@ function serialize<T>(value: T): [u8]
 - **Eq**: Equality comparison
 - **Ord**: Total ordering
 - **Hash**: Hashing support
-- **Display**: User-facing formatting
-- **Debug**: Debug formatting
 - **Default**: Default value construction
-- **From/Into**: Type conversions
 - **Iterator**: Iteration protocol
 
 **Example**:
 ```cursive
-// Standard predicate usage
-predicate Debug {
-    procedure debug_fmt(self: $, formatter: Formatter) {
-        // Default debug implementation
+// Generic predicate usage
+predicate Comparable {
+    procedure compare(self: $, other: $): i32 {
+        // Default comparison implementation
+        // Returns: -1 (less), 0 (equal), 1 (greater)
+        result builtin_compare(self, other)
     }
 }
 
-record Point: Debug {
+record Point: Comparable {
     x: i32,
     y: i32
 }
 
-// Can now use Debug functionality
-let p = Point { x: 1, y: 2 }
-println("{:?}", p)  // Uses debug_fmt
+// Can now use Comparable functionality
+let p1 = Point { x: 1, y: 2 }
+let p2 = Point { x: 3, y: 4 }
+let cmp_result = p1.compare(p2)
 ```
 
 **Forward reference**:
@@ -2290,15 +2996,15 @@ function spawn_processor<T: Send>(data: T)
 
 // Sync: Thread-safe sharing
 record SharedState {
-    counter: AtomicI32  // AtomicI32 : Sync
+    counter: i32  // Assume thread-safe primitive : Sync
 }
 // Compiler: SharedState : Sync ✓
 
 procedure demonstrate_sync() {
-    var state: SharedState = SharedState { counter: AtomicI32::new(0) }
+    var state: SharedState = SharedState { counter: 0 }
 
-    alias shared1 = state
-    alias shared2 = state  // OK: SharedState : Sync
+    let shared1 <- state
+    let shared2 <- state  // OK: SharedState : Sync
 
     // Both threads can safely access shared references
 }
@@ -2310,8 +3016,8 @@ function stack_allocate<T: Sized>(value: T): T {
 }
 
 // ?Sized: Allow dynamically-sized types
-function reference_unsized<T: ?Sized>(value: alias T) {
-    // T might be dynamically-sized (e.g., [i32] or string)
+function reference_unsized<T: ?Sized>(value: T) {
+    // T might be dynamically-sized (e.g., [i32] or string, passed by reference implicitly)
 }
 
 // ===== Predicate Bounds in Generics =====
@@ -2342,16 +3048,16 @@ function serialize<T>(value: T): [u8]
     result convert_to_bytes(copied)
 }
 
-// ===== Standard Library Predicate Preview =====
+// ===== Generic Predicate Example =====
 
-predicate Debug {
-    procedure debug_fmt(self: $, formatter: Formatter) {
-        // Default implementation
-        formatter.write_str(self.type_name())
+predicate Printable {
+    procedure print(self: $) {
+        // Default implementation using compiler intrinsics
+        print_value(self)
     }
 }
 
-record CustomType: Debug {
+record CustomType: Printable {
     data: i32
 }
 
@@ -2576,7 +3282,7 @@ procedure demonstrate_region_bounds()
 {
     region r {
         let value: i32 = ^42
-        alias shared_ref: shared i32 = value
+        let shared_ref: shared i32 <- value
         println("Shared value: {}", shared_ref)
 
         // Region escape analysis prevents returning region-backed data
@@ -2651,7 +3357,9 @@ function centroid(points: [Coordinate]): Coordinate {
     let count: const f64 = points.length as f64
     result (sum_x / count, sum_y / count)
 }
-type SharedSlice<T> = alias shared [T]
+
+// Generic type alias with permission annotation
+type SharedSlice<T> = shared [T]
 
 procedure print_slice<T: Display>(items: SharedSlice<T>)
     grants io::write
@@ -2685,8 +3393,8 @@ Document compile-time type queries, runtime reflection hooks, and predicate-base
 - Interaction with predicates (e.g., `if value is Iterable<T>`)
 
 #### 3.11.3 Compile-time Type Queries
-- Reflection APIs (`type_name_of<T>()`, `size_of<T>()`, `alignment_of<T>()`)
-- Grant requirements for reflection (typically `grants<>`)
+- Compiler intrinsics: `type_name_of<T>()`, `size_of<T>()`, `alignment_of<T>()`
+- Grant requirements for introspection (typically no grants required for compile-time queries)
 - Const-evaluation guarantees and diagnostics
 
 ### Formal Elements Required
@@ -2701,6 +3409,7 @@ Document compile-time type queries, runtime reflection hooks, and predicate-base
 
 function describe_slice<T>(items: [T]) {
     let ty = typeof(items)
+    // Compiler intrinsics for compile-time type information
     println("Slice element type: {}", type_name_of<T>())
     println("Slice size: {} bytes", size_of::<[T]>())
 

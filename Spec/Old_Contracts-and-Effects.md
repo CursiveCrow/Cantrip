@@ -137,7 +137,7 @@ AssociatedTypeDecl
                 ::= "type" Ident TypeBound?
 ```
 
-`Attribute`, `Visibility`, `GenericParams`, `ParamList`, `TypeBound`, `WhereClause`, and `ContractClause` are defined in Appendix A.6 and Appendix A.7. Generic parameter lists MAY include effect parameters (e.g., `ε`) in addition to type and const parameters (see the `EffectParam` production in Appendix A.6), as detailed in Part II §2.9.4. Contract clauses MAY appear in any order and each clause MAY be included at most once per signature; duplicate clauses are rejected with E7C18. Contract items follow the standard statement separator rules (newline or semicolon). CITE: Part I §2.7 — Statement Separators.
+`Attribute`, `Visibility`, `GenericParams`, `ParamList`, `TypeBound`, `WhereClause`, and `ContractClause` are defined in Appendix A.6 and Appendix A.7. Generic parameter lists MAY include grant parameters (e.g., `ε`) in addition to type and const parameters (see the `GrantParam` production in Appendix A.6), as detailed in Part II §2.9.4. The contract clause (when present) MUST be a single `sequent` block containing the behavioral specification; multiple `sequent` clauses are rejected with E7C18. Contract items follow the standard statement separator rules (newline or semicolon). CITE: Part I §2.7 — Statement Separators.
 
 ### 7.2.3 Static Semantics
 
@@ -157,7 +157,7 @@ Identifiers(Signatureᵢ) are pairwise distinct
 Γ ⊢ contract C { ContractItem₁; …; ContractItemₙ; } ok
 ```
 
-A contract item is well-formed when its parameters, result type, and clause list satisfy the rules in §§7.3–7.5. Contracts MUST NOT declare fields or provide bodies.
+A contract item is well-formed when its parameters, result type, and sequent specification satisfy the rules in §7.3 (Sequent Clauses). Contracts MUST NOT declare fields or provide bodies.
 
 #### Implementing a contract
 
@@ -168,13 +168,13 @@ record Circle: Drawable {
     radius: f64
 
     procedure draw(self: Self)
-        uses fs.write
+        sequent { [fs.write] |- true => true }
     {
         println("Circle radius {}", self.radius)
     }
 
     procedure bounds(self: Self): Rectangle
-        will result.width >= 0.0, result.height >= 0.0
+        sequent { [] |- true => result.width >= 0.0 && result.height >= 0.0 }
     {
         Rectangle {
             x: self.radius * -1.0,
@@ -196,18 +196,18 @@ record T: C { Proc₁; …; Procₙ; Members }
 ────────────────────────────────────────────
 Γ ⊢ record T: C well-formed
 
-[Contract-Clause-Compat]
-Signature ≡ procedure p(...) uses ε_c must P_c will Q_c
-Procedure ≡ procedure p(...) uses ε_m must P_m will Q_m { body }
+[Contract-Sequent-Compat]
+Signature ≡ procedure p(...) sequent { [ε_c] |- P_c => Q_c }
+Procedure ≡ procedure p(...) sequent { [ε_m] |- P_m => Q_m } { body }
 Γ ⊢ body : τ
-P_c ⇒ P_m
-Q_m ⇒ Q_c
-ε_m ⊆ ε_c
+P_c ⇒ P_m        (precondition weakening: impl accepts more inputs)
+Q_m ⇒ Q_c        (postcondition strengthening: impl guarantees more)
+ε_m ⊆ ε_c        (grant reduction: impl uses fewer capabilities)
 ────────────────────────────────────────────
-Procedure satisfies contract clause compatibility
+Procedure satisfies contract sequent compatibility
 ```
 
-Omitting a clause uses the identity element for that clause type: leaving out `uses` denotes the empty effect set `ε = ∅`, while omitting `must` or `will` denotes predicates that are trivially `true`. The compatibility relations above therefore still apply.
+Omitting sequent components uses the identity element for that component: omitting `[ε]` denotes the empty grant set `ε = ∅`, while omitting antecedent P or consequent Q denotes predicates that are trivially `true`. The compatibility relations above therefore still apply.
 
 ##### Generic implementations
 
@@ -281,7 +281,7 @@ When a type implements an extending contract, it MUST satisfy every inherited si
 contract Transformable extends Drawable {
     procedure translate(self: mut Self, dx: f64, dy: f64)
     procedure scale(self: mut Self, factor: f64)
-        must factor > 0.0
+        sequent { [] |- factor > 0.0 => true }
 }
 ```
 
@@ -414,7 +414,7 @@ Contract implementation checks run when the compilation unit that defines the `r
 ```cursive
 procedure render_all<T>(items: [T])
     where T: Drawable
-        uses fs.write
+    sequent { [fs.write] |- true => true }
 {
     for item in items {
         item::draw()
@@ -471,14 +471,14 @@ Anonymous functions and closures are values of function type (`(params) → τ !
 ```cursive
 contract Handler {
     procedure handle(self: mut Self, message: string)
-        uses fs.write
+        sequent { [fs.write] |- true => true }
 }
 
 record ClosureHandler {
     callback: (string) → () ! {fs.write}
 
     procedure handle(self: mut Self, message: string)
-        uses fs.write
+        sequent { [fs.write] |- true => true }
     {
         self.callback(message)
     }
@@ -519,17 +519,14 @@ Compiler checks:
 ```cursive
 // Foreign function declaration with contract
 extern "C" procedure c_sqrt(x: f64): f64
-    must x >= 0.0
-    will result >= 0.0
+    sequent { [] |- x >= 0.0 => result >= 0.0 }
 
 procedure safe_sqrt(x: f64): f64
-    must x >= 0.0
-    will result >= 0.0
-    uses ffi.call
+    sequent { [ffi.call] |- x >= 0.0 => result >= 0.0 }
 {
     unsafe {
-        // Precondition checked before unsafe call
-        // Postcondition assumed to hold (programmer verifies C implementation)
+        // Antecedent checked before unsafe call
+        // Consequent assumed to hold (programmer verifies C implementation)
         c_sqrt(x)
     }
 }
@@ -563,7 +560,7 @@ CITE: Part II §2.13 — Contract Witnesses (complete type system specification)
 ```cursive
 contract Drawable {
     procedure draw(self)
-        uses io.write
+        sequent { [io.write] |- true => true }
 }
 
 // Create witness (explicit heap allocation)
@@ -614,197 +611,220 @@ Common patterns: interface contracts (Serializable), invariant-preserving contra
 ---
 
 
-## 7.4 Precondition Clauses (`must`)
+## 7.3 Sequent Clauses
 
-Preconditions declare requirements that MUST hold at procedure entry. If a caller cannot prove a precondition statically, the compiler emits a runtime check in verification modes that require it (§7.8).
+Sequent clauses provide unified behavioral specifications combining grant context, preconditions (antecedent), and postconditions (consequent) in the form `[ε] ⊢ P ⇒ Q`. If a caller cannot prove the antecedent statically, the compiler emits a runtime check in verification modes that require it (§7.8).
 
-## Definition 7.3 (Precondition Clauses)
+## Definition 7.3 (Sequent Clauses)
 
-A precondition clause is a predicate over the procedure’s parameters (and immutable state reachable from them) that MUST evaluate to `true` at call time. The typing judgment `[Must-WF]` ensures the predicate is pure (`effects(P) = ∅`) and has type `bool`. CITE: Appendix A.7 — MustClause; Appendix A.8 — Assertion Grammar.
+A sequent clause is a judgment expressing the behavioral contract of a procedure. It has the form `sequent { [ε] |- P => Q }` where:
+- `[ε]` is the grant context (capability assumptions)
+- `P` is the antecedent (preconditions over parameters and accessible immutable state)
+- `Q` is the consequent (postconditions over `result` and `@old` expressions)
 
-### 7.4.1 Syntax
+The typing judgment `[Sequent-WF]` ensures all components are pure and well-typed. CITE: Appendix A.7 — SequentClause; Appendix A.8 — Assertion Grammar.
+
+### 7.3.1 Syntax
 
 ```cursive
 procedure divide(n: f64, d: f64): f64
-    must d != 0.0
+    sequent { [] |- d != 0.0 => result == n / d }
 {
     n / d
 }
 ```
 
-Preconditions consist of either a single assertion or a brace-delimited list of assertions separated by commas (the `PredicateBlock` production in Appendix A.7). Each assertion MUST be a pure boolean expression referencing parameters (and possibly constant/pure helper functions).
+Sequent clauses consist of:
+1. **Grant context** `[ε]`: List of grant tokens enclosed in brackets (may be empty `[]`)
+2. **Turnstile** `|-`: ASCII representation of `⊢` (entailment/judgment)
+3. **Antecedent** `P`: Preconditions as pure boolean expressions using `&&`, `||`, `!` for conjunction, disjunction, and negation
+4. **Implication** `=>`: ASCII representation of `⇒` (logical implication)
+5. **Consequent** `Q`: Postconditions as pure boolean expressions, may reference `result` and `@old(expr)`
 
-Formal syntax is given in Appendix A.7 (`MustClause ::= "must" PredicateBlock`). A predicate block is either a single assertion or a brace-delimited list using the assertion grammar from Appendix A.8.
+Formal syntax is given in Appendix A.7 (`SequentClause ::= "sequent" "{" SequentSpec "}"`). Components may be omitted: empty grants become `[]`, missing antecedent becomes `true`, missing consequent omits the `=> Q` portion.
 
-### 7.4.2 Static Semantics
+### 7.3.2 Static Semantics
 
 ```
-[Must-WF]
-Γ, params ⊢ P : bool
-effects(P) = ∅
-────────────────────────────────
-must P well-formed
+[Sequent-WF]
+Γ ⊢ ε : GrantSet
+Γ, params ⊢ P : bool    effects(P) = ∅
+Γ, params, result: τ ⊢ Q : bool    effects(Q) = ∅
+────────────────────────────────────────────────
+sequent { [ε] |- P => Q } well-formed
 
-[Call-Must]
-Γ ⊢ f : (params) → τ must P
+[Call-Sequent]
+Γ ⊢ f : (params) → τ    sequent { [ε] |- P => Q }
 Γ ⊢ args : params
-Γ ⊢ P[params ↦ args] provable or checkable
+ε ⊆ grants(Γ)                        (caller has required grants)
+Γ ⊢ P[params ↦ args] provable or checkable    (antecedent holds)
 ──────────────────────────────────────────────
 Call to f(args) permitted
 ```
 
-Implementations of a contract procedure MAY only weaken preconditions (`P_contract ⇒ P_impl`). Strengthening emits diagnostic E7C07.
+Implementations of a contract procedure MAY only:
+- **Weaken antecedents**: `P_contract ⇒ P_impl` (accept more inputs)
+- **Strengthen consequents**: `Q_impl ⇒ Q_contract` (guarantee more outputs)
+- **Reduce grants**: `ε_impl ⊆ ε_contract` (use fewer capabilities)
+
+Violations emit diagnostics E7C07 (antecedent), E7C08 (consequent), or E7C09 (grants).
 
 "Provable" means the verification pipeline described in Part VI §6.13 discharges the assertion statically (`[[verify(static)]]` or stronger analyses); "checkable" means the runtime mode in effect is permitted to insert a dynamic guard (e.g., `[[verify(runtime)]]`). If neither condition holds, the call is rejected during type checking.
 
-#### 7.4.2.1 Provable vs checkable calls
+#### 7.3.2.1 Provable vs checkable calls
 
-Let `call f(args)` be a procedure invocation with precondition `P`.
+Let `call f(args)` be a procedure invocation with sequent `{ [ε] |- P => Q }`.
 
-* The call is **provable** when Part VI’s static verifier establishes `Γ ⊢ P[params ↦ args]` using compile-time reasoning (`[[verify(static)]]` or stronger modes).
+* The call is **provable** when Part VI's static verifier establishes `Γ ⊢ P[params ↦ args]` for the antecedent using compile-time reasoning (`[[verify(static)]]` or stronger modes).
 * The call is **checkable** when the compilation pipeline is configured to emit a runtime guard that enforces `P` (typically via `[[verify(runtime)]]`), and the surrounding effect set includes `panic` if the guard can fail.
 
 Calls that are neither provable nor checkable are ill-formed. CITE: Part VI §6.13 — Block Contracts and Verification Modes.
 
-### 7.4.3 Dynamic Semantics
+### 7.3.3 Dynamic Semantics
 
 ```
-[Must-Static]
+[Sequent-Static]
 Γ ⊢ P[params ↦ args] proved true by analysis or constant evaluation
 ──────────────────────────────────────────────────────────────
-No runtime check emitted
+No runtime check emitted for antecedent
 
-[Must-Runtime]
+[Sequent-Runtime-Ante]
 Γ ⊢ P[params ↦ args] not proven
 ──────────────────────────────────────────────────────────────
-Emit runtime assertion: if !P(args) panic("precondition violated: …")
+Emit runtime assertion: if !P(args) panic("sequent antecedent violated: …")
+
+[Sequent-Runtime-Cons]
+Γ ⊢ Q[result ↦ v, params ↦ args_entry] not proven
+──────────────────────────────────────────────────────────────
+Emit runtime assertion: if !Q(v, args_entry) panic("sequent consequent violated: …")
 ```
 
-Runtime diagnostics follow the format in Part I §8 (E7C02). Verification attributes (`[[verify(static)]]`, `[[verify(runtime)]]`, `[[verify(none)]]`) in Part VI §6.13 control whether the runtime assertion is generated.
+Runtime diagnostics follow the format in Part I §8 (E7S02). Verification attributes (`[[verify(static)]]`, `[[verify(runtime)]]`, `[[verify(none)]]`) in Part VI §6.13 control whether the runtime assertion is generated.
 CITE: Part VI §6.13 — Verification Modes; Part I §8 — Diagnostics Directory.
 
-The precondition guard executes before the body; if evaluating the guard panics (for example, due to a divide-by-zero inside the predicate), the call fails with E7C02 rather than propagating into the body.
+The antecedent guard executes before the body; the consequent guard executes at each return point. If evaluating either guard panics (for example, due to a divide-by-zero inside the predicate), the call fails with E7S02 rather than propagating into or out of the body.
 
 ---
 
-### 7.4.4 Predicate expression restrictions
+### 7.3.4 Predicate expression restrictions
 
-Contract predicates reuse the assertion grammar in Appendix A.8. Consequently:
+Sequent assertions (antecedents and consequents) reuse the assertion grammar in Appendix A.8. Consequently:
 
-* Predicates MUST be pure; any expression with non-empty effects is rejected.
-* Calls inside predicates are limited to declarations whose effect set is `∅`.
-* Quantifiers (`forall`, `exists`), boolean connectives, comparisons, and `@old` are permitted; arbitrary loops or effectful constructs are not.
-* Accessing heap data is allowed only through immutable views. Mutating a captured value violates the purity requirement and fails the `[Must-WF]` rule.
+* Assertions MUST be pure; any expression with non-empty effects is rejected.
+* Calls inside assertions are limited to declarations whose effect set is `∅`.
+* Quantifiers (`forall`, `exists`), boolean connectives (`&&`, `||`, `!`), comparisons, `@old`, and `result` are permitted; arbitrary loops or effectful constructs are not.
+* Accessing heap data is allowed only through immutable views. Mutating a captured value violates the purity requirement and fails the `[Sequent-WF]` rule.
 
 Implementations SHOULD surface precise diagnostics indicating which subexpression introduced disallowed effects.
 
 ---
 
-### 7.4.5 Quantifiers in predicates
+### 7.3.5 Quantifiers in sequent assertions
 
 Quantified predicates reuse the assertion grammar productions `forall` and `exists` from Appendix A.8. A quantifier has the form `forall (x in expr) { Predicate }` (likewise for `exists`) where `expr` evaluates to an iterable domain at verification time. The verifier interprets the body predicate with `x` bound to each element of the domain. Runtime checks are emitted only when the verifier cannot statically prove the quantified statement. CITE: Appendix A.8 — Assertion Grammar.
 
 ```cursive
 procedure sorted(slice: [i32])
-    will forall (i in 0 .. slice.len() - 2) {
-        slice[i] <= slice[i + 1]
+    sequent {
+        [] |- true
+        => forall (i in 0 .. slice.len() - 2) {
+            slice[i] <= slice[i + 1]
+        }
     }
 {
     // body that establishes ascending order
 }
 ```
 
-Quantifiers MUST be pure (their body predicates obey `[Must-WF]` / `[Will-WF]`), and any domain expression appearing inside a quantifier is evaluated exactly once per dynamic check to avoid recomputation side effects.
+Quantifiers MUST be pure (their body predicates obey `[Sequent-WF]`), and any domain expression appearing inside a quantifier is evaluated exactly once per dynamic check to avoid recomputation side effects.
 
 ---
 
-## 7.5 Postcondition Clauses (`will`)
+## 7.4 Sequent Consequents and Special Constructs
 
-Postconditions describe guarantees that hold whenever a procedure returns normally. They MAY reference the return value via `result` and pre-state expressions via `@old(expr)`.
+Sequent consequents (the `Q` in `[ε] ⊢ P ⇒ Q`) describe guarantees that hold whenever a procedure returns normally. They MAY reference the return value via `result` and pre-state expressions via `@old(expr)`.
 
-## Definition 7.4 (Postcondition Clauses)
+## Definition 7.4 (Sequent Consequents)
 
-A postcondition clause is a predicate over the procedure’s result (and optionally the pre-state captured through `@old`) that MUST hold on every normal return path. The `[Will-WF]` rule types these predicates and enforces purity, while `[Will-Compat]` governs contract substitution. CITE: Appendix A.7 — WillClause; Appendix A.8 — Assertion Grammar.
+A sequent consequent is the postcondition portion of a sequent judgment, appearing after the `=>` operator. It is a predicate over the procedure's result (and optionally the pre-state captured through `@old`) that MUST hold on every normal return path. The `[Sequent-WF]` rule types consequents and enforces purity. CITE: Appendix A.7 — SequentClause; Appendix A.8 — Assertion Grammar.
 
-### 7.5.1 Syntax
+### 7.4.1 The `result` Keyword
 
 ```cursive
 procedure increment(x: i32): i32
-    will result == x + 1
+    sequent { [] |- true => result == x + 1 }
 {
     x + 1
 }
 ```
 
-For mutating procedures:
+`result` denotes the return value of the procedure. It is only valid in the consequent (after `=>`) of a sequent. Using `result` in the antecedent or in a procedure with no return type is ill-formed.
+
+### 7.4.2 The `@old` Construct
+
+For mutating procedures that need to express postconditions in terms of pre-state:
 
 ```cursive
 procedure push<T>(buffer: mut Vec<T>, item: T)
-    will buffer.len() == @old(buffer.len()) + 1
+    sequent { [] |- true => buffer.len() == @old(buffer.len()) + 1 }
 {
     buffer.push(item)
 }
 ```
 
-```ebnf
-WillClause  ::= "will" Predicate ("," Predicate)*
-Predicate   ::= Expression  // May mention result and @old(expr)
-```
+`@old(expr)` captures the value of `expr` at procedure entry; `expr` MAY reference parameters (and fields reachable from `self`) and MUST be pure. The captured value is available in the consequent for comparison with post-state values.
 
-`result` denotes the return value of the procedure. `@old(expr)` captures the value of `expr` at procedure entry; `expr` MAY reference parameters (and fields reachable from `self`) and MUST be pure.
-
-### 7.5.2 Static Semantics
+### 7.4.3 Static Semantics of Special Constructs
 
 ```
-[Will-WF]
-Γ, params, result: τ ⊢ Q : bool
-@old expressions reference only parameters (and their accessible fields)
+[Result-Valid]
+Γ ⊢ procedure p(...): τ    sequent { [ε] |- P => Q }
+result appears only in Q
+result : τ
 ────────────────────────────────────────────
-will Q well-formed
+result usage valid
 
-[Will-Compat]
-Contract postcondition Q_c, implementation postcondition Q_m
-Q_m ⇒ Q_c
+[Old-Valid]
+Γ, params ⊢ expr : σ
+effects(expr) = ∅
+@old(expr) appears only in consequent Q
 ────────────────────────────────────────────
-Implementation satisfies contract postcondition
+@old(expr) usage valid
 ```
 
-### 7.5.3 Dynamic Semantics
+The `[Sequent-WF]` rule (§7.3.2) governs overall sequent well-formedness including consequents. These rules add specific constraints for `result` and `@old`.
+
+### 7.4.4 Dynamic Semantics of Special Constructs
 
 ```
-[Will-Capture]
-@old(expr) appears in Q
+[Old-Capture]
+@old(expr) appears in consequent Q
 ────────────────────────────────────────────
-Evaluate expr at entry; retain snapshot for later comparison
+Evaluate expr at procedure entry; retain snapshot for consequent evaluation
 
-[Will-Static]
-Analysis proves Q holds on every return path
+[Result-Binding]
+procedure returns value v : τ
 ────────────────────────────────────────────
-No runtime check emitted
-
-[Will-Runtime]
-Cannot prove Q statically
-────────────────────────────────────────────
-Evaluate Q at each return; if false panic("postcondition violated: …")
+Bind result to v for consequent evaluation
 ```
 
-Violations raise diagnostic E7C03. Verification attributes in Part VI §6.13 determine whether runtime checks are emitted.
+The `[Sequent-Runtime-Cons]` rule (§7.3.3) governs consequent checking. Violations raise diagnostic E7S03. Verification attributes in Part VI §6.13 determine whether runtime checks are emitted.
 
-Implementations MAY apply the same optimization strategy as preconditions: if static analysis or `[[verify(static)]]` proves the postconditions, the runtime checks are elided; `[[verify(runtime)]]` retains the checks for debugging or safety-critical builds.
+Implementations MAY apply the same optimization strategy as antecedents: if static analysis or `[[verify(static)]]` proves the consequent, runtime checks are elided; `[[verify(runtime)]]` retains the checks for debugging or safety-critical builds.
 CITE: Part VI §6.13 — Verification Modes; Part I §8 — Diagnostics Directory.
 
-Every return site (explicit `return`, fall-through, or early exit) executes the postcondition check; compilers MUST NOT defer the evaluation to a single epilogue if doing so would miss intermediate exits.
+Every return site (explicit `return`, fall-through, or early exit) executes the consequent check; compilers MUST NOT defer the evaluation to a single epilogue if doing so would miss intermediate exits.
 CITE: Part VI §6.13 — Verification Modes; Part I §8 — Diagnostics Directory.
 
 ---
 
-### 7.5.4 `@old` capture semantics and exceptional exits
+### 7.4.5 `@old` capture semantics and exceptional exits
 
-* Each `@old(expr)` is evaluated once on entry, before any mutation occurs. The expression MUST satisfy the same purity requirements as preconditions (`effects(expr) = ∅`).
+* Each `@old(expr)` is evaluated once on entry, before any mutation occurs. The expression MUST satisfy the same purity requirements as antecedents (`effects(expr) = ∅`).
 * Captured values are logically immutable snapshots; moving or mutating the underlying storage after capture does not affect the recorded value.
 * For `Copy` types the snapshot is a by-value copy taken at entry. For non-`Copy` types, the snapshot expression MUST either call a pure helper that produces an immutable copy (e.g., a `Clone` function whose effects are declared) or use an equivalent copy-on-write strategy that preserves the entry state. CITE: Part II §2.3 — Copy Types.
 * Nested `@old(@old(expr))` is ill-formed; only one level is permitted.
-* If a procedure panics or otherwise diverges, its `will` clauses are not enforced—the guarantees only apply to normal returns.
+* If a procedure panics or otherwise diverges, its sequent consequents are not enforced—the guarantees only apply to normal returns.
 
 Expressions whose values cannot be duplicated (e.g., unique resources or region-limited references) are ineligible for `@old` unless the program explicitly provides a safe, effect-free snapshot mechanism (such as a documented `clone` procedure). Attempting to capture such a value with `@old` emits diagnostic E7C16 (see §7.8). CITE: Part I §8 — Diagnostics Directory.
 
@@ -812,8 +832,10 @@ Expressions whose values cannot be duplicated (e.g., unique resources or region-
 
 ```cursive
 procedure pop(mut stack: Vec<i32>): i32
-    must stack.len() > 0
-    will stack.len() == @old(stack.len()) - 1
+    sequent {
+        [] |- stack.len() > 0
+        => stack.len() == @old(stack.len()) - 1
+    }
 {
     stack.pop().expect("stack underflow")
 }
@@ -821,7 +843,7 @@ procedure pop(mut stack: Vec<i32>): i32
 
 ---
 
-## 7.6 Type Constraint Clauses (`where`)
+## 7.5 Type Constraint Clauses (`where`)
 
 Type-level `where` clauses define invariants that MUST hold for every externally visible instance of a nominal type.
 
@@ -829,9 +851,9 @@ Type-level `where` clauses define invariants that MUST hold for every externally
 
 ## Definition 7.5 (Type Constraint Clauses)
 
-A type constraint clause `where { Invariant* }` specifies predicates that MUST hold for every observable state of the declared type. Each invariant is an assertion over the type’s fields evaluated in both static and dynamic contexts as described in §7.6.2–§7.6.4. CITE: Appendix A.6 — TypeConstraint; Appendix A.8 — Assertion Grammar.
+A type constraint clause `where { Invariant* }` specifies predicates that MUST hold for every observable state of the declared type. Each invariant is an assertion over the type's fields evaluated in both static and dynamic contexts as described in §7.5.2–§7.5.4. CITE: Appendix A.6 — TypeConstraint; Appendix A.8 — Assertion Grammar.
 
-### 7.6.1 Syntax
+### 7.5.1 Syntax
 
 ```cursive
 record Percentage {
@@ -848,7 +870,7 @@ TypeConstraint ::= "where" "{" Invariant ("," Invariant)* "}"
 Invariant      ::= Expression  // Must be pure bool over the type’s fields
 ```
 
-### 7.6.2 Static Semantics
+### 7.5.2 Static Semantics
 
 ```
 [Where-WF]
@@ -864,7 +886,7 @@ public operation mutates T
 Operation must ensure each invariant holds after mutation
 ```
 
-### 7.6.3 Dynamic Semantics
+### 7.5.3 Dynamic Semantics
 
 Where invariants cannot be discharged statically, the compiler inserts checks according to the following formal rules:
 
@@ -914,7 +936,7 @@ No runtime check emitted for I at s
 
 If static verification (e.g., via `[[verify(static)]]`) proves the invariants for a site, the corresponding runtime checks are suppressed. Violations raise diagnostics E7C04 (construction) or E7C05 (mutation). CITE: Part VI §6.13 — Verification Modes; Part I §8 — Diagnostics Directory.
 
-### 7.6.4 Performance considerations
+### 7.5.4 Performance considerations
 
 Repeated invariant checking can be expensive for large aggregates. Implementations SHOULD:
 
@@ -960,27 +982,27 @@ Let `T` be a type with `n` invariants, each of complexity `O(f(k))` where `k` is
 
 ---
 
-## 7.7 Clause Composition
+## 7.6 Sequent Composition
 
-### 7.7.1 Effect propagation
+### 7.6.1 Grant propagation
 
 ```
-[Compose-Effects]
-Γ ⊢ f : (params) → τ ! ε_f
-caller budget ε_call
+[Compose-Grants]
+Γ ⊢ f : (params) → τ    sequent { [ε_f] |- P => Q }
+caller grants ε_call
 ─────────────────────────────────────────────
 call permitted only if ε_f ⊆ ε_call
 ```
 
-Composite expressions and statement blocks accumulate effects using the union rules in Part V §4.19.4; procedure calls inherit the callee’s declared set. For effect-polymorphic callees (`∀ε`), the instantiated effect set determined by inference (see §7.3.8) is the one checked against the caller budget. Failure raises E7C01 or E4004. CITE: Part V §4.19.4 — Effect Union.
+Composite expressions and statement blocks accumulate grant requirements using the union rules in Part IX §9.2; procedure calls inherit the callee's declared grant set from the sequent context. For grant-polymorphic callees (`∀ε`), the instantiated grant set determined by inference (see §9.3) is the one checked against the caller budget. Failure raises E7C01 or E9004. CITE: Part IX §9.2 — Grant Union.
 
-E7C01 is emitted when a procedure’s body performs an operation requiring an undeclared effect; E4004 is emitted when a caller’s effect budget does not subsume the callee’s requirements. Diagnostics SHOULD clearly report the offending effect token. CITE: Part I §8 — Diagnostics Directory.
+E7C01 is emitted when a procedure's body performs an operation requiring an undeclared grant; E9004 is emitted when a caller's grant budget does not subsume the callee's requirements. Diagnostics SHOULD clearly report the offending grant token. CITE: Part I §8 — Diagnostics Directory.
 
-### 7.7.2 Preconditions across call chains
+### 7.6.2 Antecedents across call chains
 
 ```
-[Compose-Pre]
-Γ ⊢ f : (params) → τ must P
+[Compose-Antecedent]
+Γ ⊢ f : (params) → τ    sequent { [ε] |- P => Q }
 Γ ⊢ args : params
 Γ ⊢ P[params ↦ args] provable or checkable
 ─────────────────────────────────────────────
@@ -995,17 +1017,17 @@ CITE: Part I §8 — Diagnostics Directory.
 ```cursive
 contract Positive {
     procedure consume(n: i32)
-        must n > 0
+        sequent { [] |- n > 0 => true }
 }
 
 record Counter: Positive {
     value: i32
 
     procedure consume(self: mut Self, n: i32)
-        must n >= 0    // allowed: (n > 0) ⇒ (n >= 0)
+        sequent { [] |- n >= 0 => true }    // allowed: (n > 0) ⇒ (n >= 0)
     {
         if n == 0 {
-            // additional case permitted by the weaker precondition
+            // additional case permitted by the weaker antecedent
             return
         }
         self.value -= n
@@ -1013,17 +1035,17 @@ record Counter: Positive {
 }
 ```
 
-### 7.7.3 Postconditions and assumptions
+### 7.6.3 Consequents and assumptions
 
 ```
-[Compose-Post]
-Γ ⊢ f : … will Q
+[Compose-Consequent]
+Γ ⊢ f : (params) → τ    sequent { [ε] |- P => Q }
 call returns value v
 ─────────────────────────────────────────────
 Caller may assume Q[params ↦ args, result ↦ v]
 ```
 
-Implementations MUST strengthen inherited `will` clauses (`Q_impl ⇒ Q_contract`); weakening emits E7C08. Callers MAY rely on the conjunction of postconditions from all contracts satisfied by the callee.
+Implementations MUST strengthen inherited consequents (`Q_impl ⇒ Q_contract`); weakening emits E7C08. Callers MAY rely on the conjunction of consequents from all contracts satisfied by the callee.
 CITE: Part I §8 — Diagnostics Directory.
 
 **Example — Violated strengthening (diagnostic E7C08):**
@@ -1031,34 +1053,36 @@ CITE: Part I §8 — Diagnostics Directory.
 ```cursive
 contract Sized {
     procedure len(self: Self): usize
-        will result >= 0
+        sequent { [] |- true => result >= 0 }
 }
 
 record MaybeSized: Sized {
     procedure len(self: Self): usize
-        will result <= 0   // incompatible: does not imply result >= 0
+        sequent { [] |- true => result <= 0 }   // incompatible: does not imply result >= 0
     { 0 }
 }
 ```
 
-### 7.7.4 Substitution checklist
+### 7.6.4 Sequent substitution checklist
 
-When substituting an implementation for a contract member, the compiler MUST verify:
+When substituting an implementation for a contract member, the compiler MUST verify sequent compatibility:
 
-1. `uses`: implementation effect set ⊆ contract effect set (else E7C09).
-2. `must`: implementation precondition is weaker or equal (formally `P_contract ⇒ P_impl`, else E7C07).
-3. `will`: implementation postcondition is stronger or equal (else E7C08).
+Given contract sequent `{ [ε_c] |- P_c => Q_c }` and implementation sequent `{ [ε_i] |- P_i => Q_i }`:
 
-Only after these checks succeed does the call graph treat the implementation as a drop-in replacement for the contract signature. Diagnostics MUST identify which clause failed and, when applicable, the conflicting contracts in an inheritance graph.
+1. **Grants**: `ε_i ⊆ ε_c` (implementation uses fewer or equal capabilities, else E7C09)
+2. **Antecedent**: `P_c ⇒ P_i` (implementation weakens or maintains precondition, else E7C07)
+3. **Consequent**: `Q_i ⇒ Q_c` (implementation strengthens or maintains postcondition, else E7C08)
+
+Only after these checks succeed does the call graph treat the implementation as a drop-in replacement for the contract signature. Diagnostics MUST identify which sequent component failed and, when applicable, the conflicting contracts in an inheritance graph.
 CITE: Part I §8 — Diagnostics Directory.
 
 ---
 
-## 7.8 Diagnostics
+## 7.7 Diagnostics
 
-This section catalogs all errors, warnings, and lints related to contracts, effects, preconditions, postconditions, and type invariants.
+This section catalogs all errors, warnings, and lints related to contracts, grants, sequents (antecedents and consequents), and type invariants.
 
-### 7.8.1 Contract Declaration Errors (E7C-01xx)
+### 7.7.1 Contract Declaration Errors (E7C-01xx)
 
 | Code | Description | Example |
 |------|-------------|---------|
@@ -1070,7 +1094,7 @@ This section catalogs all errors, warnings, and lints related to contracts, effe
 | E7C-0106 | Duplicate procedure signature in contract | Same procedure declared twice |
 | E7C-0107 | Duplicate contract clause in signature | `uses fs.read, fs.read` |
 
-### 7.8.2 Contract Implementation Errors (E7C-02xx)
+### 7.7.2 Contract Implementation Errors (E7C-02xx)
 
 | Code | Description | Example |
 |------|-------------|---------|
@@ -1083,7 +1107,7 @@ This section catalogs all errors, warnings, and lints related to contracts, effe
 | E7C-0207 | Duplicate contract implementation for type | Type implements same contract twice |
 | E7C-0208 | Associated type not specified in implementation | Missing `type Item = T` |
 
-### 7.8.3 Effect System Errors (E7E-01xx)
+### 7.7.3 Grant System Errors (E7G-01xx)
 
 | Code | Description | Example |
 |------|-------------|---------|
@@ -1103,28 +1127,28 @@ This section catalogs all errors, warnings, and lints related to contracts, effe
 | E7E-0114 | Effect requires implementation but none provided | No default and no `with` block |
 | E7E-0115 | Multiple `continue()` in non-copyable context | Continuation consumed twice |
 
-### 7.8.4 Precondition Errors (E7M-01xx)
+### 7.7.4 Sequent Antecedent Errors (E7S-01xx)
 
 | Code | Description | Example |
 |------|-------------|---------|
-| E7M-0101 | Precondition violated at runtime | `must` clause evaluated to false |
-| E7M-0102 | Precondition contains non-pure expression | `must` uses effectful operation |
-| E7M-0103 | Precondition type is not `bool` | `must` clause doesn't evaluate to boolean |
-| E7M-0104 | Precondition references undefined parameter | `must x > 0` where x not a parameter |
-| E7M-0105 | Precondition captures mutable state | `must` references non-immutable data |
+| E7S-0101 | Sequent antecedent violated at runtime | Antecedent (before `=>`) evaluated to false |
+| E7S-0102 | Sequent antecedent contains non-pure expression | Antecedent uses effectful operation |
+| E7S-0103 | Sequent antecedent type is not `bool` | Antecedent doesn't evaluate to boolean |
+| E7S-0104 | Sequent antecedent references undefined parameter | Antecedent refers to non-existent parameter |
+| E7S-0105 | Sequent antecedent captures mutable state | Antecedent references non-immutable data |
 
-### 7.8.5 Postcondition Errors (E7W-01xx)
+### 7.7.5 Sequent Consequent Errors (E7S-02xx)
 
 | Code | Description | Example |
 |------|-------------|---------|
-| E7W-0101 | Postcondition violated at runtime | `will` clause evaluated to false |
-| E7W-0102 | Postcondition contains non-pure expression | `will` uses effectful operation |
-| E7W-0103 | Postcondition type is not `bool` | `will` doesn't evaluate to boolean |
-| E7W-0104 | Postcondition references unavailable binding | `will x > 0` where x not in scope |
-| E7W-0105 | Illegal `@old` capture (nested or non-snapshot) | `@old(@old(x))` or `@old` of non-Copy type |
-| E7W-0106 | `result` used outside postcondition | `result` keyword in precondition |
+| E7S-0201 | Sequent consequent violated at runtime | Consequent (after `=>`) evaluated to false |
+| E7S-0202 | Sequent consequent contains non-pure expression | Consequent uses effectful operation |
+| E7S-0203 | Sequent consequent type is not `bool` | Consequent doesn't evaluate to boolean |
+| E7S-0204 | Sequent consequent references unavailable binding | Consequent refers to invalid scope |
+| E7S-0205 | Illegal `@old` capture (nested or non-snapshot) | `@old(@old(x))` or `@old` of non-Copy type |
+| E7S-0206 | `result` used outside consequent | `result` keyword in antecedent or grant context |
 
-### 7.8.6 Type Invariant Errors (E7I-01xx)
+### 7.7.6 Type Invariant Errors (E7I-01xx)
 
 | Code | Description | Example |
 |------|-------------|---------|
@@ -1134,7 +1158,7 @@ This section catalogs all errors, warnings, and lints related to contracts, effe
 | E7I-0104 | Type invariant type is not `bool` | `where` doesn't evaluate to boolean |
 | E7I-0105 | Type invariant references non-field data | `where` accesses external state |
 
-### 7.8.7 Clause Composition Errors (E7X-01xx)
+### 7.7.7 Sequent Composition Errors (E7X-01xx)
 
 | Code | Description | Example |
 |------|-------------|---------|
@@ -1143,7 +1167,7 @@ This section catalogs all errors, warnings, and lints related to contracts, effe
 | E7X-0103 | Effect inference ambiguity (no principal effect) | Multiple valid effect sets, none most general |
 | E7X-0104 | Circular dependency in contract clauses | `must` depends on `will` from same signature |
 
-### 7.8.8 Warnings
+### 7.7.8 Warnings
 
 | Code | Description | Example |
 |------|-------------|---------|
@@ -1153,41 +1177,41 @@ This section catalogs all errors, warnings, and lints related to contracts, effe
 | W7C-0004 | Effect declared but never used | `uses fs.read` but no file operations |
 | W7C-0005 | Postcondition redundant with type system | `will result >= 0` for `usize` return |
 
-### 7.8.9 Selected Diagnostic Examples
+### 7.7.9 Selected Diagnostic Examples
 
-**E7C-0203: Implementation Strengthens Contract Precondition**
+**E7C-0203: Implementation Strengthens Contract Antecedent**
 
 ```cursive
 contract Processor {
     procedure process(self: mut Self, value: i32)
-        must value >= 0
+        sequent { [] |- value >= 0 => true }
 }
 
 record StrictProcessor: Processor {
     procedure process(self: mut Self, value: i32)
-        must value > 0  // ERROR: stricter than contract
+        sequent { [] |- value > 0 => true }  // ERROR: stricter than contract
     {
         // Implementation
     }
 }
-// ERROR E7C-0203: implementation strengthens contract precondition
+// ERROR E7C-0203: implementation strengthens contract antecedent
 ```
 
-**E7E-0108: Undeclared Effect Used in Body**
+**E7G-0108: Undeclared Grant Used in Body**
 
 ```cursive
 procedure save_data(path: string, data: string) {
     FileSystem::write(path, data)
 }
-// ERROR E7E-0108: undeclared effect used in body
-// help: add `uses FileSystem.write` to procedure signature
+// ERROR E7G-0108: undeclared grant used in body
+// help: add grant to sequent: `sequent { [fs.write] |- true => true }`
 ```
 
-**E7M-0101: Precondition Violated at Runtime**
+**E7S-0101: Sequent Antecedent Violated at Runtime**
 
 ```cursive
 procedure divide(numerator: i32, denominator: i32): i32
-    must denominator != 0
+    sequent { [] |- denominator != 0 => result == numerator / denominator }
 {
     result numerator / denominator
 }
@@ -1195,7 +1219,7 @@ procedure divide(numerator: i32, denominator: i32): i32
 procedure example() {
     let result = divide(10, 0)
 }
-// ERROR E7M-0101: precondition violated at runtime
+// ERROR E7S-0101: sequent antecedent violated at runtime
 ```
 
 Diagnostics MUST be reported using the standard format defined in Part I §8.

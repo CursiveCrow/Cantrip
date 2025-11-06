@@ -510,8 +510,8 @@ The lowering phase inserts deterministic cleanup code for RAII types:
 procedure process_file()
     uses fs.read, fs.close
 {
-    let file = File::open("data.txt")?  // Acquire resource
-    let content = file::read_all()?
+    let file = File::open("data.txt")  // Acquire resource
+    let content = file::read_all()
     process(content)
     // Lowering inserts: file::close() here (before scope exit)
 }

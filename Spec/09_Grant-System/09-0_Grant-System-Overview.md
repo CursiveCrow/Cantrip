@@ -51,7 +51,7 @@ function sum(data: [i32]): i32 {
 
 // File I/O - requires grant
 procedure load_config(path: string): [u8]
-    grants fs::read
+    sequent { [fs::read] |- true => true }
 {
     result read_file_bytes(path)
 }
@@ -66,7 +66,7 @@ procedure load_config(path: string): [u8]
 **Example (informative)**:
 ```cursive
 procedure process_file(path: string)
-    grants fs::read, fs::write, alloc::heap
+    sequent { [fs::read, fs::write, alloc::heap] |- true => true }
 {
     let data = load_config(path)        // Requires fs::read
     let buffer = allocate_buffer(1024)  // Requires alloc::heap
@@ -155,7 +155,7 @@ Grants are compile-time tokens that authorize operations. They are not:
 **Example (informative)**:
 ```cursive
 procedure caller()
-    grants fs::read, fs::write, alloc::heap
+    sequent { [fs::read, fs::write, alloc::heap] |- true => true }
 {
     // Valid: {fs::read} <: {fs::read, fs::write, alloc::heap}
     read_file("data.txt")
@@ -172,12 +172,12 @@ procedure caller()
 
 **Purpose**: Enable procedures that are generic over grant sets.
 
-**Syntax**: Grant parameters are declared as identifiers in generic parameter lists and referenced using `grants<G>` syntax.
+**Syntax**: Grant parameters are declared using `grants` keyword in generic parameter lists and referenced using `grants(G)` syntax in grant contexts.
 
 **Example (informative)**:
 ```cursive
-procedure process<T, G>(data: T): T
-    grants<G>, alloc::heap
+procedure process<T, grants G>(data: T): T
+    sequent { [grants(G), alloc::heap] |- true => true }
     where G <: {fs::read, net::read}
 {
     // Can use any grants in G, plus alloc::heap
@@ -195,7 +195,7 @@ procedure process<T, G>(data: T): T
 
 **Grant**: Compile-time capability token authorizing a class of operations
 
-**Grant Clause**: Procedure signature clause declaring required grants using `grants` keyword
+**Grant Context**: Grant set specified within sequent clause, enclosed in square brackets `[...]`
 
 **Grant Set**: Collection of grants specified as comma-separated grant paths
 
@@ -210,8 +210,9 @@ procedure process<T, G>(data: T): T
 The following terms are deprecated but retained for backward compatibility:
 
 - **Effect** (deprecated) → **Grant** (canonical)
-- **Uses clause** (deprecated) → **Grants clause** (canonical)
-- `uses` keyword (deprecated) → `grants` keyword (canonical)
+- **Uses clause** (deprecated) → **Grant context in sequent** (canonical)
+- **Standalone grants clause** (deprecated) → **Grant context in sequent** (canonical)
+- `uses` keyword (deprecated) → `sequent { [...] }` syntax (canonical)
 
 **Migration Path**: Implementations may accept deprecated terminology but shall issue warnings. Future language versions may remove deprecated forms.
 
@@ -234,7 +235,7 @@ function add(a: i32, b: i32): i32 {
 
 // Procedure: Requires grants
 procedure save_result(value: i32)
-    grants fs::write
+    sequent { [fs::write] |- true => true }
 {
     write_to_file("result.txt", value)
 }
@@ -256,7 +257,7 @@ Grants (capability tracking) are orthogonal to permissions (aliasing control).
 **Example (informative)**:
 ```cursive
 procedure write_buffer(buffer: unique [u8], path: readonly string)
-    grants fs::write
+    sequent { [fs::write] |- true => true }
 {
     write_file_bytes(path, buffer)
 }
@@ -271,9 +272,11 @@ Grants integrate with contract clauses (preconditions, postconditions).
 **Example (informative)**:
 ```cursive
 procedure allocate_aligned(size: usize, align: usize): [u8]
-    grants alloc::heap
-    must { align.is_power_of_two() && size > 0 }
-    will { result.length == size }
+    sequent {
+        [alloc::heap]
+        |- align.is_power_of_two() && size > 0
+        => result.length == size
+    }
 {
     result heap_allocate_aligned<u8>(size, align)
 }
@@ -288,7 +291,7 @@ Region allocation requires the `alloc::region` grant.
 **Example (informative)**:
 ```cursive
 procedure process_in_region<r>(data: [i32]): i32
-    grants alloc::region
+    sequent { [alloc::region] |- true => true }
 {
     region temp {
         let buffer = alloc_in<temp>([0; 1024])

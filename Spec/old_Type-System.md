@@ -920,28 +920,38 @@ Effect polymorphism interacts with map type variance:
 
 #### 2.0.8.3 Contracts
 
-**Definition 2.16 (Contract Clauses):** Contracts attach preconditions (`must`), postconditions (`will`), and effect declarations (`uses`) to function signatures.
+**Definition 2.16 (Sequent Clauses):** Sequent clauses attach behavioral specifications to function signatures, expressing the relationship between grant assumptions, preconditions, and postconditions in the form `[ε] ⊢ P ⇒ Q`.
 
-**Contract components:**
+**Contract specification:**
 
 ```
-ContractClause ::= UsesClause | MustClause | WillClause
-
-UsesClause ::= "uses" EffectSet
-MustClause ::= "must" Assertion | "must" "{" AssertionList "}"
-WillClause ::= "will" Assertion | "will" "{" AssertionList "}"
+ContractClause ::= SequentClause
+SequentClause  ::= "sequent" "{" SequentSpec "}"
+SequentSpec    ::= "[" GrantSet "]" "|-" Antecedent "=>" Consequent
+                | "[" GrantSet "]" "|-" Antecedent
+                | "|-" Antecedent "=>" Consequent
+                | Antecedent "=>" Consequent
 ```
 
-**Special constructs in assertions:**
+**Sequent components:**
 
-- **`result`:** Refers to the return value in postconditions
-- **`@old(expr)`:** Captures the value of expr at procedure entry for use in postconditions
+- **`[GrantSet]`:** Grant context (capability assumptions required)
+- **`|-`:** Turnstile (entailment), ASCII form of `⊢`
+- **`Antecedent`:** Preconditions (what must hold at call entry)
+- **`=>`:** Implication, ASCII form of `⇒`
+- **`Consequent`:** Postconditions (what will hold at return)
 
-**Contract checking:** Contract clauses are verified at function boundaries:
+**Special constructs in sequent assertions:**
 
-- Preconditions (`must`) are checked at call entry (caller's responsibility)
-- Postconditions (`will`) are checked at return (callee's responsibility)
-- Effect declarations (`uses`) are checked statically (compiler's responsibility)
+- **`result`:** Refers to the return value in consequents (postconditions)
+- **`@old(expr)`:** Captures the value of expr at procedure entry for use in consequents
+
+**Contract checking:** Sequent clauses are verified at function boundaries:
+
+- Grant context `[ε]` is checked statically (compiler's responsibility)
+- Antecedent (preconditions) is checked at call entry (caller's responsibility)
+- Consequent (postconditions) is checked at return (callee's responsibility)
+- The full sequent `[ε] ⊢ P ⇒ Q` expresses: "Under grants ε, precondition P implies postcondition Q"
 
 **Contract violations** MUST raise a contract failure before any undefined behavior occurs. The failure mechanism (panic, exception, trap) is implementation-defined but MUST be documented.
 
@@ -949,15 +959,11 @@ WillClause ::= "will" Assertion | "will" "{" AssertionList "}"
 
 ```cursive
 procedure transfer(from: mut Account, to: mut Account, amount: i64)
-    uses alloc.heap
-    must {
-        amount > 0,
-        from.balance >= amount,
-        from.id != to.id
-    }
-    will {
-        from.balance == @old(from.balance) - amount,
-        to.balance == @old(to.balance) + amount
+    sequent {
+        [alloc.heap]
+        |- amount > 0 && from.balance >= amount && from.id != to.id
+        => from.balance == @old(from.balance) - amount
+           && to.balance == @old(to.balance) + amount
     }
 {
     from.balance -= amount
@@ -965,9 +971,9 @@ procedure transfer(from: mut Account, to: mut Account, amount: i64)
 }
 ```
 
-**Integration with Part VI:** Part VI (Contracts and Effects) provides the complete semantics of contract checking, verification strategies (static vs runtime), and assertion language. This section summarizes the type-level interface.
+**Integration with Part VII:** Part VII (Contracts and Effects) provides the complete semantics of sequent checking, verification strategies (static vs runtime), and assertion language. This section summarizes the type-level interface.
 
-CITE: Part VI — Contracts and Effects.
+CITE: Part VII — Contracts and Effects.
 
 #### 2.0.8.4 Regions
 

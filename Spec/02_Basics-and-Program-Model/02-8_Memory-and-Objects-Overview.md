@@ -78,16 +78,16 @@ let x: i32 = 42
 region frame {
     let data = ^[1, 2, 3]
 
-    // Multiple alias bindings to the same element
-    alias a1 = data[0]      // Alias to first element
-    alias a2 = data[0]      // Another alias to same element
+    // Multiple reference bindings to the same element
+    let a1 <- data[0]      // Reference binding to first element
+    let a2 <- data[0]      // Another reference binding to same element
     // a1 and a2 alias (refer to the same memory location)
 
     println("a1: {}, a2: {}", a1, a2)
 }
 ```
 
-**Note**: Cursive does NOT use Rust-style borrowing (`&T`, `&mut T`). Aliasing is demonstrated through `alias` bindings or through the permission system (see Part VI).
+**Note**: Cursive does NOT use Rust-style borrowing (`&T`, `&mut T`). Aliasing is demonstrated through reference bindings (using the `<-` operator) or through the permission system (see Part VI).
 
 **Forward reference**: See §[REF_TBD] (Part VI: Aliasing and Uniqueness) for formal aliasing rules, including aliasing restrictions and the uniqueness guarantees provided by the permission system.
 
@@ -240,12 +240,12 @@ region r {
 ```cursive
 // Build data in temporary region, then escape to heap
 procedure build_collection(): Collection<Item>
-    grants alloc.region, alloc.heap
+    sequent { [alloc::region, alloc::heap] |- true => true }
 {
     region temp {
         let items = ^Collection::new()
         // Build collection in temporary region...
-        for i in 0..100 {
+        loop i in 0..100 {
             items::push(^Item::new(i))
         }
         // Explicit escape to heap before returning
@@ -305,11 +305,15 @@ record Resource {
     name: string
 }
 
-procedure Resource.drop(self) {
+procedure Resource.drop(self)
+    sequent { [fs::write] |- true => true }
+{
     println("Destroying resource: {}", self.name)
 }
 
-procedure Resource.new(name: string): Resource {
+procedure Resource.new(name: string): Resource
+    sequent { [fs::write] |- true => true }
+{
     println("Creating resource: {}", name)
     CALL_COUNT += 1  // Increment mutable module-level variable
     result Resource { name }
@@ -399,7 +403,7 @@ Part VI (Memory and Resource Management) provides comprehensive formal specifica
 | Topic | Part VI Section |
 |-------|-----------------|
 | **Objects and Memory Locations** (formal definitions) | §[REF_TBD] |
-| **Binding Categories** (let, var, alias) | §[REF_TBD] |
+| **Binding Categories** (let, var) | §[REF_TBD] |
 | **Permission System** (const, unique, shared) | §[REF_TBD] |
 | **Ownership Transfer and Move Semantics** (transfer rules, Copy types) | §[REF_TBD] |
 | **Regions and Lifetimes** (escape analysis, region parameters) | §[REF_TBD] |

@@ -90,7 +90,7 @@ Every significant choice must be spelled out in code:
 - Pipeline stages require explicit type annotations
 - Match bindings require explicit types
 - Loop iterators require explicit types
-- Effects require explicit `uses` declarations
+- Grants (capabilities) require explicit sequent declarations
 
 **Why:** Eliminates ambiguity for both humans and LLMs. No "magic" behavior to discover.
 
@@ -131,14 +131,15 @@ Resource lifetime management through lexical scopes:
 
 **Why:** Lifetime is visible in code structure, not hidden in type annotations.
 
-**Principle 6: Contracts & Effects**
+**Principle 6: Contracts & Grants**
 
-Every procedure declares its behavioral contract:
-- `uses ε` — Required capabilities (I/O, allocation, etc.)
-- `must P` — Preconditions (caller obligations)
-- `will Q` — Postconditions (callee guarantees)
+Every procedure declares its behavioral contract using sequent calculus:
+- `sequent { [ε] |- P => Q }` — Unified contract specification
+  - `[ε]` — Grant context (required capabilities)
+  - `P` — Precondition (caller obligations)
+  - `Q` — Postcondition (callee guarantees)
 
-**Why:** Makes capability requirements and behavioral contracts explicit and checkable.
+**Why:** Makes capability requirements and behavioral contracts explicit, checkable, and grounded in formal logic.
 
 ### 0.0.3 What Makes Cursive Different
 
@@ -172,9 +173,10 @@ Every procedure declares its behavioral contract:
 
 ```
 Function signature = What capabilities do I need?
-    uses clause    = What effects can I perform?
-    must clause    = What must be true when called?
-    will clause    = What will be true when done?
+    sequent clause = Unified contract specification
+    [grant context] = What capabilities can I use?
+    |- precondition  = What must be true when called?
+    => postcondition = What will be true when done?
 
 Function body      = How do I use my capabilities?
     
@@ -366,49 +368,52 @@ procedure read(data: Data) {  // Implicitly imm Data
 
 ### 0.1.4 Effect System (Capability Tracking)
 
-**Effect Declaration:**
+**Grant Declaration:**
 
 ```cursive
-// Procedure declares what effects it needs
+// Procedure declares what capabilities it needs
 procedure read_config(path: string): string
-    uses io.read, alloc.heap  // Required capabilities
+    sequent { [fs::read, alloc::heap] |- true => true }  // Required capabilities
 {
-    let content = file::read(path)  // Requires io.read
-    result content.to_owned()        // Requires alloc.heap
+    let content = file::read(path)  // Requires fs::read
+    result content.to_owned()        // Requires alloc::heap
 }
 ```
 
-**Effect Composition:**
+**Grant Composition:**
 
 ```cursive
-// Effects compose through calls
-procedure process() uses io.read, io.write, alloc.heap {
-    let data = read_config("config.json")  // Needs io.read, alloc.heap
-    file::write("output.txt", data)         // Needs io.write
+// Grants compose through calls
+procedure process()
+    sequent { [fs::read, fs::write, alloc::heap] |- true => true }
+{
+    let data = read_config("config.json")  // Needs fs::read, alloc::heap
+    file::write("output.txt", data)         // Needs fs::write
 }
-// process must declare ALL effects used by itself and callees
+// process must declare ALL grants used by itself and callees
 ```
 
-**Effect Checking Rule:**
+**Grant Checking Rule:**
 
 ```
-Caller effects ⊇ Callee effects + Argument effects
+Caller grants ⊇ Callee grants + Argument grants
 
-If caller has {io.read, io.write}:
-    ✅ Can call procedure needing {io.read}
-    ✅ Can call procedure needing {io.write}
-    ✅ Can call procedure needing {io.read, io.write}
-    ❌ Cannot call procedure needing {alloc.heap}
+If caller has {fs::read, fs::write}:
+    ✅ Can call procedure needing {fs::read}
+    ✅ Can call procedure needing {fs::write}
+    ✅ Can call procedure needing {fs::read, fs::write}
+    ❌ Cannot call procedure needing {alloc::heap}
 ```
 
-**Common Effects:**
+**Common Grants:**
 
 ```cursive
-io.read         // Read from files, sockets, stdin
-io.write        // Write to files, sockets, stdout
-alloc.heap      // Heap allocation
-ffi.call        // Foreign function interface
-unsafe.ptr      // Raw pointer operations
+fs::read        // Read from files
+fs::write       // Write to files
+net::connect    // Network connections
+alloc::heap     // Heap allocation
+ffi::call       // Foreign function interface
+unsafe::ptr     // Raw pointer operations
 panic           // May panic at runtime
 ```
 
@@ -436,7 +441,9 @@ procedure bad() -> Data {
 }
 
 // ✅ CORRECT: Allocate on heap or outside region
-procedure good() -> Data uses alloc.heap {
+procedure good() -> Data
+    sequent { [alloc::heap] |- true => true }
+{
     let data = Data::new()  // Heap allocation
     result data             // OK: not region-allocated
 }
@@ -578,57 +585,59 @@ procedure sum(numbers: [i32]) -> i32 {  // Implicitly imm [i32]
 }
 ```
 
-### 0.2.2 The Effect Mental Model
+### 0.2.2 The Grant Mental Model
 
-**Think of effects as capability tokens:**
+**Think of grants as capability tokens:**
 
 ```
-Function signature without 'uses' clause = Pure function
+Function signature without grant context = Pure function
     • No I/O
     • No allocation
     • No foreign function calls
     • No unsafe operations
     • Only computation on inputs
 
-Function with 'uses io.read' = Has I/O capability token
-    • Can call procedures requiring io.read
-    • Can call file::read, socket::read, etc.
+Procedure with [fs::read] grant = Has file read capability
+    • Can call procedures requiring fs::read
+    • Can call file::read, etc.
     • Still cannot allocate or write
 
-Function with 'uses io.read, alloc.heap' = Has both tokens
-    • Can do everything io.read allows
+Procedure with [fs::read, alloc::heap] grants = Has both tokens
+    • Can do everything fs::read allows
     • Can also allocate on heap
     • Still cannot write or use unsafe
 ```
 
-**Effect Flow:**
+**Grant Flow:**
 
 ```cursive
-// Pure function - no effects
+// Pure function - no grants
 function add(a: i32, b: i32) -> i32 {
     result a + b
 }
 
-// Function with one effect
+// Procedure with one grant
 procedure read_file(path: string) -> string
-    uses io.read
+    sequent { [fs::read] |- true => true }
 {
-    // Can call anything requiring io.read
+    // Can call anything requiring fs::read
     result file::read(path)
 }
 
-// Function with multiple effects
+// Procedure with multiple grants
 procedure process_file(path: string) -> string
-    uses io.read, alloc.heap
+    sequent { [fs::read, alloc::heap] |- true => true }
 {
-    let content = read_file(path)  // Needs io.read
-    result content.to_uppercase()   // Needs alloc.heap
+    let content = read_file(path)  // Needs fs::read
+    result content.to_uppercase()   // Needs alloc::heap
 }
 
-// Function composing all effects
-procedure main() uses io.read, io.write, alloc.heap {
-    let data = process_file("input.txt")  // Needs io.read, alloc.heap
-    file::write("output.txt", data)        // Needs io.write
+// Procedure composing all grants
+procedure main()
+    sequent { [fs::read, fs::write, alloc::heap] |- true => true }
+{
+    let data = process_file("input.txt")  // Needs fs::read, alloc::heap
+    file::write("output.txt", data)        // Needs fs::write
 }
 ```
 
@@ -726,14 +735,14 @@ modal Connection {
     // Transitions
     procedure @Disconnected -> @Connected
         connect(self: Connection@Disconnected): Connection@Connected
-        uses io.connect
-    
+        sequent { [net::connect] |- true => true }
+
     procedure @Disconnected -> @Failed
         fail(self: Connection@Disconnected, err: Error): Connection@Failed
-    
+
     procedure @Connected -> @Disconnected
-        disconnect(self: Connection@Connected): Connection@Disconnected
-        uses io.close
+        disconnect(self: Connection@Disconnected): Connection@Disconnected
+        sequent { [net::close] |- true => true }
 }
 
 // Usage enforces state machine
@@ -1653,73 +1662,100 @@ modal Database {
 
 ## 0.7 Contracts and Effects In Depth
 
-### 0.7.1 Effect Clause (`uses`)
+### 0.7.1 Unified Sequent Syntax (`sequent`)
 
-**Effect Declaration:**
+**Contract Declaration:**
+
+Cursive uses sequent calculus for unified contract specification:
+
+```cursive
+procedure name(params) -> ReturnType
+    sequent { [grants] |- precondition => postcondition }
+{
+    body
+}
+```
+
+Where:
+- `[grants]` — Grant context (required capabilities)
+- `|-` — Turnstile (entailment operator)
+- `precondition` — What must be true when called
+- `=>` — Implication
+- `postcondition` — What will be true when done
+
+**Example with Grants:**
 
 ```cursive
 procedure read_config(path: string) -> Config
-    uses io.read, alloc.heap
+    sequent { [fs::read, alloc::heap] |- true => true }
 {
-    let content: string = file::read(path)  // Needs io.read
-    let parsed: Config = parse(content)      // Needs alloc.heap
+    let content: string = file::read(path)  // Needs fs::read
+    let parsed: Config = parse(content)      // Needs alloc::heap
     result parsed
 }
 ```
 
-**Effect Categories:**
+**Grant Categories:**
 
 ```cursive
-// I/O Effects
-io.read         // Read from external sources
-io.write        // Write to external destinations
-io.connect      // Network connections
-io.listen       // Network listening
-io.close        // Close I/O resources
+// File System Grants
+fs::read        // Read from files
+fs::write       // Write to files
+fs::delete      // Delete files
+fs::metadata    // Read/modify file metadata
 
-// Memory Effects
-alloc.heap      // Heap allocation
-alloc.stack     // Large stack allocation (unusual)
+// Network Grants
+net::read       // Read from network
+net::write      // Write to network
+net::connect    // Initiate connections
+net::listen     // Accept connections
 
-// Interop Effects
-ffi.call        // Foreign function interface
-unsafe.ptr      // Raw pointer operations
-unsafe.union    // Union type access
+// Memory Grants
+alloc::heap     // Heap allocation
+alloc::region   // Region allocation
 
-// Control Flow Effects
+// Interop Grants
+ffi::call       // Foreign function interface
+unsafe::ptr     // Raw pointer operations
+unsafe::transmute // Type transmutation
+
+// Control Flow Grants
 panic           // May panic at runtime
-diverge         // Never returns (!  type)
 ```
 
-**Effect Composition:**
+**Grant Composition:**
 
 ```cursive
-// Pure function - no effects
+// Pure function - no grants
 function pure_add(a: i32, b: i32) -> i32 {
     result a + b
 }
 
-// Function with effects
-procedure with_effects() uses io.read, io.write {
-    let data = read_file("input.txt")   // Needs io.read
-    write_file("output.txt", data)       // Needs io.write
+// Procedure with grants
+procedure with_io()
+    sequent { [fs::read, fs::write] |- true => true }
+{
+    let data = read_file("input.txt")   // Needs fs::read
+    write_file("output.txt", data)       // Needs fs::write
 }
 
-// Function composing effects transitively
-procedure main() uses io.read, io.write, alloc.heap {
-    with_effects()  // OK: main has io.read, io.write
-    
-    let data2 = complex_process()  // Needs alloc.heap
+// Procedure composing grants transitively
+procedure main()
+    sequent { [fs::read, fs::write, alloc::heap] |- true => true }
+{
+    with_io()  // OK: main has fs::read, fs::write
+
+    let data2 = complex_process()  // Needs alloc::heap
 }
 ```
 
-### 0.7.2 Precondition Clause (`must`)
+### 0.7.2 Preconditions
 
 **Basic Preconditions:**
 
 ```cursive
 procedure divide(a: i32, b: i32) -> i32
-    must b != 0
+    sequent { [] |- b != 0 => true }
 {
     result a / b  // Safe: b != 0 guaranteed by caller
 }
@@ -1733,8 +1769,7 @@ let bad: i32 = divide(10, 0)      // Runtime error or compile error
 
 ```cursive
 procedure process_array(arr: [i32], index: usize) -> i32
-    must arr.len() > 0
-    must index < arr.len()
+    sequent { [] |- arr.len() > 0 && index < arr.len() => true }
 {
     result arr[index]  // Safe: bounds checked by preconditions
 }
@@ -1744,20 +1779,19 @@ procedure process_array(arr: [i32], index: usize) -> i32
 
 ```cursive
 procedure append(list: mut List, item: own Item)
-    must list.capacity() > list.len()
+    sequent { [] |- list.capacity() > list.len() => true }
 {
     // Safe to append: guaranteed space available
 }
 ```
 
-### 0.7.3 Postcondition Clause (`will`)
+### 0.7.3 Postconditions
 
 **Basic Postconditions:**
 
 ```cursive
 procedure allocate_buffer(size: usize) -> [u8]
-    uses alloc.heap
-    will result.len() == size
+    sequent { [alloc::heap] |- true => result.len() == size }
 {
     // Implementation must ensure result length equals size
 }
@@ -1767,12 +1801,11 @@ procedure allocate_buffer(size: usize) -> [u8]
 
 ```cursive
 procedure increment(counter: mut i32)
-    must counter < i32::MAX
-    will counter == old(counter) + 1
+    sequent { [] |- counter < i32::MAX => counter == @old(counter) + 1 }
 {
     counter = counter + 1
 }
-// old(counter) refers to counter's value at function entry
+// @old(counter) refers to counter's value at function entry
 ```
 
 **Postconditions with Modal States:**
@@ -1781,12 +1814,14 @@ procedure increment(counter: mut i32)
 modal File {
     @Closed { path: string }
     @Open { path: string, handle: Handle }
-    
+
     procedure @Closed -> @Open
         open(self: File@Closed) -> File@Open
-        uses io.open
-        will result.path == self.path
-        will result.handle.is_valid()
+        sequent {
+            [fs::open]
+            |- true
+            => result.path == self.path && result.handle.is_valid()
+        }
     {
         // Implementation
     }
@@ -1960,7 +1995,9 @@ procedure good1() -> i32 {
 }
 
 // ✅ OK: Allocate on heap instead
-procedure good2() -> Data uses alloc.heap {
+procedure good2() -> Data
+    sequent { [alloc::heap] |- true => true }
+{
     let data = Data::new()  // Heap allocation
     result data             // OK: Not region-allocated
 }
@@ -2220,7 +2257,9 @@ procedure guaranteed_safe(x: i32) -> i32 {
 
 ```cursive
 [[verify(runtime)]]
-procedure process_items(items: [Item]) uses io.write, alloc.heap {
+procedure process_items(items: [Item])
+    sequent { [fs::write, alloc::heap] |- true => true }
+{
     var total: i32 = 0
     
     loop item: Item in items
@@ -2342,14 +2381,16 @@ modal HttpRequestBuilder {
 }
 
 // Usage
-procedure make_request() uses io.write, alloc.heap {
+procedure make_request()
+    sequent { [net::write, alloc::heap] |- true => true }
+{
     let request: HttpRequest = HttpRequestBuilder::new()
         .method("POST")
         .url("https://api.example.com/data")
         .headers(default_headers())
         .body("{\"key\": \"value\"}")
         .build()
-    
+
     send_request(request)
 }
 ```
@@ -2374,7 +2415,7 @@ modal FileHandle {
     
     procedure @Open -> @Closed
         close(self: FileHandle@Open) -> FileHandle@Closed
-        uses io.close
+        sequent { [fs::close] |- true => true }
     {
         system::close(self.fd)
         result FileHandle@Closed {
@@ -2384,15 +2425,17 @@ modal FileHandle {
 }
 
 // RAII pattern with defer
-procedure process_file(path: string) uses io.open, io.read, io.close {
+procedure process_file(path: string)
+    sequent { [fs::open, fs::read, fs::close] |- true => true }
+{
     let handle: FileHandle@Closed = FileHandle::new(path)
     let opened: FileHandle@Open = handle.open()
-    
+
     // Ensure file is closed even if early return or panic
     defer {
         let _closed: FileHandle@Closed = opened.close()
     }
-    
+
     // Process file
     let data = opened::read()
     process(data)
@@ -2649,7 +2692,9 @@ procedure process_file(config: Config) -> Result<(), string>
     }
 }
 
-procedure main(args: [string]) uses io.read, io.write, alloc.heap {
+procedure main(args: [string])
+    sequent { [fs::read, fs::write, alloc::heap] |- true => true }
+{
     let config: Result<Config, string> = parse_args(args)
     
     let cfg: Config = match config {
@@ -2788,7 +2833,9 @@ procedure format_response(response: Response) -> string
     result output
 }
 
-procedure serve() uses io.listen, io.read, io.write, alloc.heap {
+procedure serve()
+    sequent { [net::listen, net::read, net::write, alloc::heap] |- true => true }
+{
     let listener: TcpListener = TcpListener::bind("127.0.0.1:8080")
     
     println("Server listening on port 8080")
@@ -2888,7 +2935,9 @@ procedure traverse<T>(node: Option<TreeNode<T>>) {
     }
 }
 
-procedure tree_example() uses alloc.heap, io.write {
+procedure tree_example()
+    sequent { [alloc::heap, fs::write] |- true => true }
+{
     let values: [i32; 7] = [1, 2, 3, 4, 5, 6, 7]
     
     let tree: Option<own TreeNode<i32>> = build_tree(values)
@@ -2979,33 +3028,36 @@ START: Do I need a type annotation?
 REMEMBER: When in doubt, add annotation (explicit over implicit)
 ```
 
-### 0.12.4 Effect Selection
+### 0.12.4 Grant Selection
 
 ```
-START: What effects does my procedure need?
+START: What grants does my procedure need?
   ↓
-  Does it read files, sockets, or stdin?
-    YES -> Add 'io.read' to uses clause
+  Does it read files?
+    YES -> Add 'fs::read' to grant context [...]
   ↓
-  Does it write to files, sockets, or stdout?
-    YES -> Add 'io.write' to uses clause
+  Does it write to files?
+    YES -> Add 'fs::write' to grant context [...]
   ↓
   Does it create network connections?
-    YES -> Add 'io.connect' to uses clause
+    YES -> Add 'net::connect' to grant context [...]
+  ↓
+  Does it read/write network sockets?
+    YES -> Add 'net::read' and/or 'net::write' to grant context [...]
   ↓
   Does it allocate on heap (String, Vec, etc.)?
-    YES -> Add 'alloc.heap' to uses clause
+    YES -> Add 'alloc::heap' to grant context [...]
   ↓
   Does it call foreign functions?
-    YES -> Add 'ffi.call' to uses clause
+    YES -> Add 'ffi::call' to grant context [...]
   ↓
   Does it use raw pointers?
-    YES -> Add 'unsafe.ptr' to uses clause
+    YES -> Add 'unsafe::ptr' to grant context [...]
   ↓
   Does it call other procedures?
-    YES -> Add all effects from called procedures
+    YES -> Add all grants from called procedures
   ↓
-  RESULT: uses clause = union of all needed effects
+  RESULT: sequent { [union of all grants] |- P => Q }
 ```
 
 ### 0.12.5 Modal State Usage
@@ -3133,7 +3185,9 @@ procedure process() {  // Missing 'uses' clause
 
 **Correct:**
 ```cursive
-procedure process() uses io.read, alloc.heap {
+procedure process()
+    sequent { [fs::read, alloc::heap] |- true => true }
+{
     let data: string = file::read("input.txt")
 }
 ```
@@ -3160,7 +3214,9 @@ procedure get_data() -> Data {
 **Correct:**
 ```cursive
 // Option 1: Allocate on heap
-procedure get_data() -> Data uses alloc.heap {
+procedure get_data() -> Data
+    sequent { [alloc::heap] |- true => true }
+{
     let data = Data::new()  // Heap allocation
     result data
 }
@@ -3261,14 +3317,16 @@ Use this checklist when generating Cursive code:
 - [ ] Functions only reading use `imm T` or `T` parameters
 - [ ] Move operations use explicit `move` keyword
 
-### Effect Declarations
+### Grant Declarations
 
-- [ ] File I/O has `uses io.read` and/or `uses io.write`
-- [ ] Heap allocation has `uses alloc.heap`
-- [ ] Network operations have `uses io.connect` or `uses io.listen`
-- [ ] FFI calls have `uses ffi.call`
-- [ ] Unsafe operations have `uses unsafe.ptr`
-- [ ] All callee effects included in caller
+- [ ] File read has `[fs::read]` in grant context
+- [ ] File write has `[fs::write]` in grant context
+- [ ] Heap allocation has `[alloc::heap]` in grant context
+- [ ] Network connections have `[net::connect]` in grant context
+- [ ] Network listen has `[net::listen]` in grant context
+- [ ] FFI calls have `[ffi::call]` in grant context
+- [ ] Unsafe operations have `[unsafe::ptr]` in grant context
+- [ ] All callee grants included in caller
 
 ### Region Usage
 
@@ -3336,18 +3394,20 @@ read(data)  // Passes immutable reference, not ownership
 println(data)  // OK: still owns data
 ```
 
-### Error: "Effect not in uses clause"
+### Error: "Grant not in context"
 
 **Problem:**
 ```cursive
-procedure process() {  // Missing uses clause
-    let data = file::read("input.txt")  // Needs io.read
+procedure process() {  // Missing grant context
+    let data = file::read("input.txt")  // Needs fs::read
 }
 ```
 
 **Solution:**
 ```cursive
-procedure process() uses io.read, alloc.heap {
+procedure process()
+    sequent { [fs::read, alloc::heap] |- true => true }
+{
     let data: string = file::read("input.txt")
 }
 ```
@@ -3367,7 +3427,9 @@ procedure get_data() -> Data {
 **Solution:**
 ```cursive
 // Use heap allocation instead
-procedure get_data() -> Data uses alloc.heap {
+procedure get_data() -> Data
+    sequent { [alloc::heap] |- true => true }
+{
     let data = Data::new()
     result data
 }
@@ -3428,22 +3490,30 @@ let x: i32 = {
 **Effect polymorphism allows procedures to be generic over effects:**
 
 ```cursive
-procedure with_logging<E>(action: () -> () ! E) uses io.write, E {
+procedure with_logging<E>(action: () -> () ! E)
+    sequent { [fs::write, E] |- true => true }
+{
     println("Starting action")
     action()  // May have effect E
     println("Action complete")
 }
 
 // Usage with different effects
-procedure read_file() uses io.read {
+procedure read_file()
+    sequent { [fs::read] |- true => true }
+{
     // Implementation
 }
 
-procedure write_file() uses io.write {
+procedure write_file()
+    sequent { [fs::write] |- true => true }
+{
     // Implementation
 }
 
-procedure main() uses io.read, io.write {
+procedure main()
+    sequent { [fs::read, fs::write] |- true => true }
+{
     with_logging(read_file)   // E = {io.read}
     with_logging(write_file)  // E = {io.write}
 }
@@ -3572,7 +3642,9 @@ function pure(x: i32) -> i32 {     // Pure function
     result x * 2
 }
 
-procedure effectful() uses io.write {  // Procedure with effects
+procedure effectful()
+    sequent { [fs::write] |- true => true }  // Procedure with grants
+{
     println("hello")
 }
 
@@ -3740,7 +3812,9 @@ procedure process_file(opts: Options) -> Result<(), string>
     }
 }
 
-procedure main(args: [string]) uses io.read, io.write, alloc.heap {
+procedure main(args: [string])
+    sequent { [fs::read, fs::write, alloc::heap] |- true => true }
+{
     let options: Result<Options, string> = parse_args(args)
     
     let opts: Options = match options {
