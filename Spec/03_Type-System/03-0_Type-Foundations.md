@@ -8,7 +8,7 @@
 
 ---
 
-## 3.0.1 Overview
+## 3.0.1 Overview [type-foundations.overview]
 
 [1] This section specifies the core typing infrastructure of Cursive, including type formation, well-formedness, type environments, equivalence relations, and the foundational properties that ensure type safety.
 
@@ -22,7 +22,7 @@ The Cursive type system is a static, primarily nominal type system with:
 
 [2] A well-typed program shall not exhibit undefined behavior arising from type errors.
 
-### 3.0.1.1 Type Categories
+### 3.0.1.1 Type Categories [type-foundations.overview.categories]
 
 [3] Cursive types shall be classified into the following categories:
     (3.1) **Primitive Types** (§3.2): Integer, floating-point, boolean, character, unit, never
@@ -37,7 +37,7 @@ The Cursive type system is a static, primarily nominal type system with:
 > - **Nominal types**: Records, enums, modals, predicates (identity by name)
 > - **Structural types**: Tuples, arrays, primitives, slices, function types (identity by structure)
 
-### 3.0.1.2 Cross-Part Dependencies
+### 3.0.1.2 Cross-Part Dependencies [type-foundations.overview.dependencies]
 
 [4] The type system integrates with other parts of the specification as follows:
     (4.1) **Part I (Foundations)**: Uses notation, metavariables, and judgment forms from §1.3
@@ -51,7 +51,7 @@ The Cursive type system is a static, primarily nominal type system with:
 
 ---
 
-## 3.0.2 Syntax
+## 3.0.2 Syntax [type-foundations.syntax]
 
 [5] The syntax of types shall conform to the following grammar.
 
@@ -92,76 +92,62 @@ PointerType ::= Ptr⟨τ⟩@State
 
 ---
 
-## 3.0.3 Type Formation
+## 3.0.3 Type Formation [type-foundations.formation]
 
 [6] A type shall be well-formed when all its constructors are defined, type arguments match parameter arity, type bounds are satisfied, and all component types are well-formed.
 
 **Definition 3.0.2** (*Well-Formed Type*):
-The judgment `Γ ⊢ τ : Type` holds when the conditions in paragraph [6] are satisfied.
+The judgment $\Gamma \vdash \tau : \text{Type}$ holds when the conditions in paragraph [6] are satisfied.
 
-### 3.0.3.1 Well-Formedness Rules
+### 3.0.3.1 Well-Formedness Rules [type-foundations.formation.wf-rules]
 
 [7] The well-formedness rules for types shall be:
 
 **Type Well-Formedness Rules:**
-```
-[WF-TypeVar]
-(α : κ) ∈ Γ
---------------
-Γ ⊢ α : Type
 
+$$
+{\small \dfrac{(\alpha : \kappa) \in \Gamma}{\Gamma \vdash \alpha : \text{Type}}}
+\tag{WF-TypeVar}
+$$
 
-[WF-Prim]
-T ∈ PrimTypes
---------------
-Γ ⊢ T : Type
+$$
+{\small \dfrac{T \in \text{PrimTypes}}{\Gamma \vdash T : \text{Type}}}
+\tag{WF-Prim}
+$$
 
-where PrimTypes = {i8, i16, i32, i64, i128, isize,
-                   u8, u16, u32, u64, u128, usize,
-                   f32, f64, bool, char, string, !, ()}
+where $\text{PrimTypes} = \{\text{i8}, \text{i16}, \text{i32}, \text{i64}, \text{i128}, \text{isize}, \text{u8}, \text{u16}, \text{u32}, \text{u64}, \text{u128}, \text{usize}, \text{f32}, \text{f64}, \text{bool}, \text{char}, \text{string}, \text{!}, \text{()}\}$
 
+$$
+{\small \dfrac{\Gamma \vdash \tau_1 : \text{Type} \quad \cdots \quad \Gamma \vdash \tau_n : \text{Type} \quad n \geq 2}{\Gamma \vdash (\tau_1, \ldots, \tau_n) : \text{Type}}}
+\tag{WF-Tuple}
+$$
 
-[WF-Tuple]
-Γ ⊢ τ₁ : Type    ...    Γ ⊢ τₙ : Type
-n ≥ 2
--------------------------------------
-Γ ⊢ (τ₁, ..., τₙ) : Type
+$$
+{\small \dfrac{\Gamma \vdash \tau : \text{Type} \quad n \in \mathbb{N}^+}{\Gamma \vdash [\tau; n] : \text{Type}}}
+\tag{WF-Array}
+$$
 
+$$
+{\small \dfrac{\Gamma \vdash \tau : \text{Type}}{\Gamma \vdash [\tau] : \text{Type}}}
+\tag{WF-Slice}
+$$
 
-[WF-Array]
-Γ ⊢ τ : Type    n ∈ ℕ⁺
---------------------------
-Γ ⊢ [τ; n] : Type
+$$
+{\small \dfrac{\Gamma \vdash \tau_1 : \text{Type} \quad \cdots \quad \Gamma \vdash \tau_n : \text{Type} \quad \Gamma \vdash \tau_{\text{ret}} : \text{Type} \quad \varepsilon \text{ valid grant set}}{\Gamma \vdash (\tau_1, \ldots, \tau_n) \to \tau_{\text{ret}}\ !\ \varepsilon : \text{Type}}}
+\tag{WF-Function}
+$$
 
+$$
+{\small \dfrac{\Gamma \vdash \tau_1 : \text{Type} \quad \Gamma \vdash \tau_2 : \text{Type}}{\Gamma \vdash \tau_1 \lor \tau_2 : \text{Type}}}
+\tag{WF-Union}
+$$
 
-[WF-Slice]
-Γ ⊢ τ : Type
---------------
-Γ ⊢ [τ] : Type
+$$
+{\small \dfrac{\Gamma \vdash \text{ModalName} : \text{Type} \quad \text{@S is a valid state of ModalName}}{\Gamma \vdash \text{ModalName@S} : \text{Type}}}
+\tag{WF-Modal}
+$$
 
-
-[WF-Function]
-Γ ⊢ τ₁ : Type    ...    Γ ⊢ τₙ : Type
-Γ ⊢ τ_ret : Type
-ε valid grant set
-----------------------------------------------
-Γ ⊢ (τ₁, ..., τₙ) -> τ_ret ! ε : Type
-
-
-[WF-Union]
-Γ ⊢ τ₁ : Type    Γ ⊢ τ₂ : Type
---------------------------------
-Γ ⊢ τ₁ \/ τ₂ : Type
-
-
-[WF-Modal]
-Γ ⊢ ModalName : Type
-@S is a valid state of ModalName
---------------------------------
-Γ ⊢ ModalName@S : Type
-```
-
-**Example 1**: Well-formed primitive types ✅
+**Example 1**: Well-formed primitive types
 ```cursive
 // All primitive types are well-formed
 let x: const i32 = 42
@@ -169,7 +155,7 @@ let y: const f64 = 3.14
 let z: const bool = true
 ```
 
-**Example 2**: Well-formed composite types ✅
+**Example 2**: Well-formed composite types
 ```cursive
 // Tuples: structural equivalence
 let pair: const (i32, f64) = (42, 3.14)
@@ -182,76 +168,69 @@ let slice: const [i32] = arr[..]
 
 [8] A conforming implementation shall reject any type that is not well-formed according to the rules in paragraph [7].
 
-### 3.0.3.2 Grant Set Well-Formedness
+### 3.0.3.2 Grant Set Well-Formedness [type-foundations.formation.grant-wf]
 
 [9] Grant sets shall be well-formed according to the following rules:
 
 **Grant Set Well-Formedness:**
-```
-[WF-Grant-Empty]
-------------------
-∅ valid grant set
 
+$$
+{\small \dfrac{}{\emptyset \text{ valid grant set}}}
+\tag{WF-Grant-Empty}
+$$
 
-[WF-Grant-Single]
-grant_path is a declared grant
-------------------------------
-grant_path valid grant set
+$$
+{\small \dfrac{\text{grant\_path is a declared grant}}{\text{grant\_path valid grant set}}}
+\tag{WF-Grant-Single}
+$$
 
-
-[WF-Grant-Union]
-ε₁ valid grant set    ε₂ valid grant set
------------------------------------------
-ε₁ ∪ ε₂ valid grant set
-```
+$$
+{\small \dfrac{\varepsilon_1 \text{ valid grant set} \quad \varepsilon_2 \text{ valid grant set}}{\varepsilon_1 \cup \varepsilon_2 \text{ valid grant set}}}
+\tag{WF-Grant-Union}
+$$
 
 > **Forward reference**: Complete grant system specification in Part X.
 
-### 3.0.3.3 Kinding Rules
+### 3.0.3.3 Kinding Rules [type-foundations.formation.kinding]
 
 [10] Kinds shall classify type-level expressions.
 
 **Definition 3.0.3** (*Kind*):
 Kinds classify type-level expressions. The kind system includes:
-```
-Kind κ ::= Type                (inhabited types)
-         | Type -> Kind        (type constructor)
-         | Eff                 (grant sets)
-         | Region              (region lifetime)
-```
+
+$$\kappa ::= \text{Type} \mid \text{Type} \to \kappa \mid \text{Eff} \mid \text{Region}$$
+
+where:
+- $\text{Type}$ denotes inhabited types
+- $\text{Type} \to \kappa$ denotes type constructors
+- $\text{Eff}$ denotes grant sets
+- $\text{Region}$ denotes region lifetimes
 
 [11] Kinding judgments shall determine the kind of type-level expressions:
 
 **Kinding Rules:**
-```
-[K-Type]
-T ∈ PrimTypes
--------------
-T : Type
 
+$$
+{\small \dfrac{T \in \text{PrimTypes}}{T : \text{Type}}}
+\tag{K-Type}
+$$
 
-[K-Constructor]
-T has arity n
-κ₁, ..., κₙ are parameter kinds
-κ_ret is result kind
---------------------------------
-T : κ₁ -> ... -> κₙ -> κ_ret
+$$
+{\small \dfrac{T \text{ has arity } n \quad \kappa_1, \ldots, \kappa_n \text{ are parameter kinds} \quad \kappa_{\text{ret}} \text{ is result kind}}{T : \kappa_1 \to \cdots \to \kappa_n \to \kappa_{\text{ret}}}}
+\tag{K-Constructor}
+$$
 
+$$
+{\small \dfrac{\varepsilon \text{ is a grant set}}{\varepsilon : \text{Eff}}}
+\tag{K-Grant}
+$$
 
-[K-Grant]
-ε is a grant set
----------------
-ε : Eff
+$$
+{\small \dfrac{\Gamma \vdash F : \kappa_1 \to \kappa_2 \quad \Gamma \vdash T : \kappa_1}{\Gamma \vdash F\langle T \rangle : \kappa_2}}
+\tag{K-Application}
+$$
 
-
-[K-Application]
-Γ ⊢ F : κ₁ -> κ₂
-Γ ⊢ T : κ₁
--------------------
-Γ ⊢ F⟨T⟩ : κ₂
-```
-
-**Example 3**: Type constructor kinding ✅
+**Example 3**: Type constructor kinding
 ```cursive
 // Array is a type constructor: Type -> Type
 type IntArray = [i32; 10]
@@ -263,95 +242,88 @@ let container: Container<i32> = Container { value: 42 }
 
 ---
 
-## 3.0.4 Type Environments
+## 3.0.4 Type Environments [type-foundations.environments]
 
 [12] A type environment shall map term variables to types and type variables to kinds with optional bounds.
 
 **Definition 3.0.4** (*Type Environment*):
-A type environment (context) Γ maps identifiers to types and kinds:
-```
-Γ ::= ∅                                    (empty context)
-    | Γ, x : τ                             (term binding)
-    | Γ, α : κ                             (type variable binding)
-    | Γ, α : κ where φ                     (constrained type parameter)
-    | Γ, grants G                          (grant parameter binding)
-```
-where φ is a predicate bound of the form `α : PredicateName`.
+A type environment (context) $\Gamma$ maps identifiers to types and kinds:
 
-### 3.0.4.1 Environment Operations
+$$\Gamma ::= \emptyset \mid \Gamma, x : \tau \mid \Gamma, \alpha : \kappa \mid \Gamma, \alpha : \kappa \text{ where } \varphi \mid \Gamma, \text{grants } G$$
+
+where:
+- $\emptyset$ is the empty context
+- $x : \tau$ is a term binding
+- $\alpha : \kappa$ is a type variable binding
+- $\alpha : \kappa \text{ where } \varphi$ is a constrained type parameter
+- $\text{grants } G$ is a grant parameter binding
+- $\varphi$ is a predicate bound of the form $\alpha : \text{PredicateName}$
+
+### 3.0.4.1 Environment Operations [type-foundations.environments.operations]
 
 [13] Environment lookup shall retrieve bindings:
 
 **Lookup Rules:**
-```
-[Env-Lookup-Term]
-(x : τ) ∈ Γ
------------
-Γ(x) = τ
 
+$$
+{\small \dfrac{(x : \tau) \in \Gamma}{\Gamma(x) = \tau}}
+\tag{Env-Lookup-Term}
+$$
 
-[Env-Lookup-Type]
-(α : κ) ∈ Γ
------------
-Γ(α) = κ
-```
+$$
+{\small \dfrac{(\alpha : \kappa) \in \Gamma}{\Gamma(\alpha) = \kappa}}
+\tag{Env-Lookup-Type}
+$$
 
 [14] Environment extension shall add new bindings:
 
 **Extension Rule:**
-```
-[Env-Extend]
-x ∉ dom(Γ)
------------------------
-Γ, x : τ extends Γ
-```
 
-[15] A new binding `x : τ` may shadow a previous binding of `x` in an outer scope. The most recent binding shall take precedence.
+$$
+{\small \dfrac{x \notin \text{dom}(\Gamma)}{\Gamma, x : \tau \text{ extends } \Gamma}}
+\tag{Env-Extend}
+$$
+
+[15] A new binding $x : \tau$ may shadow a previous binding of $x$ in an outer scope. The most recent binding shall take precedence.
 
 [16] Within a single scope, a conforming implementation shall reject duplicate bindings of the same identifier. Shadowing is permitted only across nested scopes.
 
-### 3.0.4.2 Well-Formed Environments
+### 3.0.4.2 Well-Formed Environments [type-foundations.environments.wf]
 
-[17] An environment Γ shall be well-formed when:
+[17] An environment $\Gamma$ shall be well-formed when:
     (17.1) Each term variable appears at most once in the current scope
     (17.2) Each type variable appears at most once in the current scope
-    (17.3) All types in Γ are well-formed under Γ itself
-    (17.4) All bounds in Γ are satisfied
+    (17.3) All types in $\Gamma$ are well-formed under $\Gamma$ itself
+    (17.4) All bounds in $\Gamma$ are satisfied
 
 **Definition 3.0.5** (*Well-Formed Environment*):
-An environment Γ is well-formed when the conditions in paragraph [17] hold.
+An environment $\Gamma$ is well-formed when the conditions in paragraph [17] hold.
 
 **Well-Formed Environment Rules:**
-```
-[WF-Env-Empty]
---------------
-⊢ ∅ ok
 
+$$
+{\small \dfrac{}{\vdash \emptyset\ \text{ok}}}
+\tag{WF-Env-Empty}
+$$
 
-[WF-Env-Term]
-⊢ Γ ok
-Γ ⊢ τ : Type
-x ∉ dom(Γ)    (within current scope)
-------------------------------------
-⊢ Γ, x : τ ok
+$$
+{\small \dfrac{\vdash \Gamma\ \text{ok} \quad \Gamma \vdash \tau : \text{Type} \quad x \notin \text{dom}(\Gamma)}{\vdash \Gamma, x : \tau\ \text{ok}}}
+\tag{WF-Env-Term}
+$$
 
+$$
+{\small \dfrac{\vdash \Gamma\ \text{ok} \quad \alpha \notin \text{dom}(\Gamma)}{\vdash \Gamma, \alpha : \kappa\ \text{ok}}}
+\tag{WF-Env-TypeVar}
+$$
 
-[WF-Env-TypeVar]
-⊢ Γ ok
-α ∉ dom(Γ)    (within current scope)
-------------------------------------
-⊢ Γ, α : κ ok
+$$
+{\small \dfrac{\vdash \Gamma\ \text{ok} \quad \Gamma, \alpha : \kappa \vdash \varphi \text{ valid} \quad \alpha \notin \text{dom}(\Gamma)}{\vdash \Gamma, \alpha : \kappa \text{ where } \varphi\ \text{ok}}}
+\tag{WF-Env-Bounded}
+$$
 
+Note: The condition $x \notin \text{dom}(\Gamma)$ applies within the current scope.
 
-[WF-Env-Bounded]
-⊢ Γ ok
-Γ, α : κ ⊢ φ valid
-α ∉ dom(Γ)    (within current scope)
-------------------------------------
-⊢ Γ, α : κ where φ ok
-```
-
-**Example 4**: Type environment evolution ✅
+**Example 4**: Type environment evolution
 ```cursive
 // Initial environment: ∅
 {
@@ -374,60 +346,56 @@ x ∉ dom(Γ)    (within current scope)
 
 ---
 
-## 3.0.5 Type Equality and Equivalence
+## 3.0.5 Type Equality and Equivalence [type-foundations.equivalence]
 
 [18] Types shall be equivalent when they denote the same type under the applicable equivalence relation.
 
 **Definition 3.0.6** (*Type Equivalence*):
-Types τ₁ and τ₂ are equivalent (`τ₁ ≡ τ₂`) when they denote the same type after expanding aliases, substituting generic arguments, and normalizing associated types.
+Types $\tau_1$ and $\tau_2$ are equivalent ($\tau_1 \equiv \tau_2$) when they denote the same type after expanding aliases, substituting generic arguments, and normalizing associated types.
 
 [19] Cursive shall employ:
     (19.1) **Nominal equivalence** for records, enums, modals, predicates, and contracts
     (19.2) **Structural equivalence** for tuples, arrays, slices, primitives, and function types
 
-### 3.0.5.1 Equivalence Rules
+### 3.0.5.1 Equivalence Rules [type-foundations.equivalence.rules]
 
 [20] Type equivalence shall satisfy reflexivity, symmetry, and transitivity:
 
 **Basic Equivalence Rules:**
-```
-[Equiv-Refl]
-------------
-τ ≡ τ
 
+$$
+{\small \dfrac{}{\tau \equiv \tau}}
+\tag{Equiv-Refl}
+$$
 
-[Equiv-Sym]
-τ₁ ≡ τ₂
-------------
-τ₂ ≡ τ₁
+$$
+{\small \dfrac{\tau_1 \equiv \tau_2}{\tau_2 \equiv \tau_1}}
+\tag{Equiv-Sym}
+$$
 
+$$
+{\small \dfrac{\tau_1 \equiv \tau_2 \quad \tau_2 \equiv \tau_3}{\tau_1 \equiv \tau_3}}
+\tag{Equiv-Trans}
+$$
 
-[Equiv-Trans]
-τ₁ ≡ τ₂    τ₂ ≡ τ₃
---------------------
-τ₁ ≡ τ₃
+$$
+{\small \dfrac{\text{type } A = \tau}{A \equiv \tau}}
+\tag{Equiv-Alias}
+$$
 
+$$
+{\small \dfrac{\text{type } F\langle\alpha\rangle = \tau[\alpha]}{F\langle\upsilon\rangle \equiv \tau[\alpha \mapsto \upsilon]}}
+\tag{Equiv-Generic-Alias}
+$$
 
-[Equiv-Alias]
-type A = τ
-----------
-A ≡ τ
-
-
-[Equiv-Generic-Alias]
-type F⟨α⟩ = τ[α]
-----------------------
-F⟨υ⟩ ≡ τ[α ↦ υ]
-```
-
-### 3.0.5.2 Nominal Equivalence
+### 3.0.5.2 Nominal Equivalence [type-foundations.equivalence.nominal]
 
 [21] Two nominal types shall be equivalent if and only if they have the same name and were declared by the same type declaration.
 
 **Definition 3.0.7** (*Nominal Equivalence*):
 For nominal types, equivalence is based on type identity, not structure.
 
-**Example 5**: Nominal types with identical structure are not equivalent ❌
+**Example 5**: Nominal types with identical structure are not equivalent (invalid)
 ```cursive
 record Point { x: f64, y: f64 }
 record Vector { x: f64, y: f64 }
@@ -436,7 +404,7 @@ let p: const Point = Point { x: 1.0, y: 2.0 }
 // let v: Vector = p  // ERROR: Point ≢ Vector
 ```
 
-### 3.0.5.3 Structural Equivalence
+### 3.0.5.3 Structural Equivalence [type-foundations.equivalence.structural]
 
 [22] Two structural types shall be equivalent if and only if they have the same structure.
 
@@ -444,34 +412,28 @@ let p: const Point = Point { x: 1.0, y: 2.0 }
 For structural types, equivalence is based on the structure of the type, not its name.
 
 **Structural Equivalence Rules:**
-```
-[Equiv-Tuple]
-τ₁ ≡ υ₁    ...    τₙ ≡ υₙ
------------------------------
-(τ₁, ..., τₙ) ≡ (υ₁, ..., υₙ)
 
+$$
+{\small \dfrac{\tau_1 \equiv \upsilon_1 \quad \cdots \quad \tau_n \equiv \upsilon_n}{(\tau_1, \ldots, \tau_n) \equiv (\upsilon_1, \ldots, \upsilon_n)}}
+\tag{Equiv-Tuple}
+$$
 
-[Equiv-Array]
-τ ≡ υ    n = m
---------------------
-[τ; n] ≡ [υ; m]
+$$
+{\small \dfrac{\tau \equiv \upsilon \quad n = m}{[\tau; n] \equiv [\upsilon; m]}}
+\tag{Equiv-Array}
+$$
 
+$$
+{\small \dfrac{\tau \equiv \upsilon}{[\tau] \equiv [\upsilon]}}
+\tag{Equiv-Slice}
+$$
 
-[Equiv-Slice]
-τ ≡ υ
------------
-[τ] ≡ [υ]
+$$
+{\small \dfrac{\tau_1 \equiv \upsilon_1 \quad \cdots \quad \tau_n \equiv \upsilon_n \quad \tau_{\text{ret}} \equiv \upsilon_{\text{ret}} \quad \varepsilon_1 = \varepsilon_2}{(\tau_1, \ldots, \tau_n) \to \tau_{\text{ret}}\ !\ \varepsilon_1 \equiv (\upsilon_1, \ldots, \upsilon_n) \to \upsilon_{\text{ret}}\ !\ \varepsilon_2}}
+\tag{Equiv-Function}
+$$
 
-
-[Equiv-Function]
-τ₁ ≡ υ₁    ...    τₙ ≡ υₙ
-τ_ret ≡ υ_ret
-ε₁ = ε₂    (grant sets equal)
----------------------------------------------------------
-(τ₁, ..., τₙ) -> τ_ret ! ε₁ ≡ (υ₁, ..., υₙ) -> υ_ret ! ε₂
-```
-
-**Example 6**: Structural type equivalence ✅
+**Example 6**: Structural type equivalence
 ```cursive
 // Tuples: structurally equivalent
 let t1: const (i32, f64) = (42, 3.14)
@@ -488,36 +450,35 @@ let op: const BinaryOp = add  // OK: types equivalent
 
 ---
 
-## 3.0.6 Subtyping Overview
+## 3.0.6 Subtyping Overview [type-foundations.subtyping]
 
 [23] The subtyping relation determines when one type can safely substitute for another.
 
 **Definition 3.0.9** (*Subtyping Relation*):
-The subtyping relation `τ <: υ` (read "τ is a subtype of υ") indicates that a value of type τ can be used safely wherever a value of type υ is expected.
+The subtyping relation $\tau <: \upsilon$ (read "$\tau$ is a subtype of $\upsilon$") indicates that a value of type $\tau$ can be used safely wherever a value of type $\upsilon$ is expected.
 
 [24] The subtyping relation shall be reflexive and transitive.
 
 **Basic Subtyping Properties:**
-```
-[Sub-Refl]
-----------
-τ <: τ
 
+$$
+{\small \dfrac{}{\tau <: \tau}}
+\tag{Sub-Refl}
+$$
 
-[Sub-Trans]
-τ₁ <: τ₂    τ₂ <: τ₃
---------------------
-τ₁ <: τ₃
+$$
+{\small \dfrac{\tau_1 <: \tau_2 \quad \tau_2 <: \tau_3}{\tau_1 <: \tau_3}}
+\tag{Sub-Trans}
+$$
 
+$$
+{\small \dfrac{}{! <: \tau}}
+\tag{Sub-Never}
+$$
 
-[Sub-Never]
-----------
-! <: τ
-```
+[25] The never type $!$ shall be the bottom type, a subtype of all types.
 
-[25] The never type `!` shall be the bottom type, a subtype of all types.
-
-**Example 7**: Never type as bottom type ✅
+**Example 7**: Never type as bottom type
 ```cursive
 function diverge(): ! {
     loop {
@@ -534,7 +495,7 @@ function example(): i32 {
 
 ---
 
-## 3.0.7 Type Safety Properties
+## 3.0.7 Type Safety Properties [type-foundations.safety]
 
 [26] The type system shall guarantee type safety through progress and preservation properties.
 
@@ -543,63 +504,63 @@ If a program is well-typed, then it shall not exhibit undefined behavior arising
 
 *Proof*: By progress and preservation theorems. See Annex C.1 for complete proof.
 
-### 3.0.7.1 Progress
+### 3.0.7.1 Progress [type-foundations.safety.progress]
 
 [27] If an expression is well-typed, it shall either evaluate to a value or diverge.
 
 **Theorem 3.0.2** (*Progress*):
-If `∅ ⊢ e : τ`, then either:
-  (a) `e` is a value, or
-  (b) `e ⇓ e'` for some `e'`, or
-  (c) `e` diverges
+If $\emptyset \vdash e : \tau$, then either:
+  (a) $e$ is a value, or
+  (b) $e \Downarrow e'$ for some $e'$, or
+  (c) $e$ diverges
 
-### 3.0.7.2 Preservation
+### 3.0.7.2 Preservation [type-foundations.safety.preservation]
 
 [28] If a well-typed expression evaluates, the result shall preserve the type.
 
 **Theorem 3.0.3** (*Preservation*):
-If `Γ ⊢ e : τ` and `e ⇓ e'`, then `Γ ⊢ e' : τ`.
+If $\Gamma \vdash e : \tau$ and $e \Downarrow e'$, then $\Gamma \vdash e' : \tau$.
 
-### 3.0.7.3 Parametricity
+### 3.0.7.3 Parametricity [type-foundations.safety.parametricity]
 
 [29] Generic functions shall preserve type abstraction.
 
 **Theorem 3.0.4** (*Parametricity*):
-For all well-typed generic functions `f⟨α⟩`, the behavior of `f` shall be uniform across all instantiations of `α`.
+For all well-typed generic functions $f\langle\alpha\rangle$, the behavior of $f$ shall be uniform across all instantiations of $\alpha$.
 
 *Interpretation*: Functions cannot inspect or depend on the specific type argument.
 
-### 3.0.7.4 Integration with Permission System
+### 3.0.7.4 Integration with Permission System [type-foundations.safety.permissions]
 
 [30] Type safety shall integrate with the permission system to ensure memory safety.
 
 [31] The typing judgment shall be extended with permission annotations:
-```
-Γ; Π ⊢ e : τ @ p
-```
+
+$$\Gamma; \Pi \vdash e : \tau\ @\ p$$
+
 where:
-- Γ is the type environment
-- Π is the permission context
-- τ is the type
-- p is the permission (const, shared, unique)
+- $\Gamma$ is the type environment
+- $\Pi$ is the permission context
+- $\tau$ is the type
+- $p$ is the permission (const, shared, unique)
 
 > **Forward reference**: Complete permission system in Part IV §4.2.
 
-### 3.0.7.5 Integration with Grant System
+### 3.0.7.5 Integration with Grant System [type-foundations.safety.grants]
 
 [32] Type safety shall integrate with the grant system to ensure effect safety.
 
 [33] Function and procedure types shall carry explicit grant annotations:
-```
-(τ₁, ..., τₙ) -> τ_ret ! ε
-```
-where ε is the grant set required by the function.
+
+$$(\tau_1, \ldots, \tau_n) \to \tau_{\text{ret}}\ !\ \varepsilon$$
+
+where $\varepsilon$ is the grant set required by the function.
 
 > **Forward reference**: Complete grant system in Part X.
 
 ---
 
-## 3.0.8 Integration
+## 3.0.8 Integration [type-foundations.integration]
 
 [34] The type system foundations integrate with the following language components:
 

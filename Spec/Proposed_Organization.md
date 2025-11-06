@@ -76,12 +76,13 @@ production_rule
     (4.2) [Second constraint]
 
 **Formal Well-Formedness Rule:**
-```
-[Rule-Name]
-Premise 1    Premise 2
-────────────────────────
-Γ ⊢ production wf
-```
+
+$$
+{\small
+\dfrac{\text{Premise 1} \quad \text{Premise 2}}{\Gamma \vdash \text{production wf}}
+}
+\tag{Rule-Name}
+$$
 
 [Cross-reference to complete grammar in Annex A §A.X]
 
@@ -90,12 +91,13 @@ Premise 1    Premise 2
 [5] [Basic semantic rule - common case, using "shall" for requirements]
 
 **Type Formation Rule:**
-```
-[Formation-Rule-Name]
-Γ ⊢ component₁ : τ₁    Γ ⊢ component₂ : τ₂
-──────────────────────────────────────────
-Γ ⊢ construct(component₁, component₂) : τ
-```
+
+$$
+{\small
+\dfrac{\Gamma \vdash \text{component}_1 : \tau_1 \quad \Gamma \vdash \text{component}_2 : \tau_2}{\Gamma \vdash \text{construct}(\text{component}_1, \text{component}_2) : \tau}
+}
+\tag{Formation-Rule-Name}
+$$
 
 [6] The type of [construct] shall be determined according to the formation rule above.
 
@@ -120,7 +122,7 @@ If Γ ⊢ e : τ according to the formation rules, then e evaluates to a value o
 
 [8] [More detailed semantics]
 
-**Example N+1**: [Another aspect] ✅
+**Example N+1**: [Another aspect]
 ```cursive
 // Demonstrating additional behavior from paragraph [8]
 ```
@@ -130,12 +132,13 @@ If Γ ⊢ e : τ according to the formation rules, then e evaluates to a value o
 [9] [Related semantic rules with "shall"]
 
 **Evaluation Semantics:**
-```
-[Eval-Rule-Name]
-e₁ ⇓ v₁    e₂ ⇓ v₂
-────────────────────
-construct(e₁, e₂) ⇓ construct_value(v₁, v₂)
-```
+
+$$
+{\small
+\dfrac{e_1 \Downarrow v_1 \quad e_2 \Downarrow v_2}{\text{construct}(e_1, e_2) \Downarrow \text{construct\_value}(v_1, v_2)}
+}
+\tag{Eval-Rule-Name}
+$$
 
 [10] Constraints and restrictions shall be:
     (10.1) [Constraint condition]
@@ -143,7 +146,7 @@ construct(e₁, e₂) ⇓ construct_value(v₁, v₂)
 
 > **Warning**: [Safety-critical information, undefined behavior conditions]
 
-**Example N+2**: [Error case] ❌
+**Example N+2**: [Error case] (invalid)
 ```cursive
 // Code that violates rule from paragraph [10.1]
 // error: explanation of why this is ill-formed
@@ -217,23 +220,24 @@ The type of an integer literal lit is:
     (5.2) assigned default type i32 if context does not constrain type.
 
 **Typing Rule:**
-```
-[T-IntLit-Default]
-value ∈ range(i32)    Γ does not constrain literal type
-───────────────────────────────────────────────────────
-Γ ⊢ value : i32
-```
+
+$$
+{\small
+\dfrac{\text{value} \in \text{range}(\text{i32}) \quad \Gamma \text{ does not constrain literal type}}{\Gamma \vdash \text{value} : \text{i32}}
+}
+\tag{T-IntLit-Default}
+$$
 
 [6] If the literal value does not fit in the target type, the program shall be ill-formed.
 
-**Example 3**: Integer literal typing ✅
+**Example 3**: Integer literal typing
 ```cursive
 let x: i32 = 42;        // Rule [T-IntLit-Default] with explicit context
 let y = 42;             // Rule [T-IntLit-Default], defaults to i32
 let z: i64 = 1000;      // Context constrains to i64
 ```
 
-**Example 4**: Type mismatch ❌
+**Example 4**: Type mismatch (invalid)
 ```cursive
 let w: u8 = 256;        // error: value 256 does not fit in u8
 ```
@@ -267,15 +271,15 @@ This is ill-formed because §X.Y requires an initial value.
 ```
 
 **Markers**:
-- Use ✅ for valid/recommended patterns
-- Use ❌ for invalid/discouraged patterns
+- Mark valid/recommended patterns with "(valid)" or no marker
+- Mark invalid/discouraged patterns with "(invalid)" or "(error)"
 - Keep examples minimal yet complete
 - Progress from simple to complex
 
 **Quantity Guidance**:
 - **Major concepts**: Exactly 1 canonical example demonstrating the primary use case
 - **Complex features**: 2-3 examples (common case, edge case, error case)
-- **Error scenarios**: 1 example showing typical mistake with clear ❌ marker
+- **Error scenarios**: 1 example showing typical mistake with clear "(invalid)" or "(error)" marker
 - **Progressive series**: Simple → intermediate → advanced (when teaching progression)
 
 **Canonical Example Characteristics**:
@@ -374,13 +378,13 @@ basic_construct
 
 #### Opening Structure
 
-✅ **DO:**
+**DO:**
 - Start with clear, one-sentence definition
 - Provide immediate context (why this exists)
 - Include simple example early (especially for practical features)
 - Establish scope and boundaries
 
-❌ **DON'T:**
+**DON'T:**
 - Dive into technical details immediately
 - Assume reader knows related concepts
 - Start with exceptions or edge cases
@@ -417,14 +421,14 @@ When a rule has multiple conditions, use sub-numbering:
 
 #### Example Placement
 
-✅ **DO:**
+**DO:**
 - Place examples immediately after the concept they illustrate
 - Show both valid and invalid usage
 - Progress from simple to complex
 - Include explanatory comments
 - Number examples for reference
 
-❌ **DON'T:**
+**DON'T:**
 - Batch all examples at end of section
 - Show only "happy path" code
 - Use contrived, unrealistic examples
@@ -552,7 +556,7 @@ The following documents accompany this specification:
 - 1.5.2 Examples (Informative)
   - Example purpose and status (informative, do not impose normative requirements)
   - Example coverage requirements (non-trivial semantics should include examples; complex features must include examples)
-  - Example formatting (fenced code blocks with ```cursive, ✅/❌ markers)
+  - Example formatting (fenced code blocks with ```cursive, validity markers for invalid examples)
   - Example quality (minimal yet complete, consistent naming per §1.5.2a)
   - **Detailed formatting guidance**: See "Section-Level Content Organization" → "Documentation Elements" → "Example Formatting" for complete requirements on placement, numbering, and structure
   - **Naming conventions**: See §1.5.2a for comprehensive naming standards and avoidance lists
@@ -591,12 +595,12 @@ The following documents accompany this specification:
     - Use **metasyntactic names** (foo, bar) sparingly and only for abstract syntax patterns
 
   - **Avoidance List** (Critical):
-    - ❌ **Rust types**: `Vec`, `String`, `Option`, `Box`, `Rc`, `Arc`, `HashMap`, `BTreeMap`, `RefCell`, `Cell`
-    - ❌ **Rust patterns**: `Some`, `None`, `Ok`, `Err`, `unwrap`, `expect`
-    - ❌ **C++ types**: `std::`, `vector`, `unique_ptr`, `shared_ptr`, `optional`, `variant`
-    - ❌ **C# types**: `List<T>`, `Dictionary`, `IEnumerable`, `Nullable<T>`
-    - ❌ **Java types**: `ArrayList`, `HashMap`, `Optional`, `List`
-    - ❌ **Python patterns**: `dict`, `list` (as type names)
+    - **Rust types**: `Vec`, `String`, `Option`, `Box`, `Rc`, `Arc`, `HashMap`, `BTreeMap`, `RefCell`, `Cell`
+    - **Rust patterns**: `Some`, `None`, `Ok`, `Err`, `unwrap`, `expect`
+    - **C++ types**: `std::`, `vector`, `unique_ptr`, `shared_ptr`, `optional`, `variant`
+    - **C# types**: `List<T>`, `Dictionary`, `IEnumerable`, `Nullable<T>`
+    - **Java types**: `ArrayList`, `HashMap`, `Optional`, `List`
+    - **Python patterns**: `dict`, `list` (as type names)
 
   - **Rationale**: Cursive is a distinct language with its own type system. Using other languages' type names in examples creates false associations and implies semantics that may not match Cursive's design. Generic, descriptive names keep examples focused on Cursive's actual semantics.
 
