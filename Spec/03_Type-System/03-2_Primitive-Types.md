@@ -2,9 +2,12 @@
 ## Section 3.2: Primitive Types
 
 **File**: `03-2_Primitive-Types.md`
-**Version**: 2.0
+**Version**: 3.0
 **Status**: Normative
+**Conformance**: ISO/IEC 2145:1978 (4-level nesting), ISO/IEC Directives Part 2
 **Previous**: [03-1_Subtyping-Equivalence.md](03-1_Subtyping-Equivalence.md) | **Next**: [03-3_Composite-Types.md](03-3_Composite-Types.md)
+
+> **Note**: This section uses 4-level nesting (§3.2.X.Y) to comprehensively specify 6 distinct primitive type families. This conforms to ISO 2145:1978 (max 5 levels) and follows precedent from ISO/IEC 14882 (C++).
 
 ---
 
@@ -110,6 +113,13 @@ let platform: const usize = 1000    // Platform-dependent size
 
 [13] Signed integer types shall use two's complement representation.
 
+**Definition 3.2.2a** (*Two's Complement Representation*):
+For a signed n-bit integer type, the value v is represented as:
+- If v ≥ 0: standard binary representation
+- If v < 0: 2ⁿ + v (where v is negative)
+
+The most significant bit indicates sign (0 = positive, 1 = negative). This representation provides a unique encoding for each value in the range [-2ⁿ⁻¹, 2ⁿ⁻¹-1] and enables efficient arithmetic operations.
+
 [14] Unsigned integer types shall use standard unsigned binary representation.
 
 [15] Byte order (endianness) is implementation-defined. Implementations shall document whether they use little-endian, big-endian, or support both.
@@ -119,40 +129,56 @@ let platform: const usize = 1000    // Platform-dependent size
 [16] Integer types shall be well-formed in any type context:
 
 **Well-Formedness Rule:**
-```
-[WF-Int-Type]
-τ ∈ {i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize}
-────────────────────────────────────────────────────────────────────
-Γ ⊢ τ : Type
-```
+
+$$
+{\small
+\dfrac{
+\tau \in \{i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize\}
+}{
+\Gamma \vdash \tau : \text{Type}
+}
+}
+\tag{WF-Int-Type}
+$$
 
 ### 3.2.2.6 Integer Literal Typing [primitive-types.integers.literal-typing]
 
 [17] Integer literals without type suffixes shall default to type `i32`:
 
 **Integer Literal Typing Rules:**
-```
-[Type-Int-Literal-Default]
-n is an integer literal without type suffix
-───────────────────────────────────────────
-Γ ⊢ n : i32    (default type)
 
+$$
+{\small
+\dfrac{
+n \text{ is an integer literal without type suffix}
+}{
+\Gamma \vdash n : i32
+}
+}
+\tag{Type-Int-Literal-Default}
+$$
 
-[Type-Int-Literal-Suffix]
-n is an integer literal with suffix τ
-τ ∈ IntegerTypes
-───────────────────────────────────────
-Γ ⊢ n : τ    (explicit type from suffix)
+$$
+{\small
+\dfrac{
+n \text{ is an integer literal with suffix } \tau \quad \tau \in \text{IntegerTypes}
+}{
+\Gamma \vdash n : \tau
+}
+}
+\tag{Type-Int-Literal-Suffix}
+$$
 
-
-[Type-Int-Literal-Context]
-n is an integer literal without type suffix
-Γ ⊢ context expects type τ
-τ ∈ IntegerTypes
-n ∈ ⟦τ⟧    (n fits in range of τ)
-────────────────────────────────────────
-Γ ⊢ n : τ    (type from context)
-```
+$$
+{\small
+\dfrac{
+n \text{ is an integer literal without type suffix} \quad \Gamma \vdash \text{context expects type } \tau \quad \tau \in \text{IntegerTypes} \quad n \in \llbracket\tau\rrbracket
+}{
+\Gamma \vdash n : \tau
+}
+}
+\tag{Type-Int-Literal-Context}
+$$
 
 [18] Type inference priority shall be: (1) Explicit suffix (highest), (2) Context annotation, (3) Default `i32` (lowest).
 
@@ -217,7 +243,7 @@ let remainder = a % b   // 1
 ∀τ ∈ IntegerTypes. τ : Copy
 ```
 
-**Proof**: Integer types have no heap-allocated components and are bitwise-copyable.
+*Proof sketch*: Integer types contain no heap-allocated components and require no deep copying. All integer types are fixed-size scalars that can be safely copied bytewise. See Annex C.1 for complete structural proof.
 
 > **Forward reference**: Copy semantics specified in Part VI §6.3 (Move Semantics) and Part VIII §8.6 (Marker Predicates).
 
@@ -267,6 +293,12 @@ FloatType ::= 'f32' | 'f64'
   (30.4) **Positive zero** (`+0.0`)
   (30.5) **Negative zero** (`-0.0`)
 
+**Definition 3.2.3a** (*IEEE 754 Special Values*):
+The IEEE 754-2019 standard defines five special floating-point values:
+- **Infinity** (±∞): Represents values that exceed the representable range. Produced by overflow operations or division by zero. Arithmetic with infinity follows specific rules (e.g., ∞ + x = ∞, ∞ × x = ±∞ depending on sign of x).
+- **NaN** (Not-a-Number): Represents the result of undefined mathematical operations (0/0, ∞-∞, √(-1)). NaN propagates through computations and satisfies NaN ≠ NaN.
+- **Signed Zero** (±0.0): Distinguishes approach direction to zero. While +0.0 == -0.0 for equality, they behave differently in certain operations (e.g., 1/+0.0 = +∞, 1/-0.0 = -∞).
+
 [31] All operations on floating-point values shall follow IEEE 754-2019 semantics, including special value propagation.
 
 **Example 6**: Floating-point special values ✅
@@ -284,31 +316,45 @@ let neg_zero: const f64 = -0.0                  // -0.0
 [32] Floating-point types shall be well-formed in any type context:
 
 **Well-Formedness Rule:**
-```
-[WF-Float-Type]
-τ ∈ {f32, f64}
-──────────────
-Γ ⊢ τ : Type
-```
+
+$$
+{\small
+\dfrac{
+\tau \in \{f32, f64\}
+}{
+\Gamma \vdash \tau : \text{Type}
+}
+}
+\tag{WF-Float-Type}
+$$
 
 ### 3.2.3.5 Floating-Point Literal Typing [primitive-types.floats.literal-typing]
 
 [33] Floating-point literals without suffixes shall default to `f64`:
 
 **Floating-Point Literal Typing Rules:**
-```
-[Type-Float-Literal-Default]
-f is a floating-point literal without type suffix
-─────────────────────────────────────────────────
-Γ ⊢ f : f64    (default type)
 
+$$
+{\small
+\dfrac{
+f \text{ is a floating-point literal without type suffix}
+}{
+\Gamma \vdash f : f64
+}
+}
+\tag{Type-Float-Literal-Default}
+$$
 
-[Type-Float-Literal-Suffix]
-f is a floating-point literal with suffix τ
-τ ∈ {f32, f64}
-──────────────────────────────────────────
-Γ ⊢ f : τ    (explicit type from suffix)
-```
+$$
+{\small
+\dfrac{
+f \text{ is a floating-point literal with suffix } \tau \quad \tau \in \{f32, f64\}
+}{
+\Gamma \vdash f : \tau
+}
+}
+\tag{Type-Float-Literal-Suffix}
+$$
 
 ### 3.2.3.6 Floating-Point Literal Syntax [primitive-types.floats.literal-syntax]
 
@@ -384,6 +430,8 @@ f32 : Copy
 f64 : Copy
 ```
 
+*Proof sketch*: Floating-point types are fixed-size scalars with no indirection or heap allocation. They can be safely copied bytewise, including special values (NaN, ±∞, ±0.0). See Annex C.1 for complete proof.
+
 > **Note**: NaN values present challenges for equality-based operations. See Part VIII §8.6 for discussion of `Eq` vs `PartialEq` predicates.
 
 **Example 9**: Floating-point precision ✅
@@ -421,23 +469,38 @@ BoolLiteral ::= 'true' | 'false'
 [44] The boolean type shall be well-formed:
 
 **Well-Formedness and Literal Typing Rules:**
-```
-[WF-Bool-Type]
-──────────────────
-Γ ⊢ bool : Type
 
+$$
+{\small
+\dfrac{
+}{
+\Gamma \vdash bool : \text{Type}
+}
+}
+\tag{WF-Bool-Type}
+$$
 
-[Type-Bool-True]
-────────────────
-Γ ⊢ true : bool
+$$
+{\small
+\dfrac{
+}{
+\Gamma \vdash true : bool
+}
+}
+\tag{Type-Bool-True}
+$$
 
+$$
+{\small
+\dfrac{
+}{
+\Gamma \vdash false : bool
+}
+}
+\tag{Type-Bool-False}
+$$
 
-[Type-Bool-False]
-─────────────────
-Γ ⊢ false : bool
-```
-
-### 3.2.4.4 Value Set and Properties
+### 3.2.4.4 Value Set and Properties [primitive-types.bool.properties]
 
 [45] The boolean type shall have exactly two values:
 
@@ -463,6 +526,8 @@ alignof(bool) = 1 byte
 bool : Copy
 ```
 
+*Proof sketch*: The boolean type is a single byte with no ownership semantics or indirection. It can be safely copied bytewise. See Annex C.1 for complete proof.
+
 **Example 10**: Boolean values and operations ✅
 ```cursive
 let true_val: const bool = true
@@ -475,7 +540,7 @@ let not_result: const bool = !true              // false
 let xor_result: const bool = true ^ false       // true
 ```
 
-### 3.2.4.5 Boolean Operations
+### 3.2.4.5 Boolean Operations [primitive-types.bool.operations]
 
 [48] Cursive shall provide the following boolean operations:
   (48.1) **Logical AND** (`&&`): Short-circuit conjunction
@@ -510,15 +575,22 @@ println("Count = {}", count)  // Still 0
 
 ---
 
-## 3.2.5 Character Type
+## 3.2.5 Character Type [primitive-types.char]
 
-### 3.2.5.1 Overview
+### 3.2.5.1 Overview [primitive-types.char.overview]
 
 [51] The character type `char` shall represent a Unicode scalar value: any Unicode code point in the range U+0000 to U+D7FF or U+E000 to U+10FFFF.
 
 [52] Surrogate code points (U+D800 to U+DFFF) shall be excluded from valid character values.
 
-### 3.2.5.2 Syntax
+**Definition 3.2.5a** (*Unicode Scalar Value*):
+A Unicode scalar value is any Unicode code point except high-surrogate and low-surrogate code points. Formally:
+
+$$\text{ScalarValue} = [U+0000, U+D7FF] \cup [U+E000, U+10FFFF]$$
+
+Surrogate code points (U+D800 through U+DFFF) are reserved for UTF-16 encoding and are not valid standalone characters. The set of Unicode scalar values comprises 1,112,064 valid code points out of the 1,114,112 total Unicode code points in the range [U+0000, U+10FFFF].
+
+### 3.2.5.2 Syntax [primitive-types.char.syntax]
 
 [53] The syntax for character types shall be:
 
@@ -535,7 +607,7 @@ CharContent ::= SimpleChar
 
 > **Normative Reference**: Complete literal syntax in Annex A §A.1 (Lexical Grammar).
 
-### 3.2.5.3 Valid Character Values
+### 3.2.5.3 Valid Character Values [primitive-types.char.values]
 
 [54] The value set for `char` shall be:
 
@@ -554,33 +626,47 @@ Excluded: [U+D800, U+DFFF] = 2,048 surrogate code points
 
 [56] A conforming implementation shall reject character literals containing surrogate code points with a compile-time diagnostic (Error E0301).
 
-### 3.2.5.4 Type Formation
+### 3.2.5.4 Type Formation [primitive-types.char.formation]
 
 [57] The character type shall be well-formed:
 
 **Character Type Formation Rules:**
-```
-[WF-Char-Type]
-──────────────────
-Γ ⊢ char : Type
 
+$$
+{\small
+\dfrac{
+}{
+\Gamma \vdash char : \text{Type}
+}
+}
+\tag{WF-Char-Type}
+$$
 
-[Type-Char-Valid]
-c is a character literal
-codepoint(c) ∈ [U+0000, U+D7FF] ∪ [U+E000, U+10FFFF]
-────────────────────────────────────────────────────
-Γ ⊢ c : char
+$$
+{\small
+\dfrac{
+c \text{ is a character literal} \quad \text{codepoint}(c) \in [U+0000, U+D7FF] \cup [U+E000, U+10FFFF]
+}{
+\Gamma \vdash c : char
+}
+}
+\tag{Type-Char-Valid}
+$$
 
+$$
+{\small
+\dfrac{
+c \text{ is a character literal} \quad \text{codepoint}(c) \in [U+D800, U+DFFF]
+}{
+\text{Ill-formed: Surrogate code points are invalid}
+}
+}
+\tag{Type-Char-Invalid}
+$$
 
-[Type-Char-Invalid]
-c is a character literal
-codepoint(c) ∈ [U+D800, U+DFFF]    (surrogate range)
-────────────────────────────────────────────────────
-Ill-formed: Surrogate code points are invalid
-Error: E0301 - Invalid character literal (surrogate code point)
-```
+> **Error E0301**: Invalid character literal (surrogate code point)
 
-### 3.2.5.5 Character Literal Syntax
+### 3.2.5.5 Character Literal Syntax [primitive-types.char.literal-syntax]
 
 [58] Character literals shall be written as a single character enclosed in single quotes (`'`).
 
@@ -620,7 +706,7 @@ let null: const char = '\0'                  // U+0000
 // let also_invalid: const char = '\u{DFFF}'
 ```
 
-### 3.2.5.6 Size, Alignment, and Representation
+### 3.2.5.6 Size, Alignment, and Representation [primitive-types.char.representation]
 
 [61] The size and alignment of `char` shall be:
 
@@ -639,7 +725,7 @@ alignof(char) = 4 bytes
 '🚀' → 0x0001F680
 ```
 
-### 3.2.5.7 Type Properties
+### 3.2.5.7 Type Properties [primitive-types.char.properties]
 
 [63] The character type shall implement the `Copy` predicate:
 
@@ -647,6 +733,8 @@ alignof(char) = 4 bytes
 ```
 char : Copy
 ```
+
+*Proof sketch*: Character values are 32-bit scalars with no indirection or heap components. They can be safely copied bytewise. See Annex C.1 for complete proof.
 
 [64] Character values shall be totally ordered by their Unicode scalar value:
 
@@ -668,15 +756,15 @@ println("'A' < '中': {}", 'A' < '中')       // true (U+0041 < U+4E2D)
 
 ---
 
-## 3.2.6 Unit Type
+## 3.2.6 Unit Type [primitive-types.unit]
 
-### 3.2.6.1 Overview
+### 3.2.6.1 Overview [primitive-types.unit.overview]
 
 [65] The unit type `()` shall be a zero-sized type with a single value, also written `()`.
 
 [66] The unit type shall represent the absence of a meaningful value and is commonly used as the return type of procedures that perform side effects but do not return data.
 
-### 3.2.6.2 Syntax
+### 3.2.6.2 Syntax [primitive-types.unit.syntax]
 
 [67] The syntax for the unit type shall be:
 
@@ -689,23 +777,33 @@ UnitValue ::= '(' ')'
 
 The same syntax `()` denotes both the unit type and its sole inhabitant.
 
-### 3.2.6.3 Type Formation
+### 3.2.6.3 Type Formation [primitive-types.unit.formation]
 
 [68] The unit type shall be well-formed:
 
 **Unit Type Formation Rules:**
-```
-[WF-Unit-Type]
-─────────────────
-Γ ⊢ () : Type
 
+$$
+{\small
+\dfrac{
+}{
+\Gamma \vdash () : \text{Type}
+}
+}
+\tag{WF-Unit-Type}
+$$
 
-[Type-Unit-Value]
-─────────────────
-Γ ⊢ () : ()
-```
+$$
+{\small
+\dfrac{
+}{
+\Gamma \vdash () : ()
+}
+}
+\tag{Type-Unit-Value}
+$$
 
-### 3.2.6.4 Value Set and Properties
+### 3.2.6.4 Value Set and Properties [primitive-types.unit.properties]
 
 [69] The unit type shall have exactly one value:
 
@@ -727,9 +825,9 @@ alignof(()) = 1 byte
 () : Copy
 ```
 
-Copying a unit value is trivial (zero bytes copied).
+*Proof sketch*: Unit type has zero size; copying is trivial (no bytes to copy). See Annex C.1 for complete proof.
 
-### 3.2.6.5 Usage and Semantics
+### 3.2.6.5 Usage and Semantics [primitive-types.unit.usage]
 
 [71] The unit type shall be used primarily in two contexts:
   (71.1) **Procedure return types**: Procedures that perform effects but return no data
@@ -764,15 +862,15 @@ let unit_array: [(); 10] = [(); 10]
 
 ---
 
-## 3.2.7 Never Type
+## 3.2.7 Never Type [primitive-types.never]
 
-### 3.2.7.1 Overview
+### 3.2.7.1 Overview [primitive-types.never.overview]
 
 [73] The never type `!` shall be the uninhabited bottom type (⊥) that represents computations which never complete normally.
 
 [74] Functions returning `!` shall either diverge (loop forever), panic (abnormal termination), or exit the process.
 
-### 3.2.7.2 Syntax
+### 3.2.7.2 Syntax [primitive-types.never.syntax]
 
 [75] The syntax for the never type shall be:
 
@@ -783,31 +881,43 @@ NeverType ::= '!'
 
 [76] The never type shall be uninhabited—there are no values of type `!`.
 
-### 3.2.7.3 Type Formation and Subtyping
+### 3.2.7.3 Type Formation and Subtyping [primitive-types.never.formation]
 
 [77] The never type shall be well-formed:
 
 **Never Type Formation Rules:**
-```
-[WF-Never-Type]
-────────────────
-Γ ⊢ ! : Type
 
+$$
+{\small
+\dfrac{
+}{
+\Gamma \vdash ! : \text{Type}
+}
+}
+\tag{WF-Never-Type}
+$$
 
-[Sub-Never]
-For all types τ:
-────────────────
-! <: τ
-```
+$$
+{\small
+\dfrac{
+\text{For all types } \tau
+}{
+! <: \tau
+}
+}
+\tag{Sub-Never}
+$$
 
 [78] The never type shall be a subtype of every other type:
 
 **Theorem 3.2.16** (*Bottom Type*):
 The never type is a subtype of every other type. This property allows diverging expressions to appear in any type context.
 
+*Proof sketch*: By definition, ⊥ (bottom type) is a subtype of all types in the type lattice. Since ! is uninhabited, any expression of type ! can safely be used where any type τ is expected (vacuous truth). See Annex C.1 for complete proof.
+
 [79] Since a function returning `!` never produces a value, it can be safely used where any type is expected. The subtyping relation `! <: τ` enables type checking of branches where one arm diverges.
 
-### 3.2.7.4 Empty Value Set
+### 3.2.7.4 Empty Value Set [primitive-types.never.value-set]
 
 [80] The never type shall have no values:
 
@@ -826,18 +936,22 @@ alignof(!) = 1 byte
 
 Since no values of type `!` can exist, the never type occupies zero bytes.
 
-### 3.2.7.5 Typing Rules
+### 3.2.7.5 Typing Rules [primitive-types.never.typing]
 
 [81] An expression of type `!` can be used where any type `τ` is expected:
 
 **Never Coercion Rule:**
-```
-[Type-Never-Coercion]
-Γ ⊢ e : !
-Γ ⊢ τ : Type
-─────────────
-Γ ⊢ e : τ
-```
+
+$$
+{\small
+\dfrac{
+\Gamma \vdash e : ! \quad \Gamma \vdash \tau : \text{Type}
+}{
+\Gamma \vdash e : \tau
+}
+}
+\tag{Type-Never-Coercion}
+$$
 
 **Example 16**: Never type in branching ✅
 ```cursive
@@ -854,7 +968,7 @@ function get_value(condition: bool): i32
 }
 ```
 
-### 3.2.7.6 Diverging Expressions
+### 3.2.7.6 Diverging Expressions [primitive-types.never.diverging]
 
 [82] Expressions that have type `!` shall include:
   (82.1) **Infinite loops**: `loop { }`
@@ -906,7 +1020,7 @@ function process_code(code: i32): string
 
 ---
 
-## 3.2.8 Integration
+## 3.2.8 Integration [primitive-types.integration]
 
 [83] The primitive types specified in this section integrate with the following language components:
 

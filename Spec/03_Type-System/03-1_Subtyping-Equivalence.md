@@ -8,7 +8,7 @@
 
 ---
 
-## 3.1.1 Overview
+## 3.1.1 Overview [subtyping.overview]
 
 [1] This section specifies the subtyping relation and type equivalence rules for the Cursive type system.
 
@@ -20,7 +20,7 @@ The subtyping relation `τ <: υ` and type equivalence `τ ≡ υ` are binary re
 
 [2] The subtyping relation determines when one type can safely substitute for another, while type equivalence determines when two type expressions denote the same type.
 
-## 3.1.2 Syntax
+## 3.1.2 Syntax [subtyping.syntax]
 
 [3] The subtyping relation shall be denoted `τ <: υ` (read "τ is a subtype of υ").
 
@@ -54,7 +54,7 @@ $$
 
 ---
 
-## 3.1.3 Type Equivalence
+## 3.1.3 Type Equivalence [subtyping.equivalence]
 
 [6] Type equivalence shall be an equivalence relation (reflexive, symmetric, and transitive).
 
@@ -86,7 +86,7 @@ $$
 \tag{Equiv-Trans}
 $$
 
-### 3.1.3.1 Type Alias Equivalence
+### 3.1.3.1 Type Alias Equivalence [subtyping.equivalence.alias]
 
 [8] Type aliases shall be transparent. An alias is equivalent to its definition.
 
@@ -120,7 +120,7 @@ let p1: const Pair<i32> = (1, 2)
 let p2: const (i32, i32) = p1  // OK: Pair<i32> ≡ (i32, i32)
 ```
 
-### 3.1.3.2 Nominal vs Structural Equivalence
+### 3.1.3.2 Nominal vs Structural Equivalence [subtyping.equivalence.nominal-structural]
 
 [9] Records, enums, modals, and predicates shall use nominal equivalence. Two types with identical structure but different names are not equivalent.
 
@@ -149,7 +149,7 @@ let t2: const (i32, f64) = (100, 2.71)
 // t1 and t2 have the same type: (i32, f64) ≡ (i32, f64)
 ```
 
-### 3.1.3.3 Structural Equivalence Rules
+### 3.1.3.3 Structural Equivalence Rules [subtyping.equivalence.structural-rules]
 
 [11] Structural equivalence rules shall apply to composite types as follows:
 
@@ -185,7 +185,7 @@ $$
 
 ---
 
-## 3.1.4 Subtyping Rules
+## 3.1.4 Subtyping Rules [subtyping.rules]
 
 [12] The subtyping relation shall be a preorder (reflexive and transitive).
 
@@ -194,7 +194,7 @@ The subtyping relation `τ <: υ` (read "τ is a subtype of υ") indicates that 
 
 [13] No implicit coercions beyond subtyping shall be permitted.
 
-### 3.1.4.1 Basic Subtyping Rules
+### 3.1.4.1 Basic Subtyping Rules [subtyping.rules.basic]
 
 [14] The basic subtyping axioms shall be:
 
@@ -237,7 +237,7 @@ function example_never(): i32 {
 }
 ```
 
-### 3.1.4.2 Array and Slice Subtyping
+### 3.1.4.2 Array and Slice Subtyping [subtyping.rules.array-slice]
 
 [16] Fixed-size arrays shall coerce to slices of the same element type.
 
@@ -268,7 +268,7 @@ let fixed: const [i32; 5] = [1, 2, 3, 4, 5]
 takes_slice(fixed[..])  // OK: [i32; 5] <: [i32]
 ```
 
-### 3.1.4.3 Function Subtyping
+### 3.1.4.3 Function Subtyping [subtyping.rules.function]
 
 [17] Function types shall be contravariant in parameters, covariant in return types, and covariant in grant sets.
 
@@ -315,7 +315,7 @@ procedure io_compute(x: i32): i32
 
 ---
 
-## 3.1.5 Variance
+## 3.1.5 Variance [subtyping.variance]
 
 [18] Variance shall describe how subtyping of type parameters relates to subtyping of type constructors.
 
@@ -325,7 +325,7 @@ A type constructor `F` is:
 - **Contravariant** in parameter `T` if `τ <: υ` implies `F⟨υ⟩ <: F⟨τ⟩`
 - **Invariant** in parameter `T` if neither covariance nor contravariance holds
 
-### 3.1.5.1 Variance Table
+### 3.1.5.1 Variance Table [subtyping.variance.table]
 
 [19] The following type constructors shall have the specified variance:
 
@@ -346,7 +346,7 @@ A type constructor `F` is:
 
 > **Note**: Reference bindings (`let x: T <- value`) follow invariance for type safety but do not introduce new type constructors.
 
-### 3.1.5.2 Variance Checking
+### 3.1.5.2 Variance Checking [subtyping.variance.checking]
 
 [20] For a generic type `F⟨T⟩`, variance shall be computed as follows:
 
@@ -379,7 +379,7 @@ let int_array: const [i32; 3] = [1, 2, 3]
 
 ---
 
-## 3.1.6 Type Compatibility
+## 3.1.6 Type Compatibility [subtyping.compatibility]
 
 [21] Type τ shall be compatible with type υ in context C if either:
     (21.1) `τ <: υ` (subtyping), or
@@ -390,7 +390,7 @@ Type τ is compatible with type υ in context C if the conditions in paragraph [
 
 [22] Cursive shall not perform implicit numeric promotions. All numeric conversions shall be explicit.
 
-### 3.1.6.1 Compatibility Contexts
+### 3.1.6.1 Compatibility Contexts [subtyping.compatibility.contexts]
 
 [23] In assignment context `x = e`, the type of `e` shall be a subtype of the declared type of `x`.
 
@@ -398,7 +398,7 @@ Type τ is compatible with type υ in context C if the conditions in paragraph [
 
 [25] In return context `result e`, the type of `e` shall be a subtype of the function's return type.
 
-### 3.1.6.2 Explicit Conversions
+### 3.1.6.2 Explicit Conversions [subtyping.compatibility.conversions]
 
 [26] Type conversions shall use the `as` operator for explicit casting.
 
@@ -418,7 +418,7 @@ let x: const i32 = 42
 
 ---
 
-## 3.1.7 Integration
+## 3.1.7 Integration [subtyping.integration]
 
 [27] The subtyping and equivalence rules integrate with the following language components:
 
