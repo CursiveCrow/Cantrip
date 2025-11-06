@@ -8,7 +8,7 @@
 
 ---
 
-## 3.2.1 Overview
+## 3.2.1 Overview [primitive-types.overview]
 
 [1] This section specifies Cursive's primitive types: the built-in scalar types that form the foundation of the type system.
 
@@ -37,9 +37,9 @@ Primitive types are built-in types provided by the language with compiler-define
 
 ---
 
-## 3.2.2 Integer Types
+## 3.2.2 Integer Types [primitive-types.integers]
 
-### 3.2.2.1 Overview
+### 3.2.2.1 Overview [primitive-types.integers.overview]
 
 [6] Integer types shall provide fixed-width signed and unsigned integer values with explicit size and range guarantees.
 
@@ -48,7 +48,7 @@ Primitive types are built-in types provided by the language with compiler-define
   (7.2) Five unsigned types: `u8`, `u16`, `u32`, `u64`, `u128`
   (7.3) Two platform-dependent types: `isize`, `usize`
 
-### 3.2.2.2 Syntax
+### 3.2.2.2 Syntax [primitive-types.integers.syntax]
 
 [8] The syntax for integer types shall be:
 
@@ -63,7 +63,7 @@ UnsignedInteger ::= 'u8' | 'u16' | 'u32' | 'u64' | 'u128' | 'usize'
 
 > **Normative Reference**: Complete grammar in Annex A §A.2 (Type Grammar).
 
-### 3.2.2.3 Value Sets and Ranges
+### 3.2.2.3 Value Sets and Ranges [primitive-types.integers.ranges]
 
 [9] For each integer type τ, the value set ⟦τ⟧ shall be defined as specified in Table 3.2.1.
 
@@ -106,7 +106,7 @@ let large: const u64 = 18_446_744_073_709_551_615u64
 let platform: const usize = 1000    // Platform-dependent size
 ```
 
-### 3.2.2.4 Memory Representation
+### 3.2.2.4 Memory Representation [primitive-types.integers.representation]
 
 [13] Signed integer types shall use two's complement representation.
 
@@ -114,7 +114,7 @@ let platform: const usize = 1000    // Platform-dependent size
 
 [15] Byte order (endianness) is implementation-defined. Implementations shall document whether they use little-endian, big-endian, or support both.
 
-### 3.2.2.5 Type Formation
+### 3.2.2.5 Type Formation [primitive-types.integers.formation]
 
 [16] Integer types shall be well-formed in any type context:
 
@@ -126,7 +126,7 @@ let platform: const usize = 1000    // Platform-dependent size
 Γ ⊢ τ : Type
 ```
 
-### 3.2.2.6 Integer Literal Typing
+### 3.2.2.6 Integer Literal Typing [primitive-types.integers.literal-typing]
 
 [17] Integer literals without type suffixes shall default to type `i32`:
 
@@ -164,7 +164,7 @@ let suffix_type = 100u64            // Suffix overrides (highest priority)
 let hex_value: const u32 = 0xFF00   // Context infers u32
 ```
 
-### 3.2.2.7 Integer Literal Syntax
+### 3.2.2.7 Integer Literal Syntax [primitive-types.integers.literal-syntax]
 
 [19] Integer literals may be written in decimal, hexadecimal, octal, or binary form:
   (19.1) **Decimal**: `0`, `42`, `1_000_000`
@@ -188,7 +188,7 @@ let with_suffix: const u64 = 1_000_000u64
 let separated: const i32 = 1_234_567
 ```
 
-### 3.2.2.8 Arithmetic Operations
+### 3.2.2.8 Arithmetic Operations [primitive-types.integers.arithmetic]
 
 [23] Arithmetic operations on integer types shall include addition (`+`), subtraction (`-`), multiplication (`*`), division (`/`), and remainder (`%`).
 
@@ -208,7 +208,7 @@ let quotient = a / b    // 3 (integer division)
 let remainder = a % b   // 1
 ```
 
-### 3.2.2.9 Type Properties
+### 3.2.2.9 Type Properties [primitive-types.integers.properties]
 
 [25] All integer types shall implement the `Copy` predicate:
 
@@ -230,13 +230,13 @@ let z: const i32 = x    // Another copy (x still valid)
 
 ---
 
-## 3.2.3 Floating-Point Types
+## 3.2.3 Floating-Point Types [primitive-types.floats]
 
-### 3.2.3.1 Overview
+### 3.2.3.1 Overview [primitive-types.floats.overview]
 
 [26] Cursive shall provide two floating-point types conforming to IEEE 754-2019 binary floating-point arithmetic: `f32` (binary32, single precision) and `f64` (binary64, double precision).
 
-### 3.2.3.2 Syntax
+### 3.2.3.2 Syntax [primitive-types.floats.syntax]
 
 [27] The syntax for floating-point types shall be:
 
@@ -249,7 +249,7 @@ FloatType ::= 'f32' | 'f64'
 
 [28] Cursive floating-point types shall conform to IEEE 754-2019 binary floating-point arithmetic standard.
 
-### 3.2.3.3 Value Sets and Special Values
+### 3.2.3.3 Value Sets and Special Values [primitive-types.floats.values]
 
 [29] Cursive floating-point types shall conform to IEEE 754-2019 as specified in Table 3.2.2.
 
@@ -279,7 +279,7 @@ let pos_zero: const f64 = 0.0                   // +0.0
 let neg_zero: const f64 = -0.0                  // -0.0
 ```
 
-### 3.2.3.4 Type Formation
+### 3.2.3.4 Type Formation [primitive-types.floats.formation]
 
 [32] Floating-point types shall be well-formed in any type context:
 
@@ -291,7 +291,7 @@ let neg_zero: const f64 = -0.0                  // -0.0
 Γ ⊢ τ : Type
 ```
 
-### 3.2.3.5 Floating-Point Literal Typing
+### 3.2.3.5 Floating-Point Literal Typing [primitive-types.floats.literal-typing]
 
 [33] Floating-point literals without suffixes shall default to `f64`:
 
@@ -310,7 +310,7 @@ f is a floating-point literal with suffix τ
 Γ ⊢ f : τ    (explicit type from suffix)
 ```
 
-### 3.2.3.6 Floating-Point Literal Syntax
+### 3.2.3.6 Floating-Point Literal Syntax [primitive-types.floats.literal-syntax]
 
 [34] Floating-point literals may be written in the following forms:
   (34.1) **Decimal form**: `3.14`, `0.5`, `2.0`
@@ -329,7 +329,7 @@ let avogadro: const f64 = 6.022e23
 let planck: const f64 = 6.626e-34
 ```
 
-### 3.2.3.7 Special Value Semantics
+### 3.2.3.7 Special Value Semantics [primitive-types.floats.special-values]
 
 [37] NaN shall not be equal to any value, including itself:
 
@@ -374,7 +374,7 @@ println("1.0 / +0.0 = {}", 1.0 / 0.0)       // +∞
 println("1.0 / -0.0 = {}", 1.0 / -0.0)      // -∞
 ```
 
-### 3.2.3.8 Type Properties
+### 3.2.3.8 Type Properties [primitive-types.floats.properties]
 
 [40] Both floating-point types shall implement the `Copy` predicate:
 
@@ -395,15 +395,15 @@ println("f64: 0.1 + 0.2 = {}", precise_f64) // Shows precision limits
 
 ---
 
-## 3.2.4 Boolean Type
+## 3.2.4 Boolean Type [primitive-types.bool]
 
-### 3.2.4.1 Overview
+### 3.2.4.1 Overview [primitive-types.bool.overview]
 
 [41] The boolean type `bool` shall represent two-valued logic with values `true` and `false`.
 
 [42] Boolean operations shall use short-circuit evaluation semantics for logical AND and OR operators.
 
-### 3.2.4.2 Syntax
+### 3.2.4.2 Syntax [primitive-types.bool.syntax]
 
 [43] The syntax for the boolean type shall be:
 
@@ -416,7 +416,7 @@ BoolLiteral ::= 'true' | 'false'
 
 > **Normative Reference**: Complete grammar in Annex A §A.2 (Type Grammar) and A §A.1 (Lexical Grammar).
 
-### 3.2.4.3 Type Formation
+### 3.2.4.3 Type Formation [primitive-types.bool.formation]
 
 [44] The boolean type shall be well-formed:
 

@@ -118,7 +118,7 @@ $$
 where $\text{PrimTypes} = \{\text{i8}, \text{i16}, \text{i32}, \text{i64}, \text{i128}, \text{isize}, \text{u8}, \text{u16}, \text{u32}, \text{u64}, \text{u128}, \text{usize}, \text{f32}, \text{f64}, \text{bool}, \text{char}, \text{string}, \text{!}, \text{()}\}$
 
 $$
-{\small \dfrac{\Gamma \vdash \tau_1 : \text{Type} \quad \cdots \quad \Gamma \vdash \tau_n : \text{Type} \quad n \geq 2}{\Gamma \vdash (\tau_1, \ldots, \tau_n) : \text{Type}}}
+{\small \dfrac{\Gamma \vdash \tau_1 : \text{Type} \quad \ldots \quad \Gamma \vdash \tau_n : \text{Type} \quad n \geq 2}{\Gamma \vdash (\tau_1, \ldots, \tau_n) : \text{Type}}}
 \tag{WF-Tuple}
 $$
 
@@ -133,7 +133,7 @@ $$
 $$
 
 $$
-{\small \dfrac{\Gamma \vdash \tau_1 : \text{Type} \quad \cdots \quad \Gamma \vdash \tau_n : \text{Type} \quad \Gamma \vdash \tau_{\text{ret}} : \text{Type} \quad \varepsilon \text{ valid grant set}}{\Gamma \vdash (\tau_1, \ldots, \tau_n) \to \tau_{\text{ret}}\ !\ \varepsilon : \text{Type}}}
+{\small \dfrac{\Gamma \vdash \tau_1 : \text{Type} \quad \ldots \quad \Gamma \vdash \tau_n : \text{Type} \quad \Gamma \vdash \tau_{\text{ret}} : \text{Type} \quad \varepsilon \text{ valid grant set}}{\Gamma \vdash (\tau_1, \ldots, \tau_n) \to \tau_{\text{ret}} ! \varepsilon : \text{Type}}}
 \tag{WF-Function}
 $$
 
@@ -414,7 +414,7 @@ For structural types, equivalence is based on the structure of the type, not its
 **Structural Equivalence Rules:**
 
 $$
-{\small \dfrac{\tau_1 \equiv \upsilon_1 \quad \cdots \quad \tau_n \equiv \upsilon_n}{(\tau_1, \ldots, \tau_n) \equiv (\upsilon_1, \ldots, \upsilon_n)}}
+{\small \dfrac{\tau_1 \equiv \upsilon_1 \quad \ldots \quad \tau_n \equiv \upsilon_n}{(\tau_1, \ldots, \tau_n) \equiv (\upsilon_1, \ldots, \upsilon_n)}}
 \tag{Equiv-Tuple}
 $$
 
@@ -429,7 +429,7 @@ $$
 $$
 
 $$
-{\small \dfrac{\tau_1 \equiv \upsilon_1 \quad \cdots \quad \tau_n \equiv \upsilon_n \quad \tau_{\text{ret}} \equiv \upsilon_{\text{ret}} \quad \varepsilon_1 = \varepsilon_2}{(\tau_1, \ldots, \tau_n) \to \tau_{\text{ret}}\ !\ \varepsilon_1 \equiv (\upsilon_1, \ldots, \upsilon_n) \to \upsilon_{\text{ret}}\ !\ \varepsilon_2}}
+{\small \dfrac{\tau_1 \equiv \upsilon_1 \quad \ldots \quad \tau_n \equiv \upsilon_n \quad \tau_{\text{ret}} \equiv \upsilon_{\text{ret}} \quad \varepsilon_1 = \varepsilon_2}{(\tau_1, \ldots, \tau_n) \to \tau_{\text{ret}} ! \varepsilon_1 \equiv (\upsilon_1, \ldots, \upsilon_n) \to \upsilon_{\text{ret}} ! \varepsilon_2}}
 \tag{Equiv-Function}
 $$
 
@@ -552,7 +552,7 @@ where:
 
 [33] Function and procedure types shall carry explicit grant annotations:
 
-$$(\tau_1, \ldots, \tau_n) \to \tau_{\text{ret}}\ !\ \varepsilon$$
+$$(\tau_1, \ldots, \tau_n) \to \tau_{\text{ret}} ! \varepsilon$$
 
 where $\varepsilon$ is the grant set required by the function.
 

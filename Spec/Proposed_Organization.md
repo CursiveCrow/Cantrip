@@ -37,6 +37,39 @@ This section defines how to structure content **within** individual specificatio
 5. **Numbered Paragraphs**: Use sequential numbering for traceability and cross-referencing
 6. **Layered Information**: Structure content in progressive layers (essential → important → advanced)
 
+### Multi-Level Nesting Guidelines
+
+**Nesting Depth Standards**:
+- **Standard sections**: 2-3 levels (e.g., §3.1, §3.1.1, §3.1.1.1)
+- **Complex multi-category sections**: 3-4 levels permitted (e.g., §3.2, §3.2.2, §3.2.2.1, §3.2.2.1.1)
+- **Maximum depth**: 5 levels per ISO 2145:1978 standard
+- **ISO/IEC compliance**: Cursive follows ISO/IEC Directives Part 2 for document structure
+
+**When to Use Deeper Nesting** (3-4 levels):
+- Sections covering multiple distinct sub-categories (e.g., §3.2 Primitive Types covering 6 type families)
+- Each sub-category requires comprehensive specification following the universal template pattern
+- The added organizational clarity outweighs the complexity of deeper numbering
+- Precedent: ISO/IEC 14882 (C++) uses 4 levels in complex sections (e.g., §23.3.13.6 for sequence container requirements)
+
+**Rationale**:
+- **C++ Standard**: Uses 2 levels for simple sections, 4 levels for complex multi-faceted sections
+- **C# Standard (ECMA-334)**: Uses 3 levels for type system (e.g., 11.1.4 Integral types)
+- **Cursive approach**: Balances detail (more than C++) with clarity (within ISO 5-level limit)
+- **Justification**: Cursive's integration of permissions, grants, contracts, and formal semantics requires more detailed organization than typical language specifications
+
+**Numbering Pattern** for multi-category sections:
+```
+X.Y Section Name
+├── X.Y.1 Overview (cross-cutting concerns)
+├── X.Y.2 Category A
+│   ├── X.Y.2.1 Overview
+│   ├── X.Y.2.2 Syntax
+│   ├── X.Y.2.3 Semantics
+│   └── X.Y.2.N Advanced Topics
+├── X.Y.3 Category B (follows same internal structure)
+└── X.Y.M Integration (how categories interact)
+```
+
 ### Universal Section Template
 
 Every normative section should follow this structure combining **ISO-style numbered paragraphs** with **embedded formal elements** (following ISO/IEC 14882 C++ Standard model):
@@ -171,6 +204,86 @@ This is invalid because it violates the constraint specified in paragraph [10.1]
 
 [14] The interaction with [other feature] shall satisfy the compatibility requirements specified in §X.Y.
 ```
+
+### Applying Template to Multi-Category Sections
+
+For sections that cover multiple distinct sub-categories (e.g., §3.2 Primitive Types covering 6 type families), apply the universal template at two levels:
+
+**Pattern Structure:**
+```markdown
+## X.Y [Section Name] [stable-label]
+
+### X.Y.1 Overview [stable-label.overview]
+
+[1] [One-sentence definition of the overall section scope]
+
+[2] This section specifies N categories:
+    (2.1) Category A (§X.Y.2)
+    (2.2) Category B (§X.Y.3)
+    ...
+    (2.N) Category N (§X.Y.M-1)
+
+[3] [Common properties across all categories]
+
+**Cross-references:** §X.Y.M for integration
+
+### X.Y.2 [Category A Name] [stable-label.category-a]
+
+#### X.Y.2.1 Overview [stable-label.category-a.overview]
+
+[4] [One-sentence definition of Category A]
+
+**Definition X.Y.2.1** (*Category A Term*):
+[Formal definition]
+
+[5] [Purpose and context]
+
+#### X.Y.2.2 Syntax [stable-label.category-a.syntax]
+
+[6] The syntax of [Category A] shall conform to the following grammar.
+
+**Syntax:**
+```
+[grammar production rules]
+```
+
+#### X.Y.2.3 [Main Concept] [stable-label.category-a.concept]
+
+[7] [Semantic rules with formation/typing rules]
+
+**Example X**: [Demonstrating concept]
+```cursive
+// Code example
+```
+
+[Continue following universal template pattern...]
+
+### X.Y.3 [Category B Name] [stable-label.category-b]
+
+[Apply same internal structure as X.Y.2]
+
+### X.Y.M Integration [stable-label.integration]
+
+[Final section showing how all categories interact]
+```
+
+**Key Principles:**
+1. **Top-level overview** (X.Y.1) introduces all categories
+2. **Each category** (X.Y.2, X.Y.3, ...) follows the full universal template internally
+3. **Integration section** (X.Y.M) at end shows cross-category interactions
+4. **Stable labels** follow hierarchical pattern: `[parent.category.subcategory]`
+5. **Numbering depth**: 4 levels maximum (X.Y.Z.W) within ISO 2145 limits
+
+**Example from Specification:**
+- §3.2 Primitive Types uses this pattern
+- §3.2.1 Overview introduces 6 primitive type categories
+- §3.2.2-3.2.7 each specify one type category with full detail
+- §3.2.8 Integration shows how primitive types interact with permission/grant systems
+
+**When NOT to use this pattern:**
+- Sections with only 1-2 major concepts (use standard 2-3 level template)
+- Sections where categories share significant semantics (consolidate instead)
+- Purely conceptual sections without distinct implementable categories
 
 ### Documentation Elements
 
@@ -836,12 +949,16 @@ This enables precise control through compositional declarations like `let x: con
 #### **Section 3.2: Primitive Types**
 **File**: `03-2_Primitive-Types.md`
 
-- 3.2.1 Integer Types
-- 3.2.2 Floating-Point Types
-- 3.2.3 Boolean Type
-- 3.2.4 Character Type
-- 3.2.5 Unit Type
-- 3.2.6 Never Type
+> **Note**: This section uses 4-level nesting (§3.2.X.Y) due to covering 6 distinct type categories, each requiring detailed specification. See "Multi-Level Nesting Guidelines" below for rationale.
+
+- 3.2.1 Primitive Types Overview
+- 3.2.2 Integer Types
+- 3.2.3 Floating-Point Types
+- 3.2.4 Boolean Type
+- 3.2.5 Character Type
+- 3.2.6 Unit Type
+- 3.2.7 Never Type
+- 3.2.8 Integration
 
 #### **Section 3.3: Composite Types**
 **File**: `03-3_Composite-Types.md`
