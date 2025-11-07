@@ -195,7 +195,7 @@ This document shows where each topic in the proposed reorganization currently ex
 **Status**: ✅ Complete
 **Current Location**: `02_Type-System.md`
 **Lines**: 4087-4897 (§2.9 Parametric Features)
-**Content**: Type parameters, const parameters, generic types, generic functions, associated types (lines 4199-4644), where clauses.
+**Content**: Type parameters, const parameters, generic types, generic procedures, associated types (lines 4199-4644), where clauses.
 
 ### Section 3.7: Type Bounds and Constraints
 **Status**: ⚠️ Partial (scattered)
@@ -501,7 +501,7 @@ This document shows where each topic in the proposed reorganization currently ex
 **Status**: ✅ Complete
 **Current Location**: `03_Declarations-and-Scope.md`
 **Lines**: 723-902 (§3.7)
-**Content**: Scope hierarchy, block/function/module scopes, shadowing rules, namespace unification.
+**Content**: Scope hierarchy, block/procedure/module scopes, shadowing rules, namespace unification.
 
 ### Section 7.9: Name Resolution (Detailed)
 **Status**: ✅ Complete
@@ -525,7 +525,7 @@ This document shows where each topic in the proposed reorganization currently ex
 **Status**: ✅ Complete
 **Current Location**: `03_Declarations-and-Scope.md`
 **Lines**: 1496-1589 (§3.12)
-**Content**: Predeclared types, constants, functions, protection rules.
+**Content**: Predeclared types, constants, procedures, protection rules.
 
 ---
 
@@ -642,13 +642,13 @@ This document shows where each topic in the proposed reorganization currently ex
 - FFI types: Lines 1251-1260
 - FFI safety: Lines 1228-1248
 - Name mangling: Lines 1264-1287
-- Variadic functions: Lines 1303-1316, 2422-2474
+- Variadic procedures: Lines 1303-1316, 2422-2474
 
 ### Section 14.2: Unsafe Operations in FFI Context
 **Status**: ✅ Complete
 **Current Location**: `09_Functions.md` + `04_Lexical-Permissions.md`
 **Content**:
-- Unsafe functions: `09_Functions.md` lines 1120-1190
+- Unsafe procedures: `09_Functions.md` lines 1120-1190
 - Unsafe blocks in FFI: Lines 1128-1168
 - Raw pointer requirements: `04_Lexical-Permissions.md` lines 181, 2347
 
@@ -664,7 +664,7 @@ This document shows where each topic in the proposed reorganization currently ex
 **Current Location**: `09_Functions.md` + `02_Type-System.md`
 **Content**:
 - C string handling: `09_Functions.md` lines 1327-1334
-- C variadic functions: Lines 1303-1316, 2422-2474
+- C variadic procedures: Lines 1303-1316, 2422-2474
 - C type representations: `02_Type-System.md` line 2387 (`[[repr(C)]]`)
 - **Missing**: C macros/preprocessing
 

@@ -1,0 +1,278 @@
+# Cursive Language Specification
+
+## Clause 7 — Types
+
+**Part**: VII — Type System  
+**File**: 07-6_Modal-Types.md
+**Section**: 7.6 Modal Types  
+**Stable label**: [type.modal]  
+**Forward references**: §7.7 [type.relation], Clause 8 [expr], Clause 11 [generic], Clause 12 [memory], Clause 13 [contract], Clause 14 [witness]
+
+---
+
+### §7.6 Modal Types [type.modal]
+
+[1] Modal types define compile-time state machines. Each modal value inhabits exactly one named state at a time; state transitions are enforced by the type system, ensuring that operations occur in valid orders without runtime overhead. Modal types integrate with the contract system (Clause 13) and the witness system (Clause 14) to express and verify obligations.
+
+[2] Examples include file handles (Closed → Open → Closed), parser contexts, transactional resources, and capability tokens. The built-in pointer modal type `Ptr<T>` (§7.5) is a specific instance of this general mechanism.
+
+#### §7.6.1 Syntax [type.modal.syntax]
+
+[3] The grammar in Annex A §A.3 defines modal declarations:
+
+```
+ModalDecl        ::= 'modal' Ident GenericParams? '{' StateBlock+ '}'
+StateBlock       ::= '@' Ident StateFields? StateBody?
+StateFields      ::= '{' FieldDecl* '}'
+StateBody        ::= '{' StateMember* '}'
+StateMember      ::= ProcedureDecl | FunctionDecl | TransitionSignature
+TransitionSignature ::= '@' Ident '::' Ident '(' ParamList? ')' '->' '@' Ident
+```
+
+[4] **Transition Declarations and Implementations**: Modal types distinguish between transition _signatures_ (which use `->` syntax) and transition _implementations_ (which use standard procedure syntax with `:`):
+
+- **Transition signatures** (inside modal body): Use the form `@SourceState::name(params) -> @TargetState` to declare valid state transitions. These lightweight declarations define the state machine graph.
+
+- **Procedure implementations**: Each transition signature shall have a corresponding procedure implementation using standard procedure syntax (§5.4). The procedure is named `ModalType.name`, takes receiver `self: perm Self@Source`, and returns `Self@Target` using the `:` return type indicator (not `->`). Implementations may appear at module scope or within the state body as full procedure declarations.
+
+[Note: Transition signatures use `->` to indicate state-to-state transitions, while implementations use `:` as the return type indicator per standard procedure syntax (§5.4). This syntactic distinction clarifies the difference between declaring the state machine graph and implementing transition logic. —end note]
+
+[5] Each state may:
+
+- Declare fields (state-specific payload).
+- Provide methods (procedures) available while in that state.
+- Define transition signatures using `@Source::name(params) -> @Target` syntax.
+
+#### §7.6.2 Formation Rules [type.modal.formation]
+
+[6] A modal declaration `modal M { @S₁ … @Sₙ }` is well-formed when:
+
+1. State names `Sᵢ` are unique.
+2. Field types within each state are well-formed under the enclosing context.
+3. Transition clauses reference existing states.
+4. Methods use receivers consistent with pointer semantics: `self: perm Self@State` where `perm ∈ {const, shared, unique}`.
+
+[6.1] _Missing transition implementation._ If a transition signature `@Source::name(params) -> @Target` is declared but no corresponding procedure `ModalType.name` with matching signature exists, diagnostic E07-505 is emitted. The implementation must match the signature exactly: receiver permission, parameter types, and target state must align. Implementations with mismatched signatures do not satisfy the signature requirement.
+
+[6.2] _Orphan transition implementations._ If a procedure `ModalType.name` exists but no corresponding transition signature is declared, the procedure is treated as a regular associated procedure (not a transition). Such procedures may still be called but do not participate in state tracking. No diagnostic is emitted for orphan implementations; they are valid for non-transition operations.
+
+[6.3] _State field access outside state._ When a state-specific field is accessed through a modal value that is not in the field's defining state, diagnostic E07-504 is emitted. This check occurs during type checking; the compiler tracks the current state of each modal value through pattern matching and transition calls. Accessing fields from a different state is always ill-formed, even if the access would be safe at runtime.
+
+Formally:
+
+$$
+\dfrac{\text{modal } M \{ @S_1, \ldots, @S_n \} \text{declared} \quad S_i \ne S_j \quad \Gamma \vdash \text{fields/members}}{\Gamma \vdash M : \text{Type}}
+\tag{WF-Modal-Type}
+$$
+
+#### §7.6.3 State Types [type.modal.state]
+
+[7] Each state induces a nominal subtype `M@State`. Values of type `M` have unknown state. Pattern matching refines the state:
+
+```cursive
+match conn {
+    @Closed { path } => { ... }   // conn : Connection@Closed
+    @Open { handle } => { ... }   // conn : Connection@Open
+}
+```
+
+Typing rule:
+
+$$
+\dfrac{\Gamma \vdash e : M \quad \text{states cover all }@S_i}{\Gamma \vdash \text{match } e \text{ with }@S_i : \tau}
+\tag{T-Match-Modal}
+$$
+
+Within each branch, the value is treated as `M@S_i` and state fields are accessible.
+
+#### §7.6.4 Transitions [type.modal.transition]
+
+[8] Transitions are defined through two components:
+
+**Transition signature** (inside modal body):
+
+```cursive
+modal Connection {
+    @Closed { path: string@Owned }
+    @Closed::open(~!, path: string@View) -> @Open
+
+    @Open { handle: Handle }
+}
+```
+
+**Procedure implementation** (at module scope or inline):
+
+```cursive
+procedure Connection.open(self: unique Self@Closed, path: string@View): Self@Open
+    {| io::open |- true => witness Connection@Open |}
+{
+    let handle = os::open(path)
+    result Connection@Open { handle, path: path.to_owned() }
+}
+```
+
+[9] The signature `@Source::name(params) -> @Target` declares the transition, including receiver shorthand (`~`, `~%`, `~!`) if the transition requires a self parameter. The implementation shall:
+
+- Be named `ModalType.name`
+- Take receiver matching the signature's shorthand: `~` → `self: const Self@Source`, `~%` → `self: shared Self@Source`, `~!` → `self: unique Self@Source`
+- Return `Self@Target` where Target matches the signature
+- Use `:` for the return type (standard procedure syntax), not `->`
+
+Typing rule:
+
+$$
+\dfrac{\Gamma \vdash self : M@S \quad \Gamma \vdash \text{body}: M@Target \quad \text{contract ok}}{\Gamma \vdash \text{procedure } M.name(self: perm M@S, ...): M@Target}
+\tag{T-Transition}
+$$
+
+The body must `result` a value of type `M@Target`. Failing to do so triggers E07-502. Witness semantics are described in §7.6.5.
+
+#### §7.6.5 Contracts and Witnesses [type.modal.contract]
+
+[10] Modal transition procedures follow all standard procedure semantics (§5.4), including contractual sequent specifications `{| grants … |- must => will |}`. In addition, each transition signature imposes the following witness obligations:
+
+1. **Entry witness** — the caller shall provide `witness M@Source` (or an equivalent fact provable from the current control-flow) before invoking the procedure.
+2. **Exit witness** — the procedure shall prove or emit `witness M@Target` on every non-diverging exit path. Returning a value of type `M@Target` without supplying the witness is ill-formed and triggers E07-502.
+3. **Exclusive result states** — a transition signature maps exactly one `@Source` to one `@Target`. A procedure that wishes to return multiple states shall declare separate signatures so that each branch has an explicit witness obligation.
+
+[10.1] Implementations shall enforce that every transition signature has a matching procedure whose contractual sequent names the entry/exit witnesses. This requirement ensures that the witness system (Clause 14) can track linear state changes without heuristic inference.
+
+**Example:**
+
+```cursive
+procedure close(self: unique Self@Open): Self@Closed
+    {| io::close, witness Connection@Open
+       |- true => witness Connection@Closed |}
+{
+    os::close(self.handle)
+    result Connection@Closed { path: self.path }
+}
+```
+
+#### §7.6.6 Modal Field Access [type.modal.fields]
+
+[11] State fields are accessible only when the value is known to be in that state. Attempting to read `value.field` when the current type is `M` (unknown state) is ill-formed (E07-504). Pattern matching or witness-based refinement is required.
+
+#### §7.6.7 Subtyping [type.modal.subtyping]
+
+[12] The subtyping relationship includes:
+
+- `M@State <: M` (state-specific type is a subtype of the general modal type).
+- Distinct states are incomparable (`M@S₁` and `M@S₂` only subtype each other if `S₁ = S₂`).
+
+These rules integrate with the general subtyping relation in §7.7.
+
+#### §7.6.8 Diagnostics [type.modal.diagnostics]
+
+[13] Minimal diagnostics:
+
+| Code  | Condition                                       |
+| ----- | ----------------------------------------------- |
+| E07-500 | Duplicate state name                            |
+| E07-501 | Transition references undeclared state          |
+| E07-502 | Transition body fails to return target state    |
+| E07-503 | Exhaustiveness failure in modal pattern match   |
+| E07-504 | State-specific field accessed outside its state |
+
+#### §7.6.9 Examples (Informative) [type.modal.examples]
+
+**Example 7.6.9.1 (File lifecycle):**
+
+```cursive
+modal FileHandle {
+    @Closed { path: string@Owned }
+    @Closed::open(~!, path: string@View) -> @Open
+
+    @Open { path: string@Owned, handle: os::Handle }
+    @Open::read(~%, buffer: [u8]) -> @Open
+    @Open::close(~!) -> @Closed
+}
+
+// Transition implementations at module scope
+procedure FileHandle.open(self: unique Self@Closed, path: string@View): Self@Open
+    {| io::open |- true => witness FileHandle@Open |}
+{
+    let handle = os::open(path)
+    result FileHandle@Open { path: path.to_owned(), handle }
+}
+
+procedure FileHandle.read(self: shared Self@Open, buffer: [u8]): Self@Open
+    {| io::read, witness FileHandle@Open |- buffer.len() > 0 => true |}
+{
+    os::read(self.handle, buffer)
+    result self
+}
+
+procedure FileHandle.close(self: unique Self@Open): Self@Closed
+    {| io::close, witness FileHandle@Open |- true => witness FileHandle@Closed |}
+{
+    os::close(self.handle)
+    result FileHandle@Closed { path: self.path }
+}
+
+procedure use_file(path: string@View)
+    grants io::open, io::read, io::close
+{
+    let file = FileHandle::from_path(path)
+    match file {
+        @Closed => {
+            let open = file.open()
+            open.read(buffer)
+            let closed = open.close()
+            // closed : FileHandle@Closed
+        }
+    }
+}
+```
+
+**Example 7.6.9.2 (Token-based capability):**
+
+```cursive
+modal Transaction {
+    @Idle {}
+    @Idle::begin(~!) -> @Active
+
+    @Active {}
+    @Active::commit(~!) -> @Idle
+    @Active::rollback(~!) -> @Idle
+}
+
+// Transition implementations
+procedure Transaction.begin(self: unique Self@Idle): Self@Active
+    {| db::begin |- true => witness Transaction@Active |}
+{
+    db::begin()
+    result Transaction@Active {}
+}
+
+procedure Transaction.commit(self: unique Self@Active): Self@Idle
+    {| db::commit, witness Transaction@Active |- true => witness Transaction@Idle |}
+{
+    db::commit()
+    result Transaction@Idle {}
+}
+
+procedure Transaction.rollback(self: unique Self@Active): Self@Idle
+    {| db::rollback, witness Transaction@Active |- true => witness Transaction@Idle |}
+{
+    db::rollback()
+    result Transaction@Idle {}
+}
+```
+
+#### §7.6.10 Conformance Requirements [type.modal.requirements]
+
+[14] Implementations shall:
+
+1. Support modal syntax as described in §7.6.1 with unique state names.
+2. Enforce that state-specific fields and methods are used only in their defining state.
+3. Ensure transitions return values of the target state; emit diagnostic E07-502 otherwise.
+4. Refine modal types in pattern matches and enforce exhaustiveness (E07-503).
+5. Track witnesses per Clause 14, ensuring sequent clauses are respected.
+6. Provide diagnostics in §7.6.8 with contextual information (location of state declaration and offending use).
+
+[15] Deviations render an implementation non-conforming unless explicitly noted elsewhere.
+
+---
+
+**Previous**: §7.5 Pointer and Reference Types (§7.5 [type.pointer]) | **Next**: §7.7 Type Relations (§7.7 [type.relation])

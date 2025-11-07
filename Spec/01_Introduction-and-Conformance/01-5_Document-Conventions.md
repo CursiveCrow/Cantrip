@@ -1,426 +1,92 @@
 # Cursive Language Specification
-## Part I: Introduction and Conformance
-### Section 1.5: Document Conventions
+## Clause 1 — Introduction and Conformance
 
-**File**: `01-5_Document-Conventions.md`
-**Version**: 1.0
-**Status**: Normative
-**Previous**: [[REF_TBD]](01-4_Conformance.md) | **Next**: [[REF_TBD]](01-6_Versioning-Evolution.md)
+**Part**: I — Introduction and Conformance
+**File**: 01-5_Document-Conventions.md  
+**Section**: 1.6 Document Conventions  
+**Stable label**: [intro.document]  
+**Forward references**: §1.4.5 [intro.notation.style], Clause 4 §4.A [module.index], Annex A [grammar], Annex E §E.2.1 [implementation.algorithms]
 
 ---
 
-This section defines the organizational and presentation conventions used throughout this specification.
+### §1.6 Document Conventions [intro.document]
 
-## 1.5.1 Cross-References
+[1] This subclause prescribes the structural conventions used throughout the specification: stable labels, cross-references, example formatting, and validation expectations. Digital and print editions shall follow the same logical structure.
 
-### Cross-Reference Format
+#### §1.6.1 Stable Labels [intro.document.labels]
 
-Cross-references use the following formats:
+[2] Each clause and subclause carries a stable label of the form `[clause.topic[.subtopic]]`. Clause 1 uses the following labels:
+- `[intro.scope]`, `[intro.refs]`, `[intro.terms]`, `[intro.notation]`, `[intro.conformance]`, `[intro.document]`, `[intro.versioning]`.
+- Subclauses append descriptive suffixes, e.g. `[intro.document.labels]` or `[intro.conformance.impl]`.
 
-| Format | Meaning | Example |
-|--------|---------|---------|
-| `[REF_TBD]` | Section X.Y in the current part | `[REF_TBD]` (Section 2.1) |
-| `[REF_TBD]` | Subsection X.Y.Z | `[REF_TBD]` (Subsection 3.4.2) |
-| `Part X [REF_TBD]` | Section Y.Z in Part X | `Part VI [REF_TBD]` |
-| `Annex X [REF_TBD]` | Section Y in Annex X | `Annex A [REF_TBD]` |
-| `Annex X` | Entire annex | `Annex B` (Portability and Behavior) |
+[3] Later clauses follow the same style: clause prefix (e.g., `lex`, `decl`, `memory`) plus a concise topic. Labels are unique and stable across editions. When content moves, the label moves with it to preserve hyperlinks.
 
-**Examples**:
-- "See [REF_TBD]"
-- "Permission system is defined in Part VI [REF_TBD]"
-- "Complete grammar is in Annex A"
+#### §1.6.2 Cross-Reference Format [intro.document.references]
 
-### Cross-Reference Requirements
+[4] Cross-references shall use the format `§X.Y[label]`. For example, “§5.2 [decl.variable]” references the variable binding rules in Clause 5. Within the same clause the leading clause number may be omitted when unambiguous (`§1.5 [intro.conformance]`).
 
-**Normative requirement**: Every dependency between sections **shall** cite the target section.
+[5] Digital publications shall hyperlink the rendered text to the referenced section. PDF editions should provide bidirectional navigation where feasible.
 
-**Forward references** (references to later sections) shall be:
-1. Clearly marked as forward references
-2. Limited to essential dependencies
-3. Documented in [REF_TBD]
+[6] Forward references are permitted when necessary to inform the reader about required prerequisites. Authors shall explicitly mark the forward reference (e.g., “Forward reference: §12.4 [memory.permission]”). Cycles should be avoided; when unavoidable they must be documented in both target sections.
 
-**Circular dependencies** (when unavoidable) shall be:
-1. Documented with bidirectional cross-references
-2. Explained in the relevant sections
-3. Listed in [REF_TBD]
+#### §1.6.3 Validation Requirements [intro.document.validation]
 
-### Bidirectional Cross-Referencing
+[7] Prior to publication, editors shall verify that every label resolves to an existing target and that no dangling references remain. Automated tooling should generate:
+- an outbound reference table listing, for each section, the labels it references;
+- an inbound reference table to identify orphans (sections with no references);
+- a report for unresolved labels or malformed cross-references.
 
-Key definitions list the sections that reference them:
+[8] Failing references shall block publication. Errata releases may fix discovered issues; patch releases (e.g., 1.0.1) shall include updated validation artefacts.
 
-**Example** (hypothetical):
+#### §1.6.4 Examples and Annotations [intro.document.examples]
 
-> **Definition 3.1 (Primitive Types):** ...
->
-> **Referenced in**: [REF_TBD], [REF_TBD], [REF_TBD]
+[9] Examples are informative unless clearly marked otherwise. Code examples use the `cursive` fence. Diagnostics may annotate expected errors using comments (`// ERROR E4001: …`). When examples demonstrate invalid code the surrounding prose shall identify the normative rule being violated.
 
-This helps readers understand the impact and usage of each definition.
+[10] Notes and warnings employ the bracketed ISO format described in §1.4.5 [intro.notation.style]. Informative commentary shall never contradict normative rules.
 
-### Digital Hyperlinks Required in Electronic Versions
+#### §1.6.5 Document Metadata [intro.document.metadata]
 
-In PDF and HTML versions of this specification:
+[11] Each file includes navigation metadata (**Previous**, **Next**) to aid editors working in split files. These links are informative; they shall mirror the logical order determined by Clause 1 but impose no additional requirements on implementations.
 
-- All cross-references **shall** be hyperlinks
-- Clicking a reference shall navigate to the target section
-- Back-navigation should be supported (browser/reader dependent)
+[12] Version history entries belong in dedicated change logs (Annex H [changes]). Individual clause files should reference the change log instead of embedding historical commentary.
 
-**Quality of implementation**: Hyperlinks should open in the same window/tab with appropriate navigation history.
+#### §1.6.6 Diagnostic Code Format [intro.document.diagnostics]
 
-## 1.5.1a Cross-Reference Validation
+[13] All diagnostic codes in this specification shall use the canonical format `E[CC]-[NNN]`, where:
+- `E` denotes an error diagnostic;
+- `[CC]` is a two-digit clause number with leading zero (01, 02, ..., 16);
+- `-` is a hyphen separator for visual clarity;
+- `[NNN]` is a three-digit sequential number with leading zeros (001, 002, ..., 999).
 
-### Validation Requirements
+**Example**: `E02-001` indicates the first diagnostic in Clause 02 (Lexical Structure and Translation).
 
-Before publication, all cross-references shall be validated:
+[14] Each clause allocates sequential diagnostic codes starting from 001. Within a clause, diagnostic codes should be allocated by subsection to facilitate maintenance and avoid conflicts. For instance, Clause 07 (Type System) may reserve:
+- `E07-001` through `E07-099` for §7.1 (Type foundations);
+- `E07-100` through `E07-299` for §7.2 (Primitive types);
+- `E07-300` through `E07-499` for §7.3 (Composite types);
+- and so forth.
 
-1. **All references shall resolve** to existing sections
-2. **Dead references** (pointing to nonexistent sections) are **prohibited**
-3. **Orphan detection**: Sections with zero inbound references should be flagged for review
+[15] Implementations shall report diagnostic codes using this exact format in compiler output, error messages, and diagnostic payloads. The format facilitates:
+- **Clause identification**: The two-digit prefix immediately identifies which specification clause defines the error.
+- **Visual parsing**: The hyphen separator aids human readers in distinguishing clause from sequential number.
+- **Machine processing**: The regular pattern `E\d{2}-\d{3}` enables reliable automated parsing and validation.
 
-### Automated Validation Tooling Required
+[16] Reserved ranges within a clause may be documented to accommodate future expansion of specific subsections without renumbering existing diagnostics. Implementations should not define diagnostic codes outside the ranges specified by this document.
 
-The specification project **should** include automated tools that:
+[17] Annex E §E.5 [implementation.diagnostics] provides the authoritative diagnostic code registry, including:
+- Complete enumeration of all diagnostic codes across all clauses;
+- Structured payload schemas for machine-readable diagnostic output;
+- Suggested diagnostic message templates and quality guidelines;
+- Severity levels (error, warning, note) for each code.
 
-- Parse all cross-references
-- Verify targets exist
-- Generate reference resolution tables
-- Report dead links and orphans
+[18] Deprecated diagnostic codes from earlier specification versions shall be documented in the migration mapping (see `.archive/Diagnostic_Code_Migration_Map.md`). Implementations may recognize legacy codes for backward compatibility but shall normalize them to the canonical format in output.
 
-**Recommended**: Run validation on every commit/build.
+**NOTE 1**: The two-digit clause prefix supports clauses up to 99. Current specification planning does not anticipate exceeding 20 clauses.
 
-### Reference Resolution Tables
+**NOTE 2**: The three-digit sequential number provides 999 codes per clause. If a clause exhausts its allocation, the specification editors should consider subdividing the clause or consolidating related diagnostics.
 
-For maintenance, a reference resolution table **may** be generated listing:
-
-- Each section
-- All sections it references (outbound links)
-- All sections that reference it (inbound links)
-
-**Example** (fragment):
-
-| Section | Outbound References | Inbound References |
-|---------|--------------------|--------------------|
-| [REF_TBD]| [REF_TBD], [REF_TBD]| [REF_TBD], [REF_TBD], [REF_TBD]|
-| [REF_TBD]| [REF_TBD], [REF_TBD]| [REF_TBD], [REF_TBD]|
-
-## 1.5.2 Examples (Informative)
-
-### Example Purpose and Status
-
-Examples illustrate the specification but **do not impose normative requirements**.
-
-**Example status**: Informative (unless explicitly stated otherwise)
-
-**Purpose**:
-- Clarify abstract rules with concrete code
-- Show idiomatic usage
-- Demonstrate corner cases
-
-### Example Coverage Requirements
-
-**Non-trivial semantics should include examples**:
-- If a rule is complex or subtle, provide an example
-- If a feature has unexpected behavior, show an example
-
-**Complex features must include examples**:
-- Major language features (e.g., modals, effects, contracts) require multiple examples
-- Edge cases and interactions require examples
-
-### Example Formatting
-
-**Code examples** use fenced code blocks with the `cursive` language marker:
-
-```cursive
-function add(x: i32, y: i32): i32 {
-    result x + y
-}
-```
-
-**Correctness markers** indicate valid or invalid code:
-
-- ✅ **Valid code** (well-formed, conforming)
-- ❌ **Invalid code** (ill-formed, should produce diagnostic)
-
-**Example with markers**:
-
-```cursive
-// ✅ Valid: immutable binding with unique permission
-let x: unique i32 = 42;
-
-// ❌ Invalid: type mismatch
-let y: i32 = "hello";  // ERROR E4001
-```
-
-**Diagnostic annotations** show expected error codes:
-
-```cursive
-let x: i32 = "hello";  // ERROR E4001: type mismatch
-```
-
-### Example Quality
-
-**Minimal yet complete**: Examples should be:
-- As simple as possible to illustrate the point
-- Complete enough to understand without extensive context
-- Self-contained (minimize dependencies on other examples)
-
-**Consistent naming**: Use consistent conventions:
-- Variables: `x`, `y`, `z`, `value`, `result`
-- Functions: `add`, `multiply`, `process`
-- Types: `Point`, `Rectangle`, `FileHandle`
-
-## 1.5.3 Notes (Informative)
-
-### Note Format
-
-Notes provide additional information, clarifications, or guidance.
-
-**Formatting**:
-
-> **Note**: This is a note providing additional context.
-
-Or:
-
-> **Note (Rationale)**: This note explains the design rationale.
-
-**Note (cross-reference to ISO conventions)**: Notes follow ISO/IEC Directives, Part 2 conventions for informative content.
-
-### Note Status
-
-Notes are **informative** and do not impose normative requirements, even when appearing in normative sections.
-
-**Examples of note usage**:
-- Design rationale
-- Historical context
-- Common pitfalls
-- Relationship to other languages
-- Future directions
-
-### Warnings and Cautions
-
-For important warnings:
-
-> **Warning**: Programs with undefined behavior are invalid, even if they appear to execute correctly.
-
-For implementation cautions:
-
-> **Caution**: Implementers should carefully validate region escape to prevent memory unsafety.
-
-## 1.5.4 Section Organization
-
-### Hierarchical Structure
-
-This specification uses hierarchical section numbering:
-
-```
-Part I: Introduction and Conformance
-  [REF_TBD]
-    [REF_TBD]
-    [REF_TBD]
-  [REF_TBD]
-    [REF_TBD]/IEC Standards
-    [REF_TBD]
-```
-
-### Section Components
-
-Each major section typically includes:
-
-1. **Title and metadata**: Section number, file, version, navigation
-2. **Overview**: Brief introduction to the section's purpose
-3. **Normative content**: Rules, definitions, constraints
-4. **Examples**: Illustrative code (informative)
-5. **Cross-references**: Links to related sections
-6. **Notes**: Additional guidance (informative)
-
-### Typical Section Template
-
-```markdown
-# Part X: Title
-## Section X.Y: Subsection Title
-
-**File**: `XX-Y_Title.md`
-**Version**: 1.0
-**Status**: Normative
-**Previous**: [[REF_TBD]] | **Next**: [[REF_TBD]+1]
+**NOTE 3**: Warning and note diagnostics may use prefix `W` or `N` in future versions (e.g., `W02-001`, `N02-001`). Currently, all diagnostics use the `E` prefix.
 
 ---
 
-## X.Y.1 Subsection
-
-[Normative content]
-
-**Example**:
-```cursive
-[Example code]
-```
-
-**Note**: [Informative note]
-
----
-
-**Previous**: [[REF_TBD]] | **Next**: [[REF_TBD]+1]
-```
-
-## 1.5.4a Grammar Presentation
-
-### Dual Presentation
-
-Grammar is presented in **two places**:
-
-1. **In-context** (within semantic sections)
-2. **Consolidated** (Annex A)
-
-### In-Context Grammar Requirements
-
-Sections introducing syntactic constructs **shall** include relevant grammar excerpts.
-
-**Purpose**:
-- Provide immediate syntactic reference
-- Show grammar in context of semantic rules
-- Improve readability
-
-**Format**:
-
-```ebnf
-FunctionDecl ::= "function" Ident "(" ParamList? ")" ":" Type Block
-```
-
-**Typical excerpt size**: 2-5 productions per section
-
-### In-Line Grammar Formatting
-
-In-context grammar uses EBNF notation ([REF_TBD]):
-
-- Fenced code blocks with `ebnf` marker
-- Concise, focused excerpts
-- Cross-reference to Annex A for complete productions
-
-**Example**:
-
-> Function declarations use the following syntax:
->
-> ```ebnf
-> FunctionDecl ::= "function" Ident "(" ParamList? ")" ":" Type Block
-> ```
->
-> See Annex A.6 for complete function declaration grammar.
-
-### Grammar Synchronization
-
-**Authoritative source**: Annex A is the **authoritative** grammar.
-
-**Synchronization requirement**:
-- In-context grammar **must** match Annex A
-- Discrepancies are errors in the specification
-- Automated validation should verify consistency
-
-**Quality of implementation**: Build systems should validate that all grammar excerpts match the consolidated grammar.
-
-## 1.5.5 Forward References and Dependencies
-
-### Forward Reference Policy
-
-This specification strives for **progressive complexity**: foundational concepts precede advanced features.
-
-However, some forward references are unavoidable due to:
-- Interdependent features (e.g., types and expressions)
-- Pedagogical ordering (e.g., introducing concepts before formalizing them)
-
-### Documented Forward References
-
-Major forward references are documented below:
-
-| Section | Forward Reference | Target | Justification |
-|---------|------------------|--------|---------------|
-| [REF_TBD]| Mentions types | [REF_TBD]| Need to reference types when defining scope rules |
-| [REF_TBD]| Mentions effects | [REF_TBD]| Function types include effect annotations |
-| [REF_TBD]| Mentions permissions | [REF_TBD]| Expression typing requires permission system |
-| [REF_TBD]| Mentions contracts | [REF_TBD]| Functions can have contract clauses |
-
-**Guideline**: Forward references should be limited to essential dependencies and should not create circular reasoning.
-
-### Circular Dependencies
-
-Some features have inherent circular dependencies:
-
-- **Types and expressions**: Expressions have types; types contain expressions (e.g., array size)
-- **Permissions and types**: Types have permissions; permissions are checked during typing
-- **Effects and expressions**: Expressions have effects; effect handlers contain expressions
-
-**Resolution strategy**:
-1. Define each feature independently
-2. Define integration in a separate section
-3. Use formal foundations to break circularity (e.g., mutually recursive definitions)
-
-**Example**: Part III defines types, Part IV defines expressions, and [REF_TBD]
-
-### Dependency Graph
-
-A complete dependency graph for major sections is provided in **Annex D.0** (Implementation Notes).
-
-## 1.5.6 Reading Guide for Different Audiences
-
-### For Implementers
-
-**Recommended reading order**:
-1. Part I (Introduction and Conformance) — understanding requirements
-2. [REF_TBD]— learning formal notation
-3. Part II (Basics) — lexical structure, scopes, modules
-4. Part III (Type System) — type checking and inference
-5. Part IV-V (Expressions and Statements) — semantics
-6. Part VI (Memory Model and Permissions) — memory safety
-7. Annex A (Grammar) — complete reference
-8. Remaining parts as needed
-
-**Key sections**:
-- [REF_TBD]
-- [REF_TBD]
-- Annex A (Grammar)
-- Annex B (Behavior catalog)
-
-### For Tool Developers
-
-**Recommended reading order**:
-1. Part I [REF_TBD]
-2. Part II [REF_TBD]
-3. Part II [REF_TBD]
-4. Part III (Type System)
-5. Annex A (Grammar)
-
-**Key sections**:
-- Annex A (Grammar) — complete syntactic reference
-- Part II [REF_TBD]
-- Part III (Type System) — type checking
-- Part VII (Declarations, Scope, Modules)
-
-### For Language Designers and Researchers
-
-**Recommended reading order**:
-1. Part I (Introduction) — design philosophy
-2. [REF_TBD]— formal foundations
-3. Part III [REF_TBD]
-4. Part VI (Memory Model and Permissions)
-5. Part IX (Effect System)
-6. Part X (Contract System)
-7. Part XI (Advanced Features)
-8. Annex C (Formal Semantics)
-
-**Key sections**:
-- [REF_TBD]
-- Annex C (Formal Semantics)
-- Part XI (Advanced Features) — modals, witnesses, holes
-
-### For Programmers
-
-**Recommended**: Consult the **Cursive Programming Guide** (companion document, informative) rather than this specification.
-
-If reading this specification directly:
-1. Part I [REF_TBD]
-2. Part II [REF_TBD]— syntax basics
-3. Part III [REF_TBD]— primitive and composite types
-4. Part IV-V (Expressions and Statements) — writing code
-5. Part VII [REF_TBD]— functions and variables
-
----
-
-**Previous**: [[REF_TBD]](01-4_Conformance.md) | **Next**: [[REF_TBD]](01-6_Versioning-Evolution.md)
+**Previous**: §1.5 Conformance (§1.5 [intro.conformance]) | **Next**: §1.7 Versioning and Evolution (§1.7 [intro.versioning])

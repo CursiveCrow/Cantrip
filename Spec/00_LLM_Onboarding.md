@@ -97,8 +97,8 @@ Every significant choice must be spelled out in code:
 **Principle 2: Local Reasoning**
 
 You can understand code by reading only what's visible:
-- Permission requirements visible in function signatures
-- Effect capabilities declared at function boundary
+- Permission requirements visible in procedure signatures
+- Effect capabilities declared at the procedure boundary
 - State transitions explicit in modal type usage
 - Resource lifetimes tied to lexical scopes (regions)
 
@@ -590,10 +590,10 @@ procedure sum(numbers: [i32]) -> i32 {  // Implicitly imm [i32]
 **Think of grants as capability tokens:**
 
 ```
-Function signature without grant context = Pure function
+Procedure signature with empty grant context = Pure procedure
     • No I/O
     • No allocation
-    • No foreign function calls
+    • No foreign procedure calls that require grants
     • No unsafe operations
     • Only computation on inputs
 
@@ -611,8 +611,10 @@ Procedure with [fs::read, alloc::heap] grants = Has both tokens
 **Grant Flow:**
 
 ```cursive
-// Pure function - no grants
-function add(a: i32, b: i32) -> i32 {
+// Pure procedure - no grants
+procedure add(a: i32, b: i32) -> i32
+    sequent { [ ] |- true => true }
+{
     result a + b
 }
 
@@ -646,7 +648,7 @@ procedure main()
 **Think of regions as stack frames for allocations:**
 
 ```
-function call creates stack frame
+procedure call creates stack frame
     ↓
 region block creates allocation frame
     ↓
