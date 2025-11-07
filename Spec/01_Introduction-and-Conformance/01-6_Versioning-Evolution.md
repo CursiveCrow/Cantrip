@@ -6,7 +6,7 @@
 **File**: 01-6_Versioning-Evolution.md  
 **Section**: 1.7 Versioning and Evolution  
 **Stable label**: [intro.versioning]  
-**Forward references**: §1.7.4 [intro.versioning.deprecation], §1.7.5 [intro.versioning.patch], Annex H [changes], Clause 11 [generic], Clause 13 [contract]
+**Forward references**: §1.7.4 [intro.versioning.deprecation], §1.7.5 [intro.versioning.patch], Annex H [changes], Clause 10 [generic], Clause 12 [contract]
 
 ---
 

@@ -36,7 +36,7 @@
 
 [7] **Use prerequisites.** A `use` declaration is well-formed only if its referenced module path (or alias) resolves to an imported module in the current compilation unit. Violations emit diagnostic E04-202. This requirement prevents `use` from implicitly importing modules.
 
-[Note: The two-phase compilation model (§2.2 [lex.phases]) permits declarations to appear in any textual order. The prerequisite is semantic (the module must be imported) not temporal (the import need not precede the use textually). Implementations shall collect all `import` declarations during parsing before validating `use` declarations. —end note]
+[Note: The two-phase compilation model (§2.2 [lex.phases]) permits declarations to appear in any textual order. The prerequisite is semantic (the module must be imported) not temporal (the import need not precede the use textually). Implementations shall collect all `import` declarations during parsing before validating `use` declarations. — end note]
 
 #### §4.3.3 Formal Rules
 
@@ -88,7 +88,7 @@ $$
 
 [3] Alias-map identifiers do not introduce standalone bindings. They may only appear as the leading component of a qualified name (`alias::item`). Using an alias without a following `::` is ill-formed and should be diagnosed via the lookup rules in Clause 6.
 
-[3] `import` does not introduce a new binding. Qualified references use the module path directly (e.g., `math::geometry::area`).
+[4] `import` does not introduce a new binding. Qualified references use the module path directly (e.g., `math::geometry::area`).
 
 ##### §4.3.4.2 Use Semantics
 

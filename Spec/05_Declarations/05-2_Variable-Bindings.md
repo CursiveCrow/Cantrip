@@ -1,11 +1,12 @@
 # Cursive Language Specification
+
 ## Clause 5 — Declarations
 
 **Clause**: 5 — Declarations
 **File**: 05-2_Variable-Bindings.md
 **Section**: §5.2 Variable Bindings and Initialisers
 **Stable label**: [decl.variable]  
-**Forward references**: §4.6 [module.initialization], §5.3 [decl.pattern], §5.7 [decl.initialization], §12.4 [memory.permission]
+**Forward references**: §4.6 [module.initialization], §5.3 [decl.pattern], §5.7 [decl.initialization], §11.4 [memory.permission]
 
 ---
 
@@ -56,23 +57,25 @@ initializer
 
 [2] When a pattern binds more than one identifier, a `:{Type}` annotation is mandatory and applies uniformly to every identifier in the pattern.
 
-[3] `initializer` must be present for every binding form. The binding operator determines whether the binding owns the produced value (`=`) or establishes a reference binding (`<-`) as described in §5.7.5 [decl.initialization].
+[3] `initializer` must be present for every binding form. The binding operator determines whether the binding owns the produced value (`=`) or establishes a reference binding (`<-`).
+
+Value bindings (`=`) transfer cleanup responsibility to the binding; the binding's destructor executes when the binding goes out of scope. Reference bindings (`<-`) create bindings without cleanup responsibility; the referenced value retains its original cleanup obligations. Complete semantics for reference assignment, including permission checking and region lifetime validation, are specified in §5.7.5 [decl.initialization].
 
 #### §5.2.3 Constraints
 
-[1] *Explicit shadowing.* `shadow let` and `shadow var` shall only appear when an enclosing scope already defines the same identifier. Absence of a matching outer binding yields diagnostic E05-201.
+[1] _Explicit shadowing._ `shadow let` and `shadow var` shall only appear when an enclosing scope already defines the same identifier. Absence of a matching outer binding yields diagnostic E05-201.
 
-[2] *Single assignment.* `let` bindings shall not be reassigned after initialisation. `var` bindings may be reassigned. Attempts to reassign a `let` binding emit diagnostic E05-202.
+[2] _Single assignment._ `let` bindings shall not be reassigned after initialisation. `var` bindings may be reassigned. Attempts to reassign a `let` binding emit diagnostic E05-202.
 
-[3] *Pattern uniformity.* Multi-identifier patterns require a type annotation `:{Type}` that applies to every identifier in the pattern. All identifiers in the pattern must be distinct. Violations produce diagnostic E05-203.
+[3] _Pattern uniformity._ Multi-identifier patterns require a type annotation `:{Type}` that applies to every identifier in the pattern. All identifiers in the pattern must be distinct. Violations produce diagnostic E05-203.
 
-[4] *Initialiser completeness.* The initialiser expression shall provide values for every identifier in the pattern. If destructuring fails (for example, due to mismatched arity or missing fields), diagnostic E05-204 is issued.
+[4] _Initialiser completeness._ The initialiser expression shall provide values for every identifier in the pattern. If destructuring fails (for example, due to mismatched arity or missing fields), diagnostic E05-204 is issued.
 
-[5] *Compile-time constants.* A binding is a compile-time constant only when it is a module-scope `let` with a compile-time evaluable initialiser or a binding declared within a `comptime` block. Function- or block-scope bindings remain runtime values regardless of their initialiser expression.
+[5] _Compile-time constants._ A binding is a compile-time constant only when it is a module-scope `let` with a compile-time evaluable initialiser or a binding declared within a `comptime` block. Function- or block-scope bindings remain runtime values regardless of their initialiser expression.
 
-[6] *Permission independence.* Binding mutability controls reassignment, not value mutation. Value mutation permissions arise from the type’s permission qualifiers or region attributes (§12.4).
+[6] _Permission independence._ Binding mutability controls reassignment, not value mutation. Value mutation permissions arise from the type's permission qualifiers or region attributes (§11.4).
 
-[7] *Forward references.* Due to two-phase compilation (§2.2), bindings may reference declarations that appear later in the translation unit. Shadowing rules are evaluated after parsing, ensuring forward references do not bypass explicit shadow requirements.
+[7] _Forward references._ Due to two-phase compilation (§2.2), bindings may reference declarations that appear later in the translation unit. Shadowing rules are evaluated after parsing, ensuring forward references do not bypass explicit shadow requirements.
 
 #### §5.2.4 Semantics
 
@@ -87,6 +90,7 @@ initializer
 #### §5.2.5 Examples (Informative)
 
 **Example 5.2.5.1 (Simple bindings):**
+
 ```cursive
 let ORIGIN: i32 = 0
 var counter = 1
@@ -94,12 +98,14 @@ shadow let counter = counter + 1
 ```
 
 **Example 5.2.5.2 (Pattern binding with uniform type):**
+
 ```cursive
 let {x, y, z}: Point3 = make_point()
 // Semantically equivalent to introducing a temporary Point3
 ```
 
 **Example 5.2.5.3 - invalid (Implicit shadowing):**
+
 ```cursive
 let limit = 10
 {
@@ -108,6 +114,7 @@ let limit = 10
 ```
 
 **Example 5.2.5.4 - invalid (Pattern arity mismatch):**
+
 ```cursive
 let {left, right}: Pair = make_triple()  // error[E05-204]
 ```
@@ -120,4 +127,4 @@ let {left, right}: Pair = make_triple()  // error[E05-204]
 
 [3] Module-scope bindings shall participate in the dependency analysis of §4.6; implementations shall detect initialiser cycles (E05-701) and block dependent initialisers per §5.7.
 
-[4] Binding mutability shall not alter permission semantics; compilers shall defer permission enforcement to Clause 12 while ensuring the binding itself respects §5.2.3[6].
+[4] Binding mutability shall not alter permission semantics; compilers shall defer permission enforcement to Clause 11 while ensuring the binding itself respects §5.2.3[6].

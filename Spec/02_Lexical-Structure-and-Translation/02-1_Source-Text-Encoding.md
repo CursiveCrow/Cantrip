@@ -4,13 +4,13 @@
 **File**: 02-1_Source-Text-Encoding.md  
 **Section**: 2.1 Source Text and Encoding  
 **Stable label**: [lex.source]  
-**Forward references**: §2.2 [lex.phases], §2.3 [lex.tokens]
+**Forward references**: §2.2 [lex.phases], §2.3 [lex.tokens], Annex A §A.2 [grammar.lexical]
 
 ---
 
 ### §2.1.1 Overview
 
-[1] Cursive source input is a sequence of Unicode scalar values that must be encoded as UTF-8. All subsequent phases (§2.2 [lex.phases]) assume that the implementation has normalised line endings and removed optional metadata such as byte order marks before tokenisation (§2.3 [lex.tokens]).
+[1] Cursive source input is a sequence of Unicode scalar values that shall be encoded as UTF-8. All subsequent phases (§2.2 [lex.phases]) assume that the implementation has normalised line endings and removed optional metadata such as byte order marks before tokenisation (§2.3 [lex.tokens]).
 
 [2] A _source file_ is the decoded Unicode scalar stream after UTF-8 validation and line-ending normalisation. A _compilation unit_ is the textual content of a single source file after this preprocessing step.
 
@@ -31,6 +31,9 @@ line_terminator
 bom
     ::= "\uFEFF"
 ```
+
+[ Note: See Annex A §A.2 [grammar.lexical] for the complete lexical grammar including source file structure.
+— end note ]
 
 [2] `code_point` denotes any Unicode scalar value other than control characters disallowed by constraint [4].
 
@@ -77,6 +80,6 @@ let x = 1
 
 [1] Implementations shall document the maximum supported source-file size and the Unicode version they validate against.
 
-[2] Diagnostics E02-001–E02-005 shall be emitted at the location of the offending byte sequence or code point. Suggestions in diagnostic text are informative; the failure remains normative.
+[2] Diagnostics E02-001–E02-004 shall be emitted at the location of the offending byte sequence or code point. Suggestions in diagnostic text are informative; the failure remains normative.
 
 [3] Implementations may issue warnings when large files or mixed normalisation forms are detected, but such warnings shall not replace the mandatory diagnostics described above.

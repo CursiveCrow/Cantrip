@@ -41,8 +41,8 @@ token
 
 [2] _Comments._
 
-- `[1.1]` Line comments starting with `//` consume characters to the next line terminator and are discarded.
-- `[1.2]` Block comments delimited by `/*` and `*/` shall nest; unclosed block comments raise diagnostic E02-209.
+- (2.1) Line comments starting with `//` consume characters to the next line terminator and are discarded.
+- (2.2) Block comments delimited by `/*` and `*/` shall nest; unclosed block comments raise diagnostic E02-209.
 
 [3] _Documentation comments._ Comments beginning with `///` or `//!` shall be preserved and attached to the following item or module, respectively. They participate in documentation tooling but do not appear in the token stream.
 
@@ -52,11 +52,11 @@ token
 
 [6] _String and character literals._ Strings are delimited by double quotes and support escape sequences `\n`, `\r`, `\t`, `\\`, `\"`, `\'`, `\0`, `\xNN`, and `\u{...}`. Invalid escapes raise diagnostic E02-201. Character literals use single quotes and must correspond to a single Unicode scalar value; empty or multi-character literals raise diagnostic E02-203.
 
-[6.1] _String literal line boundaries._ String literals may not span multiple lines unless escaped newlines (`\n`) are used. An unclosed string literal that reaches end-of-file or encounters a newline without being closed emits diagnostic E02-200 (unterminated string literal). The lexer shall not attempt to recover by inserting a closing quote; the compilation unit is ill-formed.
+(6.1) _String literal line boundaries._ String literals may not span multiple lines unless escaped newlines (`\n`) are used. An unclosed string literal that reaches end-of-file or encounters a newline without being closed emits diagnostic E02-200 (unterminated string literal). The lexer shall not attempt to recover by inserting a closing quote; the compilation unit is ill-formed.
 
-[6.2] _Nested block comments._ Block comments nest arbitrarily: `/* outer /* inner */ still outer */` is valid and consumes all characters between the outermost `/*` and `*/`. Unclosed nested comments emit diagnostic E02-209. Implementations shall track nesting depth and report the nesting level at the point of failure to aid debugging.
+(6.2) _Nested block comments._ Block comments nest arbitrarily: `/* outer /* inner */ still outer */` is valid and consumes all characters between the outermost `/*` and `*/`. Unclosed nested comments emit diagnostic E02-209. Implementations shall track nesting depth and report the nesting level at the point of failure to aid debugging.
 
-[6.3] _Invalid Unicode in identifiers._ Identifiers must consist of valid Unicode XID_Start and XID_Continue code points. If an identifier contains invalid Unicode sequences (e.g., unpaired surrogates, invalid UTF-8), diagnostic E02-210 (invalid Unicode in identifier) is emitted. The lexer shall not attempt to repair invalid sequences; the identifier is rejected.
+(6.3) _Invalid Unicode in identifiers._ Identifiers must consist of valid Unicode XID_Start and XID_Continue code points. If an identifier contains invalid Unicode sequences (e.g., unpaired surrogates, invalid UTF-8), diagnostic E02-210 (invalid Unicode in identifier) is emitted. The lexer shall not attempt to repair invalid sequences; the identifier is rejected.
 
 [7] _Operators and punctuators._ Multi-character operators (e.g., `==`, `!=`, `=>`, `..=`, `<-`) are recognised using maximal munch (§2.4 [lex.terminators]). The reference-binding operator `<-` participates in the same precedence and continuation rules as `=` so that Clause 5 bindings parse unambiguously. Implementations shall disambiguate closing angle brackets in generic type contexts by treating `>>` as two tokens when syntactically required. The glyph `~` is reserved for procedure receiver shorthand (§5.4 [decl.function]) and is tokenised as an operator so that combinations such as `~%` and `~!` are available.
 

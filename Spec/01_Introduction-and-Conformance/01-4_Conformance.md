@@ -1,4 +1,5 @@
 # Cursive Language Specification
+
 ## Clause 1 — Introduction and Conformance
 
 **Part**: I — Introduction and Conformance
@@ -22,6 +23,7 @@
 #### §1.5.2 Conforming Implementations [intro.conformance.impl]
 
 [4] An implementation conforms if and only if it satisfies all of the following conditions:
+
 - **Acceptance**: It shall accept every program that satisfies the rules of §1.5.4 [intro.conformance.program].
 - **Rejection**: It shall issue a diagnostic for any ill-formed program (§1.5.5 [intro.conformance.diagnostics]).
 - **Semantics**: It shall implement the runtime behaviour described in Clauses 2–16 for well-formed programs that avoid undefined behaviour.
@@ -33,17 +35,19 @@
 #### §1.5.3 Implementation-Defined Behaviour [intro.conformance.impldef]
 
 [6] Implementation-defined behaviour occurs when this specification allows multiple outcomes but requires that an implementation choose one deterministically and document it. The following categories are implementation-defined:
-- Numeric representation widths beyond mandated minima (§3.2 [basic.type]);
-- Pointer and region size, alignment, and layout details (§12.6 [memory.layout]);
+
+- Numeric representation widths beyond mandated minima (§3.5 [basic.align]);
+- Pointer and region size, alignment, and layout details (§11.6 [memory.layout]);
 - Resource ceilings such as maximum recursion depth or compilation unit size;
 - Diagnostic formatting and display conventions (§1.5.5 [intro.conformance.diagnostics]);
-- ABI choices for each supported platform (§16.6 [interop.abi]).
+- ABI choices for each supported platform (§15.6 [interop.abi]).
 
 [7] Implementations shall publish these choices in user-facing documentation and apply them consistently.
 
 #### §1.5.4 Conforming Programs [intro.conformance.program]
 
 [8] A program is conforming when it:
+
 - Satisfies the grammar of Annex A and the static semantics of Clauses 2–12;
 - Abides by all contract, grant, permission, and modal requirements (§12–§14);
 - Avoids undefined behaviour as catalogued in Annex B.2;
@@ -54,9 +58,9 @@
 
 #### §1.5.5 Diagnostics and IFNDR [intro.conformance.diagnostics]
 
-[10] A program that violates a static semantic rule is *ill-formed* and shall provoke a diagnostic. Diagnostics shall include at minimum an error code, source location, and a brief description of the violation.
+[10] A program that violates a static semantic rule is _ill-formed_ and shall provoke a diagnostic. Diagnostics shall include at minimum an error code, source location, and a brief description of the violation.
 
-[11] Some violations are classified *ill-formed, no diagnostic required* (IFNDR). These cases are documented explicitly at the point of definition; implementations are encouraged, but not required, to diagnose them. IFNDR is reserved for situations that are impractical to detect statically, such as exceeding translation limits that are only observable post-link.
+[11] Some violations are classified _ill-formed, no diagnostic required_ (IFNDR). These cases are documented explicitly at the point of definition; implementations are encouraged, but not required, to diagnose them. IFNDR is reserved for situations that are impractical to detect statically, such as exceeding translation limits that are only observable post-link.
 
 [12] Diagnostic presentation style is implementation-defined, yet tools should strive for clarity and actionable guidance. Informative advice, suggested fixes, and machine-readable output formats are quality-of-implementation features, not conformance requirements.
 

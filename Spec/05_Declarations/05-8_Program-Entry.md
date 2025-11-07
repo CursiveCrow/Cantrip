@@ -5,7 +5,7 @@
 **File**: 05-8_Program-Entry.md
 **Section**: §5.8 Program Entry and Execution Model
 **Stable label**: [decl.entry]  
-**Forward references**: §4.6 [module.initialization], Clause 9 [stmt], Clause 12 [memory], Clause 15 [concurrency], Clause 16 [interop]
+**Forward references**: §4.6 [module.initialization], Clause 9 [stmt], Clause 11 [memory], Clause 14 [concurrency], Clause 15 [interop]
 
 ---
 
@@ -24,18 +24,16 @@
 [2] The entry point must be declared as:
 ```
 public procedure main(): i32
-    {| |- true => true |}
 ```
 or
 ```
 public procedure main(args: [string]): i32
-    {| |- true => true |}
 ```
 Return type `i32` expresses the process exit status.
 
 [3] `main` shall be `public`. Other visibility modifiers are rejected (E05-802).
 
-[4] `main` must be a synchronous procedure whose contractual sequent declares an empty grant set. `comptime` entry points, asynchronous entry points, or procedures that require grants are not permitted (E05-803).
+[4] `main` shall declare its contractual sequent explicitly, including any grants required for execution. The sequent follows standard procedure syntax (§5.4); `main` may use any grants necessary for program execution (I/O, allocation, etc.). `comptime` entry points and asynchronous entry points are not permitted (E05-803).
 
 [5] Attributes such as `[[test]]`, `[[bench]]`, or other non-standard annotations shall not decorate `main` (E05-804).
 
@@ -47,7 +45,7 @@ Return type `i32` expresses the process exit status.
 
 [3] If `main` returns normally, its `i32` result is mapped to the platform’s exit status conventions.
 
-[4] If `main` panics or aborts, the program terminates with a non-zero exit status chosen by the implementation. Clause 12 describes destructor semantics in such cases.
+[4] If `main` panics or aborts, the program terminates with a non-zero exit status chosen by the implementation. Clause 11 describes destructor semantics in such cases.
 
 #### §5.8.4 Argument Handling
 
@@ -60,17 +58,19 @@ Return type `i32` expresses the process exit status.
 **Example 5.8.5.1 (Basic entry point):**
 ```cursive
 public procedure main(): i32
-    {| |- true => true |}
+    [[ io::write |- true => true ]]
 {
     println("Hello, Cursive!")
     result 0
 }
 ```
 
+[1] The example shows `main` with an explicit grant declaration for I/O operations, demonstrating the standard pattern for executable programs.
+
 **Example 5.8.5.2 (Entry with arguments):**
 ```cursive
 public procedure main(args: [string]): i32
-    {| |- true => true |}
+    [[ io::write |- args.len() > 0 => true ]]
 {
     if args.len() < 2 {
         println("Usage: tool <path>")
@@ -85,7 +85,6 @@ public procedure main(args: [string]): i32
 **Example 5.8.5.3 - invalid (Non-public main):**
 ```cursive
 internal procedure main(): i32
-    {| |- true => true |}
 {  // error[E05-802]
     result 0
 }
@@ -93,8 +92,8 @@ internal procedure main(): i32
 
 ### §5.8.6 Conformance Requirements [decl.entry.requirements]
 
-[1] Implementations shall require exactly one `public procedure main` whose contractual sequent is explicitly `{| |- true => true |}` per executable program, diagnose missing or duplicate definitions (E05-801), and reject non-public entry points (E05-802).
+[1] Implementations shall require exactly one `public procedure main` with an explicit contractual sequent declaration per executable program, diagnose missing or duplicate definitions (E05-801), and reject non-public entry points (E05-802).
 
-[2] Compilers shall forbid entry points that are `comptime` procedures, asynchronous procedures, or procedures with non-empty grant sets (E05-803) and reject disallowed attributes on `main` (E05-804).
+[2] Compilers shall forbid entry points that are `comptime` procedures or asynchronous procedures (E05-803) and reject disallowed attributes on `main` (E05-804). `main` may declare any grants necessary for program execution.
 
 [3] Before executing `main`, runtime systems shall evaluate module initialisers according to §4.6 and honour the exit-status mapping described in §5.8.3.

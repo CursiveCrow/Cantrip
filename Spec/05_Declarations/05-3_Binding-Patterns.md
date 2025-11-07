@@ -39,12 +39,13 @@ record_field_list
 
 record_field
     ::= identifier ("as" identifier)?
+     | identifier ":" binding_pattern
 
 tuple_pattern
-    ::= "(" identifier_list ")"
+    ::= "(" pattern_list ")"
 
-identifier_list
-    ::= identifier ("," identifier)*
+pattern_list
+    ::= binding_pattern ("," binding_pattern)*
 ```
 
 [1] `record_pattern` binds named fields; an optional `as` clause renames the bound field while preserving the source field name. `tuple_pattern` binds positional elements in order.
@@ -57,15 +58,15 @@ identifier_list
 
 [2] _Field matching._ Each `record_field` must correspond to a field in the annotated record type. Unknown fields raise diagnostic E05-301. When `field as binding` is used, `field` references the record field name and `binding` names the introduced identifier.
 
-[2.1] _Partial matching._ Pattern matching is all-or-nothing: if any field in a record pattern fails to match (unknown field name) or any element in a tuple pattern has incorrect arity, the entire pattern binding is ill-formed and no bindings are introduced. Implementations shall emit a single diagnostic (E05-301 for record fields, E05-302 for tuple arity) and treat the binding as failed. Partial success is not permitted.
+(2.1) _Partial matching._ Pattern matching is all-or-nothing: if any field in a record pattern fails to match (unknown field name) or any element in a tuple pattern has incorrect arity, the entire pattern binding is ill-formed and no bindings are introduced. Implementations shall emit a single diagnostic (E05-301 for record fields, E05-302 for tuple arity) and treat the binding as failed. Partial success is not permitted.
 
 [3] _Tuple arity._ Tuple patterns shall list exactly the number of elements present in the annotated tuple type. Mismatches produce diagnostic E05-302.
 
 [4] _Distinct identifiers._ Identifiers introduced by a pattern shall be unique within that pattern. Duplicates cause diagnostic E05-303.
 
-[5] _Single-level patterns._ Patterns may not nest beyond one level; record and tuple patterns cannot contain nested record or tuple patterns. Developers may chain bindings to achieve deeper destructuring.
+[5] _Nested patterns._ Patterns may nest arbitrarily: record and tuple patterns may contain nested record, tuple, or identifier patterns. Each level of nesting follows the same typing rules recursively. The pattern as a whole shall type-check against the initializer expression's type.
 
-[6] _Initialiser evaluation._ The initializer expression is evaluated once. Implementations may behave as if a temporary value were created and then projected into individual bindings.
+[6] _Initialiser evaluation._ The initializer expression is evaluated once. Implementations may behave as if a temporary value were created and then projected recursively into individual bindings according to the pattern structure.
 
 [7] _Visibility inheritance._ Identifiers introduced by the pattern inherit the visibility modifier and scope of the enclosing binding.
 

@@ -4,7 +4,7 @@
 **File**: 02-4_Tokenization-and-Statement-Termination.md  
 **Section**: 2.4 Tokenization and Statement Termination  
 **Stable label**: [lex.terminators]  
-**Forward references**: §2.3 [lex.tokens], Clause 8 §8.4 [expr.structured]
+**Forward references**: §2.3 [lex.tokens], Clause 8 §8.4 [expr.structured], Annex A §A.2 [grammar.lexical]
 
 ---
 
@@ -31,21 +31,24 @@ continuation
      | unclosed_delimiter
 ```
 
+[ Note: See Annex A §A.2 [grammar.lexical] for the complete lexical grammar including statement termination rules.
+— end note ]
+
 [2] A `newline` that satisfies `continuation` does not terminate the preceding statement; otherwise it behaves as a separator.
 
 ### §2.4.3 Constraints
 
 [1] _Implicit termination._ A newline shall terminate the current statement unless one of the continuation predicates in §2.4.4 evaluates to true. The same rule applies at end-of-file.
 
-[1.1] _Multiple continuation rules._ When multiple continuation rules apply simultaneously (e.g., a trailing operator followed by a leading dot on the next line), the statement continues. The rules are evaluated independently; any matching rule prevents termination. This allows flexible formatting while maintaining predictable behavior.
+(1.1) _Multiple continuation rules._ When multiple continuation rules apply simultaneously (e.g., a trailing operator followed by a leading dot on the next line), the statement continues. The rules are evaluated independently; any matching rule prevents termination. This allows flexible formatting while maintaining predictable behavior.
 
-[1.2] _EOF in middle of statement._ If end-of-file occurs while a statement is incomplete (unclosed delimiters, trailing operator, or other continuation condition), diagnostic E02-211 (unexpected end of file) is emitted. The lexer shall report the location where the statement began and which continuation condition was active.
+(1.2) _EOF in middle of statement._ If end-of-file occurs while a statement is incomplete (unclosed delimiters, trailing operator, or other continuation condition), diagnostic E02-211 (unexpected end of file) is emitted. The lexer shall report the location where the statement began and which continuation condition was active.
 
 [2] _Semicolons._ Semicolons may be used to separate multiple statements on a single line but are never required at line breaks.
 
 [3] _Maximal munch._ When multiple tokenisations are possible at a character position, the lexer shall emit the longest valid token. In generic type contexts the parser may reinterpret `>>` as two closing angle brackets to satisfy the grammar of §7.2 [type.primitive].
 
-[3.1] _Delimiter nesting depth._ Implementations shall support delimiter nesting to at least depth 256. Nested delimiters beyond this limit may be rejected with diagnostic E02-300 (delimiter nesting too deep). This limit prevents stack overflow in pathological cases while accommodating realistic code structures.
+(3.1) _Delimiter nesting depth._ Implementations shall support delimiter nesting to at least depth 256. Nested delimiters beyond this limit may be rejected with diagnostic E02-300 (delimiter nesting too deep). This limit prevents stack overflow in pathological cases while accommodating realistic code structures.
 
 ### §2.4.4 Semantics
 
@@ -59,7 +62,7 @@ continuation
 
 #### §2.4.4.3 Leading Dot
 
-[1] A line beginning with `.` is treated as a continuation of the previous expression to support fluent member access. The token `::` does not activate this rule; code using the scope operator must remain on the same line or employ explicit parentheses.
+[1] A line beginning with `.` is treated as a continuation of the previous expression to support fluent member access. The token `::` does not activate this rule; code using the scope operator shall remain on the same line or employ explicit parentheses.
 
 #### §2.4.4.4 Leading Pipeline
 

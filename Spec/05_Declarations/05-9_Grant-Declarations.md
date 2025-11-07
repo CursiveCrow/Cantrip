@@ -6,9 +6,10 @@
 **File**: 05-9_Grant-Declarations.md
 **Section**: §5.9 Grant Declarations
 **Stable label**: [decl.grant]
-**Forward references**: Clause 13 [contract], Clause 14 [witness]
+**Forward references**: Clause 12 [contract], Clause 13 [witness]
 
-[ Note: TODO — These references will be updated once the contracts and witness clauses are authored; the current text captures intent but not the final cross-references. — end note ]
+[ Note: The grant system is part of the contracts system (Clause 12). Grant declarations participate in contractual sequent specifications and the witness system (Clause 13).
+— end note ]
 
 ---
 
@@ -18,7 +19,7 @@
 
 [1] Grant declarations introduce user-defined capability tokens at module scope. Grants are compile-time annotations used in procedure contractual sequent specifications to track side effects and operational capabilities.
 
-[2] This section specifies the declaration syntax and basic semantics for user-defined grants. The complete grant system, including built-in grants, verification rules, and propagation semantics, is specified in Clause 9 [grant].
+[2] This section specifies the declaration syntax and basic semantics for user-defined grants. The complete grant system, including built-in grants, verification rules, and propagation semantics, is specified in Clause 12 [contract].
 
 #### §5.9.2 Syntax
 
@@ -37,14 +38,11 @@ grant_declaration
 
 [3] _Reserved namespaces._ Grant names shall not conflict with reserved grant namespaces. The following top-level namespaces are reserved for built-in grants:
 
-- `alloc`
-- `fs`
-- `net`
-- `thread`
-- `time`
-- `ffi`
-- `unsafe`
-- `panic`
+- Runtime grants: `alloc`, `fs`, `net`, `thread`, `time`, `ffi`, `unsafe`, `panic`
+- Comptime grants: `comptime.alloc`, `comptime.codegen`, `comptime.config`, `comptime.diag` (see §2.2.4.2 [lex.phases.comptime])
+
+[ Note: Comptime grants are available only within `comptime` blocks and `comptime` procedures. They provide controlled access to compile-time effects such as memory allocation, code generation, configuration access, and diagnostic emission. The complete grant system, including built-in grant semantics and verification rules, is specified in Clause 12 [contract].
+— end note ]
 
 Violations produce diagnostic E05-901.
 
@@ -81,7 +79,7 @@ public grant query
 public grant write
 
 procedure execute_query(sql: string@View): [i32]
-    {| query |- sql.len() > 0 => true |}
+    [[ query |- sql.len() > 0 ]]
 {
     // Implementation uses local grant 'query'
     result perform_query(sql)
@@ -91,7 +89,7 @@ procedure execute_query(sql: string@View): [i32]
 import database
 
 procedure fetch_items(): [i32]
-    {| database::query |- true => true |}
+    [[ database::query ]]
 {
     result database::execute_query("SELECT id FROM items")
 }
@@ -103,7 +101,7 @@ procedure fetch_items(): [i32]
 import database
 
 procedure save_query_results(path: string@View): ()
-    {| database::query, fs::write, alloc::heap |- path.len() > 0 => true |}
+    [[ database::query, fs::write, alloc::heap |- path.len() > 0 ]]
 {
     let results = database::execute_query("SELECT * FROM items")
     write_to_file(path, results)
@@ -114,21 +112,24 @@ procedure save_query_results(path: string@View): ()
 
 [1] Minimal diagnostics:
 
-| Code  | Condition                                    |
-| ----- | -------------------------------------------- |
+| Code    | Condition                                    |
+| ------- | -------------------------------------------- |
 | E05-901 | Grant name conflicts with reserved namespace |
 | E05-902 | Grant declaration not at module scope        |
 | E05-903 | Duplicate grant name in same module          |
 
 #### §5.9.7 Integration with Grant System
 
-[1] Grant declarations defined in this section participate in the grant system specified in Clause 9:
+[1] Grant declarations defined in this section participate in the grant system specified in Clause 12 [contract]:
 
-- Grant path resolution (§9.5.2 [grant.user.resolution])
-- Visibility and access control (§9.5.3 [grant.user.visibility])
-- Subset verification and propagation (§9.5.4 [grant.user.usage])
-- Wildcard expansion `M::*` (§9.5.5 [grant.user.wildcard])
-- Grant polymorphism (§9.5.6 [grant.user.polymorphism])
+- Grant path resolution (Clause 12 §12.x [contract.grant.resolution])
+- Visibility and access control (Clause 12 §12.x [contract.grant.visibility])
+- Subset verification and propagation (Clause 12 §12.x [contract.grant.usage])
+- Wildcard expansion `M::*` (Clause 12 §12.x [contract.grant.wildcard])
+- Grant polymorphism (Clause 12 §12.x [contract.grant.polymorphism])
+
+[ Note: The specific subclause numbers will be determined when Clause 12 (Contracts) is authored. The grant system is part of the contracts system and will be fully specified there.
+— end note ]
 
 [2] After declaration, user-defined grants are treated identically to built-in grants for all verification and propagation purposes.
 
@@ -144,7 +145,7 @@ procedure save_query_results(path: string@View): ()
 
 [3] Implementations shall enforce visibility constraints on grant usage in contractual sequent specifications.
 
-[4] Implementations shall forward grant declarations to the grant system (Clause 9) for verification and propagation checking.
+[4] Implementations shall forward grant declarations to the grant system (Clause 12 [contract]) for verification and propagation checking.
 
 ---
 

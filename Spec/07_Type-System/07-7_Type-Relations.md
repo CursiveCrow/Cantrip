@@ -6,7 +6,7 @@
 **File**: 07-7_Type-Relations.md
 **Section**: 7.7 Type Relations  
 **Stable label**: [type.relation]  
-**Forward references**: Clause 8 [expr], Clause 11 [generic], Clause 12 [memory], Clause 13 [contract]
+**Forward references**: Clause 8 [expr], Clause 10 [generic], Clause 11 [memory], Clause 12 [contract]
 
 ---
 
@@ -84,11 +84,11 @@ $$
 $$
 
 $$
-\dfrac{\tau_1 \equiv \upsilon_1 \; \cdots \; \tau_n \equiv \upsilon_n \quad \tau_r \equiv \upsilon_r \quad \varepsilon = \varepsilon'}{(\tau_1, \ldots, \tau_n) \to \tau_r ! \varepsilon \{|
-|- M => W |
-\} \equiv (\upsilon_1, \ldots, \upsilon_n) \to \upsilon_r ! \varepsilon' \{|
-|- M => W |
-\}}
+\dfrac{\tau_1 \equiv \upsilon_1 \; \cdots \; \tau_n \equiv \upsilon_n \quad \tau_r \equiv \upsilon_r \quad \varepsilon = \varepsilon'}{(\tau_1, \ldots, \tau_n) \to \tau_r ! \varepsilon [[
+|- M => W
+]] \equiv (\upsilon_1, \ldots, \upsilon_n) \to \upsilon_r ! \varepsilon' [[
+|- M => W
+]]}
 \tag{Equiv-Function}
 $$
 
@@ -206,8 +206,8 @@ Compatibility failures produce diagnostics (Table 7.7.2).
 
 [13] Required diagnostics:
 
-| Code  | Condition                                                     |
-| ----- | ------------------------------------------------------------- |
+| Code    | Condition                                                     |
+| ------- | ------------------------------------------------------------- |
 | E07-700 | Failed subtyping check (reports source/target, variance info) |
 | E07-701 | Cyclic type alias detected                                    |
 | E07-702 | Incompatible types in operation (compatibility failure)       |
@@ -220,16 +220,16 @@ Each diagnostic SHALL provide the offending types, the rule violated, and sugges
 
 ```cursive
 // Tuple invariance
-let pair: (i32, string@Owned) = (1, string.from("hi"))
+let pair: (i32, string@Managed) = (1, string.from("hi"))
 // let wider: (i32, string@View) = pair  // ERROR E07-700: tuple invariant
 
 // Function subtyping
-let pure: (i32) -> i32 = |x| {| |- true => true |} { result x }
-let effectful: (i32) -> i32 ! { io::write } {| |- true => true |} = pure
+let pure: (i32) -> i32 = |x| [[ |- true => true ]] { result x }
+let effectful: (i32) -> i32 ! { io::write } [[ |- true => true ]] = pure
 
 // Union widening
-let value: i32 \/ string@Owned = 42
-let union: i32 \/ string@Owned \/ bool = value  // OK: subset containment
+let value: i32 \/ string@Managed = 42
+let union: i32 \/ string@Managed \/ bool = value  // OK: subset containment
 
 // Modal widening
 procedure fetch(conn: Connection) {

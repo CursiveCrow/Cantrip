@@ -6,7 +6,7 @@
 **File**: 05-6_Visibility-Rules.md
 **Section**: §5.6 Visibility Rules
 **Stable label**: [decl.visibility]  
-**Forward references**: Clause 4 [module], §5.2 [decl.variable], §5.5 [decl.type], Clause 11 [generic]
+**Forward references**: Clause 4 [module], §5.2 [decl.variable], §5.5 [decl.type], Clause 10 [generic]
 
 ---
 
@@ -50,7 +50,7 @@ visibility_modifier
 - For modal state payloads, visibility is limited to transition procedures defined in that state’s block.
 - Module-scope `private` is rejected by [1].
 
-[4] **protected** — May be applied only to members declared inside a type or modal state block. It grants visibility to the declaring type and to predicates or contracts (Clause 11 and Clause 13) that provide implementations for that type. Outside those contexts `protected` behaves like `internal`. Module-scope or stand-alone `protected` declarations are rejected by [1].
+[4] **protected** — May be applied only to members declared inside a type or modal state block. It grants visibility to the declaring type and to predicates or contracts (Clause 10 and Clause 12) that provide implementations for that type. Outside those contexts `protected` behaves like `internal`. Module-scope or stand-alone `protected` declarations are rejected by [1].
 
 #### §5.6.5 Re-export and Aliasing Rules
 
@@ -75,7 +75,7 @@ visibility_modifier
 ```cursive
 let cache_size = 1024          // internal by default
 public procedure fetch(id: UserId): Record
-    {| |- true => true |}
+    [[ |- true => true ]]
 { ... }
 private let temp = 0           // error[E05-601]
 ```
@@ -87,7 +87,7 @@ public record User {
     public id: UserId
     private password_hash: string
 
-    protected procedure helper(~) {| |- true => true |} { ... }
+    protected procedure helper(~) [[ |- true => true ]] { ... }
 }
 ```
 
@@ -110,7 +110,7 @@ private use auth::Session         // error[E05-604]
 ```cursive
 predicate UserStorage for User {
     procedure seed(~%, data: Seed)
-        {| |- true => true |} {
+        [[ |- true => true ]] {
         User.helper(data.initial_password)
     }
 }

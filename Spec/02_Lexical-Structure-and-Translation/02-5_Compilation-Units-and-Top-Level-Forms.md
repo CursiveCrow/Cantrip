@@ -33,7 +33,7 @@ top_level_item
 
 [2] Expression statements, control-flow constructs (`if`, `match`, `loop`, etc.), and local bindings are not permitted at module scope.
 
-[Note: Constants are expressed via type qualifiers on variable declarations (`let x: const Y = 0`) rather than separate declaration forms. Grant declarations (§5.9 [decl.grant]) introduce user-defined capability tokens for use in procedure contractual sequent specifications. —end note]
+[Note: Constants are expressed via type qualifiers on variable declarations (`let x: const Y = 0`) rather than separate declaration forms. Grant declarations (§5.9 [decl.grant]) introduce user-defined capability tokens for use in procedure contractual sequent specifications. — end note]
 
 ### §2.5.3 Constraints
 
@@ -73,7 +73,7 @@ public record Point { x: f64, y: f64 }
 let ORIGIN: Point = Point { x: 0.0, y: 0.0 }
 
 public procedure distance(a: Point, b: Point): f64
-    {| |- true => true |}
+    [[ |- true => true ]]
 {
     let dx = b.x - a.x
     let dy = b.y - a.y
@@ -94,6 +94,10 @@ value + 1  // error[E02-301]
 
 [1] Implementations shall expose APIs or metadata that identify the module path corresponding to each compilation unit so tooling can correlate files with module identifiers.
 
-[2] Diagnostically, implementations shall detect redeclarations (E02-400), prohibited constructs (E02-301), and entry-point violations (E02-302–E02-304) during or before type checking.
+[2] Diagnostically, implementations shall detect redeclarations (E02-400), prohibited constructs (E02-301), and entry-point violations (E05-801–E05-804, see §5.8 [decl.entry]) during or before type checking.
 
 [3] Implementations may lazily evaluate module-level initialisers provided that observable behaviour matches the eager semantics described in §2.5.4.1.
+
+---
+
+**Previous**: §2.4 Tokenization and Statement Termination (§2.4 [lex.terminators]) | **Next**: Clause 3 — Basic Concepts (§3.1 [basic.object])

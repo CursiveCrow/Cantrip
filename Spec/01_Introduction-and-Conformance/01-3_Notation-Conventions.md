@@ -1,4 +1,5 @@
 # Cursive Language Specification
+
 ## Clause 1 — Introduction and Conformance
 
 **Clause**: 1 — Introduction and Conformance
@@ -18,6 +19,7 @@
 [2] Grammar fragments appear in fenced code blocks using the `ebnf` fence. Productions follow Extended Backus–Naur Form with terminals enclosed in single quotes and non-terminals expressed in `snake_case`.
 
 [3] The following meta-symbols are used:
+
 - `::=` definition;
 - `|` alternative;
 - `*`, `+`, `?` zero-or-more, one-or-more, and optional;
@@ -26,6 +28,7 @@
 [4] Annex A [grammar] consolidates the authoritative grammar. When a section presents a local excerpt, it shall cite the matching Annex production and the excerpt shall remain textually consistent with the Annex.
 
 **Example 1.4.1.1** (EBNF notation):
+
 ```ebnf
 variable_declaration
     ::= binding_head identifier type_annotation? '=' expression
@@ -42,6 +45,7 @@ This example demonstrates the standard EBNF notation used throughout the specifi
 #### §1.4.2 Metavariables [intro.notation.meta]
 
 [5] Metavariables denote ranges of syntactic or semantic entities. The canonical sets are:
+
 - $x, y, z$ for variables and identifiers;
 - $T, U, V$ (or $\tau$) for types;
 - $e, f, g$ for expressions;
@@ -69,6 +73,23 @@ $$
 
 [10] Rules without premises are axioms. Precondition boxes (`[ Given: … ]`) precede rules when necessary to state environmental requirements. Immediately following each rule, prose shall explain the rule's effect in plain language.
 
+(10.1) **Formal rule naming convention.** Rule tags shall follow a consistent prefix scheme to indicate their semantic category:
+
+- **T-Feature-Case**: Type formation and typing rules (e.g., T-If, T-Bool-True)
+- **E-Feature-Case**: Evaluation and operational semantics rules
+- **WF-Feature-Case**: Well-formedness and static checking rules (e.g., WF-Modal-Type, WF-Import)
+- **P-Feature-Case**: Permission and memory safety rules
+
+Additional prefixes used for specialized semantic categories:
+
+- **Prop-Feature-Case**: Predicate satisfaction and property proofs (e.g., Prop-Int-Copy proves integers satisfy Copy)
+- **Coerce-Feature-Case**: Type coercion rules (e.g., Coerce-Never for never-type coercions)
+- **Prov-Feature-Case**: Provenance and aliasing rules (e.g., Prov-Addr for address provenance)
+- **Ptr-Feature-Case**: Pointer-specific properties and constraints (e.g., Ptr-Size)
+- **QR-Feature-Case**: Qualified name resolution rules (e.g., QR-Resolve)
+
+The prefix indicates the judgment form or semantic domain; Feature identifies the language construct; Case distinguishes variants when multiple rules apply to the same construct.
+
 **Example 1.4.4.1** (Inference rule format):
 
 [ Given: $\Gamma$ is a well-formed type environment ]
@@ -82,11 +103,12 @@ This rule states that an if-expression has type $T$ when the condition has type 
 
 #### §1.4.5 Typography and Examples [intro.notation.style]
 
-[11] Normative requirements use **bold** emphasis. Newly introduced defined terms appear in *italics* on first use within a subclause. Language tokens, identifiers, and keywords use `monospace` formatting.
+[11] Normative requirements use **bold** emphasis. Newly introduced defined terms appear in _italics_ on first use within a subclause. Language tokens, identifiers, and keywords use `monospace` formatting.
 
 [12] Examples are fenced with the `cursive` info string. Valid and invalid examples may include inline markers `// correct` and `// incorrect` purely for informative purposes. Unless otherwise stated, examples are informative.
 
 [13] Notes, warnings, and rationale blocks follow the bracketed ISO style:
+
 ```
 [ Note: … — end note ]
 [ Warning: … — end warning ]

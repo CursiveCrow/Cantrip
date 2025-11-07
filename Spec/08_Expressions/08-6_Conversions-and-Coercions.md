@@ -2,11 +2,11 @@
 
 ## Clause 8 — Expressions
 
-**Clause**: 8 — Expressions
+**Clause**: 8 — Expressions  
 **File**: 08-6_Conversions-and-Coercions.md  
 **Section**: §8.6 Conversions and Coercions  
 **Stable label**: [expr.conversion]  
-**Forward references**: §8.7 [expr.constant], Clause 7 §7.2 [type.primitive], Clause 7 §7.5 [type.pointer], Clause 7 §7.6 [type.modal], Clause 11 [generic]
+**Forward references**: §8.7 [expr.constant], Clause 7 §7.2 [type.primitive], Clause 7 §7.5 [type.pointer], Clause 7 §7.6 [type.modal], Clause 10 [generic]
 
 ---
 
@@ -14,50 +14,50 @@
 
 #### §8.6.1 Overview
 
-[1] Cursive differentiates between **explicit casts** (`expr as Type`) and **implicit coercions** performed by the type checker. This subclause enumerates the legal cast categories, the semantics of each, and the narrow set of coercions that occur automatically.
+[1] Conversions translate values between compatible types. Cursive differentiates **explicit casts** (`expr as Type`) from the small set of **implicit coercions** performed by the type checker. Annex A §A.4.17 provides the grammar for cast expressions.
 
-#### §8.6.2 Explicit Casts (`as`)
+#### §8.6.2 Explicit casts (`as`)
 
-[2] Grammar: `CastExpr ::= UnaryExpr 'as' Type` (Annex A §A.4.17).
+[2] Syntax: `CastExpr ::= UnaryExpr 'as' Type`.
 
-[3] Typing rules:
+[3] Legal cast categories:
 
-- **Numeric-to-numeric:** `(τ_src) as τ_dst` is permitted when both are primitive numeric types. Narrowing conversions may lose information; constant expressions that cannot be represented in `τ_dst` emit E08-600.
-- **Pointer casts:** `Ptr<T>@Valid as Ptr<U>@Valid` requires a proof that `T` and `U` have identical layout (Clause 12). Casting to the unconstrained pointer `Ptr<U>` is always legal (widening). Raw pointer casts (`*const T as *const U`) require grant `unsafe.ptr` and are unchecked at runtime.
-- **Modal widening:** `ModalType@State as ModalType` is always legal. Narrowing (introducing a specific state) is illegal without a witness from a transition, and attempting it emits E08-601.
-- **Enum discriminants:** `Enum::Variant(...) as usize` returns the discriminant value. Casting integers back to enums is illegal because it would bypass exhaustiveness checking.
-- **Boolean casts:** Only conversions that already produce `bool` (e.g., comparison results) are allowed. Numeric-to-bool casts are forbidden to avoid implicit truthiness.
+1. **Numeric-to-numeric.** Conversions between primitive numeric types (Clause 7 §7.2). Narrowing conversions may truncate; constant expressions that cannot fit emit E08-600.
+2. **Pointer casts.** Safe pointers `Ptr<T>@State` may cast to `Ptr<U>@State` when the pointee layouts are proven equivalent (Clause 12). Casting to the unconstrained pointer `Ptr<T>` is always legal (widening). Raw pointer casts (`*const T` ↔ `*mut U`) require grant `unsafe.ptr` and are unchecked at runtime.
+3. **Modal widening.** `ModalType@State as ModalType` discards state information. Narrowing (adding a state) is illegal without a witness from a transition procedure and emits E08-601.
+4. **Enum discriminants.** Casting an enum value to `usize` yields its discriminant. Casting integers back to enums is forbidden to avoid bypassing exhaustiveness.
+5. **Opaque handles.** Implementation-defined opaque types may specify additional cast hooks (e.g., ABI handles). Such casts shall be documented in Clause 16 and require explicit `as`.
 
-[4] All other casts are rejected with E08-601.
+[4] Any cast outside these categories is rejected with E08-601. Implementations may provide future extensions only through the specification process; ad-hoc casts are non-conforming.
 
-[5] Evaluation: casts evaluate their operand first, then apply the conversion. Numeric casts follow the two’s-complement and IEEE 754 rules in Clause 7. Pointer casts are bit reinterpretations; they do not alter permissions or provenance.
+[5] Evaluation: the operand evaluates first. Numeric casts follow two’s-complement or IEEE rounding rules. Pointer casts are representational; they do not alter permissions or provenance. Enum-to-integer casts read the discriminant without affecting the payload.
 
-#### §8.6.3 Implicit Coercions
+#### §8.6.3 Implicit coercions
 
-[6] The type checker performs the following coercions automatically:
+[6] The type checker performs only the following coercions automatically:
 
-- **Unit coercion:** `()` may be inserted when a block lacking `result` feeds a context expecting `()`.
-- **Pointer/modal widening:** `Ptr<T>@State` coerces to `Ptr<T>`, and `ModalType@State` coerces to `ModalType` per the subtyping rules in §7.7.
-- **String defaulting:** bare `string` in type position defaults to `string@View`; `string@Owned` coerces to `string@View` when required.
-- **Pipeline equality:** when a pipeline stage omits its type annotation, the checker inserts an equality coercion `τ → τ`, verifying equivalence before allowing the omission (§8.1.3).
+- **Unit insertion:** expressions lacking `result` implicitly yield `()` to match contexts expecting unit.
+- **Pointer/modal widening:** `Ptr<T>@State <: Ptr<T>` and `Modal@State <: Modal` (Clause 7 §7.7). This is the only implicit pointer conversion.
+- **String state defaulting:** bare `string` resolves to `string@View`; `string@Owned` may coerce to `string@View` when required.
+- **Pipeline annotations:** when a pipeline stage omits its annotation under §8.1.3[9], the checker inserts an equality coercion `τ → τ` after proving equivalence.
 
-[7] No other implicit conversions occur. In particular, numeric promotions (e.g., `i32` + `f32`) are forbidden; developers must insert explicit casts when combining disparate types.
+[7] No numeric promotions occur implicitly; developers must cast explicitly when combining different numeric types. Likewise, there is no implicit conversion between `bool` and integers.
 
 #### §8.6.4 Diagnostics
 
-| Code | Condition |
-| --- | --- |
-| E08-600 | Constant cast loses information |
-| E08-601 | Cast not covered by an allowed category |
+| Code    | Condition                            |
+| ------- | ------------------------------------ |
+| E08-600 | Constant cast loses information      |
+| E08-601 | Cast not covered by a legal category |
 
-#### §8.6.5 Example
+#### §8.6.5 Canonical example
 
 ```cursive
-let precise: f64 = distance as f64
-let bucket: u8 = (hash as u32 % 256u32) as u8  // narrowing permitted
-let view: string@View = owned_string as string@View  // coercion via `as`
+let magnitude: f64 = (vector.x as f64).hypot(vector.y as f64)
+let bucket: u8 = ((hash as u32) % 256u32) as u8
+let ptr: Ptr<u8> = some_slice.as_ptr() as Ptr<u8>
 ```
 
-[8] The example shows explicit numeric casts, a narrowing conversion that truncates runtime values, and a modal/string coercion that forces the type checker to treat `string@Owned` as a view explicitly.
+[8] The example showcases explicit numeric casts (with narrowing), as well as safe-pointer widening via `as` to document intent.
 
 ---

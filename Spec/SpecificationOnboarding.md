@@ -110,6 +110,14 @@ Every normative subclause should follow this structure combining **ISO-style num
 - **WF-Feature-Case**: Well-formedness and static checking rules
 - **P-Feature-Case**: Permission and memory safety rules
 
+Additional prefixes used for specialized semantic categories:
+
+- **Prop-Feature-Case**: Predicate satisfaction and property proofs (e.g., Prop-Int-Copy)
+- **Coerce-Feature-Case**: Type coercion rules (e.g., Coerce-Never)
+- **Prov-Feature-Case**: Provenance and aliasing rules (e.g., Prov-Addr)
+- **Ptr-Feature-Case**: Pointer-specific properties and constraints (e.g., Ptr-Size)
+- **QR-Feature-Case**: Qualified name resolution rules (e.g., QR-Resolve)
+
 **Formal Rule Placement**: Formal rules shall appear in a boxed environment (using `[ Given: ... ]` for preconditions and `$$...$$` for the rule) immediately following the paragraph that introduces the concept. Always provide a prose explanation after the formal rule.
 
 ### Multi-Category Subclause Template
@@ -698,19 +706,6 @@ Each clause specifies what information must be available at that phase and what 
 
 - **14 Concurrency and Memory Ordering** [concurrency]
 
-  **Forward references:** None (integrates Clauses 11 and 13)
-
-  - 14.1 Overview and Purpose [witness.overview]
-  - 14.2 Witness Kinds (predicate, contract) [witness.kind]
-  - 14.3 Formation and Construction (static vs dynamic sites) [witness.formation]
-  - 14.4 Representation and Erasure [witness.representation]
-  - 14.5 Dispatch Semantics (static vs dynamic via witness) [witness.dispatch]
-  - 14.6 Regions, Permissions, and Grants Interplay [witness.memory]
-  - 14.7 Grammar Hooks and References [witness.grammar]
-  - 14.8 Diagnostics (missing/ambiguous/incoherent evidence) [witness.diagnostics]
-
-- **15 Interoperability and ABI** [interop]
-
   **Forward references:** None
 
   - 15.1 Concurrency Model (threads/tasks surface; library interplay) [concurrency.model]
@@ -725,6 +720,8 @@ Each clause specifies what information must be available at that phase and what 
   - 16.1 Const/Comptime Execution (const procedures/contexts/blocks) [comptime.execution]
   - 16.2 Reflection and Type Queries [comptime.reflection]
   - 16.3 Code Generation Patterns via Attributes (derivations; no macros) [comptime.codegen]
+
+- **15 Interoperability and ABI** [interop]
 
   **Forward references:** None
 

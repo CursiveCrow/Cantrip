@@ -20,7 +20,7 @@
 
 #### §6.4.2 Syntax [name.lookup.syntax]
 
-[3] Lookup operates on identifiers and qualified names defined in Appendix A.7:
+[3] Lookup operates on identifiers and qualified names defined in Annex A §A.7:
 
 ```ebnf
 unqualified_name ::= identifier
@@ -37,7 +37,7 @@ qualified_name   ::= identifier ("::" identifier)+
 
 [7] `use` bindings introduced in module scope participate in Step 4. Resolved names inherit any alias applied with `as`. Wildcard imports contribute all exported names from the target module; collisions are handled by §6.5.
 
-[8] Universe-scope bindings (primitive types, constants, built-ins) are considered only after imported names. Implementations shall not treat predeclared names as candidates if they are explicitly listed as non-overridable in §6.6; user declarations that would mask such names shall be rejected per §6.6 (diagnostic E6302).
+[8] Universe-scope bindings (primitive types, constants, built-ins) are considered only after imported names. Implementations shall not treat predeclared names as candidates if they are explicitly listed as non-overridable in §6.6; user declarations that would mask such names shall be rejected per §6.6 (diagnostic E06-302).
 
 #### §6.4.4 Semantics [name.lookup.semantics]
 
@@ -87,13 +87,13 @@ resolve_unqualified(name):
 
 [12] Qualified chains longer than two components (e.g., `pkg::module::Type::method`) are resolved left-to-right, applying step 1 and step 2 repeatedly.
 
-[12.1] _Intermediate failure handling._ When resolving a qualified chain `A::B::C::D`, if any intermediate component fails to resolve (e.g., `A::B` does not exist), the lookup terminates immediately and emits the appropriate diagnostic (E06-404 for missing module components, E06-405 for missing type components). Subsequent components in the chain are not evaluated. This ensures that diagnostics point to the first failing component rather than cascading errors.
+(12.1) _Intermediate failure handling._ When resolving a qualified chain `A::B::C::D`, if any intermediate component fails to resolve (e.g., `A::B` does not exist), the lookup terminates immediately and emits the appropriate diagnostic (E06-404 for missing module components, E06-405 for missing type components). Subsequent components in the chain are not evaluated. This ensures that diagnostics point to the first failing component rather than cascading errors.
 
-[12.2] _Maximum chain length._ Implementations shall support qualified name chains of at least 32 components. Chains exceeding this limit may be rejected with diagnostic E2030 (qualified name chain too long). This limit prevents pathological cases while accommodating deep module hierarchies.
+(12.2) _Maximum chain length._ Implementations shall support qualified name chains of at least 32 components. Chains exceeding this limit may be rejected with diagnostic E06-406 (qualified name chain too long). This limit prevents pathological cases while accommodating deep module hierarchies.
 
 [13] If the prefix is not a module or type, diagnostic E06-402 is emitted. If the suffix exists but is not exported, E06-403 is emitted; if it does not exist, E06-404 (module case) or E06-405 (type case) is emitted.
 
-[13.1] _Empty module path components._ A qualified name may not contain empty components (e.g., `::Name` or `A::::B`). Such constructs are ill-formed and emit diagnostic E2031 (empty qualified name component) during parsing, before lookup proceeds.
+(13.1) _Empty module path components._ A qualified name may not contain empty components (e.g., `::Name` or `A::::B`). Such constructs are ill-formed and emit diagnostic E06-407 (empty qualified name component) during parsing, before lookup proceeds.
 
 #### §6.4.5 Diagnostics [name.lookup.diagnostics]
 
@@ -105,6 +105,8 @@ resolve_unqualified(name):
 - **E06-403** — Qualified name targets an item that exists but is not exported.
 - **E06-404** — Qualified name references a module that does not contain the requested item.
 - **E06-405** — Qualified name references a type that does not expose the requested associated item.
+- **E06-406** — Qualified name chain too long (exceeds implementation limit).
+- **E06-407** — Empty qualified name component (e.g., `::Name` or `A::::B`).
 
 #### §6.4.6 Examples (Informative) [name.lookup.examples]
 
@@ -114,7 +116,7 @@ resolve_unqualified(name):
 use math::geometry::{area, circumference as circle_circumference}
 
 procedure demo(radius: f64): f64
-    {| |- true => true |}
+    [[ |- true => true ]]
 {
     let area = area(radius)                         // Steps 1–3 resolve local `area`
     let perimeter = circle_circumference(radius)    // Step 4 uses the alias
@@ -131,7 +133,7 @@ use lib_a::process
 use lib_b::process
 
 procedure run()
-    {| |- true => true |}
+    [[ |- true => true ]]
 {
     // ERROR E06-400: ambiguous identifier 'process'
     let value = process()
@@ -142,7 +144,7 @@ procedure run()
 
 [15] Implementations shall implement the five-step unqualified lookup algorithm and emit diagnostics E06-400 (ambiguity) and E06-401 (undefined) as appropriate.
 
-[16] Implementations shall enforce qualified lookup rules, including prefix validation (E06-402), visibility (E06-403), and existence checks (E06-404/E06-405).
+[16] Implementations shall enforce qualified lookup rules, including prefix validation (E06-402), visibility (E06-403), existence checks (E06-404/E06-405), chain length limits (E06-406), and empty component detection (E06-407).
 
 [17] Implementations shall integrate module exports and `use` bindings into Step 4 without creating additional lexical scopes (§6.2). Module re-exports (`public use`) must appear exactly as exported in import tables.
 

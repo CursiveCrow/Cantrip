@@ -6,7 +6,7 @@
 **File**: 07-5_Pointer-Types.md
 **Section**: 7.5 Pointer and Reference Types  
 **Stable label**: [type.pointer]  
-**Forward references**: §7.6 [type.modal], §7.7 [type.relation], Clause 8 [expr], Clause 9 [stmt], Clause 11 [generic], Clause 12 [memory], Clause 13 [contract]
+**Forward references**: §7.6 [type.modal], §7.7 [type.relation], Clause 8 [expr], Clause 9 [stmt], Clause 10 [generic], Clause 11 [memory], Clause 12 [contract]
 
 ---
 
@@ -160,13 +160,13 @@ $$
 
 **Table 7.5.1 — `Ptr<T>` transition catalogue**
 
-| Operation                     | Source state              | Target state | Conditions / notes                                                                          |
-| ----------------------------- | ------------------------- | ------------ | ------------------------------------------------------------------------------------------- |
-| `&e` (address-of)             | storage-backed expression | `@Valid`     | `e` denotes a live storage location; provenance recorded per §7.5.3                         |
-| `Ptr::null<T>()`              | —                         | `@Null`      | Produces an explicit null pointer                                                           |
-| `Ptr::downgrade()`            | `@Valid`                  | `@Weak`      | Pointer retains provenance and no longer proves liveness                                    |
-| `Ptr::upgrade()` success path | `@Weak`                   | `@Valid`     | Only when the referent is still live; caller SHALL pattern match the result                 |
-| `Ptr::upgrade()` failure path | `@Weak`                   | `@Null`      | Indicates the referent has been destroyed; dereference must not follow                      |
+| Operation                     | Source state              | Target state | Conditions / notes                                                                            |
+| ----------------------------- | ------------------------- | ------------ | --------------------------------------------------------------------------------------------- |
+| `&e` (address-of)             | storage-backed expression | `@Valid`     | `e` denotes a live storage location; provenance recorded per §7.5.3                           |
+| `Ptr::null<T>()`              | —                         | `@Null`      | Produces an explicit null pointer                                                             |
+| `Ptr::downgrade()`            | `@Valid`                  | `@Weak`      | Pointer retains provenance and no longer proves liveness                                      |
+| `Ptr::upgrade()` success path | `@Weak`                   | `@Valid`     | Only when the referent is still live; caller SHALL pattern match the result                   |
+| `Ptr::upgrade()` failure path | `@Weak`                   | `@Null`      | Indicates the referent has been destroyed; dereference must not follow                        |
 | Owning scope/region drop      | `@Weak`                   | `@Expired`   | Occurs automatically when the final owning `@Valid` pointer drops; dereference raises E07-305 |
 
 [14] Implementations shall diagnose any attempt to forge a transition not listed above. In particular, there is no transition that converts `@Expired` back to `@Valid`; a stale pointer can only become usable again by obtaining a fresh pointer via the safe constructors above.
@@ -261,14 +261,14 @@ Pointer arithmetic and casts also require `unsafe.ptr` and are otherwise uncheck
 
 - `Ptr<T>@Valid` → `*const T`/`*mut T` (explicit cast).
 - `*const T`/`*mut T` → `Ptr<T>` forbidden without proving state (requires user-provided witness or safe wrapper).
-- Capturing closures may not be cast to raw procedure pointers (E7FN-0007).
+- Capturing closures may not be cast to raw procedure pointers (E07-206).
 
 #### §7.5.6 Diagnostics [type.pointer.diagnostics]
 
 [20] Mandatory diagnostics:
 
-| Code  | Condition                                        |
-| ----- | ------------------------------------------------ |
+| Code    | Condition                                        |
+| ------- | ------------------------------------------------ |
 | E07-300 | Pointer escape violating provenance rules        |
 | E07-301 | Dereference of `Ptr<T>@Null`                     |
 | E07-302 | Address-of expression without storage            |
@@ -290,7 +290,7 @@ Diagnostics shall include allocation site, pointer provenance, and hints consist
 ```cursive
 record Node {
     parent: Ptr<Node>@Weak,
-    children: Vec<Ptr<Node>@Valid>,
+    children: [Ptr<Node>@Valid],
 }
 
 procedure attach_child(parent: Ptr<Node>@Valid, child: Ptr<Node>@Valid) {
@@ -324,7 +324,7 @@ procedure dangling(): Ptr<i32> {
 
 ```cursive
 procedure bump(ptr: *mut i32)
-    {| unsafe.ptr |- true => true |}
+    [[ unsafe.ptr |- true => true ]]
 {
     unsafe {
         *ptr = *ptr + 1

@@ -48,13 +48,13 @@ module_component   ::= identifier
 
 [5] **Case collisions.** When two files differ only by case under a case-insensitive filesystem, the build is ill-formed (diagnostic E04-004). Implementations shall detect this condition before semantic analysis.
 
-[5.1] **Case sensitivity error handling.** When a case-insensitive filesystem is detected and multiple files would map to the same module path when case is ignored, implementations shall:
+(5.1) **Case sensitivity error handling.** When a case-insensitive filesystem is detected and multiple files would map to the same module path when case is ignored, implementations shall:
 
 - Emit diagnostic E04-004 listing all conflicting file paths
 - Reject the compilation unit containing the ambiguous reference
 - Provide suggestions for resolving the conflict (e.g., standardizing on a single case convention)
 
-[5.2] **Cross-platform consistency.** Implementations shall warn (diagnostic E04-007, severity warning) when module paths that are distinct on case-sensitive filesystems would collide on case-insensitive filesystems. This helps developers maintain portability across platforms.
+(5.2) **Cross-platform consistency.** Implementations shall warn (diagnostic E04-007, severity warning) when module paths that are distinct on case-sensitive filesystems would collide on case-insensitive filesystems. This helps developers maintain portability across platforms.
 
 [6] **Reserved components.** Module components shall not coincide with reserved keywords (§2.3[4]). Violations produce diagnostic E04-005.
 

@@ -6,7 +6,7 @@
 **File**: 07-8_Type-Introspection.md
 **Section**: 7.8 Type Introspection  
 **Stable label**: [type.introspection]  
-**Forward references**: Clause 8 [expr], Clause 10 [comptime], Clause 11 [generic], Clause 12 [memory]
+**Forward references**: Clause 8 [expr], Clause 16 [comptime], Clause 10 [generic], Clause 11 [memory]
 
 ---
 
@@ -15,7 +15,7 @@
 [1] Type introspection provides compile-time access to metadata about types. It enables generic algorithms, diagnostics, and metaprogramming to query type properties without runtime overhead. Introspection facilities operate in two modes:
 
 - **Type-level operators** such as `typeof(expr)` usable in type positions.
-- **Compile-time queries** (e.g., `type_name<T>()`) available in compile-time evaluation contexts (§10).
+- **Compile-time queries** (e.g., `type_name<T>()`) available in compile-time evaluation contexts (Clause 16).
 
 [2] Introspection never alters type semantics; it only exposes metadata. All results are immutable and must be consumed in compile-time contexts unless a function explicitly returns a runtime value (e.g., `type_id`).
 
@@ -66,7 +66,7 @@ $$
 **Example 7.8.3.1**
 
 ```cursive
-let label: string@View = type_name<Vec<i32>>()
+let label: string@View = type_name<[i32]>()
 println("Type: {}", label)
 ```
 
@@ -135,13 +135,13 @@ $$
 \tag{T-TypeInfo}
 $$
 
-`FieldInfo.ty` has kind `Type` and may only be inspected inside compile-time contexts (Clause 10). Using it in runtime expressions is rejected (E07-901).
+`FieldInfo.ty` has kind `Type` and may only be inspected inside compile-time contexts (Clause 16). Using it in runtime expressions is rejected (E07-901).
 
 #### §7.8.6 Compile-Time Context Requirements [type.introspection.comptime]
 
 [8] Calls to `type_name`, `type_id`, and `type_info` are permitted in runtime code, but `type_info` results must remain compile-time constants (e.g., assigned to `const` bindings, used inside `comptime` blocks). Using `type_info` in runtime expressions triggers E07-901. `type_name` and `type_id` may be evaluated at runtime; their cost is implementation-defined but expected to be O(1).
 
-[9] Introspection functions inside `comptime` blocks may be used to generate code (e.g., auto-derive implementations). Combine with Clause 10 semantics for compile-time evaluation.
+[9] Introspection functions inside `comptime` blocks may be used to generate code (e.g., auto-derive implementations). Combine with Clause 16 semantics for compile-time evaluation.
 
 #### §7.8.7 Interaction with Generics [type.introspection.generics]
 
@@ -180,11 +180,11 @@ comptime {
 }
 
 // Runtime type comparisons
-let a_id = type_id<Vec<i32>>()
-let b_id = type_id<Vec<i32>>()
+let a_id = type_id<[i32; 10]>()
+let b_id = type_id<[i32; 10]>()
 assert(a_id == b_id)
 
-let label = type_name<Result<string@Owned, io::Error>>()
+let label = type_name<string@Managed \/ io::Error>()
 println("Type label: {}", label)
 ```
 
@@ -203,4 +203,4 @@ println("Type label: {}", label)
 
 ---
 
-**Previous**: §7.7 Type Relations (§7.7 [type.relation]) | **Next**: §7.A Clause Appendix (§7.A [type.index])
+**Previous**: §7.7 Type Relations (§7.7 [type.relation]) | **Next**: Clause 8 — Expressions (§8.1 [expr.fundamental])

@@ -2,11 +2,11 @@
 
 ## Clause 8 — Expressions
 
-**Clause**: 8 — Expressions
+**Clause**: 8 — Expressions  
 **File**: 08-3_Unary-and-Binary-Operators.md  
 **Section**: §8.3 Unary and Binary Operators  
 **Stable label**: [expr.operator]  
-**Forward references**: §8.4 [expr.structured], §8.6 [expr.conversion], Clause 5 §5.2 [decl.variable], Clause 7 §7.2 [type.primitive], Clause 7 §7.5 [type.pointer], Clause 12 §12.4 [memory.permission]
+**Forward references**: §8.4 [expr.structured], §8.6 [expr.conversion], Clause 5 §5.2 [decl.variable], Clause 7 §7.2 [type.primitive], Clause 7 §7.5 [type.pointer], Clause 7 §7.7 [type.relation], Clause 11 §11.4 [memory.permission]
 
 ---
 
@@ -14,133 +14,137 @@
 
 #### §8.3.1 Overview
 
-[1] Operator expressions extend primary/postfix expressions with prefix (`!`, `-`, `&`, `move`), infix (arithmetic, comparison, logical, range), and assignment forms. Annex A §A.4.9 defines the precedence and associativity hierarchy. This subclause restates the normative table and specifies the typing, evaluation order, and diagnostics for every operator.
+[1] Operators extend expressions with prefix (`!`, `-`, `&`, `move`), infix (arithmetic, comparison, logical, range), exponentiation, and assignment semantics. Annex A §A.4.9 defines their precedence and associativity. This subclause restates the table, then specifies typing, evaluation, and diagnostics for each operator.
 
-#### §8.3.2 Precedence and Associativity
+#### §8.3.2 Precedence hierarchy
 
-[2] Table 8.3.1 lists operator levels from highest to lowest precedence. All binary operators associate left-to-right except exponentiation (`**`) and assignments (`=`, `op=`), which associate right-to-left. Pipeline `=>` is handled in §8.2 but appears in the table for completeness.
+[2] Table 8.3.1 lists operators from highest to lowest precedence. All binary operators associate left-to-right except exponentiation and assignments, which associate right-to-left.
 
-| Level | Operators | Associativity | Reference |
-| --- | --- | --- | --- |
-| 1 | Postfix (`()`, `[]`, `.`, `::`, `=>`) | left | §8.2 |
-| 2 | Prefix (`!`, `-`, `&`, `move`) | right | §8.3.3 |
-| 3 | Power `**` | right | §8.3.4 |
-| 4 | `*`, `/`, `%` | left | §8.3.4 |
-| 5 | `+`, `-` | left | §8.3.4 |
-| 6 | `<<`, `>>` | left | §8.3.4 |
-| 7 | `..`, `..=` | left | §8.3.5 |
-| 8 | `&` (bitwise) | left | §8.3.4 |
-| 9 | `^` (bitwise) | left | §8.3.4 |
-| 10 | `|` (bitwise) | left | §8.3.4 |
-| 11 | `<`, `<=`, `>`, `>=` | left | §8.3.6 |
-| 12 | `==`, `!=` | left | §8.3.6 |
-| 13 | `&&` | left (short-circuit) | §8.3.7 |
-| 14 | `||` | left (short-circuit) | §8.3.7 |
-| 15 | `=`, `op=` | right | §8.3.8 |
+| Level | Operators                                      | Associativity        | Notes    |
+| ----- | ---------------------------------------------- | -------------------- | -------- | -------------------- | ------ |
+| 1     | Postfix (`()`, `[]`, `.`, `::`, pipeline `=>`) | Left                 | See §8.2 |
+| 2     | Prefix (`!`, `-`, `&`, `move`)                 | Right                | §8.3.3   |
+| 3     | `**`                                           | Right                | §8.3.4   |
+| 4     | `*`, `/`, `%`                                  | Left                 | §8.3.4   |
+| 5     | `+`, `-`                                       | Left                 | §8.3.4   |
+| 6     | `<<`, `>>`                                     | Left                 | §8.3.4   |
+| 7     | `..`, `..=` (binary form)                      | Left                 | §8.3.5   |
+| 8     | Bitwise `&`                                    | Left                 | §8.3.4   |
+| 9     | Bitwise `^`                                    | Left                 | §8.3.4   |
+| 10    | Bitwise `                                      | `                    | Left     | §8.3.4               |
+| 11    | `<`, `<=`, `>`, `>=`                           | Left                 | §8.3.6   |
+| 12    | `==`, `!=`                                     | Left                 | §8.3.6   |
+| 13    | `&&`                                           | Left (short-circuit) | §8.3.7   |
+| 14    | `                                              |                      | `        | Left (short-circuit) | §8.3.7 |
+| 15    | `=`, `op=`                                     | Right                | §8.3.8   |
 
-#### §8.3.3 Unary Operators
+#### §8.3.3 Unary operators
 
 [3] Grammar: `UnaryExpr ::= ('!' | '-' | '&' | 'move') UnaryExpr | PostfixExpr` (Annex A §A.4.9).
 
 **Logical NOT (`!`)**
 
-[4] Typing: operand must have type `bool`. Result type is `bool`.
-
-$$
-\frac{\Gamma \vdash e : bool ! \varepsilon}{\Gamma \vdash !e : bool ! \varepsilon}
-\tag{T-Not}
-$$
+[4] Operand must have type `bool`. Result type is `bool`. Using a non-boolean operand yields E08-320.
 
 **Arithmetic negation (`-`)**
 
-[5] Operand must be a numeric primitive (`τ ∈ NumericTypes`). Result type is `τ`. Negating the minimum signed integer in checked mode causes a panic; release mode wraps per §7.2.
+[5] Operand must belong to `NumericTypes`. Result type equals operand type. Negating the minimum signed integer in checked builds triggers a panic with diagnostic E08-330; release builds wrap according to Clause 7 §7.2. Developers may opt into always-checked or always-wrapping modes via attributes (Clause 1 §1.6).
 
 **Address-of (`&`)**
 
-[6] Covered in §8.2.10. Attempting to take the address of a non-place expression yields E08-260.
+[6] Covered in §8.2.10; invalid uses emit E08-260.
 
 **Move (`move e`)**
 
-[7] `move` consumes an `own` value to prevent implicit copies. It has type `typeof(e)` and category `value`. Using the moved binding afterwards results in the standard “use after move” diagnostic (Clause 5). The operand must be a value; attempting to move a place without ownership emits E08-300.
+[7] `move` consumes an `own` value. The operand must be a value (not a place) whose type is move-only. Result type equals the operand type. Attempting to move a value that does not have ownership emits E08-331.
 
-#### §8.3.4 Arithmetic and Bitwise Operators
+#### §8.3.4 Arithmetic and bitwise operators
 
-[8] Grammar: `AddExpr`, `MulExpr`, `ShiftExpr`, `BitAndExpr`, `BitXorExpr`, `BitOrExpr` (Annex A §A.4.9).
+[8] Grammar: `MulExpr`, `AddExpr`, `ShiftExpr`, `BitAndExpr`, `BitXorExpr`, `BitOrExpr` in Annex A §A.4.9.
 
-[9] Typing:
+[9] Typing rules:
 
-- Operands shall share the same numeric type `τ`. Mixing integer and floating operands is ill-formed (E08-301).
-- `%` requires an integer type; using floating point produces E08-302.
-- Shifts require the right operand to be `usize`; the amount must be less than the bit width, otherwise E08-303.
+- Operands shall have identical numeric type `τ`. Mixed-type arithmetic requires explicit casts (§8.6) and therefore is ill-formed by default (E08-301).
+- `%` is defined only for integer types. Using it with floating types emits E08-302.
+- Shift operators require left operand of integer type `τ` and right operand of type `usize`. The shift amount must satisfy `amount < bitwidth(τ)`; otherwise E08-303.
 
-[10] Evaluation: operands evaluate left-to-right. Division or remainder by zero cause runtime panic (diagnostic E08-304). Integer overflow follows the debug/optimized semantics described in Clause 7.
+[10] Evaluation: both operands evaluate left-to-right. Division or modulo by zero panic with diagnostic E08-304. Integer overflow follows the semantics configured for the compilation mode: checked builds panic, release builds wrap (Clause 7 §7.2). Bitwise operators operate on the binary representation without additional checks.
 
-#### §8.3.5 Power and Range Operators
+#### §8.3.5 Power and range operators
 
-[11] Exponentiation `**` requires numeric operands with matching type. Result type is the operand type. Overflow rules follow §7.2.
+[11] Exponentiation `**` accepts numeric operands of identical type and returns that type. It associates right-to-left, so `a ** b ** c` parses as `a ** (b ** c)`.
 
-[12] Binary range operators (`a..b`, `a..=b`) construct `Range<T>` or `RangeInclusive<T>` values (§7.3.4). Operands must share the same numeric type. Range literals are value expressions; slicing semantics are handled in §8.2.9.
+[12] Binary range operators `a..b` and `a..=b` create range values (Clause 7 §7.3.4). Operands must have the same numeric type. Evaluation occurs left-to-right: compute `a`, compute `b`, then package the range structure. Invalid ordering (e.g., `b < a`) is permitted; it is diagnosed only when consumers demand ordered ranges (e.g., slicing).
 
-#### §8.3.6 Comparison and Equality
+#### §8.3.6 Comparison and equality
 
-[13] Comparison operators `<`, `<=`, `>`, `>=` accept numeric or `char` operands of the same type and produce `bool`. For `f32`/`f64`, comparisons follow IEEE 754; `NaN` propagates (i.e., `NaN == NaN` is `false`).
+[13] `<`, `<=`, `>`, `>=` require operands of identical numeric or `char` type. Result is `bool`. Comparisons on `f32`/`f64` follow IEEE 754 semantics (`NaN` is unordered).
 
-[14] Equality operators `==`, `!=` require the type to implement the `Eq` predicate (Clause 11). Primitive types satisfy `Eq`; structural types must derive or implement it. Attempting to compare a type without `Eq` yields E08-310.
+[14] `==` and `!=` are available exactly when the operand type implements the `Eq` predicate (Clause 11). Primitive types implement `Eq` by default. Custom types shall derive or implement `Eq`; otherwise E08-310 is emitted. Equality is symmetric and reflexive for non-`NaN` values.
 
-#### §8.3.7 Logical Operators
+#### §8.3.7 Logical operators
 
-[15] `&&` and `||` require operands of type `bool`. They short-circuit: `a && b` evaluates `b` only when `a` is `true`, and `a || b` evaluates `b` only when `a` is `false`.
+[15] `&&` and `||` require operands of type `bool`. Both operators short-circuit: `a && b` evaluates `b` only when `a` is `true`; `a || b` evaluates `b` only when `a` is `false`. Their result is `bool`. Mis-typed operands emit E08-320.
 
-[16] Diagnostics: using non-boolean operands produces E08-320.
+[16] Bitwise XOR (`^`) is distinct from logical XOR; it operates on integers. For boolean logical XOR, compose `a != b`.
 
-#### §8.3.8 Assignment and Compound Assignment
+#### §8.3.8 Assignment and compound assignment
 
-[17] Grammar: `AssignExpr ::= UnaryExpr AssignmentOperator Expr` (Annex A §A.4.9). `AssignmentOperator` is `=` or `op=`.
+[17] Grammar: `AssignExpr ::= UnaryExpr AssignmentOperator Expr`, where `AssignmentOperator ∈ { '=', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<=', '>>=' }` (Annex A §A.4.9).
 
-[18] Typing:
+[18] Typing constraints:
 
-- Left operand must be a place with `mut` or `own` permission and type `τ`.
-- Right operand must have type `τ` (or be convertible via explicit cast).
-- Compound assignments `target op= expr` are equivalent to `target = target op expr` but evaluate `target` exactly once.
+- Left operand must be a place with permission `mut` or `own` and type `τ`.
+- Right operand must have type `τ`.
+- `op=` forms require `op` to be valid for type `τ` (e.g., `+=` valid on numeric types).
 
-[19] Diagnostics:
+[19] Evaluation order: evaluate the left operand to obtain the target place, then evaluate the right operand, then perform the assignment. For compound assignments, the compiler reads the current value of the place exactly once, applies the operator, and writes the result back.
 
-- Assigning to a non-place expression emits E08-330.
-- Attempting to mutate a `let` binding or place without sufficient permission emits E08-003.
-- Using compound assignment with unsupported operator/type combinations emits E08-331.
+[20] Diagnostics:
 
-#### §8.3.9 Move Interaction and Temporaries
+- Non-place left operand → E08-340.
+- Insufficient permission → E08-003.
+- Unsupported compound operator/type combination → E08-341.
+- Chained assignment attempts (e.g., `x = y = z`) emit E08-342 unless each assignment is standalone.
 
-[20] Operators respect move semantics. When an operand of type `own T` lacks the `Copy` predicate, the operator consumes it, and later uses must treat the binding as moved. Temporaries introduced by operators drop at the end of the full expression (§12.2).
+#### §8.3.9 Move interaction
 
-#### §8.3.10 Diagnostics Summary
+[21] Operators follow move semantics. If an operand’s type is move-only (`own`) and lacks `Copy`, the operator consumes it; subsequent uses of the binding are ill-formed (Clause 5 diagnostics). Commutative operators still evaluate left-to-right, so moving the left operand before evaluating the right operand is observable.
 
-| Code | Condition |
-| --- | --- |
-| E08-300 | `move` applied to value lacking ownership |
-| E08-301 | Operands of numeric operator have mismatched types |
-| E08-302 | Modulo operator used with floating type |
-| E08-303 | Shift amount ≥ bit width |
-| E08-304 | Division or remainder by zero |
-| E08-310 | Equality used on type without `Eq` |
-| E08-320 | Logical operator operands not `bool` |
-| E08-330 | Assignment target is not a place |
-| E08-331 | Unsupported compound assignment |
+#### §8.3.10 Diagnostics summary
 
-#### §8.3.11 Canonical Example
+| Code    | Condition                                              |
+| ------- | ------------------------------------------------------ |
+| E08-301 | Operand types mismatch for arithmetic/bitwise operator |
+| E08-302 | Modulo operator applied to non-integer type            |
+| E08-303 | Shift amount ≥ bit width                               |
+| E08-304 | Division or modulo by zero                             |
+| E08-310 | Equality invoked on type without `Eq` implementation   |
+| E08-320 | Logical operator operands not `bool`                   |
+| E08-330 | Checked-mode arithmetic negation overflow              |
+| E08-331 | `move` applied to value without ownership              |
+| E08-340 | Assignment target is not a place                       |
+| E08-341 | Compound assignment invalid for operand type           |
+| E08-342 | Chained assignment is ill-formed                       |
+
+#### §8.3.11 Canonical example
 
 ```cursive
 var counter: mut i32 = 0
-procedure step(delta: i32): ()
-    {| |- true => true |}
+
+procedure tick(delta: i32): ()
+    [[ |- true => true ]]
 {
-    counter += delta          // compound assignment evaluates `counter` once
-    if counter >= LIMIT && delta != 0 {
+    counter += delta                 // compound assignment
+    if counter < 0 {
         counter = 0
+    }
+    if counter % 5 == 0 && delta != 0 {
+        log::info("milestone reached")
     }
 }
 ```
 
-[21] This example exercises compound assignment, logical short-circuiting, and ordinary assignment, illustrating the permission requirements on the left-hand side.
+[22] The example demonstrates compound assignment, comparison, modulo, and logical short-circuiting, while respecting evaluation order and permissions.
 
 ---

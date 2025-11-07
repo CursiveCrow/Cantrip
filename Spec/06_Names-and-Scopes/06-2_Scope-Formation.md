@@ -1,11 +1,12 @@
 # Cursive Language Specification
+
 ## Clause 6 — Names, Scopes, and Resolution
 
 **Clause**: 6 — Names, Scopes, and Resolution
 **File**: 06-2_Scope-Formation.md
 **Section**: §6.2 Scope Formation
 **Stable label**: [name.scope]  
-**Forward references**: §2.5 [lex.units], §5.2 [decl.variable], §5.6 [decl.visibility], §6.3 [name.shadow], §6.4 [name.lookup], §12.3 [memory.region]
+**Forward references**: §2.5 [lex.units], §5.2 [decl.variable], §5.6 [decl.visibility], §6.3 [name.shadow], §6.4 [name.lookup], §11.3 [memory.region]
 
 ---
 
@@ -51,7 +52,7 @@ region_block
 
 [7] Procedure scope is established when a callable body begins. Parameters and labels have procedure-wide visibility within that scope regardless of nested blocks. Nested procedure declarations create new scopes following the rules in §5.4.
 
-[8] Block scope begins at each `{` and ends at the matching `}`. Declarations inside a block are visible from the point of declaration to the end of the block and may shadow outer bindings only when marked with `shadow` (§6.3). Region blocks (`region`) create block scopes that are constrained additionally by the region stack (§12.3), but their name-visibility behaviour is identical to ordinary blocks.
+[8] Block scope begins at each `{` and ends at the matching `}`. Declarations inside a block are visible from the point of declaration to the end of the block and may shadow outer bindings only when marked with `shadow` (§6.3). Region blocks (`region`) create block scopes that are constrained additionally by the region stack (§11.3), but their name-visibility behaviour is identical to ordinary blocks.
 
 [9] Control-flow constructs that introduce implicit blocks (`if`, `while`, `for`, `match`) behave as if they contained explicit braces. Implementations shall normalise such constructs to block scopes before name-resolution analysis.
 
@@ -61,21 +62,22 @@ region_block
 
 [11] Scope formation proceeds during parsing. Two-phase compilation (§2.2) records every scope boundary before semantic analysis so that forward references within a compilation unit are valid. Each scope owns a binding table populated as declarations are encountered.
 
-[12] Shadowing is resolved lexically: when a nested scope declares an identifier marked with `shadow`, it inserts a new binding that temporarily overrides the ancestor binding for the duration of the nested scope. Without `shadow`, redeclaration in the same or nested scope triggers E2019 (§6.3).
+[12] Shadowing is resolved lexically: when a nested scope declares an identifier marked with `shadow`, it inserts a new binding that temporarily overrides the ancestor binding for the duration of the nested scope. Without `shadow`, redeclaration in the same or nested scope triggers E06-300 (§6.3).
 
-[13] Function scope exposes parameters and labels to all nested blocks. Block-local declarations do not escape their block even when references to them are captured by closures; closures capture the value, not the scope entry, and the captured value obeys the permission rules of Clause 12.
+[13] Function scope exposes parameters and labels to all nested blocks. Block-local declarations do not escape their block even when references to them are captured by closures; closures capture the value, not the scope entry, and the captured value obeys the permission rules of Clause 11.
 
 [14] Region blocks attach lifetime semantics to the bindings created within them; when the region closes, any region-allocated storage is reclaimed. Name visibility nonetheless follows ordinary block rules—bindings cease to exist after the closing brace.
 
 #### §6.2.5 Examples (Informative) [name.scope.examples]
 
 **Example 6.2.5.1 (Scope hierarchy with region blocks):**
+
 ```cursive
 // Module scope: MODULE_CONST, helper, and main share the module binding table
 let MODULE_CONST = 42
 
 procedure helper(x: i32): i32
-    {| |- true => true |}
+    [[ |- true => true ]]
 {
     // Procedure scope begins here; parameter `x` and label `'retry` are visible throughout
     'retry: loop {
@@ -91,7 +93,7 @@ procedure helper(x: i32): i32
 }
 
 public procedure main(): i32
-    {| |- true => true |}
+    [[ |- true => true ]]
 {
     let value = helper(10)
     {
@@ -111,6 +113,6 @@ public procedure main(): i32
 
 [16] Implementations shall treat implicit blocks in control-flow constructs as lexical scopes equivalent to explicit braces before performing name lookup.
 
-[17] Implementations shall enforce the procedure-scope visibility of parameters and labels and the block-scope visibility of local declarations, raising diagnostics when references escape their scope (E2024 or context-specific errors).
+[17] Implementations shall enforce the procedure-scope visibility of parameters and labels and the block-scope visibility of local declarations, raising diagnostics when references escape their scope (E06-410 or context-specific errors).
 
-[18] Implementations shall ensure region blocks behave as block scopes for name visibility while honouring the additional lifetime semantics defined in §12.3.
+[18] Implementations shall ensure region blocks behave as block scopes for name visibility while honouring the additional lifetime semantics defined in §11.3.

@@ -6,7 +6,7 @@
 **File**: 05-5_Type-Declarations.md
 **Section**: §5.5 Type Declarations
 **Stable label**: [decl.type]  
-**Forward references**: Clause 6 [name], Clause 7 [type], Clause 11 [generic], Clause 12 [memory], Clause 13 [contract], Clause 14 [witness]
+**Forward references**: Clause 6 [name], Clause 7 [type], Clause 10 [generic], Clause 11 [memory], Clause 12 [contract], Clause 13 [witness]
 
 ---
 
@@ -121,7 +121,13 @@ predicate_reference
 
 [3] Tuple records reuse the `record` keyword with a positional field list and may include an optional body containing member procedures.
 
-[4] Modal state transitions use the syntax `@SourceState::transition_name(params) -> @TargetState` to declare valid state transitions. These are transition _signatures_ that define the state machine graph; corresponding procedure _implementations_ use standard procedure syntax (§5.4) with `:` for return types.
+[4] **Modal state transitions**: Modal types use two distinct syntactic forms:
+
+- **Transition signatures** (`@SourceState::transition_name(params) -> @TargetState`): Declare valid state transitions within the modal body. These lightweight declarations define the state machine graph and use `->` to indicate state-to-state transitions.
+- **Procedure implementations**: Provide the actual transition logic using standard procedure syntax (§5.4) with `:` for return types. Each transition signature must have a corresponding procedure implementation.
+
+[ Note: The `->` syntax in transition signatures is distinct from the `:` return type indicator in procedure implementations. Transition signatures declare the state machine structure; implementations provide executable code. See §7.6.1 [type.modal.syntax] for complete details.
+— end note ]
 
 #### §5.5.3 Constraints
 
@@ -131,13 +137,13 @@ predicate_reference
 
 [3] _Field requirements._ Record and enum field names must be unique within their declaration. Field type annotations are mandatory. Tuple record fields specify types but no identifiers.
 
-[4] _Member procedures._ Procedures declared inside records or modal states follow §5.4. Receiver shorthand (`~`, `~%`, `~!`) binds the implicit `self` parameter to the enclosing type. Member procedures shall include a contract specification; placing it on the line immediately following the signature is recommended for readability.
+[4] _Member procedures._ Procedures declared inside records or modal states follow §5.4. Receiver shorthand (`~`, `~%`, `~!`) binds the implicit `self` parameter to the enclosing type. Member procedures shall include a contractual sequent; placing it on the line immediately following the signature is recommended for readability.
 
 [5] _Enum variants._ Variants may be unit-style, tuple-style (`Variant(T₁, …, Tₙ)`), or record-style (`Variant { field: Type, … }`). Variants inherit the enum’s visibility unless overridden. Variant identifiers must be unique.
 
-[6] _Contract clause._ When a type declaration includes a contract clause, each referenced contract shall be visible at the point of declaration and the type shall provide implementations for every required item as specified in Clause 13. Duplicate contract references are diagnosed as E05-503.
+[6] _Contract clause._ When a type declaration includes a contract clause, each referenced contract shall be visible at the point of declaration and the type shall provide implementations for every required item as specified in Clause 12. Duplicate contract references are diagnosed as E05-503.
 
-[7] _Predicate clause._ When a type declaration includes a predicate clause, each referenced predicate shall be visible and applicable to the type’s kind. Predicates shall be implemented according to Clause 11; duplicate predicate references are diagnosed as E05-504.
+[7] _Predicate clause._ When a type declaration includes a predicate clause, each referenced predicate shall be visible and applicable to the type's kind. Predicates shall be implemented according to Clause 10; duplicate predicate references are diagnosed as E05-504.
 
 [8] _Modal structure._ A modal type shall declare at least one state using the `@State` notation. Each state may include a payload block `{ fields }` (record-style) followed by zero or more transition signatures. Transition signatures use the form `@SourceState::name(params) -> @TargetState` where `@SourceState` matches the state containing the signature. The source state qualifier makes explicit which state the transition originates from. Parameters may include receiver shorthand (`~`, `~%`, `~!`) as the first parameter.
 
@@ -153,7 +159,7 @@ Procedure implementations may be declared at module scope or within the state bo
 
 [11] _Type alias cycles._ Type aliases form transparent names. Direct or indirect cyclic aliases are prohibited (diagnostic E05-501).
 
-[12] _Generics._ Generic parameter lists may include type, const, and grant parameters. Bounds are specified via `where` clauses (§11.3 [generic.bounds]) and validated in Clause 7.
+[12] _Generics._ Generic parameter lists may include type, const, and grant parameters. Bounds are specified via `where` clauses (§10.3 [generic.bounds]) and validated in Clause 7.
 
 [13] _Empty type declarations._ Records, enums, and modal types may have empty bodies (no fields, variants, or states). Empty records represent unit-like types; empty enums represent uninhabited types (never types); empty modal types are ill-formed (diagnostic E05-505) as they provide no states. Empty tuple records are well-formed and represent zero-element tuples.
 
@@ -169,9 +175,9 @@ Procedure implementations may be declared at module scope or within the state bo
 
 [3] Modal types define compile-time verified state machines. Each state corresponds to a distinct type, and transitions are enforced through the modal transition signatures in Clause 7.
 
-[4] When a type lists contracts using the contract clause, the declaration establishes an implementation obligation. Clause 13 specifies how each referenced contract contributes required procedures, associated types, and clauses; §5.5.3[6] enforces that every obligation is fulfilled within the declaration.
+[4] When a type lists contracts using the contract clause, the declaration establishes an implementation obligation. Clause 12 specifies how each referenced contract contributes required procedures, associated types, and clauses; §5.5.3[6] enforces that every obligation is fulfilled within the declaration.
 
-[5] Predicate clauses attach predicate implementations to the type. Clause 11 governs predicate formation, coherence, and conflict detection. The predicate clause is equivalent to writing separate predicate implementation blocks whose receiver is the declaring type.
+[5] Predicate clauses attach predicate implementations to the type. Clause 10 governs predicate formation, coherence, and conflict detection. The predicate clause is equivalent to writing separate predicate implementation blocks whose receiver is the declaring type.
 
 [6] Type aliases provide transparent renaming. Aliases do not create new nominal identities and are interchangeable with the aliased type in all contexts.
 
@@ -185,7 +191,7 @@ public record Account: Ledgered with UserStorage {
     private balance: i64,
 
     procedure deposit(~!, amount: i64)
-        {| ledger::post |- amount > 0 => self.balance >= amount |}
+        [[ ledger::post |- amount > 0 => self.balance >= amount ]]
     {
         self.balance += amount
     }
@@ -199,7 +205,6 @@ public record Account: Ledgered with UserStorage {
 ```cursive
 record Velocity(f64, f64) {
     procedure magnitude(~): f64
-        {| |- true => true |}
     {
         result (self.0 * self.0 + self.1 * self.1).sqrt()
     }
@@ -231,19 +236,19 @@ modal File {
 
 // Procedure implementations (can be at module scope or inline in state body)
 procedure File.open(self: unique Self@Closed, path: Path): Self@Open
-    {| fs::open |- path.exists() => result.state() == @Open |}
+    [[ fs::open |- path.exists() => result.state() == @Open ]]
 {
     // ... implementation
 }
 
 procedure File.read(self: shared Self@Open, buffer: BufferView): Self@Open
-    {| fs::read |- buffer.capacity() > 0 => buffer.filled() |}
+    [[ fs::read |- buffer.capacity() > 0 => buffer.filled() ]]
 {
     // ... implementation
 }
 
 procedure File.close(self: unique Self@Open): Self@Closed
-    {| fs::close |- true => result.state() == @Closed |}
+    [[ fs::close |- true => result.state() == @Closed ]]
 {
     // ... implementation
 }
@@ -259,7 +264,7 @@ public type UserId = u64
 
 [1] Implementations shall enforce uniqueness of type names, record fields, enum variants, and modal state identifiers within their respective scopes, issuing diagnostics E05-501–E05-502 where applicable.
 
-[2] Compilers shall verify contract and predicate clauses: referenced interfaces must be visible, duplicates are rejected (E05-503–E05-504), and the declared type shall supply every required item defined by Clause 13 and Clause 11 respectively.
+[2] Compilers shall verify contract and predicate clauses: referenced interfaces must be visible, duplicates are rejected (E05-503–E05-504), and the declared type shall supply every required item defined by Clause 12 and Clause 10 respectively.
 
 [3] Compilers shall validate modal transition declarations against the requirements of §5.5.3[8]–[9], ensuring that every transition declaration has a corresponding procedure implementation with matching signature (receiver type, parameter types, and return type) and that representation attributes obey Clause 7 layout constraints.
 

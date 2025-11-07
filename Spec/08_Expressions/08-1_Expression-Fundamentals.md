@@ -2,147 +2,137 @@
 
 ## Clause 8 — Expressions
 
-**Clause**: 8 — Expressions
+**Clause**: 8 — Expressions  
 **File**: 08-1_Expression-Fundamentals.md  
 **Section**: §8.1 Expression Fundamentals  
 **Stable label**: [expr.fundamental]  
-**Forward references**: §8.2 [expr.primary], §8.3 [expr.operator], §8.4 [expr.structured], §8.5 [expr.pattern], §8.6 [expr.conversion], §8.7 [expr.constant], §8.8 [expr.typing], Clause 2 §2.3 [lex.tokens], Clause 5 §5.2 [decl.variable], Clause 6 §6.4 [name.lookup], Clause 7 §7.5 [type.pointer], Clause 7 §7.7 [type.relation], Clause 9 §9.4 [stmt.order], Clause 11 [generic], Clause 12 [memory], Clause 13 [contract]
+**Forward references**: §8.2 [expr.primary], §8.3 [expr.operator], §8.4 [expr.structured], §8.5 [expr.pattern], §8.6 [expr.conversion], §8.7 [expr.constant], §8.8 [expr.typing], Clause 2 §2.3 [lex.tokens], Clause 5 §5.2 [decl.variable], Clause 5 §5.7 [decl.initialization], Clause 6 §6.4 [name.lookup], Clause 7 §7.5 [type.pointer], Clause 7 §7.7 [type.relation], Clause 9 §9.4 [stmt.order], Clause 10 [generic], Clause 11 [memory], Clause 12 [contract]
 
 ---
 
 ### §8.1 Expression Fundamentals [expr.fundamental]
 
-#### §8.1.1 Overview
+#### §8.1.1 Scope and Purpose
 
-[1] An *expression* is a syntactic form that produces a value, denotes a storage location, or diverges. Expressions link declarations (§5), names (§6), types (§7), statements (§9), and contracts (§13). This subclause establishes the global obligations that apply to every expression form before the remainder of Clause 8 defines each category.
+[1] This subclause establishes the global properties shared by all expressions before the remaining clauses specialise individual forms. It defines the evaluation model, category system (value/place/divergent), grant accumulation, interaction with permissions and definite assignment, and the diagnostic contracts that implementations shall honour.
 
-[2] Expressions are analysed inside a *context* containing (a) the typing environment `Γ`, (b) the active grant set supplied by the enclosing `uses` clause, (c) permission and region metadata (Clause 12), and (d) a deterministic evaluation order (§8.1.3). An expression is well-formed only if all contextual obligations are satisfied; otherwise the diagnostics in §8.1.7 apply.
+[2] Expressions are analysed relative to a _context_ consisting of: (a) the lexical typing environment `Γ`, (b) the active grant budget supplied by the enclosing procedure's grants clause (the grant component of its contractual sequent, see Clause 12), (c) the region and permission stacks defined by Clause 11, and (d) the evaluation schedule described in §8.1.3. Every well-formed expression shall respect all contextual obligations simultaneously; violation of any dimension renders the expression ill-formed.
 
-#### §8.1.2 Grammar and Expression Families
+#### §8.1.2 Grammar Map
 
-[3] Annex A §A.4 is the authoritative grammar for expressions. Table 8.1 maps the grammar categories to the specification subclauses that define their semantics.
+[3] Annex A §A.4 is the authoritative grammar for expressions. Table 8.1 lists each relevant production together with the specification subclause that defines its semantics.
 
-| Grammar production (Annex A) | Description | Subclause |
-| --- | --- | --- |
-| `PrimaryExpr`, `PostfixExpr` | Literals, identifiers, blocks, calls, indexing, pipeline | §8.2 |
-| `UnaryExpr`, `BinaryExpr`, `AssignExpr` | Prefix, infix, and assignment operators | §8.3 |
-| `StructuredExpr`, `IfExpr`, `MatchExpr`, `LoopExpr` | Composite constructors and control expressions | §8.4 |
-| `Pattern`, `MatchArm` | Expression patterns, guards, exhaustiveness | §8.5 |
-| `CastExpr` | Explicit conversions (`as`) | §8.6 |
-| `ComptimeExpr` | Constant/comptime blocks | §8.7 |
-| `Expr` (typing summary) | Global typing and diagnostics | §8.8 |
-
-[4] Each subclause follows the ISO template mandated by SpecificationOnboarding.md: overview, syntax, constraints, semantics, examples, diagnostics, and forward references.
+| Annex production                                    | Description                                               | Spec reference |
+| --------------------------------------------------- | --------------------------------------------------------- | -------------- |
+| `PrimaryExpr`, `PostfixExpr`                        | Literals, identifiers, blocks, calls, indexing, pipelines | §8.2           |
+| `UnaryExpr`, `BinaryExpr`, `AssignExpr`             | Prefix, infix, and assignment operators                   | §8.3           |
+| `StructuredExpr`, `IfExpr`, `MatchExpr`, `LoopExpr` | Composite constructors and control expressions            | §8.4           |
+| `Pattern`, `MatchArm`                               | Expression patterns and guards                            | §8.5           |
+| `CastExpr`                                          | Explicit conversions (`as`)                               | §8.6           |
+| `ComptimeExpr`                                      | Compile-time blocks                                       | §8.7           |
+| `Expr`                                              | Type/diagnostic consolidation                             | §8.8           |
 
 #### §8.1.3 Deterministic Evaluation Model
 
-[5] **Strict left-to-right evaluation.** Subexpressions evaluate in the lexical order in which they appear. For any compound expression `e = f(e_1, …, e_n)` the semantics require evaluating `e_1` before `e_2`, etc. The formal rule is:
+[4] **Strict left-to-right order.** Subexpressions evaluate strictly left-to-right unless a subclause explicitly states otherwise. Formally,
 
 $$
-\frac{
-    \langle e_1, \sigma \rangle \Downarrow \langle v_1, \sigma_1 \rangle \\
-    \cdots \\
-    \langle e_n[v_1,\ldots,v_{n-1}], \sigma_{n-1} \rangle \Downarrow \langle v_n, \sigma_n \rangle
-}{
-    \langle f(e_1,\ldots,e_n), \sigma \rangle \Downarrow \langle f(v_1,\ldots,v_n), \sigma_n \rangle
-}
+\frac{\langle e_1, \sigma \rangle \Downarrow \langle v_1, \sigma_1 \rangle \quad \cdots \quad \langle e_n[v_1,\ldots,v_{n-1}], \sigma_{n-1} \rangle \Downarrow \langle v_n, \sigma_n \rangle}{\langle f(e_1,\ldots,e_n), \sigma \rangle \Downarrow \langle f(v_1,\ldots,v_n), \sigma_n \rangle}}
 \tag{E-LeftToRight}
 $$
 
-[6] **Short-circuit exception.** Logical `&&` and `||` (§8.3.6) may skip evaluating their right operand when the left operand determines the result. No other construct may elide evaluation.
+applies to every compound expression `f`. No implementation may reorder independent operands or hoist subexpressions.
 
-[7] **Call-by-value.** Procedures, effect operations, and pipeline stages evaluate their arguments completely before invoking the callee. Divergent subexpressions propagate divergence to the enclosing expression.
+[5] **Short-circuit exception.** The only sanctioned deviation from §8.1.3[4] is the short-circuit behaviour of `&&` and `||` (§8.3.7), which may skip evaluating their right operand when the left operand determines the result. All other operators, including pipelines and ternary constructs, must evaluate each operand.
 
-[8] **Determinism.** Given a fixed program, inputs, and grant budget, expression evaluation yields the same observable behaviour on every conforming implementation. There is no unspecified evaluation order or hidden parallelism.
+[6] **Call-by-value semantics.** Procedure calls, effect operations, and pipeline stages evaluate their arguments completely before transferring control to the callee. Divergent subexpressions (type `!`) propagate divergence to the enclosing expression, ensuring predictable side-effect ordering.
 
-[9] **Comptime vs runtime contexts.** Expressions appearing in const/comptime positions (§8.7) must be evaluable during the compile-time execution phase (§2.2). Using runtime-only constructs in those contexts yields diagnostic E08-001 unless explicitly whitelisted.
+[7] **Determinism.** Given identical inputs, grant budgets, and compile options, a conforming implementation shall produce identical observable behaviour: evaluation order, side effects, and panic points are deterministic. There is no unspecified unspecified behaviour akin to C/C++ sequence points.
 
-[10] **Pipeline annotation rule.** A stage in `lhs => stage : Type` may omit `: Type` only when the stage’s output type equals its input type modulo type equivalence (§7.7). Stages that change type shall declare the new type explicitly; otherwise diagnostic E08-020 is issued. The compiler records the before/after types and references this rule in the diagnostic payload.
+[8] **Comptime vs runtime contexts.** Expressions appearing in const/comptime positions (§8.7) must be evaluable during the compile-time execution phase (§2.2). Injecting runtime-only constructs (IO, heap allocation, raw pointer arithmetic) into such contexts is ill-formed (E08-001).
 
-#### §8.1.4 Categories: Value, Place, Divergent
+[9] **Pipeline annotation rule.** In `lhs => stage : Type`, the annotation `: Type` may be omitted only when the compiler proves `typeof(lhs) ≡ typeof(stage(lhs))` (type equivalence per §7.7). If the stage changes the type—or if equivalence cannot be proven—an explicit annotation is mandatory; omission yields E08-020. Type-preserving stages may omit the annotation to reduce redundancy, but tooling shall still record the before/after types.
 
-[11] Every expression is classified as:
+#### §8.1.4 Expression Categories
 
-- **Value** — produces a temporary result (literals, arithmetic expressions, function calls). Values can be moved or copied depending on their type’s `Copy` predicate (§7.2, §7.3).
-- **Place** — denotes a storage location that can be read or written (variables, fields, tuple components, indexed elements, dereferenced pointers). Places participate in assignments (§8.3.8) when they carry `mut` or `own` permission (§12.4).
-- **Divergent** — expressions of type `!` that never return (`loop {}` without `break`, `panic`). Divergent expressions coerce to any type via the rule in §7.2.7.
+[10] Each expression is classified into exactly one of the following categories:
 
-[12] The typing judgment records the category: `Γ ⊢ e : τ ! ε [cat]`. Tooling and diagnostics derive user-facing messages from `cat`. The language core does not expose `cat` as syntax; future editions may explore comptime predicates (`is_place(expr)`, `is_value(expr)`) if metaprogramming demand warrants it. Until then, categories remain implicit in the typing rules to preserve surface simplicity.
+- **Value** — produces a temporary result that may be moved (consumed) or copied depending on the `Copy` predicate of its type (§7.2–§7.3). Literals, arithmetic expressions, and most calls fall into this category.
+- **Place** — denotes a storage location (variables, fields, tuple components, indexed elements, dereferenced pointers). Places may appear on the left side of assignments or as operands to operators requiring mutable access, provided they carry `mut` or `own` permission (§11.4).
+- **Divergent** — expressions of type `!` that never return (`loop {}` without `break`, `panic`). Divergent expressions coerce to any type via the rule in §7.2.7 and retain category `divergent` for diagnostic purposes.
 
-#### §8.1.5 Grant Accumulation and Enforcement
+[11] The typing judgment records the category: `Γ ⊢ e : τ ! ε [cat]`. While Cursive does not currently expose category information as surface syntax, compilers and IDE tooling shall surface it in diagnostics and metadata. (Informative note: future editions may extend the comptime reflection system with predicates such as `is_place(expr)` when metaprogramming demand justifies the added complexity.)
 
-[13] Cursive uses *grants* (Clause 13) to track observable capabilities (IO, allocation, unsafe operations). Each expression carries a grant set `ε`. The total grant requirement of a compound expression is the union of its subexpression grants plus any intrinsic grants introduced by that expression form.
+#### §8.1.5 Grant Accumulation
 
-[14] Grant checking rule:
+[12] Grants describe observable capabilities (Clause 12). Each expression carries a grant set `ε`. The grant set of a compound expression is the union of its subexpression grants plus any intrinsic grants contributed by the expression form.
+
+[13] Rule `Grant-Union` summarises grant accumulation:
 
 $$
-\frac{
-    \Gamma \vdash e_i : \tau_i ! \varepsilon_i
-}{
-    \Gamma \vdash f(e_1,\ldots,e_n) : \tau ! \left(\bigcup_i \varepsilon_i \cup \varepsilon_f\right)
-}
+\frac{\Gamma \vdash e_i : \tau_i ! \varepsilon_i}{\Gamma \vdash f(e_1,\ldots,e_n) : \tau_f ! \left(\bigcup_i \varepsilon_i \cup \varepsilon_f\right)}
 \tag{Grant-Union}
 $$
 
-where `ε_f` captures intrinsic effects (e.g., `unsafe.ptr` for raw dereference).
+where `ε_f` covers intrinsic grants (e.g., `unsafe.ptr` for raw-pointer dereference).
 
-[15] The enclosing declaration must list at least this union in its `uses` clause; otherwise diagnostic E08-004 enumerates the missing grants. No grant bundling mechanism exists in this edition; all obligations remain explicit so that humans and LLMs can reason locally. (Informative note: if real programs consistently accumulate large unions, a future edition may introduce named bundles, provided they remain explicit declarations.)
+[14] The enclosing procedure shall list at least this union in its contractual sequent's grants clause. Missing grants trigger diagnostic E08-004, which enumerates both the required and provided sets and suggests amending the grants clause. This edition deliberately avoids grant bundles to keep obligations explicit. (Informative note: if production experience shows repeated unions hinder readability, the working group may introduce declared bundles in a future revision.)
 
 #### §8.1.6 Typing Discipline
 
-[16] Expression typing is bidirectional:
+[15] Cursive employs a bidirectional typing discipline:
 
-- **Inference sites** synthesise a type without relying on context (literals, identifiers, many operator operands).
-- **Checking sites** require a contextual type (result expressions, match arms). If inference fails and no context exists, E08-002 suggests adding a type annotation.
-- **Bidirectional sites** (function calls, pipeline stages) attempt to meet the contextual expectation first; if that fails they synthesise a type and ask the context to accept it.
+- **Inference sites** (literals, identifiers, most operands) synthesise a type without needing contextual information.
+- **Checking sites** (block `result` expressions, match arms, annotated bindings) require a contextual type. When inference fails and no context exists, E08-002 recommends adding annotations.
+- **Bidirectional sites** (function calls, pipelines, polymorphic literals) first attempt to satisfy the contextual expectation; failing that, they synthesise a type and ask the context to accept it via subtyping (§7.7).
 
-[17] Type compatibility uses the equivalence and subtyping relations in §7.7. When operands fail compatibility, diagnostic E08-800 reports both types, the relevant rule (variance, equality), and suggested fixes.
+[16] Every expression must also satisfy three auxiliary checks:
 
-[18] Definite assignment (§5.7) and permission rules (§12.4) are enforced simultaneously: the typing judgment tracks whether bindings have been initialised and what permissions apply to each place. Violations surface through E08-102 (use before initialisation) and E08-003 (insufficient permission).
+- **Definite assignment** — Clause 5 §5.7 ensures bindings are initialised before use. Ill-formed usages trigger E08-210 (identifier used before assignment) within expression contexts.
+- **Permission safety** — Clause 11 tracks permissions on places. Assigning through a `let` binding or reading a moved `own` value emits E08-003.
+- **Type compatibility** — Operands must satisfy the subtyping/compatibility rules of Clause 7. Failures result in E08-800, which reports both types, the relevant rule (variance, equality), and suggested remedies.
 
-#### §8.1.7 Diagnostics and Payload Requirements
+#### §8.1.7 Diagnostics
 
-[19] Table 8.1 lists the diagnostics introduced in this subclause. Subsequent subclauses extend the table with operator- and construct-specific codes.
+[17] Table 8.2 lists the diagnostics introduced at the fundamental level; specialised diagnostics appear with their respective constructs.
 
-| Code | Condition | Required payload |
-| --- | --- | --- |
-| **E08-001** | Runtime-only construct used in comptime context | Expression range, enclosing comptime site, offending construct |
-| **E08-002** | Type cannot be inferred and no contextual type supplied | Expression range, partial type information, suggested annotation |
-| **E08-003** | Place used without sufficient permission | Binding name, required permission, observed operation |
-| **E08-004** | Missing grant(s) from enclosing `uses` clause | Expression range, required grant set, provided grant set |
-| **E08-020** | Pipeline stage omitted type annotation while changing type | Stage text, inferred before/after types |
+| Code        | Condition                                                  | Required payload                                               |
+| ----------- | ---------------------------------------------------------- | -------------------------------------------------------------- |
+| **E08-001** | Runtime-only construct used in const/comptime context      | Expression range, enclosing comptime site, offending construct |
+| **E08-002** | Type cannot be inferred and no contextual type provided    | Expression range, partial inference info, suggested annotation |
+| **E08-003** | Place used without required permission                     | Binding name, required permission, observed operation          |
+| **E08-004** | Missing grant(s) from grants clause in contractual sequent | Required grant set, provided grant set                         |
+| **E08-020** | Pipeline stage omitted type annotation while changing type | Stage text, inferred before/after types                        |
 
-[20] Diagnostics follow Annex E §E.5: they include the error code, a short description, structured fields (JSON), and optional fix-it hints.
+[18] Diagnostics shall follow Annex E §E.5: include code, summary, structured payload (JSON), and optional fix-it hints.
 
-#### §8.1.8 Examples
+#### §8.1.8 Canonical Example
 
-**Example 8.1.8.1 (Block result explicitness).**
-
-```cursive
-let report: string@View = {
-    audit.log("enter")
-    result format_report(state)
-}
-```
-
-Omitting `result` would produce E08-110 because the block’s type would default to `()`.
-
-**Example 8.1.8.2 (Grant accumulation).**
+**Example 8.1.8.1 (Deterministic evaluation and pipeline annotations).**
 
 ```cursive
-procedure write_normalized(input: string@View): ()
-    {| io::write, io::read |- input.len() > 0 => true |}
+use io::{read_config, write_log}
+
+procedure refresh(user: mut Session, raw: string@View): ()
+    [[ io::read, io::write |- raw.len() > 0 => user.last_refresh >= clock::now() - 5m ]]
 {
-    let normalized = input
+    let normalized: Config \/ Error = raw
         => trim
-        => lookup_dictionary: Result<string@Owned, io::Error>
+        => parse_config: Config \/ Error
+        => validate
+
     match normalized {
-        Result::Ok(text) => io::write(text),
-        Result::Err(err) => panic(err.message()),
+        cfg: Config => {
+            user.apply(cfg)
+            write_log("refresh ok")
+        }
+        err: Error => {
+            write_log(err.message())
+        }
     }
 }
 ```
 
-The pipeline stage `lookup_dictionary` introduces grant `io::read`; the enclosing procedure therefore lists both `io::write` (intrinsic to `io::write`) and `io::read` (introduced by the stage).
+[19] The example illustrates: (a) strict left-to-right evaluation (`trim` runs before `parse_config`), (b) the pipeline annotation rule (only type-changing stage `parse_config` uses `: Config \/ Error`), (c) place semantics (`user` is a place requiring `mut` permission), and (d) grant accumulation (`io::read` introduced by `read_config` plus `io::write` from `write_log`).
 
 ---

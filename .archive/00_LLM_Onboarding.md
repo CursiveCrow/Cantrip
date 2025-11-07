@@ -11,17 +11,20 @@
 ## Document Structure & Reading Guide
 
 **For LLMs generating code:**
+
 - Read sections 0.0-0.5 for foundational understanding
 - Reference sections 0.6-0.15 as needed during code generation
 - Keep sections 0.16-0.20 in active context for validation
 
 **For LLMs learning Cursive:**
+
 - Read entire document linearly
 - Study all examples in sections 0.10-0.12
 - Memorize decision trees in section 0.13
 - Practice with patterns in section 0.19
 
 **Document Navigation:**
+
 - § 0.0-0.2: Philosophy and mental models
 - § 0.3-0.5: Core syntax and semantics
 - § 0.6-0.9: Type system and memory model
@@ -35,24 +38,24 @@
 
 This specification is organized into the following parts:
 
-| Part | File | Chapter Title | Status |
-|------|------|---------------|--------|
-| 0 | 00_LLM_Onboarding.md | LLM Onboarding Guide | Complete |
-| I | 01_Foundations.md | Foundations | Complete |
-| II | 02_Type-System.md | Type System | Complete |
-| III | 03_Declarations-and-Scope.md | Declarations and Scope | Complete |
-| IV | 04_Lexical-Permissions.md | Lexical Permission System | Complete |
-| V | 05_Expressions-and-Operators.md | Expressions and Operators | Complete |
-| VI | 06_Statements-and-Control-Flow.md | Statements and Control Flow | Complete |
-| VII | 07_Contracts-and-Effects.md | Contracts and Effects | Complete |
-| VIII | 08_Holes-and-Inference.md | Holes and Inference | Complete |
-| IX | 09_Functions.md | Functions and Procedures | Complete |
-| X | 10_Modals.md | Modal Types | Complete |
-| XI | 11_Metaprogramming.md | Metaprogramming | Complete |
-| XII | 12_Modules-Packages-and-Imports.md | Modules | Deferred |
-| XIII | 13_Memory-Permissions-and-Concurrancy.md | Memory Model | Deferred |
-| XIV | 14_Errors-and-Exceptions.md | Errors | Deferred |
-| XV | 15_Unsafe-Behaviors-and-FFI.md | Unsafe & FFI | Deferred |
+| Part | File                                     | Chapter Title               | Status   |
+| ---- | ---------------------------------------- | --------------------------- | -------- |
+| 0    | 00_LLM_Onboarding.md                     | LLM Onboarding Guide        | Complete |
+| I    | 01_Foundations.md                        | Foundations                 | Complete |
+| II   | 02_Type-System.md                        | Type System                 | Complete |
+| III  | 03_Declarations-and-Scope.md             | Declarations and Scope      | Complete |
+| IV   | 04_Lexical-Permissions.md                | Lexical Permission System   | Complete |
+| V    | 05_Expressions-and-Operators.md          | Expressions and Operators   | Complete |
+| VI   | 06_Statements-and-Control-Flow.md        | Statements and Control Flow | Complete |
+| VII  | 07_Contracts-and-Effects.md              | Contracts and Effects       | Complete |
+| VIII | 08_Holes-and-Inference.md                | Holes and Inference         | Complete |
+| IX   | 09_Functions.md                          | Functions and Procedures    | Complete |
+| X    | 10_Modals.md                             | Modal Types                 | Complete |
+| XI   | 11_Metaprogramming.md                    | Metaprogramming             | Complete |
+| XII  | 12_Modules-Packages-and-Imports.md       | Modules                     | Deferred |
+| XIII | 13_Memory-Permissions-and-Concurrancy.md | Memory Model                | Deferred |
+| XIV  | 14_Errors-and-Exceptions.md              | Errors                      | Deferred |
+| XV   | 15_Unsafe-Behaviors-and-FFI.md           | Unsafe & FFI                | Deferred |
 
 **Cross-Reference Format:** `CITE: Part X §Y.Z — Title`  
 **Implementation Scope:** Parts 0-XI are complete and normative  
@@ -67,6 +70,7 @@ This specification is organized into the following parts:
 **Cursive is a systems programming language optimized for AI-assisted development.**
 
 **Primary Goals:**
+
 1. **Memory safety** without garbage collection or complex borrow checking
 2. **Deterministic performance** through explicit resource management
 3. **Local reasoning** enabling understanding from any single point in code
@@ -74,6 +78,7 @@ This specification is organized into the following parts:
 5. **Zero-cost abstractions** with compile-time safety guarantees
 
 **Target Use Cases:**
+
 - Systems programming (OS kernels, device drivers)
 - Performance-critical applications
 - Real-time systems
@@ -86,6 +91,7 @@ This specification is organized into the following parts:
 **Principle 1: Explicit Over Implicit**
 
 Every significant choice must be spelled out in code:
+
 - Block results require explicit `result` keyword
 - Pipeline stages require explicit type annotations
 - Match bindings require explicit types
@@ -97,6 +103,7 @@ Every significant choice must be spelled out in code:
 **Principle 2: Local Reasoning**
 
 You can understand code by reading only what's visible:
+
 - Permission requirements visible in procedure signatures
 - Effect capabilities declared at the procedure boundary
 - State transitions explicit in modal type usage
@@ -107,6 +114,7 @@ You can understand code by reading only what's visible:
 **Principle 3: Deterministic Evaluation**
 
 Evaluation order is always predictable:
+
 - **Strict left-to-right** for all expressions
 - **Call-by-value** parameter passing
 - **No lazy evaluation** except `&&` and `||` short-circuit
@@ -116,6 +124,7 @@ Evaluation order is always predictable:
 **Principle 4: Permissions, Not Borrows**
 
 Memory safety through permission wrappers, not borrow analysis:
+
 - `own T` — Exclusive ownership (can move)
 - `mut T` — Mutable access (can modify)
 - `imm T` — Immutable access (read-only, default)
@@ -125,6 +134,7 @@ Memory safety through permission wrappers, not borrow analysis:
 **Principle 5: Regions, Not Lifetimes**
 
 Resource lifetime management through lexical scopes:
+
 - `region r { ... }` creates allocation scope
 - All region allocations freed at scope exit (O(1))
 - No lifetime annotations in types (`'a` not needed)
@@ -134,9 +144,12 @@ Resource lifetime management through lexical scopes:
 **Principle 6: Contracts & Grants**
 
 Every procedure declares its behavioral contract using sequent calculus:
-- `sequent { [ε] |- P => Q }` — Unified contract specification
-  - `[ε]` — Grant context (required capabilities)
+
+- `[[ ε |- P => Q ]]` — Contractual sequent using semantic brackets
+  - `ε` — Grant context (required capabilities)
+  - `|-` — Turnstile (entailment), ASCII for `⊢`
   - `P` — Precondition (caller obligations)
+  - `=>` — Implication, ASCII for `⇒`
   - `Q` — Postcondition (callee guarantees)
 
 **Why:** Makes capability requirements and behavioral contracts explicit, checkable, and grounded in formal logic.
@@ -144,6 +157,7 @@ Every procedure declares its behavioral contract using sequent calculus:
 ### 0.0.3 What Makes Cursive Different
 
 **vs. Rust:**
+
 - ✅ No lifetime parameters (`'a` annotations)
 - ✅ No exclusive mutable borrowing rules
 - ✅ Simpler ownership model (permissions are explicit wrappers)
@@ -152,6 +166,7 @@ Every procedure declares its behavioral contract using sequent calculus:
 - ❌ Multiple mutable aliases allowed (you manage safety)
 
 **vs. C/C++:**
+
 - ✅ Memory safety guaranteed at compile time
 - ✅ No null pointer dereferences (Option type)
 - ✅ No use-after-free (region escape analysis)
@@ -160,6 +175,7 @@ Every procedure declares its behavioral contract using sequent calculus:
 - ❌ Requires explicit permission annotations
 
 **vs. Go:**
+
 - ✅ No garbage collection (deterministic performance)
 - ✅ Richer type system (modals, effects)
 - ✅ Compile-time memory safety
@@ -173,13 +189,15 @@ Every procedure declares its behavioral contract using sequent calculus:
 
 ```
 Function signature = What capabilities do I need?
-    sequent clause = Unified contract specification
-    [grant context] = What capabilities can I use?
-    |- precondition  = What must be true when called?
-    => postcondition = What will be true when done?
+    sequent clause = Contractual sequent [[ grants |- pre => post ]]
+    grants = What capabilities can I use?
+    |- (turnstile) = Logical entailment separator
+    pre = What must be true when called?
+    => (implication) = Logical implies
+    post = What will be true when done?
 
 Function body      = How do I use my capabilities?
-    
+
 Permission types   = What can I do with this value?
     own T          = I can move it, consume it
     mut T          = I can modify it
@@ -336,6 +354,7 @@ procedure read(data: Data) {  // Implicitly imm Data
 **Permission Rules:**
 
 1. **Ownership move invalidates source:**
+
    ```cursive
    let data: own Data = Data::new()
    consume(move data)
@@ -343,6 +362,7 @@ procedure read(data: Data) {  // Implicitly imm Data
    ```
 
 2. **Multiple mutable aliases allowed:**
+
    ```cursive
    var x: i32 = 0
    increment(mut x)  // Passes mutable reference
@@ -350,6 +370,7 @@ procedure read(data: Data) {  // Implicitly imm Data
    ```
 
 3. **You are responsible for aliasing safety:**
+
    ```cursive
    var arr: [i32; 10] = [0; 10]
    let p1: mut i32 = mut arr[0]
@@ -357,11 +378,12 @@ procedure read(data: Data) {  // Implicitly imm Data
    ```
 
 4. **Permission weakening only:**
+
    ```cursive
    let data: own Data = Data::new()
    read(data)          // OK: own -> imm (automatic weakening)
    modify(mut data)    // OK: own -> mut (automatic weakening)
-   
+
    let readonly: imm Data = get_data()
    modify(mut readonly)  // ❌ ERROR: Cannot upgrade imm to mut
    ```
@@ -454,12 +476,12 @@ procedure good() -> Data
 ```cursive
 region outer {
     let x = alloc_in<outer>(10)
-    
+
     region inner {
         let y = alloc_in<inner>(20)
         let z = x + y  // OK: can use outer from inner
     } // y freed here
-    
+
 } // x freed here
 ```
 
@@ -476,6 +498,7 @@ let z = x + y
 **Four Continuation Cases:**
 
 **Case 1: Open Delimiter**
+
 ```cursive
 let result = function(
     arg1,
@@ -484,6 +507,7 @@ let result = function(
 ```
 
 **Case 2: Trailing Operator**
+
 ```cursive
 let sum = a +
           b +
@@ -491,6 +515,7 @@ let sum = a +
 ```
 
 **Case 3: Leading Dot**
+
 ```cursive
 let result = object
     .method1()
@@ -499,6 +524,7 @@ let result = object
 ```
 
 **Case 4: Leading Pipeline**
+
 ```cursive
 let output = input
     => stage1: Type1
@@ -664,24 +690,24 @@ no values can escape (compile-time check)
 ```cursive
 procedure example() {
     // Stack frame for example()
-    
+
     region outer {
         // Allocation frame 'outer' created
         let x = alloc_in<outer>(10)
-        
+
         region inner {
             // Allocation frame 'inner' created (nested)
             let y = alloc_in<inner>(20)
-            
+
             // Both x and y accessible here
-            
+
         } // inner frame freed (all 'inner' allocations gone)
-        
+
         // x still accessible
         // y no longer accessible
-        
+
     } // outer frame freed (all 'outer' allocations gone)
-    
+
 } // Stack frame for example() freed
 ```
 
@@ -719,21 +745,21 @@ modal Connection {
         address: string,
         port: u16
     }
-    
+
     // State 2: Connected
     @Connected {
         address: string,
         port: u16,
         socket: Socket
     }
-    
+
     // State 3: Failed
     @Failed {
         address: string,
         port: u16,
         error: Error
     }
-    
+
     // Transitions
     procedure @Disconnected -> @Connected
         connect(self: Connection@Disconnected): Connection@Connected
@@ -774,6 +800,7 @@ active::send(data)  // Only available in Connected state
 ### 0.3.1 Primitive Types (Complete List)
 
 **Signed Integers:**
+
 ```cursive
 i8      // -128 to 127
 i16     // -32,768 to 32,767
@@ -783,6 +810,7 @@ isize   // Pointer-sized signed integer (32 or 64 bit)
 ```
 
 **Unsigned Integers:**
+
 ```cursive
 u8      // 0 to 255
 u16     // 0 to 65,535
@@ -792,12 +820,14 @@ usize   // Pointer-sized unsigned integer (32 or 64 bit)
 ```
 
 **Floating Point:**
+
 ```cursive
 f32     // IEEE 754 single precision (32-bit)
 f64     // IEEE 754 double precision (64-bit)
 ```
 
 **Other Primitives:**
+
 ```cursive
 bool    // true or false
 char    // Unicode scalar value (32-bit)
@@ -839,7 +869,7 @@ string@Owned  // Owning, heap-allocated buffer
     len: usize   // Length in bytes
 }
 
-// string@Owned structure  
+// string@Owned structure
 @Owned {
     ptr: *u8,    // Pointer to data (owned)
     len: usize,  // Length in bytes
@@ -849,16 +879,16 @@ string@Owned  // Owning, heap-allocated buffer
 
 **Default State Rules:**
 
-| Context | Default State | Rationale |
-|---------|--------------|-----------|
-| Parameter | `@View` | Borrow by default (zero-cost) |
-| Return type | `@Owned` | Transfer ownership |
-| Local variable (imm) | `@View` | Minimal permission |
-| Local variable (mut) | `@Owned` | Need ownership to mutate |
-| Record field | `@Owned` | Store owned data |
-| Tuple element | `@Owned` | Tuple owns elements |
-| Array element | `@Owned` | Array owns elements |
-| Generic argument | No default | MUST be explicit |
+| Context              | Default State | Rationale                     |
+| -------------------- | ------------- | ----------------------------- |
+| Parameter            | `@View`       | Borrow by default (zero-cost) |
+| Return type          | `@Owned`      | Transfer ownership            |
+| Local variable (imm) | `@View`       | Minimal permission            |
+| Local variable (mut) | `@Owned`      | Need ownership to mutate      |
+| Record field         | `@Owned`      | Store owned data              |
+| Tuple element        | `@Owned`      | Tuple owns elements           |
+| Array element        | `@Owned`      | Array owns elements           |
+| Generic argument     | No default    | MUST be explicit              |
 
 **Conversions:**
 
@@ -1112,13 +1142,13 @@ let outcome: Result<i32, string> = 'compute: {
     if error_condition {
         break 'compute Err("error occurred")
     }
-    
+
     let value = expensive_calculation()
-    
+
     if value < 0 {
         break 'compute Err("negative value")
     }
-    
+
     result Ok(value)
 }
 ```
@@ -1166,7 +1196,7 @@ let result: OutputType = input
 **Complex Pipeline Example:**
 
 ```cursive
-procedure process_request(req: Request) -> Response 
+procedure process_request(req: Request) -> Response
     uses io.read, alloc.heap
 {
     result req
@@ -1452,19 +1482,19 @@ modal File {
     @Closed {
         path: string@View
     }
-    
+
     // State 2: Open file
     @Open {
         path: string@View,
         handle: FileHandle
     }
-    
+
     // State 3: Error state
     @Error {
         path: string@View,
         error: ErrorInfo
     }
-    
+
     // Transition: Closed -> Open
     procedure @Closed -> @Open
         open(self: File@Closed): File@Open
@@ -1473,14 +1503,14 @@ modal File {
     {
         // Implementation
     }
-    
+
     // Transition: Closed -> Error
     procedure @Closed -> @Error
         fail_open(self: File@Closed, err: ErrorInfo): File@Error
     {
         // Implementation
     }
-    
+
     // Transition: Open -> Closed
     procedure @Open -> @Closed
         close(self: File@Open): File@Closed
@@ -1488,7 +1518,7 @@ modal File {
     {
         // Implementation
     }
-    
+
     // Self-loop: Open -> Open
     procedure @Open -> @Open
         read(self: mut File@Open, buffer: mut [u8]): usize
@@ -1510,12 +1540,12 @@ modal Connection {
         buffer: [u8; 1024],
         metadata: Metadata
     }
-    
+
     @Minimal {
         socket: Socket,
         buffer: [u8; 1024]
     }
-    
+
     // Automatic coercion: Full -> Minimal (fields are subset)
     coerce @Full <: @Minimal {
         cost: O(1)
@@ -1537,34 +1567,34 @@ modal RequestBuilder {
     @Empty {
         // No fields
     }
-    
+
     @WithUrl {
         url: string@Owned
     }
-    
+
     @WithHeaders {
         url: string@Owned,
         headers: Map<string, string>
     }
-    
+
     @Complete {
         url: string@Owned,
         headers: Map<string, string>,
         body: string@Owned
     }
-    
+
     // Transitions form a builder chain
     procedure @Empty -> @WithUrl
         url(self: RequestBuilder@Empty, url: string) -> RequestBuilder@WithUrl
-    
+
     procedure @WithUrl -> @WithHeaders
-        headers(self: RequestBuilder@WithUrl, h: Map<string, string>) 
+        headers(self: RequestBuilder@WithUrl, h: Map<string, string>)
             -> RequestBuilder@WithHeaders
-    
+
     procedure @WithHeaders -> @Complete
-        body(self: RequestBuilder@WithHeaders, b: string) 
+        body(self: RequestBuilder@WithHeaders, b: string)
             -> RequestBuilder@Complete
-    
+
     // Final build only available in Complete state
     procedure @Complete -> @Complete
         build(self: RequestBuilder@Complete) -> Request
@@ -1587,22 +1617,22 @@ modal TcpConnection {
     @Established { port: u16, remote: Address, socket: Socket }
     @FinWait { port: u16, reason: string }
     @Closed { }
-    
+
     // TCP state machine transitions
     procedure @Listen -> @SynReceived
-        receive_syn(self: TcpConnection@Listen, from: Address) 
+        receive_syn(self: TcpConnection@Listen, from: Address)
             -> TcpConnection@SynReceived
-    
+
     procedure @SynReceived -> @Established
-        send_ack(self: TcpConnection@SynReceived) 
+        send_ack(self: TcpConnection@SynReceived)
             -> TcpConnection@Established
-    
+
     procedure @Established -> @FinWait
-        close_connection(self: TcpConnection@Established, reason: string) 
+        close_connection(self: TcpConnection@Established, reason: string)
             -> TcpConnection@FinWait
-    
+
     procedure @FinWait -> @Closed
-        finalize(self: TcpConnection@FinWait) 
+        finalize(self: TcpConnection@FinWait)
             -> TcpConnection@Closed
 }
 ```
@@ -1614,23 +1644,23 @@ modal Database {
     @Disconnected { config: Config }
     @Connected { config: Config, connection: DbConnection }
     @InTransaction { config: Config, connection: DbConnection, tx: Transaction }
-    
+
     procedure @Disconnected -> @Connected
         connect(self: Database@Disconnected) -> Database@Connected
         uses io.connect, alloc.heap
-    
+
     procedure @Connected -> @InTransaction
         begin_transaction(self: Database@Connected) -> Database@InTransaction
         uses io.write
-    
+
     procedure @InTransaction -> @Connected
         commit(self: Database@InTransaction) -> Database@Connected
         uses io.write
-    
+
     procedure @InTransaction -> @Connected
         rollback(self: Database@InTransaction) -> Database@Connected
         uses io.write
-    
+
     procedure @Connected -> @Disconnected
         disconnect(self: Database@Connected) -> Database@Disconnected
         uses io.close
@@ -1640,6 +1670,7 @@ modal Database {
 ### 0.6.4 Modal Type Benefits and Costs
 
 **Benefits:**
+
 1. **Illegal states impossible** - Cannot have open file without handle
 2. **Protocol enforcement** - Cannot send data before connecting
 3. **Zero runtime overhead** - States erase at compile time
@@ -1647,11 +1678,13 @@ modal Database {
 5. **Refactoring safety** - State changes cause type errors
 
 **Costs:**
+
 1. **More verbose** - Must track states explicitly
 2. **More complex types** - Generics with modal states can be complex
 3. **Learning curve** - Requires understanding state machines
 
 **When to Use Modal Types:**
+
 - ✅ Protocol implementations (network, hardware)
 - ✅ Resource lifecycle management (files, connections)
 - ✅ Builder patterns
@@ -1668,18 +1701,19 @@ modal Database {
 
 **Contract Declaration:**
 
-Cursive uses sequent calculus for unified contract specification:
+Cursive uses sequent calculus for contractual sequents:
 
 ```cursive
-procedure name(params) -> ReturnType
-    sequent { [grants] |- precondition => postcondition }
+procedure name(params): ReturnType
+    [[ grants |- precondition => postcondition ]]
 {
     body
 }
 ```
 
 Where:
-- `[grants]` — Grant context (required capabilities)
+
+- `grants` — Grant context (required capabilities)
 - `|-` — Turnstile (entailment operator)
 - `precondition` — What must be true when called
 - `=>` — Implication
@@ -1932,12 +1966,12 @@ region temp {
 ```cursive
 region outer {
     let x = alloc_in<outer>(10)
-    
+
     region inner {
         let y = alloc_in<inner>(20)
         // Both x and y available
     } // y freed
-    
+
     // x still available, y gone
 } // x freed
 ```
@@ -1981,7 +2015,7 @@ procedure bad1() -> Data {
 // ❌ ERROR: Cannot store in outer scope
 procedure bad2() {
     var outer_ref: Data = undefined
-    
+
     region r {
         let data = alloc_in<r>(Data::new())
         outer_ref = data  // ERROR: Escapes region r
@@ -2051,7 +2085,7 @@ procedure handle_request(req: Request) -> Response {
         let parsed = alloc_in<request>(parse(req))
         let processed = alloc_in<request>(process(parsed))
         let response = format_response(processed)
-        
+
         result response  // Response is NOT region-allocated
     } // All request data freed here
 }
@@ -2066,7 +2100,7 @@ loop item: Item in items {
         let intermediate1 = alloc_in<iter>(transform1(item))
         let intermediate2 = alloc_in<iter>(transform2(intermediate1))
         let result = transform3(intermediate2)
-        
+
         emit(result)
     } // Iteration data freed, no accumulation
 }
@@ -2077,9 +2111,9 @@ loop item: Item in items {
 ```cursive
 region outer {
     let input_data = alloc_in<outer>(load_input())
-    
+
     var results: [Result] = []
-    
+
     loop chunk: Chunk in input_data.chunks() {
         region inner {
             let processed = alloc_in<inner>(process_chunk(chunk))
@@ -2087,7 +2121,7 @@ region outer {
             results.push(result)  // result is NOT region-allocated
         } // processed freed, result retained
     }
-    
+
     let final_output = combine_results(results)
     result final_output
 } // input_data freed
@@ -2263,7 +2297,7 @@ procedure process_items(items: [Item])
     sequent { [fs::write, alloc::heap] |- true => true }
 {
     var total: i32 = 0
-    
+
     loop item: Item in items
         with { items.len() >= 0 }  // Loop invariant
     {
@@ -2271,15 +2305,15 @@ procedure process_items(items: [Item])
             // Allocate temporary data in iteration region
             let encoded = alloc_in<iter>(encode(item))
             let processed = alloc_in<iter>(process(encoded))
-            
+
             // Extract result (not region-allocated)
             total = total + processed.value
-            
+
             // Write output
             println(processed)
         } // Free encoded and processed
     }
-    
+
     println("Total: {total}")
 }
 ```
@@ -2289,31 +2323,31 @@ procedure process_items(items: [Item])
 ```cursive
 modal HttpRequestBuilder {
     @Empty { }
-    
+
     @WithMethod {
         method: string@Owned
     }
-    
+
     @WithUrl {
         method: string@Owned,
         url: string@Owned
     }
-    
+
     @WithHeaders {
         method: string@Owned,
         url: string@Owned,
         headers: Map<string, string>
     }
-    
+
     @Complete {
         method: string@Owned,
         url: string@Owned,
         headers: Map<string, string>,
         body: Option<string@Owned>
     }
-    
+
     procedure @Empty -> @WithMethod
-        method(self: HttpRequestBuilder@Empty, m: string) 
+        method(self: HttpRequestBuilder@Empty, m: string)
             -> HttpRequestBuilder@WithMethod
         uses alloc.heap
     {
@@ -2321,9 +2355,9 @@ modal HttpRequestBuilder {
             method: m.to_owned()
         }
     }
-    
+
     procedure @WithMethod -> @WithUrl
-        url(self: HttpRequestBuilder@WithMethod, u: string) 
+        url(self: HttpRequestBuilder@WithMethod, u: string)
             -> HttpRequestBuilder@WithUrl
         uses alloc.heap
     {
@@ -2332,9 +2366,9 @@ modal HttpRequestBuilder {
             url: u.to_owned()
         }
     }
-    
+
     procedure @WithUrl -> @WithHeaders
-        headers(self: HttpRequestBuilder@WithUrl, h: Map<string, string>) 
+        headers(self: HttpRequestBuilder@WithUrl, h: Map<string, string>)
             -> HttpRequestBuilder@WithHeaders
     {
         result HttpRequestBuilder@WithHeaders {
@@ -2343,9 +2377,9 @@ modal HttpRequestBuilder {
             headers: h
         }
     }
-    
+
     procedure @WithHeaders -> @Complete
-        body(self: HttpRequestBuilder@WithHeaders, b: string) 
+        body(self: HttpRequestBuilder@WithHeaders, b: string)
             -> HttpRequestBuilder@Complete
         uses alloc.heap
     {
@@ -2356,9 +2390,9 @@ modal HttpRequestBuilder {
             body: Option::Some(b.to_owned())
         }
     }
-    
+
     procedure @WithHeaders -> @Complete
-        no_body(self: HttpRequestBuilder@WithHeaders) 
+        no_body(self: HttpRequestBuilder@WithHeaders)
             -> HttpRequestBuilder@Complete
     {
         result HttpRequestBuilder@Complete {
@@ -2368,7 +2402,7 @@ modal HttpRequestBuilder {
             body: Option::None
         }
     }
-    
+
     procedure @Complete -> @Complete
         build(self: HttpRequestBuilder@Complete) -> HttpRequest
         uses alloc.heap
@@ -2403,7 +2437,7 @@ procedure make_request()
 modal FileHandle {
     @Closed { path: string@View }
     @Open { path: string@View, fd: i32 }
-    
+
     procedure @Closed -> @Open
         open(self: FileHandle@Closed) -> FileHandle@Open
         uses io.open
@@ -2414,7 +2448,7 @@ modal FileHandle {
             fd: fd
         }
     }
-    
+
     procedure @Open -> @Closed
         close(self: FileHandle@Open) -> FileHandle@Closed
         sequent { [fs::close] |- true => true }
@@ -2441,7 +2475,7 @@ procedure process_file(path: string)
     // Process file
     let data = opened::read()
     process(data)
-    
+
     // File will be closed by defer
 }
 ```
@@ -2460,34 +2494,34 @@ procedure process_request(input: string) -> Result<string, string>
         // Stage 1: Parse
         let parsed: Result<RequestData, ParseError> = input
             => parse: Result<RequestData, ParseError>
-        
+
         let request_data: RequestData = match parsed {
             Result::Ok(data) => data,
             Result::Err(e) => break 'pipeline Result::Err("Parse error: {e.message}")
         }
-        
+
         // Stage 2: Validate
         let validated: Result<RequestData, ValidationError> = request_data
             => validate: Result<RequestData, ValidationError>
-        
+
         let valid_data: RequestData = match validated {
             Result::Ok(data) => data,
             Result::Err(e) => break 'pipeline Result::Err("Validation error: {e.message}")
         }
-        
+
         // Stage 3: Process
         let processed: ProcessedData = valid_data
             => process_data: ProcessedData
-        
+
         // Stage 4: Serialize
         let serialized: Result<string, SerializationError> = processed
             => serialize: Result<string, SerializationError>
-        
+
         let output: string = match serialized {
             Result::Ok(s) => s,
             Result::Err(e) => break 'pipeline Result::Err("Serialization error: {e.message}")
         }
-        
+
         result Result::Ok(output)
     }
 }
@@ -2500,35 +2534,35 @@ modal WebSocket {
     @Disconnected {
         url: string@Owned
     }
-    
+
     @Connecting {
         url: string@Owned,
         connection_id: u64
     }
-    
+
     @Connected {
         url: string@Owned,
         connection_id: u64,
         socket: Socket
     }
-    
+
     @Closing {
         url: string@Owned,
         connection_id: u64,
         socket: Socket,
         close_code: u16
     }
-    
+
     @Closed {
         url: string@Owned,
         close_code: Option<u16>
     }
-    
+
     @Error {
         url: string@Owned,
         error: ErrorInfo
     }
-    
+
     // Transitions
     procedure @Disconnected -> @Connecting
         connect(self: WebSocket@Disconnected) -> WebSocket@Connecting
@@ -2541,9 +2575,9 @@ modal WebSocket {
             connection_id: id
         }
     }
-    
+
     procedure @Connecting -> @Connected
-        complete_handshake(self: WebSocket@Connecting, socket: Socket) 
+        complete_handshake(self: WebSocket@Connecting, socket: Socket)
             -> WebSocket@Connected
     {
         result WebSocket@Connected {
@@ -2552,9 +2586,9 @@ modal WebSocket {
             socket: socket
         }
     }
-    
+
     procedure @Connecting -> @Error
-        fail_connection(self: WebSocket@Connecting, err: ErrorInfo) 
+        fail_connection(self: WebSocket@Connecting, err: ErrorInfo)
             -> WebSocket@Error
     {
         result WebSocket@Error {
@@ -2562,21 +2596,21 @@ modal WebSocket {
             error: err
         }
     }
-    
+
     procedure @Connected -> @Connected
         send(self: mut WebSocket@Connected, data: string) -> Result<(), ErrorInfo>
         uses io.write
     {
         // Implementation
     }
-    
+
     procedure @Connected -> @Connected
         receive(self: mut WebSocket@Connected) -> Result<string, ErrorInfo>
         uses io.read
     {
         // Implementation
     }
-    
+
     procedure @Connected -> @Closing
         close(self: WebSocket@Connected, code: u16) -> WebSocket@Closing
         uses io.write
@@ -2589,7 +2623,7 @@ modal WebSocket {
             close_code: code
         }
     }
-    
+
     procedure @Closing -> @Closed
         finalize_close(self: WebSocket@Closing) -> WebSocket@Closed
         uses io.close
@@ -2600,7 +2634,7 @@ modal WebSocket {
             close_code: Option::Some(self.close_code)
         }
     }
-    
+
     procedure @Connected -> @Error
         error(self: WebSocket@Connected, err: ErrorInfo) -> WebSocket@Error
     {
@@ -2612,20 +2646,20 @@ modal WebSocket {
 }
 
 // Usage
-procedure websocket_example() 
-    uses io.connect, io.read, io.write, io.close 
+procedure websocket_example()
+    uses io.connect, io.read, io.write, io.close
 {
     let ws: WebSocket@Disconnected = WebSocket::new("wss://example.com")
     let connecting: WebSocket@Connecting = ws.connect()
-    
+
     // Wait for connection (simplified)
     let socket: Socket = wait_for_socket()
     let connected: WebSocket@Connected = connecting.complete_handshake(socket)
-    
+
     // Send and receive
     let _send_result = connected::send("Hello")
     let received: Result<string, ErrorInfo> = connected::receive()
-    
+
     // Close
     let closing: WebSocket@Closing = connected.close(1000)
     let closed: WebSocket@Closed = closing.finalize_close()
@@ -2649,7 +2683,7 @@ procedure parse_args(args: [string]) -> Result<Config, string> {
     if args.len() < 3 {
         result Result::Err("Usage: program <input> <output>")
     }
-    
+
     result Result::Ok(Config {
         input_file: args[1].to_owned(),
         output_file: args[2].to_owned(),
@@ -2667,17 +2701,17 @@ procedure process_file(config: Config) -> Result<(), string>
             Result::Ok(s) => s,
             Result::Err(e) => break 'process Result::Err("Read error: {e}")
         }
-        
+
         if config.verbose {
             println("Read {input.len()} bytes")
         }
-        
+
         // Process
         region processing {
             let lines = alloc_in<processing>(input.split('\n'))
             let processed = alloc_in<processing>(transform_lines(lines))
             let output = processed.join('\n')
-            
+
             // Write output
             let write_result: Result<(), string> = file::write(config.output_file, output)
             match write_result {
@@ -2689,7 +2723,7 @@ procedure process_file(config: Config) -> Result<(), string>
                 Result::Err(e) => break 'process Result::Err("Write error: {e}")
             }
         }
-        
+
         result Result::Ok(())
     }
 }
@@ -2698,7 +2732,7 @@ procedure main(args: [string])
     sequent { [fs::read, fs::write, alloc::heap] |- true => true }
 {
     let config: Result<Config, string> = parse_args(args)
-    
+
     let cfg: Config = match config {
         Result::Ok(c) => c,
         Result::Err(e) => {
@@ -2706,9 +2740,9 @@ procedure main(args: [string])
             system::exit(1)
         }
     }
-    
+
     let result: Result<(), string> = process_file(cfg)
-    
+
     match result {
         Result::Ok(_) => system::exit(0),
         Result::Err(e) => {
@@ -2740,42 +2774,42 @@ procedure parse_request(raw: string) -> Result<Request, string>
 {
     region parsing {
         let lines = alloc_in<parsing>(raw.split('\n'))
-        
+
         if lines.len() == 0 {
             result Result::Err("Empty request")
         }
-        
+
         // Parse request line
         let request_line = lines[0]
         let parts = alloc_in<parsing>(request_line.split(' '))
-        
+
         if parts.len() < 2 {
             result Result::Err("Invalid request line")
         }
-        
+
         let method = parts[0].to_owned()
         let path = parts[1].to_owned()
-        
+
         // Parse headers
         var headers: Map<string, string> = Map::new()
         var i: usize = 1
-        
+
         loop i < lines.len() {
             let line = lines[i]
             if line.is_empty() {
                 break
             }
-            
+
             let header_parts = alloc_in<parsing>(line.split(':'))
             if header_parts.len() >= 2 {
                 let key = header_parts[0].trim().to_owned()
                 let value = header_parts[1].trim().to_owned()
                 headers.insert(key, value)
             }
-            
+
             i = i + 1
         }
-        
+
         // Parse body (if present)
         var body: Option<string@Owned> = Option::None
         if i + 1 < lines.len() {
@@ -2783,7 +2817,7 @@ procedure parse_request(raw: string) -> Result<Request, string>
             let body_str = body_lines.join('\n')
             body = Option::Some(body_str.to_owned())
         }
-        
+
         result Result::Ok(Request {
             method: method,
             path: path,
@@ -2802,17 +2836,17 @@ procedure handle_request(request: Request) -> Response
         "/api/status" => "{\"status\": \"ok\"}",
         _ => "404 Not Found"
     }
-    
+
     let status: u16 = if request.path == "/" || request.path == "/api/status" {
         result 200
     } else {
         result 404
     }
-    
+
     var response_headers: Map<string, string> = Map::new()
     response_headers.insert("Content-Type".to_owned(), "text/plain".to_owned())
     response_headers.insert("Content-Length".to_owned(), "{response_body.len()}".to_owned())
-    
+
     result Response {
         status: status,
         headers: response_headers,
@@ -2824,14 +2858,14 @@ procedure format_response(response: Response) -> string
     uses alloc.heap
 {
     var output: string@Owned = string::from("HTTP/1.1 {response.status} OK\r\n")
-    
+
     loop (key, value): (string, string) in response.headers {
         output.append("{key}: {value}\r\n")
     }
-    
+
     output.append("\r\n")
     output.append(response.body)
-    
+
     result output
 }
 
@@ -2839,12 +2873,12 @@ procedure serve()
     sequent { [net::listen, net::read, net::write, alloc::heap] |- true => true }
 {
     let listener: TcpListener = TcpListener::bind("127.0.0.1:8080")
-    
+
     println("Server listening on port 8080")
-    
+
     loop {
         let connection: Result<TcpStream, string> = listener.accept()
-        
+
         let stream: TcpStream = match connection {
             Result::Ok(s) => s,
             Result::Err(e) => {
@@ -2852,12 +2886,12 @@ procedure serve()
                 continue
             }
         }
-        
+
         region request {
             // Read request
             var buffer: [u8; 4096] = [0; 4096]
             let bytes_read: Result<usize, string> = stream.read(mut buffer)
-            
+
             let n: usize = match bytes_read {
                 Result::Ok(num) => num,
                 Result::Err(e) => {
@@ -2865,12 +2899,12 @@ procedure serve()
                     continue
                 }
             }
-            
+
             let request_str = string::from_utf8(buffer[0..n])
-            
+
             // Parse and handle
             let parsed: Result<Request, string> = parse_request(request_str)
-            
+
             let request: Request = match parsed {
                 Result::Ok(req) => req,
                 Result::Err(e) => {
@@ -2878,10 +2912,10 @@ procedure serve()
                     continue
                 }
             }
-            
+
             let response: Response = handle_request(request)
             let response_str: string = format_response(response)
-            
+
             // Send response
             let _write_result = stream.write(response_str.as_bytes())
         }
@@ -2904,21 +2938,21 @@ procedure build_tree<T>(values: [T]) -> Option<own TreeNode<T>>
     if values.len() == 0 {
         result Option::None
     }
-    
+
     let mid: usize = values.len() / 2
-    
+
     let left_tree: Option<own TreeNode<T>> = if mid > 0 {
         result build_tree(values[0..mid])
     } else {
         result Option::None
     }
-    
+
     let right_tree: Option<own TreeNode<T>> = if mid + 1 < values.len() {
         result build_tree(values[mid+1..])
     } else {
         result Option::None
     }
-    
+
     result Option::Some(TreeNode {
         value: values[mid],
         left: left_tree,
@@ -2941,9 +2975,9 @@ procedure tree_example()
     sequent { [alloc::heap, fs::write] |- true => true }
 {
     let values: [i32; 7] = [1, 2, 3, 4, 5, 6, 7]
-    
+
     let tree: Option<own TreeNode<i32>> = build_tree(values)
-    
+
     println("Traversing tree:")
     traverse(tree)
 }
@@ -3125,12 +3159,14 @@ ERROR PROPAGATION:
 ### 0.13.1 Mistake: Using Rust Syntax
 
 **Wrong:**
+
 ```cursive
 let mut counter = 0
 let result = value?;
 ```
 
 **Correct:**
+
 ```cursive
 var counter: i32 = 0
 let result: T = match value {
@@ -3140,6 +3176,7 @@ let result: T = match value {
 ```
 
 **How to Avoid:**
+
 - Memorize: `var` for mutable, NOT `let mut`
 - Memorize: NO `?` operator in Cursive
 - Use explicit match for error propagation
@@ -3147,6 +3184,7 @@ let result: T = match value {
 ### 0.13.2 Mistake: Missing Required Annotations
 
 **Wrong:**
+
 ```cursive
 let x = {
     let a = 10
@@ -3159,6 +3197,7 @@ loop item in items {  // Missing type annotation
 ```
 
 **Correct:**
+
 ```cursive
 let x: i32 = {
     let a = 10
@@ -3171,6 +3210,7 @@ loop item: Item in items {  // Type annotated
 ```
 
 **How to Avoid:**
+
 - Always use `result` in block expressions
 - Always annotate loop iterators
 - Always annotate match bindings
@@ -3179,6 +3219,7 @@ loop item: Item in items {  // Type annotated
 ### 0.13.3 Mistake: Forgetting Effect Declarations
 
 **Wrong:**
+
 ```cursive
 procedure process() {  // Missing 'uses' clause
     let data = file::read("input.txt")  // Needs io.read
@@ -3186,6 +3227,7 @@ procedure process() {  // Missing 'uses' clause
 ```
 
 **Correct:**
+
 ```cursive
 procedure process()
     sequent { [fs::read, alloc::heap] |- true => true }
@@ -3195,6 +3237,7 @@ procedure process()
 ```
 
 **How to Avoid:**
+
 - Think: "What side effects does my code have?"
 - Check: File I/O -> io.read/io.write
 - Check: Allocation -> alloc.heap
@@ -3204,6 +3247,7 @@ procedure process()
 ### 0.13.4 Mistake: Trying to Escape Regions
 
 **Wrong:**
+
 ```cursive
 procedure get_data() -> Data {
     region temp {
@@ -3214,6 +3258,7 @@ procedure get_data() -> Data {
 ```
 
 **Correct:**
+
 ```cursive
 // Option 1: Allocate on heap
 procedure get_data() -> Data
@@ -3233,6 +3278,7 @@ procedure get_data() -> Data {
 ```
 
 **How to Avoid:**
+
 - Region-allocated values CANNOT leave their region
 - Use heap allocation for data that must escape
 - Use regions only for temporary data
@@ -3241,25 +3287,29 @@ procedure get_data() -> Data {
 ### 0.13.5 Mistake: Implicit Conversions
 
 **Wrong:**
+
 ```cursive
 let x: i64 = 42_i32  // No implicit widening
 let y: f64 = 3.14_f32  // No implicit conversion
 ```
 
 **Correct:**
+
 ```cursive
 let x: i64 = 42_i32.to_i64()  // Explicit conversion
 let y: f64 = 3.14_f32.to_f64()  // Explicit conversion
 ```
 
 **How to Avoid:**
+
 - Cursive has NO implicit numeric conversions
 - Exception: string@Owned -> string@View (modal coercion)
-- Always use explicit .to_* methods for conversions
+- Always use explicit .to\_\* methods for conversions
 
 ### 0.13.6 Mistake: Wrong Permission for Operation
 
 **Wrong:**
+
 ```cursive
 procedure modify(data: Data) {  // Defaults to imm
     data.field = new_value  // ERROR: Cannot mutate immutable
@@ -3267,6 +3317,7 @@ procedure modify(data: Data) {  // Defaults to imm
 ```
 
 **Correct:**
+
 ```cursive
 procedure modify(data: mut Data) {  // Mutable permission
     data.field = new_value  // OK: Can mutate
@@ -3274,6 +3325,7 @@ procedure modify(data: mut Data) {  // Mutable permission
 ```
 
 **How to Avoid:**
+
 - Need to mutate -> Use `mut T`
 - Need to consume -> Use `own T`
 - Just reading -> Use `imm T` or `T`
@@ -3281,18 +3333,21 @@ procedure modify(data: mut Data) {  // Mutable permission
 ### 0.13.7 Mistake: Enum Variant Syntax
 
 **Wrong:**
+
 ```cursive
 Option.Some(42)  // Wrong: dot syntax
 Result.Ok(value)  // Wrong: dot syntax
 ```
 
 **Correct:**
+
 ```cursive
 Option::Some(42)  // Correct: :: syntax
 Result::Ok(value)  // Correct: :: syntax
 ```
 
 **How to Avoid:**
+
 - ALWAYS use `::` for enum variants
 - NEVER use `.` for enum variants (that's Rust/other languages)
 
@@ -3372,6 +3427,7 @@ Use this checklist when generating Cursive code:
 ### Error: "Cannot use value after move"
 
 **Problem:**
+
 ```cursive
 let data: own Data = Data::new()
 consume(move data)
@@ -3379,6 +3435,7 @@ println(data)  // ERROR: data moved
 ```
 
 **Solution:**
+
 ```cursive
 // Option 1: Don't use after move
 let data: own Data = Data::new()
@@ -3399,6 +3456,7 @@ println(data)  // OK: still owns data
 ### Error: "Grant not in context"
 
 **Problem:**
+
 ```cursive
 procedure process() {  // Missing grant context
     let data = file::read("input.txt")  // Needs fs::read
@@ -3406,6 +3464,7 @@ procedure process() {  // Missing grant context
 ```
 
 **Solution:**
+
 ```cursive
 procedure process()
     sequent { [fs::read, alloc::heap] |- true => true }
@@ -3417,6 +3476,7 @@ procedure process()
 ### Error: "Cannot escape region"
 
 **Problem:**
+
 ```cursive
 procedure get_data() -> Data {
     region temp {
@@ -3427,6 +3487,7 @@ procedure get_data() -> Data {
 ```
 
 **Solution:**
+
 ```cursive
 // Use heap allocation instead
 procedure get_data() -> Data
@@ -3440,11 +3501,13 @@ procedure get_data() -> Data
 ### Error: "Type annotation required"
 
 **Problem:**
+
 ```cursive
 let x = { result 42 }  // ERROR: Type required
 ```
 
 **Solution:**
+
 ```cursive
 let x: i32 = { result 42 }  // OK: Type annotated
 ```
@@ -3452,6 +3515,7 @@ let x: i32 = { result 42 }  // OK: Type annotated
 ### Error: "Cannot mutate immutable value"
 
 **Problem:**
+
 ```cursive
 procedure modify(x: Data) {
     x.field = new_value  // ERROR: x is immutable
@@ -3459,6 +3523,7 @@ procedure modify(x: Data) {
 ```
 
 **Solution:**
+
 ```cursive
 procedure modify(x: mut Data) {
     x.field = new_value  // OK: x is mutable
@@ -3468,6 +3533,7 @@ procedure modify(x: mut Data) {
 ### Error: "Block missing result keyword"
 
 **Problem:**
+
 ```cursive
 let x: i32 = {
     let a = 10
@@ -3476,6 +3542,7 @@ let x: i32 = {
 ```
 
 **Solution:**
+
 ```cursive
 let x: i32 = {
     let a = 10
@@ -3528,17 +3595,17 @@ procedure main()
 ```cursive
 modal Container<T> {
     @Empty { }
-    
+
     @Filled {
         value: T
     }
-    
+
     procedure @Empty -> @Filled
         fill(self: Container<T>@Empty, v: T) -> Container<T>@Filled
     {
         result Container<T>@Filled { value: v }
     }
-    
+
     procedure @Filled -> @Empty
         empty(self: Container<T>@Filled) -> (T, Container<T>@Empty)
     {
@@ -3593,40 +3660,40 @@ let squares: [i32; 5] = generate_array()  // Computed at compile time
 
 ### 0.17.1 Cursive vs. Rust
 
-| Feature | Rust | Cursive |
-|---------|------|---------|
-| Mutable binding | `let mut x` | `var x: T` |
-| Ownership | Implicit | Explicit with `own` |
-| Borrowing | `&T`, `&mut T` with exclusive rules | `imm T`, `mut T` without exclusivity |
-| Lifetimes | `'a` annotations in types | Regions, no annotations in types |
-| Error propagation | `?` operator | Explicit `match` |
-| Block returns | Implicit last expression | Explicit `result` keyword |
-| Function types | `Fn`, `FnMut`, `FnOnce` predicates | `(T) -> U ! E` with effects |
-| Effects | Implicit in predicates | Explicit `uses` clause |
-| State machines | Enums with runtime checks | Modal types with compile-time checks |
+| Feature           | Rust                                | Cursive                              |
+| ----------------- | ----------------------------------- | ------------------------------------ |
+| Mutable binding   | `let mut x`                         | `var x: T`                           |
+| Ownership         | Implicit                            | Explicit with `own`                  |
+| Borrowing         | `&T`, `&mut T` with exclusive rules | `imm T`, `mut T` without exclusivity |
+| Lifetimes         | `'a` annotations in types           | Regions, no annotations in types     |
+| Error propagation | `?` operator                        | Explicit `match`                     |
+| Block returns     | Implicit last expression            | Explicit `result` keyword            |
+| Function types    | `Fn`, `FnMut`, `FnOnce` predicates  | `(T) -> U ! E` with effects          |
+| Effects           | Implicit in predicates              | Explicit `uses` clause               |
+| State machines    | Enums with runtime checks           | Modal types with compile-time checks |
 
 ### 0.17.2 Cursive vs. C++
 
-| Feature | C++ | Cursive |
-|---------|-----|---------|
-| Memory management | Manual or RAII | Regions + ownership |
-| Memory safety | Runtime | Compile-time |
-| Null pointers | Allowed | `Option<T>` instead |
-| Move semantics | Implicit with `&&` | Explicit `move` keyword |
-| Templates | `template<T>` | Generics with contracts |
-| Side effects | Invisible | Explicit `uses` clause |
-| Destructors | RAII | `defer` + regions |
+| Feature           | C++                | Cursive                 |
+| ----------------- | ------------------ | ----------------------- |
+| Memory management | Manual or RAII     | Regions + ownership     |
+| Memory safety     | Runtime            | Compile-time            |
+| Null pointers     | Allowed            | `Option<T>` instead     |
+| Move semantics    | Implicit with `&&` | Explicit `move` keyword |
+| Templates         | `template<T>`      | Generics with contracts |
+| Side effects      | Invisible          | Explicit `uses` clause  |
+| Destructors       | RAII               | `defer` + regions       |
 
 ### 0.17.3 Cursive vs. Go
 
-| Feature | Go | Cursive |
-|---------|-----|---------|
-| Memory management | Garbage collected | Regions + ownership |
-| Concurrency | Goroutines (runtime) | Effects + permissions (compile-time) |
-| Error handling | Multiple returns | `Result<T, E>` |
-| Interfaces | Implicit | Contracts (explicit) |
-| Type system | Simple | Rich (modals, effects, permissions) |
-| Performance | GC pauses | Deterministic |
+| Feature           | Go                   | Cursive                              |
+| ----------------- | -------------------- | ------------------------------------ |
+| Memory management | Garbage collected    | Regions + ownership                  |
+| Concurrency       | Goroutines (runtime) | Effects + permissions (compile-time) |
+| Error handling    | Multiple returns     | `Result<T, E>`                       |
+| Interfaces        | Implicit             | Contracts (explicit)                 |
+| Type system       | Simple               | Rich (modals, effects, permissions)  |
+| Performance       | GC pauses            | Deterministic                        |
 
 ---
 
@@ -3663,7 +3730,7 @@ enum Option<T> {
 modal File {
     @Closed { path: string }
     @Open { path: string, handle: Handle }
-    
+
     procedure @Closed -> @Open
         open(self: File@Closed) -> File@Open
         uses io.open
@@ -3756,14 +3823,14 @@ procedure parse_args(args: [string]) -> Result<Options, string>
     if args.len() < 4 {
         result Result::Err("Usage: program <input> <output> <mode>")
     }
-    
+
     let mode: ProcessingMode = match args[3] {
         "upper" => ProcessingMode::Uppercase,
         "lower" => ProcessingMode::Lowercase,
         "reverse" => ProcessingMode::Reverse,
         _ => return Result::Err("Invalid mode")
     }
-    
+
     result Result::Ok(Options {
         input: args[1].to_owned(),
         output: args[2].to_owned(),
@@ -3791,19 +3858,19 @@ procedure process_file(opts: Options) -> Result<(), string>
             Result::Ok(s) => s,
             Result::Err(e) => break 'process Result::Err("Read error: {e}")
         }
-        
+
         // Process line by line
         region processing {
             let lines = alloc_in<processing>(text.split('\n'))
             var processed_lines: Vec<string> = Vec::new()
-            
+
             loop line: string in lines {
                 let processed = process_line(line, opts.mode)
                 processed_lines.push(processed)
             }
-            
+
             let output = processed_lines.join('\n')
-            
+
             // Write result
             let write_result: Result<(), string> = file::write(opts.output, output)
             match write_result {
@@ -3818,7 +3885,7 @@ procedure main(args: [string])
     sequent { [fs::read, fs::write, alloc::heap] |- true => true }
 {
     let options: Result<Options, string> = parse_args(args)
-    
+
     let opts: Options = match options {
         Result::Ok(o) => o,
         Result::Err(e) => {
@@ -3826,9 +3893,9 @@ procedure main(args: [string])
             system::exit(1)
         }
     }
-    
+
     let result: Result<(), string> = process_file(opts)
-    
+
     match result {
         Result::Ok(_) => {
             println("Processing complete")
@@ -3876,6 +3943,7 @@ procedure main(args: [string])
 ### Success Metrics
 
 **Your generated Cursive code is correct when:**
+
 - ✅ All examples compile without syntax errors
 - ✅ All effects are declared
 - ✅ All permissions are appropriate

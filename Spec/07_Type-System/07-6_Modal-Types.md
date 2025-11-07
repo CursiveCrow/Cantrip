@@ -6,13 +6,21 @@
 **File**: 07-6_Modal-Types.md
 **Section**: 7.6 Modal Types  
 **Stable label**: [type.modal]  
-**Forward references**: §7.7 [type.relation], Clause 8 [expr], Clause 11 [generic], Clause 12 [memory], Clause 13 [contract], Clause 14 [witness]
+**Forward references**: §7.7 [type.relation], Clause 8 [expr], Clause 10 [generic], Clause 11 [memory], Clause 12 [contract], Clause 13 [witness]
 
 ---
 
 ### §7.6 Modal Types [type.modal]
 
 [1] Modal types define compile-time state machines. Each modal value inhabits exactly one named state at a time; state transitions are enforced by the type system, ensuring that operations occur in valid orders without runtime overhead. Modal types integrate with the contract system (Clause 13) and the witness system (Clause 14) to express and verify obligations.
+
+(1.1) **Transition Signatures vs. Implementations**: Modal types use two distinct syntactic forms for transitions:
+
+- **Transition signatures** (`@Source::name(params) -> @Target`): Declare valid state transitions within the modal body. These lightweight declarations define the state machine graph and use `->` to indicate state-to-state transitions.
+- **Procedure implementations**: Provide the actual transition logic using standard procedure syntax (§5.4) with `:` for return types. Each transition signature must have a corresponding procedure implementation named `ModalType.name` that takes a receiver in the source state and returns the target state.
+
+[ Note: The `->` syntax in transition signatures is distinct from the `:` return type indicator in procedure implementations. This distinction clarifies that signatures declare the state machine structure, while implementations provide executable code.
+— end note ]
 
 [2] Examples include file handles (Closed → Open → Closed), parser contexts, transactional resources, and capability tokens. The built-in pointer modal type `Ptr<T>` (§7.5) is a specific instance of this general mechanism.
 
@@ -35,7 +43,7 @@ TransitionSignature ::= '@' Ident '::' Ident '(' ParamList? ')' '->' '@' Ident
 
 - **Procedure implementations**: Each transition signature shall have a corresponding procedure implementation using standard procedure syntax (§5.4). The procedure is named `ModalType.name`, takes receiver `self: perm Self@Source`, and returns `Self@Target` using the `:` return type indicator (not `->`). Implementations may appear at module scope or within the state body as full procedure declarations.
 
-[Note: Transition signatures use `->` to indicate state-to-state transitions, while implementations use `:` as the return type indicator per standard procedure syntax (§5.4). This syntactic distinction clarifies the difference between declaring the state machine graph and implementing transition logic. —end note]
+[Note: Transition signatures use `->` to indicate state-to-state transitions, while implementations use `:` as the return type indicator per standard procedure syntax (§5.4). This syntactic distinction clarifies the difference between declaring the state machine graph and implementing transition logic. — end note]
 
 [5] Each state may:
 
@@ -52,11 +60,11 @@ TransitionSignature ::= '@' Ident '::' Ident '(' ParamList? ')' '->' '@' Ident
 3. Transition clauses reference existing states.
 4. Methods use receivers consistent with pointer semantics: `self: perm Self@State` where `perm ∈ {const, shared, unique}`.
 
-[6.1] _Missing transition implementation._ If a transition signature `@Source::name(params) -> @Target` is declared but no corresponding procedure `ModalType.name` with matching signature exists, diagnostic E07-505 is emitted. The implementation must match the signature exactly: receiver permission, parameter types, and target state must align. Implementations with mismatched signatures do not satisfy the signature requirement.
+(6.1) _Missing transition implementation._ If a transition signature `@Source::name(params) -> @Target` is declared but no corresponding procedure `ModalType.name` with matching signature exists, diagnostic E07-505 is emitted. The implementation must match the signature exactly: receiver permission, parameter types, and target state must align. Implementations with mismatched signatures do not satisfy the signature requirement.
 
-[6.2] _Orphan transition implementations._ If a procedure `ModalType.name` exists but no corresponding transition signature is declared, the procedure is treated as a regular associated procedure (not a transition). Such procedures may still be called but do not participate in state tracking. No diagnostic is emitted for orphan implementations; they are valid for non-transition operations.
+(6.2) _Orphan transition implementations._ If a procedure `ModalType.name` exists but no corresponding transition signature is declared, the procedure is treated as a regular associated procedure (not a transition). Such procedures may still be called but do not participate in state tracking. No diagnostic is emitted for orphan implementations; they are valid for non-transition operations.
 
-[6.3] _State field access outside state._ When a state-specific field is accessed through a modal value that is not in the field's defining state, diagnostic E07-504 is emitted. This check occurs during type checking; the compiler tracks the current state of each modal value through pattern matching and transition calls. Accessing fields from a different state is always ill-formed, even if the access would be safe at runtime.
+(6.3) _State field access outside state._ When a state-specific field is accessed through a modal value that is not in the field's defining state, diagnostic E07-504 is emitted. This check occurs during type checking; the compiler tracks the current state of each modal value through pattern matching and transition calls. Accessing fields from a different state is always ill-formed, even if the access would be safe at runtime.
 
 Formally:
 
@@ -93,7 +101,7 @@ Within each branch, the value is treated as `M@S_i` and state fields are accessi
 
 ```cursive
 modal Connection {
-    @Closed { path: string@Owned }
+    @Closed { path: string@Managed }
     @Closed::open(~!, path: string@View) -> @Open
 
     @Open { handle: Handle }
@@ -104,7 +112,7 @@ modal Connection {
 
 ```cursive
 procedure Connection.open(self: unique Self@Closed, path: string@View): Self@Open
-    {| io::open |- true => witness Connection@Open |}
+    [[ io::open |- true => witness Connection@Open ]]
 {
     let handle = os::open(path)
     result Connection@Open { handle, path: path.to_owned() }
@@ -129,20 +137,20 @@ The body must `result` a value of type `M@Target`. Failing to do so triggers E07
 
 #### §7.6.5 Contracts and Witnesses [type.modal.contract]
 
-[10] Modal transition procedures follow all standard procedure semantics (§5.4), including contractual sequent specifications `{| grants … |- must => will |}`. In addition, each transition signature imposes the following witness obligations:
+[10] Modal transition procedures follow all standard procedure semantics (§5.4), including contractual sequent specifications `[[ grants … |- must => will ]]`. In addition, each transition signature imposes the following witness obligations:
 
 1. **Entry witness** — the caller shall provide `witness M@Source` (or an equivalent fact provable from the current control-flow) before invoking the procedure.
 2. **Exit witness** — the procedure shall prove or emit `witness M@Target` on every non-diverging exit path. Returning a value of type `M@Target` without supplying the witness is ill-formed and triggers E07-502.
 3. **Exclusive result states** — a transition signature maps exactly one `@Source` to one `@Target`. A procedure that wishes to return multiple states shall declare separate signatures so that each branch has an explicit witness obligation.
 
-[10.1] Implementations shall enforce that every transition signature has a matching procedure whose contractual sequent names the entry/exit witnesses. This requirement ensures that the witness system (Clause 14) can track linear state changes without heuristic inference.
+(10.1) Implementations shall enforce that every transition signature has a matching procedure whose contractual sequent names the entry/exit witnesses. This requirement ensures that the witness system (Clause 13) can track linear state changes without heuristic inference.
 
 **Example:**
 
 ```cursive
 procedure close(self: unique Self@Open): Self@Closed
-    {| io::close, witness Connection@Open
-       |- true => witness Connection@Closed |}
+    [[ io::close, witness Connection@Open
+       |- true => witness Connection@Closed ]]
 {
     os::close(self.handle)
     result Connection@Closed { path: self.path }
@@ -166,13 +174,14 @@ These rules integrate with the general subtyping relation in §7.7.
 
 [13] Minimal diagnostics:
 
-| Code  | Condition                                       |
-| ----- | ----------------------------------------------- |
+| Code    | Condition                                       |
+| ------- | ----------------------------------------------- |
 | E07-500 | Duplicate state name                            |
 | E07-501 | Transition references undeclared state          |
 | E07-502 | Transition body fails to return target state    |
 | E07-503 | Exhaustiveness failure in modal pattern match   |
 | E07-504 | State-specific field accessed outside its state |
+| E07-505 | Missing transition implementation               |
 
 #### §7.6.9 Examples (Informative) [type.modal.examples]
 
@@ -180,50 +189,52 @@ These rules integrate with the general subtyping relation in §7.7.
 
 ```cursive
 modal FileHandle {
-    @Closed { path: string@Owned }
+    @Closed { path: string@Managed }
     @Closed::open(~!, path: string@View) -> @Open
 
-    @Open { path: string@Owned, handle: os::Handle }
+    @Open { path: string@Managed, handle: os::Handle }
     @Open::read(~%, buffer: [u8]) -> @Open
     @Open::close(~!) -> @Closed
 }
+```
 
 // Transition implementations at module scope
 procedure FileHandle.open(self: unique Self@Closed, path: string@View): Self@Open
-    {| io::open |- true => witness FileHandle@Open |}
+[[io::open |- true => witness FileHandle@Open]]
 {
-    let handle = os::open(path)
-    result FileHandle@Open { path: path.to_owned(), handle }
+let handle = os::open(path)
+result FileHandle@Open { path: path.to_owned(), handle }
 }
 
 procedure FileHandle.read(self: shared Self@Open, buffer: [u8]): Self@Open
-    {| io::read, witness FileHandle@Open |- buffer.len() > 0 => true |}
+[[io::read, witness FileHandle@Open |- buffer.len() > 0 => true]]
 {
-    os::read(self.handle, buffer)
-    result self
+os::read(self.handle, buffer)
+result self
 }
 
 procedure FileHandle.close(self: unique Self@Open): Self@Closed
-    {| io::close, witness FileHandle@Open |- true => witness FileHandle@Closed |}
+[[io::close, witness FileHandle@Open |- true => witness FileHandle@Closed]]
 {
-    os::close(self.handle)
-    result FileHandle@Closed { path: self.path }
+os::close(self.handle)
+result FileHandle@Closed { path: self.path }
 }
 
 procedure use_file(path: string@View)
-    grants io::open, io::read, io::close
+grants io::open, io::read, io::close
 {
-    let file = FileHandle::from_path(path)
-    match file {
-        @Closed => {
-            let open = file.open()
-            open.read(buffer)
-            let closed = open.close()
-            // closed : FileHandle@Closed
-        }
-    }
+let file = FileHandle::from_path(path)
+match file {
+@Closed => {
+let open = file.open()
+open.read(buffer)
+let closed = open.close()
+// closed : FileHandle@Closed
 }
-```
+}
+}
+
+````
 
 **Example 7.6.9.2 (Token-based capability):**
 
@@ -239,26 +250,26 @@ modal Transaction {
 
 // Transition implementations
 procedure Transaction.begin(self: unique Self@Idle): Self@Active
-    {| db::begin |- true => witness Transaction@Active |}
+    [[ db::begin |- true => witness Transaction@Active ]]
 {
     db::begin()
     result Transaction@Active {}
 }
 
 procedure Transaction.commit(self: unique Self@Active): Self@Idle
-    {| db::commit, witness Transaction@Active |- true => witness Transaction@Idle |}
+    [[ db::commit, witness Transaction@Active |- true => witness Transaction@Idle ]]
 {
     db::commit()
     result Transaction@Idle {}
 }
 
 procedure Transaction.rollback(self: unique Self@Active): Self@Idle
-    {| db::rollback, witness Transaction@Active |- true => witness Transaction@Idle |}
+    [[ db::rollback, witness Transaction@Active |- true => witness Transaction@Idle ]]
 {
     db::rollback()
     result Transaction@Idle {}
 }
-```
+````
 
 #### §7.6.10 Conformance Requirements [type.modal.requirements]
 
@@ -268,7 +279,7 @@ procedure Transaction.rollback(self: unique Self@Active): Self@Idle
 2. Enforce that state-specific fields and methods are used only in their defining state.
 3. Ensure transitions return values of the target state; emit diagnostic E07-502 otherwise.
 4. Refine modal types in pattern matches and enforce exhaustiveness (E07-503).
-5. Track witnesses per Clause 14, ensuring sequent clauses are respected.
+5. Track witnesses per Clause 13, ensuring sequent clauses are respected.
 6. Provide diagnostics in §7.6.8 with contextual information (location of state declaration and offending use).
 
 [15] Deviations render an implementation non-conforming unless explicitly noted elsewhere.

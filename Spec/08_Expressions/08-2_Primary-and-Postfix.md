@@ -2,11 +2,11 @@
 
 ## Clause 8 — Expressions
 
-**Clause**: 8 — Expressions
+**Clause**: 8 — Expressions  
 **File**: 08-2_Primary-and-Postfix.md  
 **Section**: §8.2 Primary and Postfix Expressions  
 **Stable label**: [expr.primary]  
-**Forward references**: §8.3 [expr.operator], §8.4 [expr.structured], Clause 2 §2.3 [lex.tokens], Clause 4 §4.3 [module.scope], Clause 5 §5.2 [decl.variable], Clause 6 §6.4 [name.lookup], Clause 7 §7.5 [type.pointer], Clause 11 [generic], Clause 12 [memory]
+**Forward references**: §8.3 [expr.operator], §8.4 [expr.structured], Clause 2 §2.3 [lex.tokens], Clause 4 §4.3 [module.scope], Clause 5 §5.2 [decl.variable], Clause 6 §6.4 [name.lookup], Clause 7 §7.5 [type.pointer], Clause 10 [generic], Clause 11 [memory]
 
 ---
 
@@ -14,26 +14,26 @@
 
 #### §8.2.1 Overview
 
-[1] Primary expressions are the atomic building blocks of Cursive’s expression grammar: literals, identifiers, blocks, and grouped forms. Postfix expressions extend primaries with calls, field access, indexing, slicing, pointer operations, and pipelines. This subclause formalises their syntax (Annex A §A.4.1–§A.4.8), typing rules, evaluation semantics, and diagnostics.
+[1] Primary expressions form the leaves of the expression grammar (Annex A §A.4.1–§A.4.3); postfix expressions extend those primaries with calls, field access, indexing, slicing, pointer manipulation, and pipelines (Annex A §A.4.4–§A.4.8). This subclause specifies their syntax, typing, evaluation, and diagnostics in detail.
 
 #### §8.2.2 Literals
 
-[2] Grammar reference: Annex A §A.4.1 (`Literal`). Literal tokens are produced by the lexical grammar (§2.3).
+[2] Grammar reference: Annex A §A.4.1 (`Literal`). Literal tokens arise from the lexical grammar (§2.3). Each literal’s default type is defined in Clause 7 §7.2.
 
 [3] Typing rules:
 
-- Integer literal `n` defaults to `i32`. If used in a context requiring integer type `τ`, the literal is accepted when `n ∈ ⟦τ⟧`; otherwise diagnostic E08-201 is emitted.
-- Floating-point literals default to `f64`; suffix `f32` selects `f32`.
-- Boolean literals `true`, `false` have type `bool`.
-- Character literals have type `char` and shall denote exactly one Unicode scalar; invalid scalars trigger E08-202.
-- String literals have type `string@View` and refer to statically allocated UTF-8 data.
-- Array and tuple literals are covered in §8.4 but rely on literal element typing rules defined here.
+- **Integer literals** default to `i32`. Contextual typing may coerce them to any integer type `τ` whose value set contains the literal. Literal suffixes (`123u64`, `0xffu8`) override both defaults and contextual expectations. Ill-fitting literals produce E08-201.
+- **Floating literals** default to `f64`; suffix `f32` selects `f32`. Mixed numeric literals require explicit casts (§8.6).
+- **Boolean literals** `true`/`false` always have type `bool`.
+- **Character literals** have type `char`. They shall denote a single Unicode scalar value; invalid escapes or surrogate code points emit E08-202.
+- **String literals** have type `string@View` and refer to statically allocated UTF-8 data. Modal transitions to `string@Owned` require explicit constructors (§7.3.4).
+- **Tuple literals** and **array literals** are structured forms handled in §8.4, but their element typing relies on the literal rules above.
 
-[4] Evaluation: literal expressions evaluate to themselves without modifying the store. String literals may reference shared static storage; copying them is equivalent to copying the pointer-length pair (`string@View`).
+[4] Evaluation: literals evaluate to themselves without modifying the store. String literals may share backing storage; this does not affect semantics because `string@View` values are immutable views.
 
-#### §8.2.3 Identifier References
+#### §8.2.3 Identifier Expressions
 
-[5] Grammar reference: Annex A §A.4.1 (`PrimaryExpr ::= IDENT`). Identifiers resolve according to Clause 6. Binding categories are inherited: if the binding is a place, the expression is a place; otherwise it is a value.
+[5] Grammar reference: Annex A §A.4.1 (`PrimaryExpr ::= IDENT`). Identifiers are resolved using the algorithm in Clause 6 §6.4. If resolution yields a type, module, or contract, the expression is ill-formed (E08-211).
 
 [6] Typing rule:
 
@@ -42,13 +42,13 @@ $$
 \tag{T-Ident}
 $$
 
-[7] Diagnostics: referencing an identifier before definite assignment yields E08-210. Resolving a name that refers to a type, module, contract, or grant in expression position yields E08-211.
+[7] Using an identifier before definite assignment (Clause 5 §5.7) emits E08-210. When the binding category is `place`, the expression inherits that category; otherwise it is a value.
 
 #### §8.2.4 Parenthesised Expressions
 
 [8] Grammar: `ParenExpr ::= '(' Expr ')'` (Annex A §A.4.2).
 
-[9] Typing/evaluation: parentheses do not change the type, value/place category, or grant set of the enclosed expression. They are used solely to override precedence or improve readability.
+[9] Typing: parentheses do not alter type, grant set, or category. They exist solely for disambiguation and readability. Implementations shall preserve parentheses in diagnostics to aid tooling.
 
 #### §8.2.5 Block Expressions
 
@@ -56,127 +56,115 @@ $$
 
 [11] Typing:
 
-- If a block ends with `result e`, the block’s type is `typeof(e)`; otherwise it is `()`.
-- All statements inside the block shall be well-formed (Clause 9).
-- Bindings introduced inside the block obey the scoping rules of Clause 6.
+- Blocks introduce a lexical scope (§6.2). Statements inside the block are type-checked per Clause 9.
+- If the block includes `result expr`, the block’s type is `typeof(expr)`; otherwise it is `()`.
+- Non-unit blocks shall use `result` explicitly; omission triggers E08-220.
 
-[12] The `result` keyword is mandatory when the block contributes a non-unit value. Missing `result` produces diagnostic E08-220.
-
-[13] Evaluation: statements run sequentially; each may mutate the store. When execution reaches `result e`, the expression `e` is evaluated and the block terminates with that value. Without `result`, the block evaluates to `()` after executing all statements.
+[12] Evaluation: statements execute in order, each possibly mutating the store. `result expr` evaluates `expr` as the final value; the scope then exits, dropping bindings in reverse creation order (Clause 12 §12.2).
 
 #### §8.2.6 Unit Expression
 
-[14] `()` is both the literal and the type for the unit value (§7.2.6). It serves as the canonical result for expressions that intentionally produce no value.
+[13] `()` denotes both the unit literal and the unit type (§7.2.6). It is the default result when an expression exists solely for side effects.
 
-#### §8.2.7 Function and Procedure Calls
+#### §8.2.7 Procedure and Function Calls
 
-[15] Grammar: `CallExpr ::= PostfixExpr '(' ArgumentList? ')'` (Annex A §A.4.4). The callee expression may itself be any postfix expression (including qualified procedure paths and closures).
+[14] Grammar: `CallExpr ::= PostfixExpr '(' ArgumentList? ')'` (Annex A §A.4.4).
 
-[16] Typing rule:
+[15] Typing:
 
 $$
-\frac{\Gamma \vdash f : (\tau_1,\ldots,\tau_n) \to \tau_r ! \varepsilon_f \quad \Gamma \vdash a_i : \tau_i ! \varepsilon_i}
-{\Gamma \vdash f(a_1,\ldots,a_n) : \tau_r ! (\varepsilon_f \cup \varepsilon_1 \cup \cdots \cup \varepsilon_n)}
+\frac{\Gamma \vdash f : (\tau_1,\ldots,\tau_n) \to \tau_r ! \varepsilon_f \quad \Gamma \vdash a_i : \tau_i ! \varepsilon_i}{\Gamma \vdash f(a_1,\ldots,a_n) : \tau_r ! (\varepsilon_f \cup \varepsilon_1 \cup \cdots \cup \varepsilon_n)}
 \tag{T-Call}
 $$
 
-[17] Arity mismatches emit E08-230. If `f` is polymorphic, Clause 11’s generic inference algorithm instantiates the type parameters before the call rule applies.
+[16] Variadic or keyword argument patterns are expanded into syntactic sugar that ultimately matches the above rule. Call arity mismatches or missing required arguments emit E08-230; extra arguments emit E08-231.
 
-[18] Associated procedures (`receiver::method(args)`) desugar to calls on the procedure value defined in Clause 5. The receiver expression is evaluated first; its type must satisfy the required permission (`self: const/shared/unique`). Violations emit E08-231.
+[17] Associated procedures (`receiver::method(args)`) desugar to calls on values defined in Clause 5. The receiver expression is evaluated first and must provide the permission declared by the method’s `self` parameter. Violations produce E08-232 (insufficient permission) or E08-233 (receiver type mismatch).
 
-[19] Evaluation: evaluate the callee expression, then each argument left-to-right, then execute the callee with the resulting argument tuple. For effect operations (`Effect::op(...)`), the same rule applies but the callee’s grant set always contains the effect being invoked.
+[18] Evaluation order is left-to-right: callee expression, then each argument. Partial evaluation (e.g., due to `move`) follows the semantics of the argument expressions themselves.
 
-#### §8.2.8 Field and Tuple Access
+#### §8.2.8 Field Access and Tuple Projection
 
-[20] Grammar: `FieldExpr ::= PostfixExpr '.' IDENT` and `TupleProj ::= PostfixExpr '.' INTEGER_LITERAL` (Annex A §A.4.5).
+[19] Grammar: `FieldExpr ::= PostfixExpr '.' IDENT`, `TupleProj ::= PostfixExpr '.' INTEGER_LITERAL` (Annex A §A.4.5).
 
-[21] Typing:
+[20] Typing:
 
-- For records/struct enums, if `Γ ⊢ e : R` and record `R` declares field `f : τ` visible in the current module (§5.6), then `Γ ⊢ e.f : τ`. Invisible fields produce E08-240.
-- For tuple projections, `Γ ⊢ e : (τ_1, …, τ_n)` and `0 ≤ i < n` imply `Γ ⊢ e.i : τ_{i+1}`. Out-of-range indices emit E08-241.
+- Records: if `Γ ⊢ e : R` and `R` declares field `f : τ` visible in the current module (Clause 5 §5.6), then `Γ ⊢ e.f : τ [cat]` where `cat` matches `e`’s category. Accessing a private/internal field from another module emits E08-240.
+- Tuple projections: if `Γ ⊢ e : (τ_1,…,τ_n)` and `0 ≤ i < n`, then `Γ ⊢ e.i : τ_{i+1}`. Indices outside this range emit E08-241.
 
-[22] Value/place propagation: if `e` is a place, `e.f` and `e.i` are places; otherwise they are values. Permission checks occur when the field or projection participates in assignment.
+[21] Both forms preserve place/value categories: reading a field from a place yields a place.
 
 #### §8.2.9 Array Indexing and Slicing
 
-[23] Grammar: `IndexExpr ::= PostfixExpr '[' Expr ']'` and `SliceExpr ::= PostfixExpr '[' RangeExpr? ']'` (Annex A §A.4.6).
+[22] Grammar: `IndexExpr ::= PostfixExpr '[' Expr ']'`, `SliceExpr ::= PostfixExpr '[' RangeExpr? ']'` (Annex A §A.4.6).
 
-[24] Typing rules:
+[23] Typing:
 
-- If `Γ ⊢ target : [τ; n]` (array) or `[τ]` (slice) and `Γ ⊢ index : usize`, then `Γ ⊢ target[index] : τ`. The result is a place when `target` is a place.
-- Slicing `[start..end]` requires `start/end : usize` (or inferred defaults) and produces `[τ]`. Range semantics follow §7.3.4.
+- Arrays `[τ; n]` and slices `[τ]` may be indexed with `usize`. The result type is `τ`. Index expressions evaluate left-to-right.
+- Slicing `[start..end]` yields `[τ]`. Bounds may be partially omitted (defaulting to `0` or `len`). Bounds must satisfy `0 ≤ start ≤ end ≤ len`; otherwise E08-251 is raised.
 
-[25] Evaluation: evaluate the target, then the index/range bounds, all left-to-right. Index bounds are checked at runtime; violating them raises a panic with diagnostic E08-250. Slice bounds must satisfy `0 ≤ start ≤ end ≤ len`; otherwise E08-251 is issued.
+[24] Runtime bounds checking is mandatory. Out-of-range indices panic with diagnostic E08-250 containing the index, length, and expression span.
 
 #### §8.2.10 Pointer Address-of and Dereference
 
-[26] Grammar: unary `&` and `*` are captured in Annex A §A.4.7 but belong with primaries because they manipulate places.
+[25] Grammar: unary `&` and unary `*` (Annex A §A.4.7).
 
-[27] Address-of (`&place`) is valid only when the operand denotes storage. Typing:
+[26] Address-of (`&place`) is valid only for place expressions tied to storage. Typing rule:
 
 $$
-\frac{\Gamma \vdash p : \tau [place]}{\Gamma \vdash \&p : \text{Ptr}\langle\tau\rangle@\text{Valid}}
+\frac{\Gamma \vdash p : \tau [place]}{\Gamma \vdash \&p : Ptr\langle \tau \rangle@Valid}
 \tag{T-Addr}
 $$
 
-Attempting to take the address of a value expression yields E08-260. Borrowed permissions follow Clause 12.
+Attempting to take the address of a value emits E08-260.
 
-[28] Dereference typing is defined in §8.3 because it is a unary operator, but its evaluation semantics rely on the pointer states from §7.5.
+[27] Dereference typing is defined in Clause 7 §7.5, but evaluation semantics require the pointer to be in state `@Valid`. Dereferencing `@Null`, `@Weak`, or `@Expired` pointers produces diagnostics E07-301/E07-304/E07-305 as appropriate.
 
 #### §8.2.11 Pipelines
 
-[29] Grammar: `PipelineExpr ::= PostfixExpr '=>' PostfixExpr ( '=>' PostfixExpr )*` (Annex A §A.4.8).
+[28] Grammar: `PipelineExpr ::= PostfixExpr '=>' PostfixExpr ( '=>' PostfixExpr )*` (Annex A §A.4.8).
 
-[30] Semantics: `lhs => stage` desugars to `stage(lhs)`. For stages with additional arguments, a closure form or partial application is required elsewhere.
+[29] Semantics: `lhs => stage` desugars to `stage(lhs)`. Each stage shall be callable with exactly one argument—the output of the preceding stage. Additional parameters shall be supplied via closures or partial application.
 
-[31] Typing: let `Γ ⊢ lhs : τ_0`. Each stage `stage_k` must have type `(τ_{k-1}) -> τ_k ! ε_k`. The entire pipeline has type `τ_m` (final stage). Missing annotations are allowed only when `τ_{k-1} ≡ τ_k` (per §8.1.3). Violations produce E08-020 (missing) or E08-021 (mismatched).
+[30] Typing: let `Γ ⊢ lhs : τ_0`. For each stage `stage_k`, require `Γ ⊢ stage_k : (τ_{k-1}) -> τ_k ! ε_k`. The pipeline’s type is `τ_m`. Stages that omit `: τ_k` must satisfy the type-preserving rule in §8.1.3[9]. Missing or mismatched annotations trigger E08-020/E08-021.
 
-[32] Evaluation: evaluate `lhs`, then apply each stage sequentially, using the result of one as the argument to the next. Grants accumulate across stages.
+[31] Evaluation is left-to-right: compute `lhs`, feed it into `stage_1`, feed the result into `stage_2`, and so on. The grant set is the union of `lhs`’s grants and all stage grants.
 
 #### §8.2.12 Diagnostics Summary
 
-| Code | Condition |
-| --- | --- |
-| E08-201 | Integer literal cannot fit target type |
-| E08-202 | Invalid character literal |
-| E08-210 | Identifier used before definite assignment |
-| E08-211 | Identifier does not denote a value |
-| E08-220 | Block missing `result` despite non-unit use |
-| E08-230 | Procedure call arity mismatch |
-| E08-231 | Receiver lacks required permission for method call |
-| E08-240 | Field access violates visibility |
-| E08-241 | Tuple projection index out of bounds |
-| E08-250 | Array/slice index out of range |
-| E08-251 | Slice bounds invalid |
-| E08-260 | Address-of applied to non-storage expression |
-| E08-020 | Pipeline stage omitted type whilst changing type |
+| Code    | Condition                                              |
+| ------- | ------------------------------------------------------ |
+| E08-201 | Integer literal cannot fit target type                 |
+| E08-202 | Invalid character literal                              |
+| E08-210 | Identifier used before definite assignment             |
+| E08-211 | Identifier resolves to non-value entity                |
+| E08-220 | Block producing non-unit value without `result`        |
+| E08-230 | Procedure call arity mismatch                          |
+| E08-231 | Procedure call has extra arguments                     |
+| E08-232 | Method receiver lacks required permission              |
+| E08-233 | Method receiver has incompatible type                  |
+| E08-240 | Field access violates visibility                       |
+| E08-241 | Tuple projection index out of range                    |
+| E08-250 | Array/slice index out of range                         |
+| E08-251 | Slice bounds invalid                                   |
+| E08-260 | Address-of applied to non-place expression             |
+| E08-020 | Pipeline stage omitted type while changing type        |
 | E08-021 | Pipeline stage annotation disagrees with inferred type |
 
 #### §8.2.13 Canonical Example
 
-**Example 8.2.13.1 (Composed primaries and pipelines).**
-
 ```cursive
-use io::write
+let payload: string@Owned \/ ParseError = raw
+    => trim
+    => parse: Ast \/ ParseError
+    => render: string@Owned \/ ParseError
 
-procedure summarize(target: mut Record, raw: string@View): ()
-    {| io::write, io::read |- raw.len() > 0 => target.last_report.is_some() |}
-{
-    let report: Result<string@Owned, Error> = raw
-        => trim                            // type preserved, annotation omitted
-        => parse: Result<Request, Error>   // type changes, annotation required
-        => render: Result<string@Owned, Error>
-
-    match report {
-        Result::Ok(text) => {
-            target.last_report = Option::Some(text.clone())
-            io::write(text)
-        }
-        Result::Err(err) => io::write(err.message()),
-    }
+match payload {
+    html: string@Owned => io::write(html),
+    err: ParseError => log::error(err.message()),
 }
 ```
 
-[33] This example demonstrates literals, block expressions with explicit `result`, method calls with receiver permissions, field access (`target.last_report`), and the pipeline annotation rule. The enclosing procedure’s `uses` clause lists both `io::write` (intrinsic) and `io::read` (introduced by `parse`).
+[32] This example demonstrates literal strings, pipelines with mandatory annotation on the type-changing stage, field access on union types, and pattern matching (detailed further in §8.5). The pipeline's grant set is the union of the individual stage grants, ensuring the enclosing procedure's grants clause (in its contractual sequent) is explicit.
 
 ---

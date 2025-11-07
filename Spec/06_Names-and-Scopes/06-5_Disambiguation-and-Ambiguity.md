@@ -1,4 +1,5 @@
 # Cursive Language Specification
+
 ## Clause 6 — Names, Scopes, and Resolution
 
 **Clause**: 6 — Names, Scopes, and Resolution
@@ -51,12 +52,13 @@
 #### §6.5.5 Examples (Informative) [name.ambiguity.examples]
 
 **Example 6.5.5.1 (Ambiguous imports requiring qualification):**
-```cursive
+
+````cursive
 use lib_a::process
 use lib_b::process  // Same identifier imported twice
 
 procedure run()
-    {| |- true => true |}
+    [[ |- true => true ]]
 {
     // ERROR E06-400: ambiguous identifier 'process'
     // Candidates: lib_a::process, lib_b::process
@@ -77,7 +79,8 @@ use math::analytics::area as analytics_area
 
 let a = area(5.0)             // OK: geometry::area
 let b = analytics_area(5.0)   // OK: analytics::area via alias
-```
+````
+
 ```
 
 #### §6.5.6 Conformance Requirements [name.ambiguity.requirements]
@@ -87,3 +90,4 @@ let b = analytics_area(5.0)   // OK: analytics::area via alias
 [12] Implementations shall honour programmer disambiguation by recomputing lookup after qualification, aliasing, or scope changes and shall not cache the prior ambiguous state.
 
 [13] Implementations shall not attempt heuristic tie-breaking; if multiple candidates remain after all deterministic steps, the program is ill-formed until the programmer resolves the ambiguity.
+```

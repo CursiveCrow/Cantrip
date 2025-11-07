@@ -6,7 +6,7 @@
 **File**: 07-4_Function-Types.md
 **Section**: 7.4 Function Types (Callable Types)  
 **Stable label**: [type.function]  
-**Forward references**: §7.5 [type.pointer], §7.6 [type.relation], Clause 8 [expr], Clause 9 [stmt], Clause 11 [generic], Clause 12 [memory], Clause 13 [contract], Clause 14 [witness]
+**Forward references**: §7.5 [type.pointer], §7.7 [type.relation], Clause 8 [expr], Clause 9 [stmt], Clause 10 [generic], Clause 11 [memory], Clause 12 [contract], Clause 13 [witness]
 
 ---
 
@@ -14,7 +14,7 @@
 
 [1] Function types (also called callable types) describe procedure declarations. They record parameter types, return type, required grants, and contractual sequents. Callable types carry this information wherever they appear (variable bindings, record fields, generic arguments), ensuring that higher-order programming preserves grant and contract obligations.
 
-[2] Cursive uses a single arrow `->` for all callable types. Purity is indicated by an empty grant set and the trivial contractual sequent `{| |- true => true |}`. Effectful callables list their grants explicitly. Procedures with receivers desugar to ordinary callable types whose first parameter is the receiver pointer annotated with the appropriate permission (§7.4.3.4).
+[2] Cursive uses a single arrow `->` for all callable types. Purity is indicated by an empty grant set and the trivial contractual sequent `[[ |- true => true ]]`. Effectful callables list their grants explicitly. Procedures with receivers desugar to ordinary callable types whose first parameter is the receiver pointer annotated with the appropriate permission (§7.4.3.4).
 
 #### §7.4.1 Syntax [type.function.syntax]
 
@@ -24,17 +24,20 @@
 FunctionType   ::= '(' ParamTypes? ')' '->' Type GrantClause? SequentClause?
 ParamTypes     ::= Type (',' Type)*
 GrantClause    ::= '!' GrantSet
-SequentClause  ::= '{|' SequentBody '|}'
-SequentBody    ::= '|' '-' MustClause '=>' WillClause
+SequentClause  ::= '[[' SequentBody ']]'
+SequentBody    ::= '|-' MustClause '=>' WillClause
 MustClause     ::= PredicateExpr (',' PredicateExpr)* | 'true'
 WillClause     ::= PredicateExpr (',' PredicateExpr)* | 'true'
 ```
 
-[4] An omitted `GrantClause` denotes the empty grant set. An omitted `SequentClause` is equivalent to `{| |- true => true |}`. Parameters may be absent (`()`), yielding a nullary callable. Tuples are used to encode variadic parameters after desugaring (§9.3).
+[ Note: The token `|-` is the ASCII representation of the mathematical turnstile symbol `⊢` (U+22A2). Lexers shall recognize `|-` as a single two-character token used exclusively in contractual sequents. This ensures the sequent syntax `[[ grants |- must => will ]]` is parsed consistently.
+— end note ]
+
+[4] An omitted `GrantClause` denotes the empty grant set. An omitted `SequentClause` is equivalent to `[[ |- true => true ]]`. Parameters may be absent (`()`), yielding a nullary callable. Tuples are used to encode variadic parameters after desugaring (§9.3).
 
 #### §7.4.2 Formation Rules [type.function.formation]
 
-[5] Callable types are well-formed when each parameter and the result type are well-formed, the grant set is valid (§13.2), and the contractual sequent predicates are type-correct:
+[5] Callable types are well-formed when each parameter and the result type are well-formed, the grant set is valid (§12.2), and the contractual sequent predicates are type-correct:
 
 $$
 \dfrac{\Gamma \vdash \tau_1 : \text{Type} \; \cdots \; \Gamma \vdash \tau_n : \text{Type} \quad \Gamma \vdash \tau_{\text{ret}} : \text{Type} \quad \varepsilon \text{ valid}}{\Gamma \vdash (\tau_1, \ldots, \tau_n) \to \tau_{\text{ret}} ! \varepsilon : \text{Type}}
@@ -44,13 +47,13 @@ $$
 [6] Contractual sequents must be well-formed under the same environment:
 
 $$
-\dfrac{\Gamma \vdash \text{Must predicates valid} \quad \Gamma \vdash \text{Will predicates valid}}{\Gamma \vdash \{|
+\dfrac{\Gamma \vdash \text{Must predicates valid} \quad \Gamma \vdash \text{Will predicates valid}}{\Gamma \vdash \[[
 |-\, \text{Must} => \text{Will} |
 \}\text{ ok}}
 \tag{WF-Sequent}
 $$
 
-[7] Callable literals (closures) and declarations are checked against these types. Generic callable types follow §11.2; grant parameters (if any) are handled via contractual sequent quantification (§13.4).
+[7] Callable literals (closures) and declarations are checked against these types. Generic callable types follow §10.2; grant parameters (if any) are handled via contractual sequent quantification (§12.4).
 
 #### §7.4.3 Semantics [type.function.semantics]
 
@@ -70,12 +73,12 @@ The environment record layout follows §8.6; it is a nominal record whose fields
 
 ##### §7.4.3.3 Contracts [type.function.semantics.contract]
 
-[10] The contractual sequent `{| |- must => will |}` is interpreted as follows:
+[10] The contractual sequent `[[ |- must => will ]]` is interpreted as follows:
 
-- `must` predicates describe caller obligations. At a call site, the type checker verifies these predicates under the caller’s context.
+- `must` predicates describe caller obligations. At a call site, the type checker verifies these predicates under the caller's context.
 - `will` predicates describe callee guarantees. After a call, these predicates may be assumed by the caller.
 
-Logical implication in subtyping (§7.4.3.5) relies on Clause 13’s contract entailment rules.
+Logical implication in subtyping (§7.4.3.5) relies on Clause 12's contract entailment rules.
 
 ##### §7.4.3.4 Receivers [type.function.semantics.receiver]
 
@@ -94,9 +97,9 @@ When a procedure is treated as a first-class callable, that desugared `self` par
 [12] Callable types support the following subtyping rule:
 
 $$
-\dfrac{\forall i.\; \upsilon_i <: \tau_i \quad \tau_{\text{ret}} <: \upsilon_{\text{ret}} \quad \varepsilon \subseteq \varepsilon' \quad \text{Must}' \Rightarrow \text{Must} \quad \text{Will} \Rightarrow \text{Will}'}{(\tau_1, \ldots, \tau_n) \to \tau_{\text{ret}} ! \varepsilon \{|
+\dfrac{\forall i.\; \upsilon_i <: \tau_i \quad \tau_{\text{ret}} <: \upsilon_{\text{ret}} \quad \varepsilon \subseteq \varepsilon' \quad \text{Must}' \Rightarrow \text{Must} \quad \text{Will} \Rightarrow \text{Will}'}{(\tau_1, \ldots, \tau_n) \to \tau_{\text{ret}} ! \varepsilon \[[
 |-\, \text{Must} => \text{Will} |
-\} <: (\upsilon_1, \ldots, \upsilon_n) \to \upsilon_{\text{ret}} ! \varepsilon' \{|
+\} <: (\upsilon_1, \ldots, \upsilon_n) \to \upsilon_{\text{ret}} ! \varepsilon' \[[
 |-\, \text{Must}' => \text{Will}' |
 \}}
 \tag{Sub-Function}
@@ -123,8 +126,8 @@ $$
 
 **Table 7.4.1 — Callable type diagnostics**
 
-| Code      | Condition                                        |
-| --------- | ------------------------------------------------ |
+| Code    | Condition                                        |
+| ------- | ------------------------------------------------ |
 | E07-200 | Grant set contains undeclared grant              |
 | E07-201 | Sequent references undefined predicate           |
 | E07-202 | Call site lacks required grants                  |
@@ -141,23 +144,23 @@ Diagnostics reference Annex E §E.5 for payload structure (e.g., missing grant n
 
 ```cursive
 procedure add(lhs: i32, rhs: i32): i32
-    {| |- true => true |}
+    [[ |- true => true ]]
 { ... }
-// Type: (i32, i32) -> i32 ! ∅ {| |- true => true |}
+// Type: (i32, i32) -> i32 ! ∅ [[ |- true => true ]]
 
 procedure write_line(~%, text: string@View): ()
-    {| io::write |- text.len() < 4096 => true |}
+    [[ io::write |- text.len() < 4096 => true ]]
 {
     io::write_all(text)
 }
 // Type: (Ptr<Self>@Shared, string@View) -> () ! { io::write }
-//       {| |- text.len() < 4096 => true |}
+//       [[ |- text.len() < 4096 => true ]]
 ```
 
 [17] Closure literals adopt their inferred FunctionType. Example:
 
 ```cursive
-let scale: (f64) -> f64 = |value| {| |- true => true |} { result value * 2.0 }
+let scale: (f64) -> f64 = |value| [[ |- true => true ]] { result value * 2.0 }
 ```
 
 Closures capturing variables produce a synthesized record `_Closure_Scale` with fields for each capture and an apply function `_Closure_Scale::call(self@Const, value: f64)` matching the FunctionType.
@@ -170,7 +173,7 @@ Closures capturing variables produce a synthesized record `_Closure_Scale` with 
 
 ```cursive
 procedure map<T, U>(values: [T], f: (T) -> U ! ε): [U]
-    {| ε |- values.len() > 0 => result.len() == values.len() |}
+    [[ ε |- values.len() > 0 => result.len() == values.len() ]]
 {
     let result = array::with_len(values.len())
     loop i in 0..values.len() {
@@ -184,10 +187,10 @@ procedure map<T, U>(values: [T], f: (T) -> U ! ε): [U]
 
 ```cursive
 procedure make_logger(stream: io::Writer@Unique): (string@View) -> () ! { io::write }
-    {| alloc::heap |- true => true |}
+    [[ alloc::heap |- true => true ]]
 {
     result (| message: string@View |)
-        {| io::write |- message.len() <= 1024 => true |}
+        [[ io::write |- message.len() <= 1024 => true ]]
     {
         stream.write(message)
     }
@@ -199,7 +202,7 @@ procedure make_logger(stream: io::Writer@Unique): (string@View) -> () ! { io::wr
 ```cursive
 let pure_add: (i32, i32) -> i32 = add
 let noisy_add: (i32, i32) -> i32 ! { io::write }
-    {| |- true => true |} = annotate(add)
+    [[ |- true => true ]] = annotate(add)
 // pure_add <: noisy_add because it requires no grants and has identical contract
 ```
 

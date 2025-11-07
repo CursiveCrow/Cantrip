@@ -1,4 +1,5 @@
 # Cursive Language Specification
+
 ## Annex A — Grammar
 
 **Part**: Annex
@@ -7,6 +8,7 @@
 **Forward references**: None
 
 ---
+
 This appendix is the single normative source for all Cursive grammar productions in ANTLR-style notation. Every other chapter references these productions instead of re-declaring them. For readability, individual clauses may use simplified notation, but this annex contains the complete, authoritative grammar suitable for parser generation.
 
 [ Note: This grammar uses ANTLR-style EBNF notation. For simplified notation used in prose, see individual clause grammar sections. The grammar here is suitable for direct use with ANTLR parser generators and similar tools.
@@ -1063,14 +1065,20 @@ contract_clause
     ;
 
 sequent_clause
-    : 'sequent' '{' sequent_spec '}'
+    : '[[' sequent_spec ']]'
     ;
 
 sequent_spec
-    : '[' grant_set ']' '|-' antecedent '=>' consequent
-    | '[' grant_set ']' '|-' antecedent
+    : grant_set '|-' antecedent '=>' consequent
+    | grant_set '|-' antecedent
+    | grant_set '|-' '=>' consequent
+    | grant_set '|-'
     | '|-' antecedent '=>' consequent
+    | '|-' antecedent '=>'
+    | '|-' '=>' consequent
+    | '|-' antecedent
     | antecedent '=>' consequent
+    | grant_set
     ;
 
 antecedent
@@ -1093,19 +1101,23 @@ assertion_list
 
 [ Note: Explanation:
 
-- `sequent_clause` — Unified contract specification in sequent calculus form
-- `sequent_spec` — The sequent proper: `[ε] ⊢ P ⇒ Q`
-  - `[ε]` — Grant context (capability assumptions)
+- `sequent_clause` — Contractual sequent in sequent calculus form, delimited by semantic brackets `⟦ ⟧` (Unicode U+27E6, U+27E7) or ASCII equivalent `[[ ]]`
+- `sequent_spec` — The sequent proper: `grants ⊢ P ⇒ Q`
+  - `grants` — Grant context (capability assumptions) as comma-separated list
   - `|-` — Turnstile (entailment), ASCII representation of `⊢`
   - `P` — Antecedent (preconditions)
   - `=>` — Implication, ASCII representation of `⇒`
   - `Q` — Consequent (postconditions)
-- Sequent components may be omitted:
-  - No grants: omit `[grant_set]` portion
-  - No preconditions: omit antecedent (or use `true`)
-  - No postconditions: omit `=> consequent` portion
+- Sequent components may be omitted with smart defaulting:
+  - Grant-only: `[[ io::write ]]` expands to `[[ io::write |- true => true ]]`
+  - Precondition-only: `[[ |- x > 0 ]]` expands to `[[ |- x > 0 => true ]]`
+  - Postcondition-only: `[[ |- => result > 0 ]]` expands to `[[ |- true => result > 0 ]]`
+  - No grants: `[[ |- P => Q ]]` or `[[ P => Q ]]` (turnstile optional if no grants)
+  - Pure function: entire sequent clause may be omitted, defaults to `[[ |- true => true ]]`
 
 Conjunction within antecedents and consequents uses explicit `&&` operator, not comma separation.
+
+The semantic brackets `⟦ ⟧` / `[[ ]]` are consistent with their use for type value sets (e.g., `⟦ bool ⟧ = {true, false}`) throughout this specification, creating a unified notation for formal semantic content.
 — end note ]
 
 [ Note: `assertion` is defined in Annex A §A.8.

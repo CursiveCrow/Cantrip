@@ -1,11 +1,12 @@
 # Cursive Language Specification
+
 ## Clause 7 — Types
 
 **Part**: VII — Type System  
 **File**: 07-2_Primitive-Types.md
 **Section**: 7.2 Primitive Types  
 **Stable label**: [type.primitive]  
-**Forward references**: §7.3 [type.composite], §7.4 [type.function], §7.5 [type.pointer], §7.6 [type.relation], §8.4 [expr.structured], §8.5 [expr.operator], Clause 11 [generic], Clause 12 [memory]
+**Forward references**: §7.3 [type.composite], §7.4 [type.function], §7.5 [type.pointer], §7.7 [type.relation], §8.4 [expr.structured], §8.3 [expr.operator], Clause 10 [generic], Clause 11 [memory]
 
 ---
 
@@ -16,10 +17,11 @@
 [2] Cursive provides six primitive categories: integer types (§7.2.2), floating-point types (§7.2.3), the boolean type (§7.2.4), the character type (§7.2.5), the unit type (§7.2.6), and the never type (§7.2.7). All primitive types satisfy the `Copy` predicate (§11.4) and impose no ownership obligations beyond those of their containing bindings.
 
 [3] Primitive types integrate with other language components as follows:
-- **Expressions** (§8.4–§8.6) evaluate primitive literals, arithmetic, and logical operators.
-- **Generics** (§11) permit primitive types as actual arguments and support specialization.
-- **Memory model** (§12) defines layout, alignment, and region interactions for primitive values.
-- **Contracts and predicates** (§13, §11.4) use primitive types in preconditions and grants without additional witness requirements.
+
+- **Expressions** (§8.2–§8.6) evaluate primitive literals, arithmetic, and logical operators.
+- **Generics** (Clause 10) permit primitive types as actual arguments and support specialization.
+- **Memory model** (Clause 11) defines layout, alignment, and region interactions for primitive values.
+- **Contracts and predicates** (Clause 12, §10.4) use primitive types in preconditions and grants without additional witness requirements.
 
 #### §7.2.1 Syntax [type.primitive.syntax]
 
@@ -53,22 +55,22 @@ FloatType     ::= "f32" | "f64"
 
 **Table 7.2.1 — Integer type ranges and layout**
 
-| Type | Value set $\llbracket T \rrbracket$ | Minimum | Maximum | Size | Alignment |
-|------|--------------------------------------|---------|---------|------|-----------|
-| `i8` | $\mathbb{Z} \cap [-2^7, 2^7-1]$ | −128 | 127 | 1 byte | 1 byte |
-| `i16` | $\mathbb{Z} \cap [-2^{15}, 2^{15}-1]$ | −32,768 | 32,767 | 2 bytes | 2 bytes |
-| `i32` | $\mathbb{Z} \cap [-2^{31}, 2^{31}-1]$ | −2,147,483,648 | 2,147,483,647 | 4 bytes | 4 bytes |
-| `i64` | $\mathbb{Z} \cap [-2^{63}, 2^{63}-1]$ | −9,223,372,036,854,775,808 | 9,223,372,036,854,775,807 | 8 bytes | 8 bytes |
-| `i128` | $\mathbb{Z} \cap [-2^{127}, 2^{127}-1]$ | −$2^{127}$ | $2^{127}-1$ | 16 bytes | 8 or 16 bytes* |
-| `isize` | $\mathbb{Z} \cap [-2^{n-1}, 2^{n-1}-1]$ | platform | platform | $n/8$ bytes | $n/8$ bytes |
-| `u8` | $\mathbb{N} \cap [0, 2^8-1]$ | 0 | 255 | 1 byte | 1 byte |
-| `u16` | $\mathbb{N} \cap [0, 2^{16}-1]$ | 0 | 65,535 | 2 bytes | 2 bytes |
-| `u32` | $\mathbb{N} \cap [0, 2^{32}-1]$ | 0 | 4,294,967,295 | 4 bytes | 4 bytes |
-| `u64` | $\mathbb{N} \cap [0, 2^{64}-1]$ | 0 | 18,446,744,073,709,551,615 | 8 bytes | 8 bytes |
-| `u128` | $\mathbb{N} \cap [0, 2^{128}-1]$ | 0 | $2^{128}-1$ | 16 bytes | 8 or 16 bytes* |
-| `usize` | $\mathbb{N} \cap [0, 2^{n}-1]$ | 0 | platform | $n/8$ bytes | $n/8$ bytes |
+| Type    | Value set $\llbracket T \rrbracket$     | Minimum                    | Maximum                    | Size        | Alignment       |
+| ------- | --------------------------------------- | -------------------------- | -------------------------- | ----------- | --------------- |
+| `i8`    | $\mathbb{Z} \cap [-2^7, 2^7-1]$         | −128                       | 127                        | 1 byte      | 1 byte          |
+| `i16`   | $\mathbb{Z} \cap [-2^{15}, 2^{15}-1]$   | −32,768                    | 32,767                     | 2 bytes     | 2 bytes         |
+| `i32`   | $\mathbb{Z} \cap [-2^{31}, 2^{31}-1]$   | −2,147,483,648             | 2,147,483,647              | 4 bytes     | 4 bytes         |
+| `i64`   | $\mathbb{Z} \cap [-2^{63}, 2^{63}-1]$   | −9,223,372,036,854,775,808 | 9,223,372,036,854,775,807  | 8 bytes     | 8 bytes         |
+| `i128`  | $\mathbb{Z} \cap [-2^{127}, 2^{127}-1]$ | −$2^{127}$                 | $2^{127}-1$                | 16 bytes    | 8 or 16 bytes\* |
+| `isize` | $\mathbb{Z} \cap [-2^{n-1}, 2^{n-1}-1]$ | platform                   | platform                   | $n/8$ bytes | $n/8$ bytes     |
+| `u8`    | $\mathbb{N} \cap [0, 2^8-1]$            | 0                          | 255                        | 1 byte      | 1 byte          |
+| `u16`   | $\mathbb{N} \cap [0, 2^{16}-1]$         | 0                          | 65,535                     | 2 bytes     | 2 bytes         |
+| `u32`   | $\mathbb{N} \cap [0, 2^{32}-1]$         | 0                          | 4,294,967,295              | 4 bytes     | 4 bytes         |
+| `u64`   | $\mathbb{N} \cap [0, 2^{64}-1]$         | 0                          | 18,446,744,073,709,551,615 | 8 bytes     | 8 bytes         |
+| `u128`  | $\mathbb{N} \cap [0, 2^{128}-1]$        | 0                          | $2^{128}-1$                | 16 bytes    | 8 or 16 bytes\* |
+| `usize` | $\mathbb{N} \cap [0, 2^{n}-1]$          | 0                          | platform                   | $n/8$ bytes | $n/8$ bytes     |
 
-*Implementations shall document whether 128-bit integers align to 8 or 16 bytes.
+\*Implementations shall document whether 128-bit integers align to 8 or 16 bytes.
 
 [8] The pointer-width-dependent parameter $n$ equals 32 on 32-bit targets and 64 on 64-bit targets. Implementations targeting additional widths shall publish their alignment choices and conformance evidence.
 
@@ -96,6 +98,7 @@ $$
 [14] Arithmetic operators `+`, `-`, `*`, `/`, `%` are defined on matching integer operand types (§8.5.2). Overflow behaviour is determined by operator form (wrapping, checked, saturating, or panicking). Bitwise operators (`&`, `|`, `^`, `~`, shifts) require the operands to be integer types (§8.5.4–§8.5.5).
 
 [15] Integer-to-integer conversions follow these rules:
+
 - Widening conversions (e.g., `u16` → `u32`, `i16` → `i32`) are implicit when required by the typing rules of §8, otherwise explicit via `as`.
 - Narrowing conversions require `as` and shall diagnose potential data loss at compile time when the source expression is constant and out of range.
 - Conversions between signed and unsigned integers are implementation-defined only with respect to wraparound; explicit casts define the bit interpretation as specified in §8.5.7.
@@ -103,8 +106,9 @@ $$
 ##### §7.2.2.6 Diagnostic Requirements [type.primitive.int.diagnostics]
 
 [16] Implementations shall emit at least the following diagnostics:
-- **E2009** — Invalid separator placement or literal out of range (§2.3.3).
-- **E2010** — Invalid escape sequence inside numeric literal (§2.3.3).
+
+- **E02-206** — Invalid separator placement or literal out of range (§2.3.3).
+- **E02-201** — Invalid escape sequence in numeric literal (§2.3.3).
 - **E07-100** — Constant folding overflow (Clause 8 diagnostic catalog).
 - **E07-101** — Division or remainder by zero detected statically (§8.5.2).
 
@@ -122,6 +126,7 @@ Integer moves are bitwise copies governed by the permission of the enclosing pla
 ##### §7.2.2.8 Examples (Informative)
 
 **Example 7.2.2.1 (Literal forms):**
+
 ```cursive
 let decimal: const i32 = 1_000_000
 let hex: const u32 = 0xFF00_FF00
@@ -131,6 +136,7 @@ let suffixed = 42usize
 ```
 
 **Example 7.2.2.2 (Contextual typing and casts):**
+
 ```cursive
 let timer: const u64 = 1_000          // literal widened from default i32
 let pages: const u16 = 4096u16        // suffix ensures exact type
@@ -149,10 +155,10 @@ let bits = (timer as u128) << 8
 
 **Table 7.2.2 — Floating-point properties**
 
-| Type | IEEE 754 name | Size | Alignment | Significand bits | Exponent range |
-|------|---------------|------|-----------|------------------|----------------|
-| `f32` | binary32 | 4 bytes | 4 bytes | 24 | −126 to +127 |
-| `f64` | binary64 | 8 bytes | 8 bytes | 53 | −1022 to +1023 |
+| Type  | IEEE 754 name | Size    | Alignment | Significand bits | Exponent range |
+| ----- | ------------- | ------- | --------- | ---------------- | -------------- |
+| `f32` | binary32      | 4 bytes | 4 bytes   | 24               | −126 to +127   |
+| `f64` | binary64      | 8 bytes | 8 bytes   | 53               | −1022 to +1023 |
 
 [19] Floating-point storage format matches the IEEE encoding. Implementations shall specify whether subnormals are flushed to zero; deviations render the implementation non-conforming.
 
@@ -176,8 +182,9 @@ $$
 ##### §7.2.3.6 Diagnostic Requirements [type.primitive.float.diagnostics]
 
 [23] Diagnostics include:
-- **E2007** — Unterminated floating literal (§2.3, Annex E §E.5 diagnostics).
-- **E2009** — Literal out of range for chosen suffix (Annex E §E.5).
+
+- **E02-204** — Unterminated floating literal (§2.3, Annex E §E.5 diagnostics).
+- **E02-212** — Literal out of range for chosen suffix (Annex E §E.5).
 - **E07-102** — Invalid literal suffix (Annex E §E.5).
 - **E07-103** — Constant folding overflow or division by zero at compile time (Annex E §E.5).
 
@@ -191,6 +198,7 @@ $$
 ##### §7.2.3.8 Examples (Informative)
 
 **Example 7.2.3.1 (Special values):**
+
 ```cursive
 let pos_inf: const f64 = 1.0 / 0.0
 let neg_inf: const f64 = -1.0 / 0.0
@@ -199,6 +207,7 @@ let signed_zero = (1.0 / pos_inf, 1.0 / neg_inf)  // (+0.0, -0.0)
 ```
 
 **Example 7.2.3.2 (Precision considerations):**
+
 ```cursive
 let delta64 = (0.1 + 0.2) - 0.3          // ≈ 5.551e-17
 let delta32 = (0.1f32 + 0.2f32) - 0.3f32 // ≈ 5.960e-08
@@ -221,15 +230,15 @@ $$
 
 $$
 \dfrac{}{\Gamma \vdash true : bool}
-\tag{Type-Bool-True}
+\tag{T-Bool-True}
 $$
 
 $$
 \dfrac{}{\Gamma \vdash false : bool}
-\tag{Type-Bool-False}
+\tag{T-Bool-False}
 $$
 
-[25] `bool` literal tokens are `true` and `false`. No other tokens implicitly convert to `bool`; conversions must use explicit tests.
+[25] `bool` literal tokens are `true` and `false`. No other tokens implicitly convert to `bool`; conversions shall use explicit tests.
 
 ##### §7.2.4.3 Semantics
 
@@ -268,25 +277,25 @@ $$
 
 $$
 \dfrac{c \in \text{ScalarValues}}{\Gamma \vdash c : char}
-\tag{Type-Char-Lit}
+\tag{T-Char-Lit}
 $$
 
 [29] Character literals use single quotes and may include escape sequences listed in Table 7.2.3.
 
 **Table 7.2.3 — Character literal escapes**
 
-| Escape | Meaning | Unicode |
-|--------|---------|---------|
-| `\n` | Line feed | U+000A |
-| `\r` | Carriage return | U+000D |
-| `\t` | Horizontal tab | U+0009 |
-| `\\` | Backslash | U+005C |
-| `\'` | Single quote | U+0027 |
-| `\"` | Double quote | U+0022 |
-| `\0` | Null | U+0000 |
-| `\u{HHHH}` | Unicode scalar (1–6 hex digits) | U+HHHH |
+| Escape     | Meaning                         | Unicode |
+| ---------- | ------------------------------- | ------- |
+| `\n`       | Line feed                       | U+000A  |
+| `\r`       | Carriage return                 | U+000D  |
+| `\t`       | Horizontal tab                  | U+0009  |
+| `\\`       | Backslash                       | U+005C  |
+| `\'`       | Single quote                    | U+0027  |
+| `\"`       | Double quote                    | U+0022  |
+| `\0`       | Null                            | U+0000  |
+| `\u{HHHH}` | Unicode scalar (1–6 hex digits) | U+HHHH  |
 
-[30] Surrogates trigger diagnostic E07-106. Literals must denote exactly one scalar value.
+[30] Surrogates trigger diagnostic E07-106. Literals shall denote exactly one scalar value.
 
 ##### §7.2.5.3 Semantics
 
@@ -321,7 +330,7 @@ $$
 
 $$
 \dfrac{}{\Gamma \vdash () : ()}
-\tag{Type-Unit-Lit}
+\tag{T-Unit-Lit}
 $$
 
 [33] `sizeof(()) = 0`, `alignof(()) = 1`. No storage is allocated for unit values; they may be freely elided.
@@ -335,7 +344,7 @@ $$
 
 ```cursive
 procedure log_event(event: string)
-    {| io::write |- true => () |}
+    [[ io::write |- true => () ]]
 {
     println("event: {}", event)
 }
@@ -367,13 +376,13 @@ $$
 
 ```cursive
 procedure fatal(error: string): !
-    {| diag::panic |- true => false |}
+    [[ diag::panic |- true => false ]]
 {
     panic(error)
 }
 
 procedure compute_or_exit(code: i32): i32
-    {| process::exit |- true => true |}
+    [[ process::exit |- true => true ]]
 {
     if code >= 0 {
         result code
@@ -387,14 +396,14 @@ procedure compute_or_exit(code: i32): i32
 
 #### §7.2.8 Summary of Copy Predicates [type.primitive.copy]
 
-| Type | Copy predicate |
-|------|----------------|
-| `IntegerTypes` | `T : Copy` (Prop-Int-Copy) |
-| `f32`, `f64` | `T : Copy` (Prop-Float-Copy) |
-| `bool` | Prop-Bool-Copy |
-| `char` | Prop-Char-Copy |
-| `()` | Prop-Unit-Copy |
-| `!` | Vacuously `Copy` |
+| Type           | Copy predicate               |
+| -------------- | ---------------------------- |
+| `IntegerTypes` | `T : Copy` (Prop-Int-Copy)   |
+| `f32`, `f64`   | `T : Copy` (Prop-Float-Copy) |
+| `bool`         | Prop-Bool-Copy               |
+| `char`         | Prop-Char-Copy               |
+| `()`           | Prop-Unit-Copy               |
+| `!`            | Vacuously `Copy`             |
 
 All primitive types are therefore movable without consuming permissions.
 
@@ -403,7 +412,7 @@ All primitive types are therefore movable without consuming permissions.
 [36] A conforming implementation shall:
 
 - Support every primitive type enumerated in paragraph [2] with the sizes, alignments, and value sets in §§7.2.2–7.2.7.
-- Honour two-phase typing and inference: primitive literals must type-check using the rules in this subclause without requiring speculative rewriting.
+- Honour two-phase typing and inference: primitive literals shall type-check using the rules in this subclause without requiring speculative rewriting.
 - Emit diagnostics listed in the corresponding subsections when literals or operations violate constraints.
 - Expose primitive type metadata (size, alignment, name) through introspection facilities (§7.7.2) consistent with this clause.
 - Prevent user programs from redeclaring primitive identifiers or altering their semantics.

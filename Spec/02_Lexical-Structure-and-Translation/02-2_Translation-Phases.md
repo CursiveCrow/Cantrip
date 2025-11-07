@@ -37,9 +37,9 @@ phase_pipeline
 
 [1] _Phase ordering._ Implementations shall execute phases strictly in the order defined by `phase_pipeline`. A phase that emits a diagnostic with severity _error_ shall terminate the pipeline for the affected compilation unit; later phases shall not observe partially processed artefacts.
 
-[1.1] _Parsing boundary._ Parsing shall complete (successfully or with diagnostics) **before** compile-time execution begins. Subsequent phases are prohibited from mutating the parse tree in ways that would invalidate the recorded declaration inventory; they may annotate the tree with semantic metadata only.
+(1.1) _Parsing boundary._ Parsing shall complete (successfully or with diagnostics) **before** compile-time execution begins. Subsequent phases are prohibited from mutating the parse tree in ways that would invalidate the recorded declaration inventory; they may annotate the tree with semantic metadata only.
 
-[1.2] _Type-checking gate._ Type checking shall complete (successfully or with diagnostics) **before** code generation begins. Generated code is therefore guaranteed to correspond to a well-typed program that satisfies all permission, effect, and contract requirements available at that point in the pipeline.
+(1.2) _Type-checking gate._ Type checking shall complete (successfully or with diagnostics) **before** code generation begins. Generated code is therefore guaranteed to correspond to a well-typed program that satisfies all permission, effect, and contract requirements available at that point in the pipeline.
 
 [2] _Determinism._ The observable results of a phase (diagnostics, generated declarations, lowered IR) shall be deterministic with respect to the input compilation unit and compilation configuration.
 
@@ -53,9 +53,10 @@ phase_pipeline
 | String size            | 1 MiB                       | E02-104    |
 | Collection cardinality | 10,000 elements             | E02-105    |
 
-[4] _Grant safety._ Comptime execution shall refuse any grant that is not listed in the `uses` clause of the executing item. Runtime-only capabilities (for example `fs.read` or `net.send`) are forbidden and shall raise diagnostic E02-106.
+[4] _Grant safety._ Comptime execution shall refuse any grant that is not listed in the grants clause of the executing item's contractual sequent. Runtime-only capabilities (for example `fs.read` or `net.send`) are forbidden and shall raise diagnostic E02-106.
 
-[ Note: TODO — Clause 10 will supply the formal syntax for declaring `uses` clauses on `comptime` blocks and const procedures. Until that clause is complete, this requirement captures the intended behavior but does not yet have concrete surface syntax. — end note ]
+[ Note: Clause 12 (Contracts) will provide the complete specification for contractual sequents and grants clauses. The requirement stated here ensures that comptime blocks declare their capability requirements explicitly through the same sequent mechanism used by procedures.
+— end note ]
 
 [5] _Generated symbol hygiene._ Code generation shall ensure that generated declarations do not collide with declarations already present in the AST. Name collisions shall be diagnosed as E02-107.
 
@@ -83,7 +84,7 @@ phase_pipeline
 
 [1] The type-checking phase resolves names, validates type constraints, enforces effect clauses, and checks contracts. Because parsing has already recorded every declaration, name resolution always observes a complete declaration inventory.
 
-[1.1] [ Note: Module scope formation (§4.3 [module.scope]) occurs during this phase, before name lookup. Wildcard imports (`use module::*`) expand at scope-formation time, after parsing has completed for all modules in the dependency graph. This ensures that the set of exported items is stable before expansion proceeds. — end note ]
+(1.1) [ Note: Module scope formation (§4.3 [module.scope]) occurs during this phase, before name lookup. Wildcard imports (`use module::*`) expand at scope-formation time, after parsing has completed for all modules in the dependency graph. This ensures that the set of exported items is stable before expansion proceeds. — end note ]
 
 [2] Permission checks, modal verification, and contract evaluation are delegated to their respective clauses (memory model, modals, contracts) but are orchestrated from this phase to guarantee that only semantically sound programs proceed to code generation and lowering.
 
@@ -115,7 +116,7 @@ comptime {
 }
 
 public procedure create_buffer(): Buffer
-    {| |- true => true |}
+    [[ |- true => true ]]
 {
     result Buffer { data: make_zeroes(len: BUFFER_SIZE) }
 }

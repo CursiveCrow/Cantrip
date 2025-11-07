@@ -100,7 +100,7 @@ public use stats::{mean, median as middle_value}
 public record Report { values: [f64] }
 
 public procedure summarize(report: Report): ReportSummary
-    {| |- true => true |}
+    [[ |- true => true ]]
 {
     result ReportSummary {
         mean: mean(report.values),
@@ -126,7 +126,7 @@ public use backend::connection_pool  // error[E04-204] if `connection_pool` is n
 ```cursive
 // module math::geometry
 public procedure area(circle: Circle): f64
-    {| |- true => true |}
+    [[ |- true => true ]]
 { ... }
 
 import math::legacy as legacy

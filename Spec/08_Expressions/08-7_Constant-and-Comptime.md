@@ -2,11 +2,11 @@
 
 ## Clause 8 — Expressions
 
-**Clause**: 8 — Expressions
+**Clause**: 8 — Expressions  
 **File**: 08-7_Constant-and-Comptime.md  
 **Section**: §8.7 Constant Expressions and Comptime Contexts  
 **Stable label**: [expr.constant]  
-**Forward references**: Clause 2 §2.2 [lex.phases], Clause 5 §5.2 [decl.variable], Clause 10 [comptime], Clause 11 [generic]
+**Forward references**: Clause 2 §2.2 [lex.phases], Clause 5 §5.2 [decl.variable], Clause 16 [comptime], Clause 10 [generic]
 
 ---
 
@@ -14,51 +14,55 @@
 
 #### §8.7.1 Overview
 
-[1] Constant expressions are those evaluable during translation. They appear in `const` bindings, array lengths, enum discriminants, attribute arguments, and `comptime` blocks. This subclause defines the admissible constructs inside const contexts and the grant restrictions that apply during compile-time execution.
+[1] Constant expressions are those evaluable during the translation phases (§2.2). They appear in `const` bindings, array lengths, enum discriminants, attribute arguments, and `comptime` blocks. This subclause defines the admissible constructs inside const contexts, the grants permitted during compile-time execution, and the diagnostics for violations.
 
-#### §8.7.2 Const Requirements
+#### §8.7.2 Const contexts
 
-[2] An expression context requires const evaluation when:
+[2] An expression is required to be constant when:
 
-- It appears in a `const` or `static` binding (§5.2).
-- It determines a type-level parameter (array length `[T; n]`, repeat literal `[value; n]`).
-- It occurs inside a `comptime { … }` block (Clause 10).
-- It provides default values for const generic parameters (§11).
+- It belongs to a `const`/`static` binding (§5.2).
+- It appears in a position that influences type formation (array length `[T; n]`, repeat literal `[value; n]`, const generic argument).
+- It occurs inside `comptime { … }` (§8.7.3) or within a `comptime procedure` body (Clause 10).
+- It supplies default values for const generic parameters (Clause 11).
 
 [3] Const expressions may contain:
 
 - Literals and literal operators.
-- Previously defined constants.
-- Pure `comptime procedure` invocations.
-- Non-capturing closures whose bodies meet these constraints.
-- `type_name`, `type_id`, and `type_info` queries (§7.8).
+- References to previously defined constants.
+- Calls to `comptime procedure`s whose grants are comptime-safe.
+- Non-capturing closures whose bodies obey these restrictions.
+- Type introspection intrinsics (`type_name`, `type_id`, `type_info`; Clause 7.8) provided their results remain compile-time data.
 
-[4] Disallowed constructs include heap allocation, IO, clock queries, pointer arithmetic on runtime pointers, and any call that requires a runtime-only grant. Using such constructs inside a const context produces diagnostic E08-700.
+[4] Disallowed constructs include: runtime IO, heap allocation, raw pointer arithmetic on runtime pointers, accesses to mutable statics, and any call that requires a runtime-only grant. Using such constructs inside const contexts emits E08-700.
 
-#### §8.7.3 Comptime Blocks
+#### §8.7.3 Comptime blocks
 
 [5] Grammar: `ComptimeExpr ::= 'comptime' Block` (Annex A §A.4.18).
 
-[6] Semantics: the block executes during the compile-time execution phase (§2.2) with its own scope. Bindings created inside the block vanish after evaluation; the block’s `result` expression becomes a literal embedded into the compiled program.
+[6] Semantics:
 
-[7] Grants: comptime blocks may only request grants whose names begin with `comptime.` (e.g., `comptime.alloc`, `comptime.codegen`). Attempting to use runtime grants such as `io.write` emits E08-701.
+- The block executes during the compile-time execution phase (§2.2). Its statements follow the same rules as runtime blocks but must obey the const restrictions above.
+- The block introduces a new lexical scope; bindings declared inside it do not leak to runtime.
+- The `result` expression becomes a literal embedded into the compiled program. If the block omits `result`, its type is `()` and the expression is useless—implementations may warn.
 
-[8] Diagnostics: any panic, overflow, or error encountered during comptime evaluation shall be reported as a compile-time error referencing both the comptime block and the offending expression.
+[7] Grants: comptime blocks may only request grants whose names begin with `comptime.` (e.g., `comptime.alloc`, `comptime.codegen`). Attempting to invoke a runtime grant (e.g., `io.write`) emits E08-701 identifying the offending effect.
 
-#### §8.7.4 Interaction with Generics
+[8] Error reporting: any panic or error encountered during comptime evaluation is reported at compile time with the original source span plus the enclosing `comptime` block span for context.
 
-[9] Const generic parameters may appear in expressions. During instantiation, each const parameter is substituted with a concrete value, after which the expression behaves like any other const expression. Type-level functions (`type_name`, `type_info`) may use const generics as long as they remain evaluable at compile time.
+#### §8.7.4 Interaction with generics
 
-#### §8.7.5 Diagnostics Summary
+[9] Const generics (Clause 11) substitute concrete values before const evaluation. Expressions referencing const parameters are therefore treated identically to literal constants once monomorphisation occurs. Type-level intrinsics (e.g., `type_name<T>()`) may appear inside comptime contexts as long as their results are assigned to const bindings or used as compile-time metadata.
+
+#### §8.7.5 Diagnostics
 
 | Code | Condition |
 | --- | --- |
-| E08-700 | Runtime-only construct used in const context |
+| E08-700 | Runtime-only construct used in const/comptime context |
 | E08-701 | Comptime block requested non-comptime grant |
 
-#### §8.7.6 Example
+#### §8.7.6 Canonical example
 
-```cursive
+````cursive
 const POWERS: [u32; 8] = comptime {
     let mut table = [0; 8]
     var i = 0
@@ -68,8 +72,8 @@ const POWERS: [u32; 8] = comptime {
     }
     result table
 }
-```
+````
 
-[10] The comptime block allocates a local array, fills it, and returns it. Because it uses only comptime-safe operations, it is valid for const evaluation.
+[10] The block executes at compile time, constructing an array literal without using any runtime-only grants.
 
 ---

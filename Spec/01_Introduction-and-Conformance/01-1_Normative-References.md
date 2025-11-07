@@ -1,11 +1,12 @@
 # Cursive Language Specification
+
 ## Clause 1 — Introduction and Conformance
 
 **Part**: I — Introduction and Conformance
 **File**: 01-1_Normative-References.md  
 **Section**: 1.2 Normative References  
 **Stable label**: [intro.refs]  
-**Forward references**: §1.5 [intro.conformance], §2.1 [lex.source], §2.3 [lex.tokens], §16.1 [interop.ffi], §16.6 [interop.abi], Annex G.1 [portability.platform]
+**Forward references**: §1.5 [intro.conformance], §2.1 [lex.source], §2.3 [lex.tokens], §15.1 [interop.ffi], §15.6 [interop.abi], Annex G.1 [portability.platform]
 
 ---
 
@@ -21,9 +22,9 @@
 
 [4] **ISO/IEC 10646:2020 — Information technology — Universal Coded Character Set (UCS).** Defines the character repertoire permitted in source text (§2.1 [lex.source]) and informs identifier classifications (§2.3 [lex.tokens]).
 
-[5] **ISO/IEC 60559:2020 (IEEE 754-2019) — Floating-Point Arithmetic.** Governs semantics for binary32 and binary64 arithmetic used throughout the numeric type definitions (§3.2 [basic.type]) and runtime semantics (§8.3 [expr.operator]).
+[5] **ISO/IEC 60559:2020 (IEEE 754-2019) — Floating-Point Arithmetic.** Governs semantics for binary32 and binary64 arithmetic used throughout the numeric type definitions (§3.2 [basic.type], §7.2 [type.primitive]) and runtime semantics (§8.3 [expr.operator]).
 
-[6] **ISO/IEC 9899:2018 / 2023 — Programming Languages — C.** The foreign-function interface (§16.1 [interop.ffi]) relies on C definitions of object representation, calling conventions, and variadic semantics.
+[6] **ISO/IEC 9899:2018 / 2023 — Programming Languages — C.** The foreign-function interface (§15.1 [interop.ffi]) relies on C definitions of object representation, calling conventions, and variadic semantics.
 
 [7] **ECMA-334 — C# Language Specification (current edition).** Cited solely for the cross-reference and documentation practices mirrored in §1.6 [intro.document].
 
@@ -39,9 +40,9 @@
 
 #### §1.2.3 Platform and ABI References [intro.refs.abi]
 
-[12] **System V Application Binary Interface** (generic and architecture supplements including AMD64 psABI and ARM AAPCS). These documents guide interoperability obligations in §16.6 [interop.abi] and Annex G [portability].
+[12] **System V Application Binary Interface** (generic and architecture supplements including AMD64 psABI and ARM AAPCS). These documents guide interoperability obligations in §15.6 [interop.abi] and Annex G [portability].
 
-[13] **Microsoft x64 Calling Convention** documentation. Required for conforming implementations targeting Windows platforms; referenced alongside other ABI requirements in §16.6 [interop.abi].
+[13] **Microsoft x64 Calling Convention** documentation. Required for conforming implementations targeting Windows platforms; referenced alongside other ABI requirements in §15.6 [interop.abi].
 
 #### §1.2.4 Availability and Access [intro.refs.access]
 

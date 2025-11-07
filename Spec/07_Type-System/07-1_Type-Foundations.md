@@ -6,7 +6,7 @@
 **File**: 07-1_Type-Foundations.md
 **Section**: §7.1 Type System Overview
 **Stable label**: [type.overview]  
-**Forward references**: §7.2 [type.primitive], §7.3 [type.composite], §7.4 [type.function], §7.5 [type.pointer], §7.6 [type.relation], §7.7 [type.introspection], Clause 8 [expr], Clause 11 [generic], Clause 12 [memory], Clause 13 [contract], Clause 14 [witness]
+**Forward references**: §7.2 [type.primitive], §7.3 [type.composite], §7.4 [type.function], §7.5 [type.pointer], §7.6 [type.modal], §7.7 [type.relation], §7.8 [type.introspection], Clause 8 [expr], Clause 10 [generic], Clause 11 [memory], Clause 12 [contract], Clause 13 [witness]
 
 ---
 
@@ -43,18 +43,58 @@
 
 [6] Each family subclause follows the standard structure (overview → syntax → constraints → semantics → examples) mandated by SpecificationOnboarding.md. Concrete grammars for individual constructors appear in their respective subclauses; §7.1 provides only categorical organization.
 
-#### §7.1.3 Typing Judgments and Notation [type.overview.judgments]
+#### §7.1.3 Permission-Qualified Types [type.overview.permissions]
+
+[6.1] **Syntax.** Permission qualifiers attach to types at the binding site, following the grammar:
+
+```ebnf
+variable_binding
+    ::= binding_head identifier ":" permission? type_expression "=" expression
+
+permission
+    ::= "const"
+     | "shared"
+     | "unique"
+```
+
+[ Note: See Annex A §A.7 [grammar.declaration] for complete binding grammar.
+— end note ]
+
+[6.2] **Formation and Composition.** Permission qualifiers bind more tightly than modal state selectors. The syntax `unique Self@Open` is parsed as `(unique Self)@Open`, where `unique` modifies the base type `Self` and `@Open` selects the modal state variant of the permission-qualified type.
+
+[6.3] **Semantics.** Permission qualifiers determine what operations are permitted on values:
+
+- `const`: Read-only access, may be aliased freely
+- `shared`: Concurrent read access, requires synchronization for writes
+- `unique`: Exclusive mutable access, enforces uniqueness
+
+Permission semantics, the permission lattice (`unique <: shared <: const`), checking rules, and integration with the memory model are fully specified in §11.4 [memory.permission].
+
+[6.4] **Examples.**
+
+```cursive
+let immutable: const i32 = 42
+let concurrent: shared Buffer = get_shared_buffer()
+let exclusive: unique Handle = acquire_resource()
+
+// Permission composes with modal states
+procedure transition(file: unique FileHandle@Closed): FileHandle@Open
+    [[ fs::open |- true => true ]]
+{ ... }
+```
+
+#### §7.1.4 Typing Judgments and Notation [type.overview.judgments]
 
 [7] The core judgments reused throughout Clause 7 are:
 
 - $\Gamma \vdash \tau : \text{Type}$ — $\tau$ is a well-formed type under environment $\Gamma$.
 - $\Gamma \vdash e : \tau \; ! \varepsilon$ — expression $e$ has type $\tau$ and requires grant set $\varepsilon$.
-- $\tau_1 <: \tau_2$ — subtyping relation defined in §7.6 [type.relation].
-- $\tau_1 \simeq \tau_2$ — type equivalence relation that respects aliases and structural normalization (§7.6.3).
+- $\tau_1 <: \tau_2$ — subtyping relation defined in §7.7 [type.relation].
+- $\tau_1 \simeq \tau_2$ — type equivalence relation that respects aliases and structural normalization (§7.7.2).
 
-[8] Type environments bind term variables to types, type variables to kinds (with optional predicate bounds), grant parameters to grant sets, and modal parameters to state constraints. Environment formation and lookup rules follow §1.3 [intro.terms] conventions; §7.6 restates any additional obligations introduced by subtype or modal analysis.
+[8] Type environments bind term variables to types, type variables to kinds (with optional predicate bounds), grant parameters to grant sets, and modal parameters to state constraints. Environment formation and lookup rules follow §1.3 [intro.terms] conventions; §7.7 restates any additional obligations introduced by subtype or modal analysis.
 
-#### §7.1.4 Guarantees [type.overview.guarantees]
+#### §7.1.5 Guarantees [type.overview.guarantees]
 
 [9] A program that satisfies all typing, permission, and contract judgments shall not:
 
@@ -63,37 +103,104 @@
 - Invoke a procedure without possessing the grants named in its signature.
 - Transition a modal value to a state not permitted by its modal type.
 
-[10] Bidirectional inference is sound and complete with respect to the declarative typing rules stated in §§7.2–7.5. When local annotations are omitted, inference succeeds if and only if a unique principal type exists under the rules of this clause. Situations requiring programmer guidance (e.g., ambiguous unions or polymorphic recursion) shall elicit diagnostics that point to the relevant obligation.
+[10] Bidirectional inference is sound and complete with respect to the declarative typing rules stated in §§7.2–7.6. When local annotations are omitted, inference succeeds if and only if a unique principal type exists under the rules of this clause. Situations requiring programmer guidance (e.g., ambiguous unions or polymorphic recursion) shall elicit diagnostics that point to the relevant obligation.
 
-#### §7.1.5 Integration Points [type.overview.integration]
+#### §7.1.6 Integration Points [type.overview.integration]
 
 [11] Clause 7 interacts tightly with other parts of the specification:
 
-- **Expressions (§8)**: Expression forms consume and produce types; §8.8 links directly to the typing rules defined here.
-- **Generics (§11)**: Type parameters, bounds, and instantiation are defined in the generic system and referenced by each type constructor.
-- **Memory model (§12)**: Region annotations, permissions, and move semantics enrich pointer and composite types.
-- **Contracts and witnesses (§§13–14)**: Procedure types embed sequents; witness construction depends on type information to ensure modal and contract obligations are satisfied.
-- **Modules (§4)**: Type checking executes after module initialization, so exported declarations are fully defined (§4.6.7). Only `public` types may be referenced across module boundaries—referencing an internal type emits E04-700—and generic instantiations must supply type arguments that satisfy both visibility and grant requirements. Contract implementations attached to exported types shall succeed before the type becomes visible, and diagnostics that mention cross-module types SHALL include the module path in their payloads (Annex E §E.5).
+- **Expressions (Clause 8)**: Expression forms consume and produce types; §8.8 links directly to the typing rules defined here.
+- **Generics (Clause 10)**: Type parameters, bounds, and instantiation are defined in the generic system and referenced by each type constructor.
+- **Memory model (Clause 11)**: Region annotations, permissions, and move semantics enrich pointer and composite types.
+- **Contracts and witnesses (Clauses 12–13)**: Procedure types embed sequents; witness construction depends on type information to ensure modal and contract obligations are satisfied.
+- **Modules (Clause 4)**: Type checking executes after module initialization, so exported declarations are fully defined (§4.6.7). Only `public` types may be referenced across module boundaries—referencing an internal type emits E04-700—and generic instantiations must supply type arguments that satisfy both visibility and grant requirements. Contract implementations attached to exported types shall succeed before the type becomes visible, and diagnostics that mention cross-module types SHALL include the module path in their payloads (Annex E §E.5).
 
 [12] Annex A (§A.3) provides the consolidated grammar for all type forms. Annex C formalizes the typing judgments and proves progress/preservation theorems that rely on the rules introduced in this clause. Annex E supplies implementation guidance and diagnostic catalogs; the most relevant entries include definite-assignment checks, subtype cycle detection, and union exhaustiveness validation.
 
-#### §7.1.6 Integration with Memory Model [type.memory.integration]
+#### §7.1.7 Integration with Memory Model [type.memory.integration]
 
-[13] The type system integrates with the memory model to ensure memory safety without runtime overhead. Permission qualifiers (`const`, `shared`, `unique`) attached to types (§12.4) affect type formation and subtyping. A type `T` with permission `perm` forms the type `perm T`, which participates in the permission subtyping rules defined in Clause 12.
+[13] The type system integrates with the memory model to ensure memory safety without runtime overhead. Permission qualifiers (`const`, `shared`, `unique`) specified in bindings (§7.1.3) affect type formation and subtyping. A binding `name: perm T` associates the identifier with a permission-qualified type, which **shall** participate in the permission subtyping rules defined in §11.4 [memory.permission].
 
-[14] Permission annotations on pointer types (§7.5) determine what operations are permitted on the pointed-to value. The type system enforces that `const` pointers allow only read operations, `shared` pointers allow concurrent read access but require synchronization for writes, and `unique` pointers allow exclusive mutable access. Permission checking occurs during type checking (§2.2.4.3), ensuring that permission violations are caught at compile time.
+**Permission System Integration:**
 
-[15] Region annotations (`^T` for region-allocated types) affect type formation and lifetime analysis. Region-allocated types are associated with a specific region scope (§12.3), and the type system ensures that region-allocated values do not escape their region. Escape analysis (§7.5.3.2) uses type information to determine whether pointers can safely escape their allocation region.
+(13.1) Implementations **shall** enforce that permission-qualified types (`const T`, `shared T`, `unique T`) are well-formed only when:
 
-[16] Ownership semantics (§12.4) are reflected in the type system through move semantics and copy predicates. Types that implement the copy predicate (§7.5.4) can be copied; types without copy predicates must be moved. Type checking enforces move semantics by tracking ownership transfers through procedure calls and assignments, ensuring that moved values are not used after move.
+1. The base type `T` is well-formed under $\Gamma \vdash T : \text{Type}$
+2. The permission qualifier is compatible with the type's usage context
+3. Permission downgrades follow the lattice: `unique <: shared <: const` (see Clause 11)
 
-[17] Pointer types (§7.5) integrate closely with the memory model to ensure memory safety. Safe modal pointers (`Ptr<T>@State`) track pointer state through the type system, preventing use-after-free and null pointer dereferences. The type system enforces that pointer state transitions (§7.6) are valid according to the modal type system, null pointers (`Ptr<T>@Null`) cannot be dereferenced, and weak pointers (`Ptr<T>@Weak`) must be upgraded before use.
+(13.2) Permission checking **shall** occur during type checking (§2.2.4.3). Implementations **shall** reject programs that:
 
-[18] Composite types (§7.3) interact with the memory model to determine layout, alignment, and padding. Record types, tuple types, and array types all have memory layout requirements that affect field offsets, alignment, size calculations for stack and heap allocation, and ABI compatibility for interoperation (§16).
+- Attempt to mutate through `const` permissions (diagnostic defined in Clause 11)
+- Violate unique access requirements (diagnostic defined in Clause 11)
+- Create permission upgrades without explicit operations (diagnostic defined in Clause 11)
 
-[19] Generic types (§11) interact with the memory model through type parameters and bounds. Generic type parameters may carry permission or region annotations, affecting how the generic type is instantiated. When a generic type is instantiated, the memory model constraints from the type arguments are propagated to the instantiated type, ensuring that permission requirements are satisfied, region scopes are properly nested, and ownership semantics are preserved.
+[14] Permission annotations on pointer types (§7.5) determine what operations are permitted on the pointed-to value. The type system **shall** enforce that:
 
-[20] Clause 12 (Memory Model) relies on type information to perform permission checking, region analysis, and ownership verification. Type errors that involve memory model violations shall include both type and memory model information in diagnostic payloads (Annex E §E.5).
+1. `const` pointers allow only read operations
+2. `shared` pointers allow concurrent read access but require synchronization for writes
+3. `unique` pointers allow exclusive mutable access
+
+Permission violations **shall** be caught at compile time with diagnostics specified in Clause 11 and §7.5.
+
+**Region System Integration:**
+
+[15] Region annotations affect type formation and lifetime analysis. Implementations **shall** ensure that:
+
+1. Region-allocated types are associated with exactly one region scope (§11.3)
+2. Region-allocated values do not escape their region (escape analysis in §7.5.3.2)
+3. Region lifetimes are validated during type checking
+
+Violations **shall** produce diagnostics specified in Clause 11 (region escape errors).
+
+**Ownership and Move Semantics:**
+
+[16] Ownership semantics (§11.4) are reflected in the type system through move semantics and copy predicates. Implementations **shall**:
+
+1. Track which types satisfy the `Copy` predicate
+2. Enforce move semantics for types without `Copy`
+3. Diagnose use-after-move violations during definite assignment analysis (§5.7)
+
+Types that implement the copy predicate can be copied; types without copy predicates **shall** be moved when assigned or passed to procedures. Type checking **shall** enforce move semantics by tracking ownership transfers through procedure calls and assignments, ensuring that moved values are not used after move (diagnostic specified in Clause 11).
+
+**Pointer Safety Integration:**
+
+[17] Pointer types (§7.5) integrate with the memory model to ensure memory safety. Implementations **shall** enforce:
+
+1. Safe modal pointers (`Ptr<T>@State`) track pointer state through the type system
+2. Null pointers (`Ptr<T>@Null`) **shall not** be dereferenced (diagnostic E07-XXX)
+3. Weak pointers (`Ptr<T>@Weak`) **shall** be upgraded before use
+4. State transitions **shall** follow modal type rules (§7.6)
+
+Violations **shall** produce diagnostics that identify both the type error and the memory safety issue.
+
+**Layout and ABI Integration:**
+
+[18] Composite types (§7.3) interact with the memory model to determine layout, alignment, and padding. Implementations **shall**:
+
+1. Compute field offsets according to alignment rules
+2. Insert padding to satisfy alignment constraints
+3. Document layout choices for each target platform
+
+Layout calculations affect stack and heap allocation, and **shall** be ABI-compatible for interoperation (Clause 15).
+
+**Generic Type Memory Integration:**
+
+[19] Generic types (Clause 10) interact with the memory model through type parameters and bounds. Implementations **shall**:
+
+1. Validate that type arguments satisfy permission constraints
+2. Verify region scope nesting when instantiating generic types
+3. Propagate memory model constraints from type arguments to instantiated types
+
+When a generic type is instantiated, the memory model constraints **shall** be checked and validated before code generation proceeds.
+
+**Diagnostic Integration:**
+
+[20] Clause 11 (Memory Model, Regions, and Permissions) relies on type information to perform permission checking, region analysis, and ownership verification. Implementations **shall** emit diagnostics that:
+
+1. Include both type and memory model information when both systems are violated
+2. Follow the structured payload format (Annex E §E.5)
+3. Provide actionable guidance for resolving permission, region, or ownership errors
 
 #### §7.1.7 Examples (Informative) [type.overview.examples]
 
@@ -101,7 +208,7 @@
 
 ```cursive
 procedure normalize(input: stream::Line): string \/ io::Error
-    {| io::read |- input.is_open() => result is string \/ io::Error |}
+    [[ io::read |- input.is_open() => result is string \/ io::Error ]]
 {
     let trimmed = input.text().trim();        // Context infers `string`
     if trimmed.is_empty() {
@@ -118,7 +225,7 @@ procedure normalize(input: stream::Line): string \/ io::Error
 
 ```cursive
 procedure swap_current(~!, nodes: list::Iterator@Active, value: Node)
-    {| allocator::unique |- nodes.has_current() => nodes.current() == value |}
+    [[ allocator::unique |- nodes.has_current() => nodes.current() == value ]]
 {
     let target: Ptr<Node>@Valid = nodes.current_ptr();
     target.write(value);   // Pointer type ensures state validity and unique access

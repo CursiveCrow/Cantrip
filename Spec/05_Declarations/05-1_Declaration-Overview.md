@@ -6,7 +6,7 @@
 **File**: 05-1_Declaration-Overview.md
 **Section**: §5.1 Declaration Overview
 **Stable label**: [decl.overview]  
-**Forward references**: §2.5 [lex.units], Clause 4 [module], Clause 6 [name], Clause 7 [type], Clause 8 [expr], Clause 11 [generic], Clause 12 [memory], Clause 13 [contract], Clause 14 [witness]
+**Forward references**: §2.5 [lex.units], Clause 4 [module], Clause 6 [name], Clause 7 [type], Clause 8 [expr], Clause 10 [generic], Clause 11 [memory], Clause 12 [contract], Clause 13 [witness]
 
 ---
 
@@ -27,7 +27,7 @@
 - **Callable declarations** (`procedure`, `comptime procedure`, `extern procedure`) introduce named computations, including their parameter lists, contracts, and effect obligations.
 - **Type declarations** (`record`, `enum`, `modal`, `type`) introduce nominal or transparent types into the unified namespace.
 - **Visibility modifiers** (`public`, `internal`, `private`, `protected`) refine the accessibility of the associated declaration.
-- **Auxiliary declarations** (predicates, contracts, grants) rely on their dedicated clauses for semantics but use this clause for name introduction and visibility rules. Grant declarations are specified in Clause 13 (§13.x [contract.grants]).
+- **Auxiliary declarations** (predicates, contracts, grants) rely on their dedicated clauses for semantics but use this clause for name introduction and visibility rules. Grant declarations are specified in Clause 12 (§12.x [contract.grants]).
 
 [4] Declarations located at module scope participate in module initialisation ordering (§4.6) and contribute to the program entry model (§5.8). Declarations inside block scopes follow the storage-duration rules established in §5.7 and the scoping rules of Clause 6.
 
@@ -39,9 +39,9 @@
 
 #### §5.1.4 Integration with Other Systems
 
-[7] The permission system (Clause 12) interprets binding mutability, region annotations, and ownership qualifiers attached to declarations.
+[7] The permission system (Clause 11) interprets binding mutability, region annotations, and ownership qualifiers attached to declarations.
 
-[8] The grant system and contract specifications (Clauses 11–13) extend callable declarations. Clause 5 defines where these specifications attach to declarations while Clauses 11–13 provide the semantic obligations.
+[8] The grant system and contractual sequents (Clause 12) extend callable declarations. Clause 5 defines where these sequents attach to declarations while Clause 12 provides the semantic obligations.
 
 [9] **Name resolution integration.** Clause 6 depends on the scope and visibility metadata emitted here when performing unqualified and qualified name lookup. During two-phase compilation (§2.2), the parser records all declarations in the compilation unit before name resolution proceeds. This ensures that:
 
@@ -65,7 +65,6 @@ let DEFAULT_LIMIT = 10_000
 shadow var session_state = Session::new()
 
 public procedure create_account(id: u64): Account
-    {| |- true => true |}
 {
     result Account { id, balance: 0 }
 }

@@ -1,11 +1,12 @@
 # Cursive Language Specification
+
 ## Clause 6 — Names, Scopes, and Resolution
 
 **Clause**: 6 — Names, Scopes, and Resolution
 **File**: 06-3_Name-Introduction-and-Shadowing.md
 **Section**: §6.3 Name Introduction and Shadowing
 **Stable label**: [name.shadow]  
-**Forward references**: §2.3 [lex.tokens], §5.2 [decl.variable], §5.5 [decl.type], §6.4 [name.lookup], §12.4 [memory.permission]
+**Forward references**: §2.3 [lex.tokens], §5.2 [decl.variable], §5.5 [decl.type], §6.4 [name.lookup], §11.4 [memory.permission]
 
 ---
 
@@ -19,7 +20,7 @@
 
 #### §6.3.2 Syntax [name.shadow.syntax]
 
-[3] Binding-introducing declarations employ the following productions (excerpted from Appendix A.4):
+[3] Binding-introducing declarations employ the following productions (excerpted from Annex A §A.4):
 
 ```ebnf
 declaration
@@ -43,7 +44,7 @@ binding_head
      | "shadow" identifier_declaration_head
 ```
 
-[4] `identifier_declaration_head` captures non-variable declarations (type, procedure, module, etc.) that may legally use `shadow`. Full grammar details appear in Appendix A.4; this subclause restricts when the `shadow` prefix is valid.
+[4] `identifier_declaration_head` captures non-variable declarations (type, procedure, module, etc.) that may legally use `shadow`. Full grammar details appear in Annex A §A.4; this subclause restricts when the `shadow` prefix is valid.
 
 #### §6.3.3 Constraints [name.shadow.constraints]
 
@@ -65,18 +66,19 @@ binding_head
 
 [12] During name lookup (§6.4), when a reference traverses from an inner scope to an outer scope, any inner binding marked with `shadow` masks the outer binding for the duration of that inner scope. Once control exits the inner scope, the original binding becomes visible again.
 
-[13] Shadowing does not alter the lifetime or storage duration of the shadowed value; it simply changes which binding a given identifier resolves to. Values captured by closures retain the semantics defined in Clause 12 regardless of shadowing.
+[13] Shadowing does not alter the lifetime or storage duration of the shadowed value; it simply changes which binding a given identifier resolves to. Values captured by closures retain the semantics defined in Clause 11 regardless of shadowing.
 
 [14] Label declarations (e.g., `'loop`) participate in shadowing rules but are confined to procedure scope. A label declared with `shadow` must target a label from an enclosing block within the same procedure; cross-procedure label shadowing is impossible because labels do not escape their procedure (§6.2).
 
 #### §6.3.5 Examples (Informative) [name.shadow.examples]
 
 **Example 6.3.5.1 (Shadowing across nested scopes):**
+
 ```cursive
 let threshold = 100  // Module-scope binding
 
 procedure process(value: i32): i32
-    {| |- true => true |}
+    [[ |- true => true ]]
 {
     let result = value
 

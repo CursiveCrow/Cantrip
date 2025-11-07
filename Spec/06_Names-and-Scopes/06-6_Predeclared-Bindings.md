@@ -1,11 +1,12 @@
 # Cursive Language Specification
+
 ## Clause 6 — Names, Scopes, and Resolution
 
 **Clause**: 6 — Names, Scopes, and Resolution
 **File**: 06-6_Predeclared-Bindings.md
 **Section**: §6.6 Predeclared Bindings
 **Stable label**: [name.predeclared]  
-**Forward references**: Clause 2 [lex], Clause 3 [basic], Clause 7 [type], Clause 12 [memory], Annex E §E.5 [implementation.diagnostics]
+**Forward references**: Clause 2 [lex], Clause 7 [type], Clause 12 [memory], Annex E §E.5 [implementation.diagnostics]
 
 ---
 
@@ -54,6 +55,7 @@ Structured payload requirements are defined in Annex E §E.5.
 #### §6.6.5 Examples (Informative) [name.predeclared.examples]
 
 **Example 6.6.5.1 (Using and protecting predeclared identifiers):**
+
 ```cursive
 let value: i32 = 42       // OK: reference to predeclared primitive in Step 5
 let flag = true && false  // OK: boolean constants from universe scope

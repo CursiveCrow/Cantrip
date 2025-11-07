@@ -6,7 +6,7 @@
 **File**: 07-3_Composite-Types.md
 **Section**: 7.3 Composite Types  
 **Stable label**: [type.composite]  
-**Forward references**: §7.4 [type.function], §7.5 [type.pointer], §7.6 [type.relation], §8.4 [expr.structured], §8.5 [expr.operator], Clause 9 [stmt], Clause 11 [generic], Clause 12 [memory]
+**Forward references**: §7.4 [type.function], §7.5 [type.pointer], §7.7 [type.relation], §8.4 [expr.structured], §8.3 [expr.operator], Clause 9 [stmt], Clause 10 [generic], Clause 11 [memory]
 
 ---
 
@@ -14,7 +14,7 @@
 
 [1] Composite types combine or select among other types. They cover structural products (tuples), nominal products (records), sequential collections (arrays, slices, strings, ranges), discriminated sums (enums), and safe unions (`τ₁ \/ τ₂`).
 
-[2] Composite types integrate with permissions (§12.2), regions (§12.3), contracts (§13), and generics (§11). Each constructor follows the standard template: syntax, formation constraints, semantics, and canonical examples. Where relevant, Copy predicates and size/alignment rules are stated explicitly.
+[2] Composite types integrate with permissions (§11.2), regions (§11.3), contracts (Clause 12), and generics (Clause 10). Each constructor follows the standard template: syntax, formation constraints, semantics, and canonical examples. Where relevant, Copy predicates and size/alignment rules are stated explicitly.
 
 [3] This subclause is organized as follows:
 
@@ -105,7 +105,7 @@ Visibility modifiers are `public`, `internal` (default), or `private` (§5.6).
 
 ##### §7.3.3.3 Constraints [type.composite.record.constraints]
 
-[14] Field names must be unique. Each field’s type must be well-formed. Formally:
+[14] Field names shall be unique. Each field's type shall be well-formed. Formally:
 
 $$
 \dfrac{\text{record } R \{ f_1 : \tau_1, \ldots, f_n : \tau_n \} \text{ declared} \quad \Gamma \vdash \tau_i : \text{Type}}{\Gamma \vdash R : \text{Type}}
@@ -252,12 +252,12 @@ checksum(data[..])
 
 [27] Strings are UTF-8 sequences with two modal states (defined in §7.6):
 
-- `string@Owned`: growable, heap-allocated buffer (`ptr`, `len`, `cap`), not `Copy`.
+- `string@Managed`: growable, heap-allocated buffer (`ptr`, `len`, `cap`), not `Copy`.
 - `string@View`: read-only view over UTF-8 data (`ptr`, `len`), `Copy`.
 
-[27.1] **String type defaulting**: A bare `string` identifier defaults to `string@View`. The `string@Managed` state must be explicitly specified. This default aligns with the common use case of string parameters and return types, which typically use read-only views. There is an implicit coercion `string@Managed <: string@View` established via the modal subtyping rule (`Sub-Modal-Widen`).
+(27.1) **String type defaulting**: A bare `string` identifier defaults to `string@View`. The `string@Managed` state shall be explicitly specified. This default aligns with the common use case of string parameters and return types, which typically use read-only views. There is an implicit coercion `string@Managed <: string@View` established via the modal subtyping rule (`Sub-Modal-Widen`).
 
-[ Note: String is a special case of the modal type system (§7.6). The defaulting behavior applies in type annotation contexts. In type inference contexts, the compiler infers the most specific type based on usage, but when an explicit type annotation uses bare `string`, it resolves to `string@View`.
+[ Note: String is a special case of the modal type system (§7.6) where the language provides a default state for ergonomic reasons. The defaulting behavior (`string` → `string@View`) applies in type annotation contexts and is unique to the built-in string type. User-defined modal types do not support default states and must be explicitly annotated with their state in all contexts. In type inference contexts (without explicit annotations), the compiler infers the most specific state based on usage; explicit `string` annotations resolve to `string@View` for common-case ergonomics.
 — end note ]
 
 ###### Syntax
@@ -269,27 +269,28 @@ StringType ::= 'string'              // Defaults to string@View
 StringLiteral ::= '"' UTF8Text '"'
 ```
 
-[ Note: The grammar allows bare `string` as a type identifier. When used in type annotations, it resolves to `string@View` per the defaulting rule [27.1]. See Annex A §A.2 for the authoritative grammar.
+[ Note: The grammar allows bare `string` as a type identifier. When used in type annotations, it resolves to `string@View` per the defaulting rule (27.1). See Annex A §A.2 for the authoritative grammar.
 — end note ]
 
-[27.2] `string` is a built-in modal type (§7.6) with two states:
-  - `string@Managed` — manages heap-allocated UTF-8 storage and may reallocate or mutate.
-  - `string@View` — an immutable span consisting of pointer + length.
-Transition signatures `string@Managed::view(~) -> @View` and `string@View::to_managed(~) -> @Managed` define the canonical conversions.
+(27.2) `string` is a built-in modal type (§7.6) with two states:
+
+- `string@Managed` — manages heap-allocated UTF-8 storage and may reallocate or mutate.
+- `string@View` — an immutable span consisting of pointer + length.
+  Transition signatures `string@Managed::view(~) -> @View` and `string@View::to_managed(~) -> @Managed` define the canonical conversions.
 
 ###### Constraints
 
 [28] Well-formedness follows the modal formation rules (§7.6). String literals have type `string@View`. Conversions:
 
-- `string.from(view: string@View) : string@Owned`
-- `view.to_owned() : string@Owned`
-- Implicit coercion `string@Owned` → `string@View`
+- `string.from(view: string@View) : string@Managed`
+- `view.to_managed() : string@Managed`
+- Implicit coercion `string@Managed` → `string@View`
 
 ###### Semantics
 
 [29] Layout on 64-bit targets:
 
-- `string@Owned`: `{ ptr: Ptr<u8>, len: usize, cap: usize }` (24 bytes)
+- `string@Managed`: `{ ptr: Ptr<u8>, len: usize, cap: usize }` (24 bytes)
 - `string@View`: `{ ptr: Ptr<u8>, len: usize }` (16 bytes)
 
 `string@View : Copy`; `string@Managed` is movable but not `Copy`. All string forms guarantee UTF-8 validity, and `string@Managed` values implicitly coerce to `string@View` by invoking the modal transition above.
@@ -309,7 +310,7 @@ print_line(roundtrip.view())
 
 ###### Examples (Informative)
 
-**Example 7.3.4.3.1 (String type defaulting):**
+**Example 7.3.4.3.2 (String type defaulting):**
 
 ```cursive
 // Bare 'string' defaults to string@View
@@ -317,10 +318,10 @@ procedure print_line(text: string) {      // text: string@View
     io::write_all(text)
 }
 
-// Explicit states must be specified for owned strings
-let owned: string@Owned = string.from("hello")
-let view: string@View = owned             // implicit coercion
-let also_view: string = owned             // bare 'string' = string@View
+// Explicit states must be specified for managed strings
+let managed: string@Managed = string.from("hello")
+let view: string@View = managed           // implicit coercion
+let also_view: string = managed           // bare 'string' = string@View
 
 print_line(view)
 print_line(also_view)
@@ -396,7 +397,7 @@ VariantDecl ::= Ident
 
 ##### §7.3.5.3 Constraints [type.composite.enum.constraints]
 
-[34] Variants must have unique names. Payload types must be well-formed under the enum’s generic parameters:
+[34] Variants shall have unique names. Payload types shall be well-formed under the enum's generic parameters:
 
 $$
 \dfrac{\Gamma, \vec{\alpha} \vdash \tau_i : \text{Type}}{\Gamma \vdash enum\;E\langle \vec{\alpha} \rangle : \text{Type}}
@@ -407,9 +408,9 @@ $$
 
 ##### §7.3.5.4 Semantics [type.composite.enum.semantics]
 
-[36] Each enum value stores a discriminant plus payload. Layout is implementation-defined but must allocate enough space for the largest payload and align to the maximum payload alignment. `Copy` holds iff every variant payload satisfies `Copy` and no destructor is defined.
+[36] Each enum value stores a discriminant plus payload. Layout is implementation-defined but shall allocate enough space for the largest payload and align to the maximum payload alignment. `Copy` holds iff every variant payload satisfies `Copy` and no destructor is defined.
 
-[37] Pattern matching must be exhaustive. The compiler emits a compile-time error when variants remain unmatched. Wildcards (`_`) count as covering remaining cases.
+[37] Pattern matching shall be exhaustive. The compiler emits a compile-time error when variants remain unmatched. Wildcards (`_`) count as covering remaining cases.
 
 ##### §7.3.5.5 Examples (Informative) [type.composite.enum.examples]
 
@@ -484,7 +485,7 @@ $$
 
 ```cursive
 procedure parse(input: string@View): i32 \/ parse::Error
-    {| |- true => true |}
+    [[ |- true => true ]]
 {
     if input.is_empty() {
         result parse::Error::invalid_data("empty")
@@ -506,7 +507,7 @@ match parse("42") {
 
 - Support tuples, records, arrays, slices, strings, ranges, enums, and safe unions as specified.
 - Enforce dual record access while respecting visibility modifiers.
-- Uphold the `string@Owned`/`string@View` split, including defaulting rules and implicit coercion.
+- Uphold the `string@Managed`/`string@View` split, including defaulting rules and implicit coercion.
 - Guarantee bounds checking semantics for arrays and slices, with diagnostics that match Clause 8 listings and Annex E §E.5 payload requirements.
 - Provide exhaustive pattern diagnostics for enums and unions.
 - Preserve the stated size/alignment rules and Copy predicates.

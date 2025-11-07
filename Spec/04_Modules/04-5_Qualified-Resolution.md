@@ -104,7 +104,7 @@ $$
 import analytics::statistics as stats
 
 procedure compute(metrics: Metrics): Analysis
-    {| |- true => true |}
+    [[ |- true => true ]]
 {
     result Analysis {
         spread: stats::variance(metrics.values),
