@@ -148,12 +148,12 @@ let scale = |value| [[ |- true => true ]] {
 | `var x <- value` | By reference           | Closure holds non-responsible mutable reference |
 | Parameters       | By reference           | Closure references parameter storage            |
 
-[30] **Explicit move capture.** When a closure body explicitly uses `move x` for a captured `let` binding, ownership transfers to the closure environment and the original binding becomes invalid:
+[30] **Explicit move capture.** When a closure body explicitly uses `move x` for a captured responsible binding, cleanup responsibility transfers to the closure environment and the original binding becomes invalid:
 
 ```cursive
 let data = Buffer::new()
 let consumer = || [[ |- true => true ]] {
-    process(move data)  // Explicit move transfers ownership to closure
+    process(move data)  // Explicit move transfers responsibility to closure
 }
 // data is now invalid (moved into closure environment)
 ```
@@ -175,7 +175,7 @@ record _Closure_N {
 
 [33] The closure callable has type `(Params) -> ReturnType ! Grants` and is implemented as a procedure taking the environment record plus declared parameters.
 
-##### §8.4.7.6 Copy Predicate for Closures [expr.structured.closure.copy]
+##### §8.4.7.6 Copy Behavior for Closures [expr.structured.closure.copy]
 
 [34] A closure is `Copy` only when:
 
@@ -229,7 +229,7 @@ procedure make_counter(): () -> i32
 ```cursive
 let data = Buffer::from("hello")
 let consumer = || [[ alloc::heap |- true => true ]] {
-    consume(move data)  // Ownership transfers to closure
+    consume(move data)  // Cleanup responsibility transfers to closure
 }
 // data is invalid here (moved into closure environment)
 consumer()  // Executes with moved data

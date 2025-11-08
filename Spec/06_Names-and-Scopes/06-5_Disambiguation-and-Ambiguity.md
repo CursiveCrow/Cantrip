@@ -53,7 +53,7 @@
 
 **Example 6.5.5.1 (Ambiguous imports requiring qualification):**
 
-````cursive
+```cursive
 use lib_a::process
 use lib_b::process  // Same identifier imported twice
 
@@ -67,11 +67,12 @@ procedure run()
     //   - alias: use lib_b::process as process_b
     let value = process()
 }
+```
 
-use math::geometry::*     // imports area, perimeter
-use math::analytics::*    // also exports area
+[1] The ambiguity arises from importing the same identifier from two different modules. Disambiguation requires explicit qualification or aliasing.
 
 **Example 6.5.5.2 (Resolving ambiguity via aliasing):**
+
 ```cursive
 use math::geometry::*
 use math::analytics::*
@@ -79,8 +80,6 @@ use math::analytics::area as analytics_area
 
 let a = area(5.0)             // OK: geometry::area
 let b = analytics_area(5.0)   // OK: analytics::area via alias
-````
-
 ```
 
 #### §6.5.6 Conformance Requirements [name.ambiguity.requirements]
@@ -90,4 +89,3 @@ let b = analytics_area(5.0)   // OK: analytics::area via alias
 [12] Implementations shall honour programmer disambiguation by recomputing lookup after qualification, aliasing, or scope changes and shall not cache the prior ambiguous state.
 
 [13] Implementations shall not attempt heuristic tie-breaking; if multiple candidates remain after all deterministic steps, the program is ill-formed until the programmer resolves the ambiguity.
-```

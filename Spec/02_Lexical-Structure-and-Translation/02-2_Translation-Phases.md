@@ -39,7 +39,7 @@ phase_pipeline
 
 (1.1) _Parsing boundary._ Parsing shall complete (successfully or with diagnostics) **before** compile-time execution begins. Subsequent phases are prohibited from mutating the parse tree in ways that would invalidate the recorded declaration inventory; they may annotate the tree with semantic metadata only.
 
-(1.2) _Type-checking gate._ Type checking shall complete (successfully or with diagnostics) **before** code generation begins. Generated code is therefore guaranteed to correspond to a well-typed program that satisfies all permission, effect, and contract requirements available at that point in the pipeline.
+(1.2) _Type-checking gate._ Type checking shall complete (successfully or with diagnostics) **before** code generation begins. Generated code is therefore guaranteed to correspond to a well-typed program that satisfies all permission, grant, and contract requirements available at that point in the pipeline.
 
 [2] _Determinism._ The observable results of a phase (diagnostics, generated declarations, lowered IR) shall be deterministic with respect to the input compilation unit and compilation configuration.
 
@@ -53,10 +53,7 @@ phase_pipeline
 | String size            | 1 MiB                       | E02-104    |
 | Collection cardinality | 10,000 elements             | E02-105    |
 
-[4] _Grant safety._ Comptime execution shall refuse any grant that is not listed in the grants clause of the executing item's contractual sequent. Runtime-only capabilities (for example `fs.read` or `net.send`) are forbidden and shall raise diagnostic E02-106.
-
-[ Note: Clause 12 (Contracts) will provide the complete specification for contractual sequents and grants clauses. The requirement stated here ensures that comptime blocks declare their capability requirements explicitly through the same sequent mechanism used by procedures.
-— end note ]
+[4] _Grant safety._ Comptime execution shall refuse any grant that is not listed in the grants clause of the executing item's contractual sequent. Runtime-only capabilities (for example `fs.read` or `net.send`) are forbidden and shall raise diagnostic E02-106. Comptime blocks declare their capability requirements explicitly through the same sequent mechanism used by procedures; complete grant semantics are specified in Clause 12 [contract].
 
 [5] _Generated symbol hygiene._ Code generation shall ensure that generated declarations do not collide with declarations already present in the AST. Name collisions shall be diagnosed as E02-107.
 
@@ -68,7 +65,7 @@ phase_pipeline
 
 [2] Parsing records every declaration, its identifier, structural metadata (e.g., parameter lists, field declarations), and source scope. The AST produced at this stage is the authoritative inventory of declarations for the compilation unit.
 
-[3] Parsing shall not attempt semantic validation. All name lookup, type checking, permission/effect checks, and diagnostic enforcement occur during the semantic-analysis phase (§2.2.4.2–§2.2.4.4).
+[3] Parsing shall not attempt semantic validation. All name lookup, type checking, permission/grant checks, and diagnostic enforcement occur during the semantic-analysis phase (§2.2.4.2–§2.2.4.4).
 
 [4] Forward references are therefore permitted: declarations may appear after their uses in the source, and mutual recursion is resolved by the later semantic phases.
 
@@ -78,11 +75,11 @@ phase_pipeline
 
 [2] Before executing a block, the compiler verifies that all predecessors in the dependency graph have succeeded. Cycles are ill-formed and shall be reported as diagnostic E02-100.
 
-[3] Comptime code executes with access only to explicitly-granted effects (`comptime.alloc`, `comptime.codegen`, `comptime.config`, `comptime.diag`). All other effects are rejected per constraint [4].
+[3] Comptime code executes with access only to explicitly-granted capabilities (`comptime.alloc`, `comptime.codegen`, `comptime.config`, `comptime.diag`). All other grants are rejected per constraint [4].
 
 #### §2.2.4.3 Type Checking
 
-[1] The type-checking phase resolves names, validates type constraints, enforces effect clauses, and checks contracts. Because parsing has already recorded every declaration, name resolution always observes a complete declaration inventory.
+[1] The type-checking phase resolves names, validates type constraints, enforces grant clauses, and checks contracts. Because parsing has already recorded every declaration, name resolution always observes a complete declaration inventory.
 
 (1.1) [ Note: Module scope formation (§4.3 [module.scope]) occurs during this phase, before name lookup. Wildcard imports (`use module::*`) expand at scope-formation time, after parsing has completed for all modules in the dependency graph. This ensures that the set of exported items is stable before expansion proceeds. — end note ]
 

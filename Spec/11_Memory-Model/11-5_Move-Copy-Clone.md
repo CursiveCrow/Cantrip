@@ -38,24 +38,24 @@ move_expr
 
 ##### §11.5.2.3 Transfer Rules by Binding Category
 
-[5] **Transferability depends on binding category:**
+[5] **Only `let` bindings created with `=` can transfer cleanup responsibility:**
 
 **Table 11.5 — Transfer rules**
 
-| Binding Form     | Responsible | Transferable | Move Validity              |
-| ---------------- | ----------- | ------------ | -------------------------- |
-| `let x = value`  | YES         | YES          | `move x` valid             |
-| `var x = value`  | YES         | NO           | `move x` invalid (E11-501) |
-| `let x <- value` | NO          | NO           | `move x` invalid (E11-502) |
-| `var x <- value` | NO          | NO           | `move x` invalid (E11-502) |
+| Binding Form     | Responsible | Transferable | `move` Validity              |
+| ---------------- | ----------- | ------------ | ---------------------------- |
+| `let x = value`  | YES         | YES          | Valid; x becomes invalid     |
+| `var x = value`  | YES         | NO           | Invalid (E11-501)            |
+| `let x <- value` | NO          | NO           | Invalid (E11-502)            |
+| `var x <- value` | NO          | NO           | Invalid (E11-502)            |
 
-[6] Only `let` bindings created with `=` can transfer cleanup responsibility via `move`.
+[6] Only `let` bindings created with `=` can transfer cleanup responsibility via `move`. This restriction preserves local reasoning: the validity of a `var` binding does not depend on whether it was moved somewhere else in the function. Use `let` with `unique` permission for values that need both mutation and transfer capability.
 
 ##### §11.5.2.4 Move Semantics
 
 [7] Move execution:
 
-[ Given: Source binding $x$ with cleanup responsibility, target binding $y$ ]
+[ Given: Source binding $x$ with cleanup responsibility ]
 
 $$
 \frac{\Gamma \vdash x : \tau \quad x \text{ is responsible and transferable}}{\Gamma \vdash \texttt{move } x : \tau \quad x \text{ becomes invalid}}
@@ -90,9 +90,11 @@ procedure demo()
 **Example 11.5.2.2 - invalid (Move from var):**
 
 ```cursive
-var counter = 0
-let moved = move counter  // error[E11-501]: cannot transfer from var binding
+var counter = Buffer::new()
+consume(move counter)  // error[E11-501]: cannot transfer from var binding
 ```
+
+[1] `var` bindings cannot transfer because allowing moves would require whole-function analysis to track whether the binding might be rebound after the move, violating Cursive's local reasoning principle.
 
 #### §11.5.3 Copy Semantics [memory.move.copy]
 
@@ -100,7 +102,7 @@ let moved = move counter  // error[E11-501]: cannot transfer from var binding
 
 [9] Types satisfying the `Copy` predicate can be duplicated bitwise. Copying creates a new independent object with its own cleanup responsibility.
 
-[10] **Copy predicate**:
+[10] **Copy behavior**:
 
 [ Note: The `Copy` predicate is defined in Clause 10 (Generics and Predicates). This section specifies how Copy interacts with the memory model.
 — end note ]
@@ -173,23 +175,97 @@ $$
 \tag{WF-No-Use-After-Move}
 $$
 
-##### §11.5.5.2 Reassignment of Var Bindings
+##### §11.5.5.1A Invalidation of Derived Non-Responsible Bindings
 
-[19] While `var` bindings cannot be moved (they are non-transferable per Table 11.5), they can be reassigned to restore validity after other forms of invalidation:
+[18.1] Non-responsible bindings reference the object, not the binding. They become invalid when the object **might be destroyed**. The compiler uses **parameter responsibility** to determine when destruction might occur: moving a binding to a **responsible parameter** (marked with `move` modifier, §5.4.3[2.1]) signals that the callee might destroy the object.
 
-**Example 11.5.5.1 (Reassignment of var after move-like invalidation):**
+[ Given: Non-responsible binding $n$ referencing object via source binding $r$, procedure parameter with responsibility $\rho$ ]
+
+$$
+\frac{r \text{ moved to parameter with } \rho = \text{responsible}}
+     {r \text{ and } n \text{ both become invalid}}
+\tag{WF-NonResp-Invalidate-OnMoveToResponsible}
+$$
+
+[18.2] **Key distinction**: Parameter responsibility determines object lifetime:
+- **Non-responsible parameter** (no `move`): Callee will NOT destroy object, references remain valid
+- **Responsible parameter** (`move`): Callee MIGHT destroy object, references become invalid
+
+[18.3] Definite assignment analysis maintains a dependency graph tracking which non-responsible bindings reference which objects (via their source bindings). When a binding is moved to a responsible parameter, invalidation propagates to all dependent non-responsible bindings.
+
+[18.4] Accessing an invalidated non-responsible binding produces diagnostic E11-504 (use of invalidated reference to potentially destroyed object).
+
+**Example 11.5.5.1A (Invalidation based on parameter responsibility):**
 
 ```cursive
-var data = Buffer::new()
-// NOTE: Cannot move from var bindings (E11-501)
-// consume(move data)        // error[E11-501]: cannot transfer from var binding
+procedure inspect(data: Buffer)        // Non-responsible parameter
+    [[ |- true => true ]]
+{
+    println("Size: {}", data.size())
+    // data.drop() NOT called
+}
 
-// However, var bindings can be reassigned after being invalidated by other means
-data = Buffer::new()         // Reassignment restores validity
-data.size()                  // OK: data is valid again
+procedure consume(move data: Buffer)   // Responsible parameter
+    [[ |- true => true ]]
+{
+    data.process()
+    // data.drop() IS called at scope exit
+}
+
+let owner = Buffer::new()              // Responsible
+let viewer <- owner                    // Non-responsible (references object)
+let another <- owner                   // Another non-responsible (references object)
+
+inspect(owner)                         // ✅ Pass to non-responsible param
+viewer.read()                          // ✅ VALID: object survived inspect()
+another.read()                         // ✅ VALID: object still alive
+
+consume(move owner)                    // Move to responsible param
+// owner becomes invalid (moved-from state)
+// viewer becomes invalid (object might be destroyed)
+// another becomes invalid (object might be destroyed)
+
+// viewer.read()                       // ERROR E11-504: invalidated reference
+// another.read()                      // ERROR E11-504: invalidated reference
 ```
 
-**Example 11.5.5.2 (Move from let binding):**
+[18.5] **Design rationale**: This invalidation strategy balances safety and zero-cost:
+- **Safe**: References cannot access potentially destroyed objects
+- **Zero-cost**: Uses parameter responsibility (compile-time information) not runtime tracking
+- **Local reasoning**: Procedure signatures declare parameter responsibility, making destruction potential visible
+- **Expressive**: Non-responsible parameters enable safe multiple-view patterns
+
+[ Note: The compiler approximates "object destruction" with "moved to responsible parameter" because it cannot track actual destruction without runtime overhead or whole-program analysis. This conservative approximation rejects some safe programs (e.g., where a responsible parameter returns the object without destroying it) but maintains memory safety with zero runtime cost.
+— end note ]
+
+##### §11.5.5.2 Rebinding Var Without Transfer
+
+[19] While `var` bindings cannot be moved (they are non-transferable per Table 11.5), they can be reassigned in place, with the old value being destroyed before the new value is bound:
+
+**Example 11.5.5.1 (Var rebinding without move):**
+
+```cursive
+var data = Buffer::new()      // data is responsible
+// consume(move data)         // error[E11-501]: cannot transfer from var
+
+// However, var bindings can be reassigned:
+data = Buffer::new()           // Old buffer destroyed, new buffer bound
+data.size()                    // OK: data is valid with new buffer
+```
+
+[20] When rebinding a `var`, the old value (if valid) is automatically cleaned up before the new value is assigned. This is distinct from transfer: the binding retains cleanup responsibility for both the old and new values.
+
+**Example 11.5.5.2 (Pattern: Use let + unique for mutable+transferable):**
+
+```cursive
+// When you need both mutation AND transfer:
+let builder: unique = Builder::new()   // Use let + unique, not var
+builder.add(1)                         // Can mutate via unique
+builder.add(2)
+consume(move builder)                  // Can transfer via let
+```
+
+**Example 11.5.5.3 (Move from let binding):**
 
 ```cursive
 let data = Buffer::new()     // let binding is transferable
@@ -204,13 +280,14 @@ consume(move data)           // OK: responsibility transferred
 
 [21] Transfer semantics diagnostics:
 
-| Code    | Condition                                           |
-| ------- | --------------------------------------------------- |
-| E11-501 | Attempt to move from `var` binding                  |
-| E11-502 | Attempt to move from non-responsible binding (`<-`) |
-| E11-503 | Use of moved value                                  |
-| E11-510 | Attempt to copy non-Copy type                       |
-| E11-511 | Attempt to clone non-Clone type                     |
+| Code    | Condition                                            |
+| ------- | ---------------------------------------------------- |
+| E11-501 | Attempt to move from `var` binding                   |
+| E11-502 | Attempt to move from non-responsible binding (`<-`)  |
+| E11-503 | Use of moved value                                   |
+| E11-504 | Use of non-responsible binding derived from moved value |
+| E11-510 | Attempt to copy non-Copy type                        |
+| E11-511 | Attempt to clone non-Clone type                      |
 
 #### §11.5.7 Conformance Requirements
 
@@ -218,12 +295,18 @@ consume(move data)           // OK: responsibility transferred
 
 1. Require explicit `move` keyword for responsibility transfer
 2. Allow `move` only from `let` bindings created with `=`
-3. Reject `move` from `var` and `<-` bindings (E11-501, E11-502)
-4. Track moved-from state and prevent use-after-move (E11-503)
-5. Support `Copy` predicate for bitwise duplication (reference Clause 10)
-6. Support `Clone` predicate for deep copying (reference Clause 10)
-7. Integrate move tracking with definite assignment analysis (§5.7)
-8. Maintain orthogonality: transfer rules independent of permissions
+3. Reject `move` from `var` bindings with diagnostic E11-501
+4. Reject `move` from non-responsible bindings (`<-`) with diagnostic E11-502
+5. Track moved-from state and prevent use-after-move (E11-503)
+6. Track non-responsible binding dependencies via definite assignment analysis (which objects they reference)
+7. Propagate invalidation: when a binding is moved to a responsible parameter, invalidate the binding and all derived non-responsible bindings
+8. Preserve validity: when a binding is passed to a non-responsible parameter (no move), non-responsible bindings remain valid
+9. Prevent use of invalidated non-responsible bindings with diagnostic E11-504
+10. Support `Copy` predicate for bitwise duplication (reference Clause 10)
+11. Support `Clone` predicate for deep copying (reference Clause 10)
+12. Integrate move tracking with definite assignment analysis (§5.7)
+13. Maintain orthogonality: transfer rules independent of permissions
+14. Preserve local reasoning: invalidation determined by parameter responsibility (visible in procedure signature)
 
 ---
 

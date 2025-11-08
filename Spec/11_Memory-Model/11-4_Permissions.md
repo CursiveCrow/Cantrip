@@ -94,7 +94,8 @@ ref2.set_counter(10)         // Programmer ensures no conflicts
 
 [8] **Design principle**: `const` means const. There is no interior mutability: if a value has `const` permission, it is immutable. No hidden mutation through `const` is permitted.
 
-[9] This differs from languages with interior mutability (Rust's `Cell<T>`, `RefCell<T>`). Cursive rejects interior mutability to maintain "explicit over implicit" design.
+[ Rationale: Some languages provide interior mutability mechanisms that allow mutation through immutable references. Cursive explicitly rejects this pattern to maintain the "explicit over implicit" design principle. If mutation is needed, use `unique` or `shared` permission explicitly.
+— end rationale ]
 
 #### §11.4.3 Permission Lattice [memory.permission.lattice]
 

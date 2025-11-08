@@ -155,8 +155,8 @@ $$
 
 [11] Required diagnostics:
 
-| Code  | Condition                                                     |
-| ----- | ------------------------------------------------------------- |
+| Code    | Condition                                                     |
+| ------- | ------------------------------------------------------------- |
 | E07-900 | `typeof` used in value position                               |
 | E07-901 | `type_info` result escapes runtime context                    |
 | E07-902 | Introspection invoked on ill-formed type                      |

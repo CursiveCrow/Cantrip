@@ -2,7 +2,7 @@
 
 ## Clause 1 — Introduction and Conformance
 
-**Clause**: 1 — Introduction and Conformance
+**Part**: I — Introduction and Conformance
 **File**: 01-3_Notation-Conventions.md
 **Section**: §1.4 Notation and Conventions
 **Stable label**: [intro.notation]  
@@ -82,7 +82,7 @@ $$
 
 Additional prefixes used for specialized semantic categories:
 
-- **Prop-Feature-Case**: Predicate satisfaction and property proofs (e.g., Prop-Int-Copy proves integers satisfy Copy)
+- **Prop-Feature-Case**: Behavior satisfaction and property proofs (e.g., Prop-Int-Copy proves integers satisfy Copy behavior)
 - **Coerce-Feature-Case**: Type coercion rules (e.g., Coerce-Never for never-type coercions)
 - **Prov-Feature-Case**: Provenance and aliasing rules (e.g., Prov-Addr for address provenance)
 - **Ptr-Feature-Case**: Pointer-specific properties and constraints (e.g., Ptr-Size)

@@ -24,7 +24,7 @@
 
 [1] **Dependency graph.** Implementations shall construct a directed graph $G = (V, E)$ whose vertices are modules and whose edges record inter-module dependencies introduced by `import` and `public use` declarations as well as module-level references to external bindings.
 
-[2] **Eager edge criterion.** An edge `m → n` is _eager_ when any of the following hold: - a module-level binding or `comptime` block in `m` directly reads a binding exported by `n` while initialising; - `m` performs `public use` of a binding in `n` whose declaration requires initialization (e.g., `let`, `var`, `comptime`-generated constant); - `m` re-exports `n::*` and the expansion includes any eager binding; - a diagnostic obligation in `m` requires evaluating a contract or effect in `n` during module initialization.
+[2] **Eager edge criterion.** An edge `m → n` is _eager_ when any of the following hold: - a module-level binding or `comptime` block in `m` directly reads a binding exported by `n` while initialising; - `m` performs `public use` of a binding in `n` whose declaration requires initialization (e.g., `let`, `var`, `comptime`-generated constant); - `m` re-exports `n::*` and the expansion includes any eager binding; - a diagnostic obligation in `m` requires evaluating a contract or grant in `n` during module initialization.
 
 (2.1) **Eager/lazy classification algorithm.** Implementations shall classify edges using the following deterministic procedure: 1. Initialize all edges as _lazy_. 2. For each module `m` and each dependency `m → n`:
 a. If `m` contains a module-level `let` or `var` binding whose initializer expression references any binding exported by `n`, mark `m → n` as _eager_.
@@ -32,9 +32,9 @@ b. If `m` contains a `comptime` block that references any binding exported by `n
 c. If `m` performs `public use n::item` where `item` is a `let`, `var`, or `comptime`-generated constant, mark `m → n` as _eager_.
 d. If `m` performs `public use n::*` and the wildcard expansion includes any binding that would make an edge eager per steps (a)–(c), mark `m → n` as _eager_. 3. Transitive closure: if `m → n` is eager and `n → p` is eager, then `m → p` inherits eager status for initialization ordering purposes (though the direct edge classification remains unchanged). 4. All edges not marked eager remain _lazy_.
 
-[3] **Lazy edge criterion.** An edge `m → n` is _lazy_ when the only interactions are references to declarations that do not require immediate initialization—procedures, types, predicates, or contracts whose bodies are not executed during module initialization. Lazy edges may form cycles.
+[3] **Lazy edge criterion.** An edge `m → n` is _lazy_ when the only interactions are references to declarations that do not require immediate initialization—procedures, types, behaviors, or contracts whose bodies are not executed during module initialization. Lazy edges may form cycles.
 
-(3.1) **Lazy edge examples.** The following interactions create lazy edges: - `m` imports `n` and references only procedure signatures (not bodies) - `m` references type declarations from `n` without reading their values - `m` references predicate or contract declarations from `n` without instantiating them - `m` performs `public use n::item` where `item` is a procedure, type, predicate, or contract declaration
+(3.1) **Lazy edge examples.** The following interactions create lazy edges: - `m` imports `n` and references only procedure signatures (not bodies) - `m` references type declarations from `n` without reading their values - `m` references behavior or contract declarations from `n` without instantiating them - `m` performs `public use n::item` where `item` is a procedure, type, behavior, or contract declaration
 
 [4] **Acyclic eager subgraph.** The subgraph containing all eager edges shall be acyclic. Detection of a cycle in this subgraph triggers diagnostic E04-500.
 
@@ -105,7 +105,7 @@ $$
 - **E04-502** — "Access to uninitialised module binding." Payload: requesting module, target binding, outstanding predecessors.
 - **E04-503** — "Misclassified lazy dependency." Payload: module pair and evidence that the interaction required eagerly initialised data.
 
-[ Note: Diagnostic E04-700 (Internal type referenced across module boundary) is defined in Annex E §E.5.1.2 and is emitted during type checking (Clause 7) when a non-public type is referenced across module boundaries. It is referenced here in §4.6.7[4] to document the interaction between module initialization and type checking phases.
+[ Note: Diagnostic E07-750 (Internal type referenced across module boundary) is defined in Annex E §E.5.1.2 and is emitted during type checking (Clause 7) when a non-public type is referenced across module boundaries. It is referenced here in §4.6.7[4] to document the interaction between module initialization and type checking phases.
 — end note ]
 
 [9] Structured payloads shall follow Annex E §E.5 so that diagnostics are machine-readable and suitable for tooling consumption.
@@ -163,7 +163,7 @@ let DEFAULT = tables::DEFAULT_TABLE  // eager edge
 
 (4.3) When a module `m` references a type `T` exported from module `n`:
 
-1. `T` **shall** be declared `public` in `n` (diagnostic E04-700 if internal or private)
+1. `T` **shall** be declared `public` in `n` (diagnostic E07-750 if internal or private)
 2. The fully-qualified type name `n::T` **shall** resolve during qualified lookup (§4.5)
 3. Generic instantiations `T<Args>` **shall** satisfy visibility constraints for all type arguments
 
@@ -179,7 +179,7 @@ Attempting to instantiate a generic with an inaccessible internal type from a th
 
 (4.5) Contract implementations (predicates, witnesses) attached to exported types **shall** be complete and validated before the type becomes visible to importing modules. If a type declares a contract clause but lacks required implementations, diagnostic E05-506 applies (see §5.5.3[14]).
 
-(4.6) Implementations **shall** report diagnostic E04-700 (internal type access violation) when:
+(4.6) Implementations **shall** report diagnostic E07-750 (internal type access violation) when:
 
 - A `public` procedure signature exposes an `internal` or `private` type
 - A `public` type's field has a type that is not accessible from importing modules
@@ -187,6 +187,6 @@ Attempting to instantiate a generic with an inaccessible internal type from a th
 
 **Diagnostic Responsibilities:**
 
-(4.7) Clause 7 specifies type formation rules; Clause 4 specifies visibility rules. When both are violated simultaneously, implementations **should** emit the visibility diagnostic (E04-700, E04-701) before the type error diagnostic to help programmers understand the root cause.
+(4.7) Clause 7 specifies type formation rules; Clause 4 specifies visibility rules. When both are violated simultaneously, implementations **should** emit the visibility diagnostic (E07-750, E04-701) before the type error diagnostic to help programmers understand the root cause.
 
 **Previous**: §4.5 Qualified Name Resolution (§4.5 [module.qualified]) | **Next**: §4.A Diagnostics and Indices (§4.A [module.index])

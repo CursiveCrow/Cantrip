@@ -133,7 +133,7 @@ procedure use_config()
 - **Temporary lifetime extension**: Temporary values created during expression evaluation survive until the full-expression completes
 - **Static promotion**: Compile-time constant expressions may be promoted to static storage with program lifetime
 
-[16] Explicit lifetime extension through reference counting or garbage collection is not provided by the core language. Programs requiring such patterns shall use explicit region management (§12.3) or library abstractions.
+[16] Explicit lifetime extension through reference counting or garbage collection is not provided by the core language. Programs requiring such patterns shall use explicit region management (§11.3) or library abstractions.
 
 #### §3.3.5 Region-Based Lifetime Management [basic.scope.regions]
 

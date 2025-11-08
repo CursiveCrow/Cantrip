@@ -105,13 +105,13 @@ type_alias
 contract_clause
     ::= ":" contract_reference ("," contract_reference)*
 
-predicate_clause
-    ::= "with" predicate_reference ("," predicate_reference)*
+behavior_clause
+    ::= "with" behavior_reference ("," behavior_reference)*
 
 contract_reference
     ::= type_expression
 
-predicate_reference
+behavior_reference
     ::= type_expression
 ```
 
@@ -121,12 +121,17 @@ predicate_reference
 
 [3] Tuple records reuse the `record` keyword with a positional field list and may include an optional body containing member procedures.
 
-[4] **Modal state transitions**: Modal types use two distinct syntactic forms:
+[4] **Modal state transitions**: Modal types use two distinct syntactic forms with semantically meaningful operators:
 
-- **Transition signatures** (`@SourceState::transition_name(params) -> @TargetState`): Declare valid state transitions within the modal body. These lightweight declarations define the state machine graph and use `->` to indicate state-to-state transitions.
-- **Procedure implementations**: Provide the actual transition logic using standard procedure syntax (§5.4) with `:` for return types. Each transition signature must have a corresponding procedure implementation.
+- **Transition signatures** (`@SourceState::transition_name(params) -> @TargetState`): Declare valid state transitions within the modal body. These lightweight declarations define the state machine graph and use the **mapping operator `->` (reads as "transitions to" or "maps to")** to indicate the state-to-state relationship.
 
-[ Note: The `->` syntax in transition signatures is distinct from the `:` return type indicator in procedure implementations. Transition signatures declare the state machine structure; implementations provide executable code. See §7.6.1 [type.modal.syntax] for complete details.
+- **Procedure implementations**: Provide the actual transition logic using standard procedure syntax (§5.4) with the **type operator `:` (reads as "is of type")** for return type annotations. Each transition signature must have a corresponding procedure implementation.
+
+[ Note: The semantic distinction between operators clarifies intent:
+- **`->` (mapping operator)**: Declares a transition relationship between states (`@Source` transitions to `@Target`)
+- **`:` (type operator)**: Annotates that a value or return is of a particular type (`result : Self@Target`)
+
+Transition signatures use `->` because they declare state graph edges (mappings between states). Procedure implementations use `:` because they follow standard procedure syntax where return types are type annotations. This distinction is grammatically unambiguous: `->` appears only in transition signatures within modal bodies; `:` appears in return type positions following parameter lists.
 — end note ]
 
 #### §5.5.3 Constraints
@@ -143,17 +148,21 @@ predicate_reference
 
 [6] _Contract clause._ When a type declaration includes a contract clause, each referenced contract shall be visible at the point of declaration and the type shall provide implementations for every required item as specified in Clause 12. Duplicate contract references are diagnosed as E05-503.
 
-[7] _Predicate clause._ When a type declaration includes a predicate clause, each referenced predicate shall be visible and applicable to the type's kind. Predicates shall be implemented according to Clause 10; duplicate predicate references are diagnosed as E05-504.
+[7] _Behavior clause._ When a type declaration includes a behavior clause, each referenced behavior shall be visible and applicable to the type's kind. Behaviors shall be implemented according to Clause 10; duplicate behavior references are diagnosed as E05-504.
 
-[8] _Modal structure._ A modal type shall declare at least one state using the `@State` notation. Each state may include a payload block `{ fields }` (record-style) followed by zero or more transition signatures. Transition signatures use the form `@SourceState::name(params) -> @TargetState` where `@SourceState` matches the state containing the signature. The source state qualifier makes explicit which state the transition originates from. Parameters may include receiver shorthand (`~`, `~%`, `~!`) as the first parameter.
+[8] _Modal structure._ A modal type shall declare at least one state using the `@State` notation. Each state may include a payload block `{ fields }` (record-style) followed by zero or more transition signatures. Transition signatures use the **mapping operator `->` (reads as "transitions to")** in the form `@SourceState::name(params) -> @TargetState` where `@SourceState` matches the state containing the signature. The source state qualifier makes explicit which state the transition originates from. Parameters may include receiver shorthand (`~`, `~%`, `~!`) as the first parameter.
 
 [9] _Transition implementations._ Each transition signature `@Source::name(params) -> @Target` shall have a corresponding procedure implementation. The procedure shall be named `ModalType.name`, and follow standard procedure syntax (§5.4):
 
 - Receiver matches the signature's shorthand: `~` → `self: const Self@Source`, `~%` → `self: shared Self@Source`, `~!` → `self: unique Self@Source`
-- Return type is `Self@Target` using `:` (not `->`)
+- Return type is `Self@Target` using the **type operator `:`** (reads as "is of type")
 - Includes contractual sequent specification per §5.4.3[3.1]
 
-Procedure implementations may be declared at module scope or within the state body as complete procedure declarations. The syntax distinction (signatures use `->`, implementations use `:`) clarifies the difference between declaring state transitions and implementing transition logic.
+Procedure implementations may be declared at module scope or within the state body as complete procedure declarations. The semantic distinction between operators is:
+- **`->` (mapping operator)**: Declares a state transition (state A maps to state B)
+- **`:` (type operator)**: Declares a type annotation (return value is of type T)
+
+This distinction clarifies intent: signatures declare the state machine graph (using mapping semantics), while implementations provide executable procedures (using type annotation semantics).
 
 [10] _Attributes._ Representation attributes (`[[repr(packed)]]`, `[[repr(transparent)]]`, `[[repr(align(N))]]`) are optional and shall comply with layout rules in Clause 7. Unsupported attributes are ill-formed (diagnostic E05-502).
 
@@ -177,13 +186,13 @@ Procedure implementations may be declared at module scope or within the state bo
 
 [4] When a type lists contracts using the contract clause, the declaration establishes an implementation obligation. Clause 12 specifies how each referenced contract contributes required procedures, associated types, and clauses; §5.5.3[6] enforces that every obligation is fulfilled within the declaration.
 
-[5] Predicate clauses attach predicate implementations to the type. Clause 10 governs predicate formation, coherence, and conflict detection. The predicate clause is equivalent to writing separate predicate implementation blocks whose receiver is the declaring type.
+[5] Behavior clauses attach behavior implementations to the type. Clause 10 governs behavior formation, coherence, and conflict detection. The behavior clause is equivalent to writing separate behavior implementation blocks whose receiver is the declaring type.
 
 [6] Type aliases provide transparent renaming. Aliases do not create new nominal identities and are interchangeable with the aliased type in all contexts.
 
 #### §5.5.5 Examples (Informative)
 
-**Example 5.5.5.1 (Record with contracts and predicates):**
+**Example 5.5.5.1 (Record with contracts and behaviors):**
 
 ```cursive
 public record Account: Ledgered with UserStorage {
@@ -198,7 +207,7 @@ public record Account: Ledgered with UserStorage {
 }
 ```
 
-[1] `Ledgered` is a contract that contributes obligations satisfied by the record’s procedures; `UserStorage` is a predicate implemented for `Account` via the predicate clause.
+[1] `Ledgered` is a contract that contributes obligations satisfied by the record's procedures; `UserStorage` is a behavior implemented for `Account` via the behavior clause.
 
 **Example 5.5.5.2 (Tuple record):**
 
@@ -264,7 +273,7 @@ public type UserId = u64
 
 [1] Implementations shall enforce uniqueness of type names, record fields, enum variants, and modal state identifiers within their respective scopes, issuing diagnostics E05-501–E05-502 where applicable.
 
-[2] Compilers shall verify contract and predicate clauses: referenced interfaces must be visible, duplicates are rejected (E05-503–E05-504), and the declared type shall supply every required item defined by Clause 12 and Clause 10 respectively.
+[2] Compilers shall verify contract and behavior clauses: referenced interfaces must be visible, duplicates are rejected (E05-503–E05-504), and the declared type shall supply every required item defined by Clause 12 and Clause 10 respectively.
 
 [3] Compilers shall validate modal transition declarations against the requirements of §5.5.3[8]–[9], ensuring that every transition declaration has a corresponding procedure implementation with matching signature (receiver type, parameter types, and return type) and that representation attributes obey Clause 7 layout constraints.
 

@@ -36,7 +36,10 @@
 
 [7] **Use prerequisites.** A `use` declaration is well-formed only if its referenced module path (or alias) resolves to an imported module in the current compilation unit. Violations emit diagnostic E04-202. This requirement prevents `use` from implicitly importing modules.
 
-[Note: The two-phase compilation model (§2.2 [lex.phases]) permits declarations to appear in any textual order. The prerequisite is semantic (the module must be imported) not temporal (the import need not precede the use textually). Implementations shall collect all `import` declarations during parsing before validating `use` declarations. — end note]
+(7.1) The two-phase compilation model (§2.2 [lex.phases]) permits declarations to appear in any textual order. The prerequisite is semantic (the module must be imported) not temporal (the import need not precede the use textually). Implementations **shall** collect all `import` declarations during parsing before validating `use` declarations.
+
+[ Note: This ensures that the complete set of imports is known before use-declaration validation proceeds, enabling forward references while maintaining deterministic resolution.
+— end note ]
 
 #### §4.3.3 Formal Rules
 

@@ -209,7 +209,7 @@ let array: [i32; 4] = [10, 20, 30, 40]
 
 1. Enforce alignment requirements and produce undefined behavior for misaligned accesses
 2. Compute field offsets, padding, and sizes according to the rules in §3.5.3
-3. Support layout attributes (`packed`, `transparent`, `align`, `C`) with the semantics specified in Clause 11
+3. Support layout attributes (`packed`, `transparent`, `align`, `C`) with the semantics specified in §11.6
 4. Document platform-dependent alignment and size properties
 5. Ensure ABI-compatible layout for types marked with `[[repr(C)]]`
 6. Emit diagnostic E03-201 when explicit alignment is smaller than natural alignment

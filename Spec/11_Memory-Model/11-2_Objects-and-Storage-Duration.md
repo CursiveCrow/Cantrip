@@ -200,23 +200,20 @@ let viewer <- responsible           // viewer is non-responsible
 
 ##### §11.2.5.1 Overview
 
-[33] Types may implement custom cleanup logic through the `Drop` predicate (Clause 10). When a responsible binding goes out of scope, the runtime invokes the type's `drop` method if present, then automatically destroys all fields.
+[33] Types may implement custom cleanup logic through the `Drop` behavior (Clause 10). When a responsible binding goes out of scope, the runtime invokes the type's `drop` method if present, then automatically destroys all fields.
 
 [34] The destructor protocol ensures deterministic resource release while allowing types to perform custom cleanup (closing file handles, releasing locks, logging shutdown, etc.).
 
 ##### §11.2.5.2 Drop Predicate [memory.object.destructor.predicate]
 
-[35] The `Drop` predicate is defined in Clause 10 (Generics and Predicates) with the following signature:
+[35] The `Drop` behavior is defined in Clause 10 §10.4.5.6 [generic.behavior.marker.drop] with the following signature:
 
 ```cursive
-predicate Drop {
+behavior Drop {
     procedure drop(~!)
         [[ |- true => true ]]
 }
 ```
-
-[ Note: Clause 10 (Generics and Predicates) is not yet written. The `Drop` predicate signature is specified here to complete the destructor protocol; full predicate semantics will be provided in Clause 10.
-— end note ]
 
 [36] Types implement `Drop` by providing a `drop` method with receiver `self: unique Self`. The method receives exclusive access to the object and may perform any cleanup operations required. The contractual sequent may include grants necessary for cleanup (e.g., `[[ fs::close |- ... ]]`).
 
@@ -349,6 +346,8 @@ $$
 [50] The binding $x$ refers to the same location as the value produced by $e$. No new object is created; no destructor will be called when $x$ goes out of scope.
 
 [51] The responsible binding for the object at location $\ell$ retains cleanup responsibility.
+
+[52] **Validity tracking**: The non-responsible binding $x$ remains valid while the object at $\ell$ exists. The compiler tracks object lifetime through **parameter responsibility** (§5.4.3[2.1]): when the responsible binding is moved to a procedure with a responsible parameter (`move` modifier), the callee might destroy the object, so $x$ becomes invalid. When passed to non-responsible parameters, the object survives and $x$ remains valid. Complete validity rules are specified in §5.7.5.
 
 ##### §11.2.6.4 Examples
 

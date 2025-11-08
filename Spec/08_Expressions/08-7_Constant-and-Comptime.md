@@ -45,7 +45,7 @@
 - The block introduces a new lexical scope; bindings declared inside it do not leak to runtime.
 - The `result` expression becomes a literal embedded into the compiled program. If the block omits `result`, its type is `()` and the expression is useless—implementations may warn.
 
-[7] Grants: comptime blocks may only request grants whose names begin with `comptime.` (e.g., `comptime.alloc`, `comptime.codegen`). Attempting to invoke a runtime grant (e.g., `io.write`) emits E08-701 identifying the offending effect.
+[7] Grants: comptime blocks may only request grants whose names begin with `comptime.` (e.g., `comptime.alloc`, `comptime.codegen`). Attempting to invoke a runtime grant (e.g., `io.write`) emits E08-701 identifying the offending grant.
 
 [8] Error reporting: any panic or error encountered during comptime evaluation is reported at compile time with the original source span plus the enclosing `comptime` block span for context.
 

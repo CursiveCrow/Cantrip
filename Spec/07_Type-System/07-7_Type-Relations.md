@@ -84,11 +84,7 @@ $$
 $$
 
 $$
-\dfrac{\tau_1 \equiv \upsilon_1 \; \cdots \; \tau_n \equiv \upsilon_n \quad \tau_r \equiv \upsilon_r \quad \varepsilon = \varepsilon'}{(\tau_1, \ldots, \tau_n) \to \tau_r ! \varepsilon [[
-|- M => W
-]] \equiv (\upsilon_1, \ldots, \upsilon_n) \to \upsilon_r ! \varepsilon' [[
-|- M => W
-]]}
+\dfrac{\tau_1 \equiv \upsilon_1 \; \cdots \; \tau_n \equiv \upsilon_n \quad \tau_r \equiv \upsilon_r \quad \varepsilon = \varepsilon'}{(\tau_1, \ldots, \tau_n) \to \tau_r ! \varepsilon \; \texttt{[[} \; \texttt{|-} \; M \; \texttt{=>} \; W \; \texttt{]]} \equiv (\upsilon_1, \ldots, \upsilon_n) \to \upsilon_r ! \varepsilon' \; \texttt{[[} \; \texttt{|-} \; M \; \texttt{=>} \; W \; \texttt{]]}}
 \tag{Equiv-Function}
 $$
 
@@ -102,7 +98,7 @@ $$
 \tag{Equiv-Modal-State}
 $$
 
-[7] Nominal types (records, enums, modals, predicates) are equivalent only if they reference the same declaration. Structural types (tuples, arrays, slices, unions, function types, pointers) use component-wise equivalence.
+[7] Nominal types (records, enums, modals, behaviors) are equivalent only if they reference the same declaration. Structural types (tuples, arrays, slices, unions, function types, pointers) use component-wise equivalence.
 
 #### §7.7.3 Subtyping [type.relation.subtyping]
 
@@ -225,7 +221,7 @@ let pair: (i32, string@Managed) = (1, string.from("hi"))
 
 // Function subtyping
 let pure: (i32) -> i32 = |x| [[ |- true => true ]] { result x }
-let effectful: (i32) -> i32 ! { io::write } [[ |- true => true ]] = pure
+let grant_fn: (i32) -> i32 ! { io::write } [[ |- true => true ]] = pure
 
 // Union widening
 let value: i32 \/ string@Managed = 42

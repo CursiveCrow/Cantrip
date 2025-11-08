@@ -26,7 +26,7 @@
 2. **Type bindings** — Name types introduced by declarations
 3. **Module bindings** — Name modules for qualified access
 4. **Callable bindings** — Name procedures (a specialized form of value binding)
-5. **Predicate bindings** — Name predicates for generic constraints
+5. **Behavior bindings** — Name behaviors for generic constraints
 6. **Contract bindings** — Name contracts for implementation obligations
 7. **Label bindings** — Name control-flow targets for `break`/`continue`
 8. **Grant bindings** — Name capability tokens for contractual sequents
@@ -41,7 +41,7 @@
 | Type      | `record`, `enum`, `modal`, `type` (alias) | Type annotations, generic arguments  | §5.5         |
 | Module    | Compilation units, `import` aliases       | Qualified names `module::item`       | Clause 4     |
 | Callable  | `procedure` declarations                  | Call expressions, first-class values | §5.4         |
-| Predicate | `predicate` declarations                  | Generic bounds, `with` clauses       | §10.4        |
+| Behavior  | `behavior` declarations                   | Generic bounds, `with` clauses       | §10.4        |
 | Contract  | `contract` declarations                   | Contract clauses on types            | §10.4        |
 | Label     | `'label:` in procedure bodies             | `break 'label`, `continue 'label`    | §9.3         |
 | Grant     | `grant` declarations                      | Contractual sequent grant sets       | §5.9         |
@@ -134,23 +134,23 @@ let operation: (i32, i32) -> i32 = add     // Procedure as first-class value
 let result = operation(5, 10)               // Call through binding
 ```
 
-#### §3.6.7 Predicate and Contract Bindings [basic.binding.trait]
+#### §3.6.7 Behavior and Contract Bindings [basic.binding.trait]
 
-[13] _Predicate bindings_ and _contract bindings_ name type-level abstractions introduced by predicate and contract declarations (§10.4):
+[13] _Behavior bindings_ and _contract bindings_ name type-level abstractions introduced by behavior and contract declarations (§10.4):
 
-- **Predicates**: Collections of procedures with default implementations
+- **Behaviors**: Collections of procedures with default implementations
 - **Contracts**: Interface specifications without implementations
 
 [14] These bindings are used in:
 
-- Generic bounds (`where T: Predicate`, §10.3)
-- Type clauses (`record R: Contract with Predicate`, §5.5)
+- Generic bounds (`where T: Behavior`, §10.3)
+- Type clauses (`record R: Contract with Behavior`, §5.5)
 - Witness construction (Clause 13)
 
-**Example 3.6.7.1 (Predicate and contract bindings):**
+**Example 3.6.7.1 (Behavior and contract bindings):**
 
 ```cursive
-predicate Display {                        // Introduces predicate binding `Display`
+behavior Display {                         // Introduces behavior binding `Display`
     procedure show(~): string@View
 }
 
@@ -205,7 +205,7 @@ public grant query                         // Introduces grant binding `query`
 public grant write                         // Introduces grant binding `write`
 
 procedure execute_query(sql: string@View): [Row]
-    [[ query |- sql.len() > 0 => true ]]   // Uses grant binding `query`
+    [[ query |- sql.len() > 0 => true ]]   // References grant binding `query`
 {
     result perform_database_query(sql)
 }
@@ -213,7 +213,7 @@ procedure execute_query(sql: string@View): [Row]
 
 #### §3.6.10 Unified Namespace [basic.binding.namespace]
 
-[19] All binding categories share a single lexical namespace per scope (§6.2). Within a given scope, identifiers must be unique across categories: a type cannot have the same name as a value binding, a predicate cannot share a name with a procedure, etc.
+[19] All binding categories share a single lexical namespace per scope (§6.2). Within a given scope, identifiers must be unique across categories: a type cannot have the same name as a value binding, a behavior cannot share a name with a procedure, etc.
 
 [20] This unified namespace simplifies lookup (Clause 6) and prevents category-based ambiguities. It means programmers cannot write `let Point = ...` in a scope that already has `record Point { ... }`.
 
@@ -240,7 +240,7 @@ record Point { x: f64, y: f64 }
 - Type binding in value context → E08-211 ("expected value, found type")
 - Value binding in type context → E07-301 ("expected type, found value")
 - Module binding in value/type context → E06-402 ("module binding used incorrectly")
-- Predicate/contract binding in value context → E10-401 ("predicate used as value")
+- Behavior/contract binding in value context → E10-401 ("behavior used as value")
 
 [23] The compiler detects category mismatches after lookup succeeds but before semantic validation, providing clear error messages that identify the found category and expected category.
 

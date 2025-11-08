@@ -46,55 +46,220 @@
 
 [4] Pattern bindings (§5.2–§5.3) shall bind every identifier in the pattern. Omitting a field produces E05-704.
 
-[5] With reference bindings (`<-`), the compiler enforces permissions from Clause 11. Assignments that violate permission rules are diagnosed in that clause.
+[5] **Dependency tracking for non-responsible bindings**: When a non-responsible binding is created via `let n <- source`, the compiler records that `n` references the same object as `source`. The reference remains valid as long as the object exists. Since the compiler cannot track object destruction at runtime (zero-cost principle), it uses **parameter responsibility** as a compile-time approximation:
 
-#### §5.7.5 Reference Assignment
+- When `source` is moved to a **responsible parameter** (`move` modifier), the callee might destroy the object, so `n` becomes invalid
+- When `source` is passed to a **non-responsible parameter** (no `move`), the callee will not destroy the object, so `n` remains valid
+- When `source`'s scope ends, the object is destroyed, so `n` must also be out of scope or invalid
 
-[1] A reference assignment (`<-`) creates a binding without cleanup responsibility. The binding refers to the source expression without acquiring responsibility for invoking its destructor. In contrast, value assignment (`=`) transfers cleanup responsibility to the binding.
+This compile-time approximation ensures memory safety without runtime tracking: references cannot access potentially destroyed objects.
 
-[2] Reference assignment combines with `let` or `var`:
+[6] With reference bindings (`<-`), the compiler enforces permissions from Clause 11. Assignments that violate permission rules are diagnosed in that clause.
+
+#### §5.7.5 Non-Responsible Binding Validity
+
+##### §5.7.5.1 Overview
+
+[1] Non-responsible bindings (created with `<-`) have distinct validity rules from responsible bindings. This subsection specifies when non-responsible bindings become invalid and their interaction with responsibility transfer.
+
+##### §5.7.5.2 Invalidation on Potential Object Destruction
+
+[2] Non-responsible bindings reference the **object**, not the binding. The `<-` operator creates a reference that remains valid as long as the object exists. However, non-responsible bindings become invalid when the object **might be destroyed**.
+
+[3] The compiler uses **parameter responsibility** as the compile-time signal for potential destruction. When a binding is moved to a procedure with a **responsible parameter** (marked with `move`), the callee might destroy the object, so all non-responsible bindings referencing that object become invalid:
+
+**Invalidation rule:**
+
+[ Given: Binding $r$, non-responsible binding $n$ created via $n \gets r$, procedure with responsible parameter ]
+
+$$
+\frac{r \text{ moved to responsible parameter}}
+     {r \text{ and } n \text{ both become invalid}}
+\tag{WF-NonResp-Invalidate-OnDestroy}
+$$
+
+**Example 5.7.5.1 (Invalidation when object might be destroyed):**
 
 ```cursive
-let x <- expr      // non-responsible, non-rebindable
-var x <- expr      // non-responsible, rebindable
-```
-
-[3] Bindings created with `<-` shall not invoke destructors when the binding goes out of scope. The referenced value retains its original cleanup responsibility; destructor invocation occurs when the responsible binding exits scope.
-
-[4] Reference bindings shall specify permissions and region annotations consistent with the source expression's type. The definite assignment rules in §5.7.4 apply to both `=` and `<-` forms.
-
-[5] A `var` binding initialized with `<-` may be reassigned to reference a different value using subsequent `<-` operations. Each reassignment replaces the reference without invoking destructors.
-
-[6] Implementations shall enforce permission compatibility between the binding's declared type and the referenced value's permissions. Violations produce diagnostics as specified in Clause 11.
-
-**Example 5.7.5.1 (Value and reference bindings):**
-
-```cursive
-var buffer = allocate_buffer()  // value binding with cleanup responsibility
-let data <- buffer              // reference binding without cleanup responsibility
-// buffer destructor executes at scope exit; data destructor does not execute
-```
-
-**Example 5.7.5.2 (Rebindable reference):**
-
-```cursive
-var config <- get_default_config()  // reference binding
-if use_custom {
-    var custom = load_custom_config()
-    config <- custom                  // rebind reference
+procedure consume(move data: Buffer)   // Responsible parameter (might destroy)
+    [[ |- true => true ]]
+{
+    data.process()
+    // data.drop() called at scope exit
 }
-// config has no cleanup responsibility; no destructor executes for config
+
+let owner = Buffer::new()              // Responsible
+let viewer <- owner                    // Non-responsible (references the object)
+
+consume(move owner)                    // Object might be destroyed by consume
+// owner becomes invalid (moved-from state)
+// viewer becomes invalid (object might be destroyed)
+// viewer.read()                       // ERROR E11-504: use of invalidated reference
 ```
 
-**Example 5.7.5.3 (Permission constraints):**
+[4] This invalidation ensures memory safety:
+- No use-after-free: References become invalid before object destruction
+- No double-free: Non-responsible bindings never call destructors
+- Zero runtime cost: Parameter responsibility known at compile time
+
+##### §5.7.5.3 Non-Responsible Parameters Preserve Validity
+
+[5] When a binding is passed to a procedure with a **non-responsible parameter** (no `move` modifier), the object is guaranteed to survive the call. Non-responsible bindings remain valid:
+
+**Example 5.7.5.2 (Non-responsible parameter preserves validity):**
 
 ```cursive
-let responsible = make_buffer()
-let view: Buffer@View <- responsible     // well-formed
-var mut_ref: unique Buffer <- responsible // ill-formed: permission mismatch
+procedure inspect(data: Buffer)        // Non-responsible parameter (no move)
+    [[ |- true => true ]]
+{
+    println("Size: {}", data.size())
+    // data.drop() NOT called (non-responsible parameter)
+}
+
+let owner = Buffer::new()              // Responsible binding
+let viewer <- owner                    // Non-responsible (references object)
+
+inspect(owner)                         // ✅ OK: passed to non-responsible param
+viewer.read()                          // ✅ VALID: object guaranteed to survive inspect()
+owner.use()                            // ✅ VALID: owner still responsible
+
+// At scope exit: owner.drop() called, viewer does not call drop
 ```
 
-[7] Complete semantics for reference assignment, including permission checking, region lifetime validation, and memory model integration, are specified in Clause 11 [memory].
+[6] The key distinction: parameter responsibility determines object lifetime:
+- **Non-responsible parameter**: Object survives the call, references remain valid
+- **Responsible parameter** (`move`): Object might be destroyed, references become invalid
+
+##### §5.7.5.4 Scope-Based Invalidation
+
+[7] Non-responsible bindings also become invalid when they exit their lexical scope:
+
+```cursive
+let owner = Data::new()
+{
+    let temp_view <- owner             // Valid within this scope
+    temp_view.read()                   // ✅ OK: owner not moved, scope active
+}  // temp_view exits scope (invalidated by scope exit)
+// owner still valid (not moved)
+```
+
+[8] Invalidation conditions (cumulative):
+1. Non-responsible binding exits its own lexical scope
+2. Source binding is moved to a responsible parameter
+
+##### §5.7.5.5 Type Preservation
+
+[9] Non-responsible bindings have the same type as the value they reference. The `<-` operator affects binding metadata (cleanup responsibility) but not type:
+
+**Example 5.7.5.3 (Type identity):**
+
+```cursive
+let buffer: Buffer = Buffer::new()     // Type: Buffer, responsible
+let ref: Buffer <- buffer              // Type: Buffer, non-responsible
+// Same type, different cleanup responsibility
+```
+
+[10] Type checking, permission enforcement, and all type system rules apply identically to both responsible and non-responsible bindings. Only cleanup responsibility and transferability differ.
+
+##### §5.7.5.6 Rebinding Non-Responsible Vars
+
+[11] `var` bindings created with `<-` may be rebound to reference different values:
+
+**Example 5.7.5.4 (Rebinding non-responsible var):**
+
+```cursive
+var current_view <- buffer1
+current_view.read()
+
+current_view <- buffer2                // Update reference
+current_view.read()                    // Now reads from buffer2
+// No destructors called during rebinding
+```
+
+[12] Rebinding a non-responsible `var` does not invoke any destructors. The binding simply refers to a different value.
+
+##### §5.7.5.7 Permission Compatibility
+
+[13] Non-responsible bindings must have permission-compatible types with the source value. Permission coercion rules (§11.4) apply: `unique` → `const` and `shared` → `const` are permitted, but upgrades and cross-coercions are forbidden.
+
+**Example 5.7.5.5 (Permission coercion):**
+
+```cursive
+let data: unique = Data::new()
+let const_view: const <- data          // ✅ OK: unique → const coercion
+let unique_view: unique <- data        // ❌ ERROR: cannot create second unique binding
+```
+
+[14] Complete permission semantics are specified in Clause 11 [memory].
+
+##### §5.7.5.8 Safe Usage Patterns for Non-Responsible Bindings
+
+[15] Non-responsible bindings are safe when used according to the following patterns:
+
+**Pattern 1: Pass to non-responsible parameters**
+
+When the source binding is passed to procedures with non-responsible parameters (no `move` modifier), the object survives the call and non-responsible bindings remain valid. This is the primary use case for non-responsible bindings.
+
+**Pattern 2: Keep source binding alive**
+
+When the source binding remains in scope and is not moved, all non-responsible bindings derived from it remain valid until they exit their own scopes.
+
+**Pattern 3: Use with Copy types**
+
+Copy types (§10.4.5.2) have no destructors, so concerns about object destruction don't apply. Non-responsible bindings to Copy-type values are always safe.
+
+**Example 5.7.5.6 (Complete safe usage pattern):**
+
+```cursive
+procedure inspect(data: Buffer)        // Non-responsible parameter (no move modifier)
+    [[ |- true => true ]]
+{
+    println("Size: {}", data.size())
+    // data.drop() NOT called (non-responsible parameter)
+}
+
+procedure consume(move data: Buffer)   // Responsible parameter (might destroy)
+    [[ |- true => true ]]
+{
+    data.process()
+    // data.drop() IS called at scope exit
+}
+
+let owner = Buffer::new()
+let viewer <- owner                    // Non-responsible binding (references object)
+
+// Safe: pass to non-responsible parameter
+inspect(owner)                         // ✅ Object survives
+viewer.read()                          // ✅ VALID: object alive
+
+// Safe: use without moving
+viewer.read()                          // ✅ VALID: owner not moved
+owner.use()                            // ✅ VALID: owner still responsible
+
+// Unsafe: move to responsible parameter
+// consume(move owner)                 // Would invalidate owner AND viewer
+// viewer.read()                       // ERROR E11-504: object might be destroyed
+
+// At scope exit: owner.drop() called, viewer does not call drop
+```
+
+[16] **Recommended practice**: Use non-responsible bindings to create multiple temporary views of data that remains under the original binding's control. Avoid moving the source binding to responsible parameters while non-responsible bindings exist, or ensure non-responsible bindings exit scope before the move.
+
+##### §5.7.5.9 Validity Summary
+
+[17] **Table 5.7.1 — Non-responsible binding validity conditions**
+
+| Operation on Source                     | Non-Responsible Binding State | Rationale                       |
+|-----------------------------------------|-------------------------------|---------------------------------|
+| Create `let n <- source`                | Valid                         | References object               |
+| Pass `source` to non-responsible param  | Remains valid                 | Object survives call            |
+| Pass `inspect(source)` (no move)        | Remains valid                 | Object not destroyed            |
+| Move to responsible param `move source` | Becomes invalid               | Object might be destroyed       |
+| Call `consume(move source)`             | Becomes invalid               | Callee might destroy object     |
+| Source scope ends                       | Must be out of scope          | Object destroyed at scope exit  |
+| Non-responsible binding scope ends      | Becomes invalid               | Reference exits scope           |
+
+[18] The key insight: **parameter responsibility** (presence of `move` modifier on procedure parameter) signals whether the callee will destroy the object. This compile-time information enables safe reference tracking without runtime overhead.
 
 #### §5.7.6 Reassignment and Drop Order
 
@@ -146,4 +311,6 @@ let {x}: Point = make_point()      // error[E05-704]: field y missing
 
 [2] Compilers shall enforce definite-assignment analysis for block-scoped bindings, emitting E05-703 when a binding might be uninitialised and E05-705 when a `let` binding is reassigned.
 
-[3] Pattern bindings shall bind every identifier declared in the pattern; omissions shall be diagnosed with E05-704 and prevent the program from compiling.
+[3] Compilers shall track dependencies for non-responsible bindings: when `let n <- source` is declared, record that `n` depends on `source`. When `source` is moved to a responsible parameter (indicated by `move` at call site), propagate invalidation to all dependent non-responsible bindings and emit E11-504 when invalidated bindings are used. When `source` is passed to non-responsible parameters (no `move` at call site), non-responsible bindings remain valid because the object is guaranteed to survive.
+
+[4] Pattern bindings shall bind every identifier declared in the pattern; omissions shall be diagnosed with E05-704 and prevent the program from compiling.

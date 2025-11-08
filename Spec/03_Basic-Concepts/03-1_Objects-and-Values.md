@@ -14,11 +14,11 @@
 
 #### §3.1.1 Overview
 
-[1] This subclause establishes the foundational distinction between _objects_ and _values_ in Cursive. Objects are regions of storage with a type, lifetime, and identity; values are abstract mathematical entities that may occupy objects or exist purely as computational intermediates. Understanding this distinction is essential for reasoning about the memory model (Clause 12), type system (Clause 7), and expression semantics (Clause 8).
+[1] This subclause establishes the foundational distinction between _objects_ and _values_ in Cursive. Objects are regions of storage with a type, lifetime, and identity; values are abstract mathematical entities that may occupy objects or exist purely as computational intermediates. Understanding this distinction is essential for reasoning about the memory model (Clause 11), type system (Clause 7), and expression semantics (Clause 8).
 
 [2] Every well-formed Cursive program operates by creating objects, storing values in those objects, computing new values from existing ones, and eventually releasing object storage according to deterministic lifetime rules. The language guarantees memory safety by ensuring that every object access occurs within the object's lifetime and respects its permission and region constraints.
 
-[3] This subclause provides conceptual foundations; concrete mechanisms appear in later clauses: storage duration rules (§3.4), layout and alignment (§3.5), type formation (Clause 7), and the complete memory model with regions and permissions (Clause 12).
+[3] This subclause provides conceptual foundations; concrete mechanisms appear in later clauses: storage duration rules (§3.4), layout and alignment (§3.5), type formation (Clause 7), and the complete memory model with regions and permissions (Clause 11).
 
 #### §3.1.2 Objects [basic.object.objects]
 
@@ -35,7 +35,7 @@
 
 ##### §3.1.2.2 Object Properties
 
-[6] **Size and alignment.** Every object has a size (number of bytes) and alignment (address constraint). For type `T`, size is denoted `sizeof(T)` and alignment is `alignof(T)`. These properties are determined at compile time based on the type's structure and any representation attributes (§3.5, §12.6).
+[6] **Size and alignment.** Every object has a size (number of bytes) and alignment (address constraint). For type `T`, size is denoted `sizeof(T)` and alignment is `alignof(T)`. These properties are determined at compile time based on the type's structure and any representation attributes (§3.5, §11.6).
 
 [7] **Representation.** An object's representation is the sequence of bytes it occupies. Not all byte patterns are valid for all types; reading an invalid representation produces undefined behavior unless explicitly permitted (e.g., when using raw pointers in unsafe blocks, §11.8).
 
@@ -148,14 +148,14 @@ let invalid: u8 = 256            // error: 256 ∉ ⟦u8⟧
 
 [20] Initialization is mandatory: every object shall be initialized before its value is read. Definite assignment analysis (§5.7) enforces this requirement statically.
 
-[21] Assignment to immutable bindings (`let`) is forbidden after initialization. Assignment to mutable bindings (`var`) requires appropriate permissions (§12.4). Assignment replaces the object's stored value; when the previous value's type has a destructor, the destructor executes before the new value is written.
+[21] Assignment to immutable bindings (`let`) is forbidden after initialization. Assignment to mutable bindings (`var`) requires appropriate permissions (§11.4). Assignment replaces the object's stored value; when the previous value's type has a destructor, the destructor executes before the new value is written.
 
 ##### §3.1.4.3 Copy and Move
 
 [22] Values are transferred between objects through two mechanisms:
 
 - **Copy** — Duplicating a value by reading it from a source object and writing an equivalent value to a destination object. Both objects remain valid. Available only for types satisfying the `Copy` predicate (§10.4).
-- **Move** — Transferring ownership of a value from one binding to another, invalidating the source binding. The value is not duplicated; storage responsibilities transfer to the destination.
+- **Move** — Transferring cleanup responsibility for a value from one binding to another, invalidating the source binding. The value is not duplicated; cleanup responsibility transfers to the destination.
 
 [23] Primitive types (integers, floating-point, `bool`, `char`, `()`) always satisfy `Copy`. Composite types satisfy `Copy` when all their components do and no custom destructor is defined. Types that do not satisfy `Copy` must be moved; attempting to copy a non-`Copy` type produces a compile-time diagnostic.
 

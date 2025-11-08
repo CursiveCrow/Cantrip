@@ -2,7 +2,7 @@
 
 ## Clause 2 — Lexical Structure and Translation
 
-**Clause**: 2 — Lexical Structure and Translation
+**Part**: II — Lexical Structure and Translation
 **File**: 02-3_Lexical-Elements.md
 **Section**: §2.3 Lexical Elements
 **Stable label**: [lex.tokens]
@@ -46,7 +46,7 @@ token
 
 [3] _Documentation comments._ Comments beginning with `///` or `//!` shall be preserved and attached to the following item or module, respectively. They participate in documentation tooling but do not appear in the token stream.
 
-[4] _Keywords._ The following identifiers are reserved and may not be used as ordinary identifiers: `abstract`, `as`, `async`, `await`, `break`, `by`, `case`, `comptime`, `continue`, `defer`, `effect`, `else`, `enum`, `exists`, `false`, `forall`, `if`, `import`, `internal`, `invariant`, `let`, `loop`, `match`, `modal`, `module`, `move`, `must`, `new`, `none`, `private`, `procedure`, `protected`, `public`, `record`, `region`, `result`, `select`, `self`, `Self`, `shadow`, `shared`, `state`, `static`, `predicate`, `true`, `type`, `unique`, `uses`, `var`, `where`, `will`, `with`.
+[4] _Keywords._ The following identifiers are reserved and may not be used as ordinary identifiers: `abstract`, `as`, `async`, `await`, `behavior`, `break`, `by`, `case`, `comptime`, `continue`, `defer`, `else`, `enum`, `exists`, `false`, `forall`, `if`, `import`, `internal`, `invariant`, `let`, `loop`, `match`, `modal`, `module`, `move`, `must`, `new`, `none`, `private`, `procedure`, `protected`, `public`, `record`, `region`, `result`, `select`, `self`, `Self`, `shadow`, `shared`, `state`, `static`, `true`, `type`, `unique`, `var`, `where`, `will`, `with`.
 
 [5] _Literals._ Numeric literals support decimal, hexadecimal (`0x`), octal (`0o`), and binary (`0b`) prefixes. Underscores `_` may separate digits but shall not appear at the start or end of the literal, immediately after a base prefix, or before a type suffix. Integer literals without a suffix default to type `i32`. Violations raise diagnostic E02-206. Floating-point literals consist of an integer part, optional fractional part, optional exponent, and optional suffix (`f32` or `f64`).
 

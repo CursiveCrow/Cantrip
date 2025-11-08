@@ -12,7 +12,7 @@
 
 ### §7.1 Type System Overview [type.overview]
 
-[1] This clause specifies the static type system that governs every well-formed Cursive program. The type system classifies values, constrains expressions, coordinates permissions and effects, and ensures that well-typed programs avoid undefined behavior attributable to type errors.
+[1] This clause specifies the static type system that governs every well-formed Cursive program. The type system classifies values, constrains expressions, coordinates permissions and grants, and ensures that well-typed programs avoid undefined behavior attributable to type errors.
 
 [2] Cursive’s type discipline is primarily nominal, augmented with structural forms where doing so preserves zero abstraction cost and local reasoning. Bidirectional type inference is an intrinsic design goal: the type checker flows information both from expressions to their contexts and from contexts into expressions so that most local declarations do not require redundant annotations while still keeping inference predictable.
 
@@ -24,7 +24,7 @@
 
 - **Safety**: Typing judgments preclude use-after-free, type confusion, and contract violations when combined with the permission (§12) and contract (§13) systems.
 - **Determinism**: Type checking is deterministic with respect to the source program, the available grants, and the compilation environment.
-- **Explicitness**: Effects, grants, modal states, and region usage are reflected in type constructors, ensuring that each obligation is visible in source.
+- **Explicitness**: Grants, modal states, and region usage are reflected in type constructors, ensuring that each obligation is visible in source.
 - **Composability**: Types compose predictably through generics, unions, and composite constructors without hidden coercions or implicit special cases.
 - **LLM-friendly regularity**: Type formation rules, inference heuristics, and rule names follow consistent patterns so that automated tooling can reason locally.
 
@@ -39,7 +39,7 @@
 | Procedure (callable) types | §7.4 [type.function]      | Call signatures with grant and contract annotations, closure capture model |
 | Pointer & reference types  | §7.5 [type.pointer]       | Region-aware pointers, modal state projections                             |
 | Type relations             | §7.6 [type.relation]      | Equivalence, subtyping, compatibility, variance                            |
-| Introspection              | §7.7 [type.introspection] | `typeof`, compile-time queries, predicate reflection                       |
+| Introspection              | §7.8 [type.introspection] | `typeof`, compile-time queries, behavior reflection                        |
 
 [6] Each family subclause follows the standard structure (overview → syntax → constraints → semantics → examples) mandated by SpecificationOnboarding.md. Concrete grammars for individual constructors appear in their respective subclauses; §7.1 provides only categorical organization.
 
@@ -92,7 +92,7 @@ procedure transition(file: unique FileHandle@Closed): FileHandle@Open
 - $\tau_1 <: \tau_2$ — subtyping relation defined in §7.7 [type.relation].
 - $\tau_1 \simeq \tau_2$ — type equivalence relation that respects aliases and structural normalization (§7.7.2).
 
-[8] Type environments bind term variables to types, type variables to kinds (with optional predicate bounds), grant parameters to grant sets, and modal parameters to state constraints. Environment formation and lookup rules follow §1.3 [intro.terms] conventions; §7.7 restates any additional obligations introduced by subtype or modal analysis.
+[8] Type environments bind term variables to types, type variables to kinds (with optional behavior bounds), grant parameters to grant sets, and modal parameters to state constraints. Environment formation and lookup rules follow §1.3 [intro.terms] conventions; §7.7 restates any additional obligations introduced by subtype or modal analysis.
 
 #### §7.1.5 Guarantees [type.overview.guarantees]
 
@@ -113,7 +113,7 @@ procedure transition(file: unique FileHandle@Closed): FileHandle@Open
 - **Generics (Clause 10)**: Type parameters, bounds, and instantiation are defined in the generic system and referenced by each type constructor.
 - **Memory model (Clause 11)**: Region annotations, permissions, and move semantics enrich pointer and composite types.
 - **Contracts and witnesses (Clauses 12–13)**: Procedure types embed sequents; witness construction depends on type information to ensure modal and contract obligations are satisfied.
-- **Modules (Clause 4)**: Type checking executes after module initialization, so exported declarations are fully defined (§4.6.7). Only `public` types may be referenced across module boundaries—referencing an internal type emits E04-700—and generic instantiations must supply type arguments that satisfy both visibility and grant requirements. Contract implementations attached to exported types shall succeed before the type becomes visible, and diagnostics that mention cross-module types SHALL include the module path in their payloads (Annex E §E.5).
+- **Modules (Clause 4)**: Type checking executes after module initialization, so exported declarations are fully defined (§4.6.7). Only `public` types may be referenced across module boundaries—referencing an internal type emits E07-750—and generic instantiations must supply type arguments that satisfy both visibility and grant requirements. Contract implementations attached to exported types shall succeed before the type becomes visible, and diagnostics that mention cross-module types SHALL include the module path in their payloads (Annex E §E.5).
 
 [12] Annex A (§A.3) provides the consolidated grammar for all type forms. Annex C formalizes the typing judgments and proves progress/preservation theorems that rely on the rules introduced in this clause. Annex E supplies implementation guidance and diagnostic catalogs; the most relevant entries include definite-assignment checks, subtype cycle detection, and union exhaustiveness validation.
 
@@ -155,20 +155,20 @@ Violations **shall** produce diagnostics specified in Clause 11 (region escape e
 
 **Ownership and Move Semantics:**
 
-[16] Ownership semantics (§11.4) are reflected in the type system through move semantics and copy predicates. Implementations **shall**:
+[16] Ownership semantics (§11.4) are reflected in the type system through move semantics and copy behaviors. Implementations **shall**:
 
 1. Track which types satisfy the `Copy` predicate
 2. Enforce move semantics for types without `Copy`
 3. Diagnose use-after-move violations during definite assignment analysis (§5.7)
 
-Types that implement the copy predicate can be copied; types without copy predicates **shall** be moved when assigned or passed to procedures. Type checking **shall** enforce move semantics by tracking ownership transfers through procedure calls and assignments, ensuring that moved values are not used after move (diagnostic specified in Clause 11).
+Types that implement the copy behavior can be copied; types without copy behaviors **shall** be moved when assigned or passed to procedures. Type checking **shall** enforce move semantics by tracking responsibility transfers through procedure calls and assignments, ensuring that moved values are not used after move (diagnostic specified in Clause 11).
 
 **Pointer Safety Integration:**
 
 [17] Pointer types (§7.5) integrate with the memory model to ensure memory safety. Implementations **shall** enforce:
 
 1. Safe modal pointers (`Ptr<T>@State`) track pointer state through the type system
-2. Null pointers (`Ptr<T>@Null`) **shall not** be dereferenced (diagnostic E07-XXX)
+2. Null pointers (`Ptr<T>@Null`) **shall not** be dereferenced (diagnostic E07-301)
 3. Weak pointers (`Ptr<T>@Weak`) **shall** be upgraded before use
 4. State transitions **shall** follow modal type rules (§7.6)
 
@@ -202,7 +202,7 @@ When a generic type is instantiated, the memory model constraints **shall** be c
 2. Follow the structured payload format (Annex E §E.5)
 3. Provide actionable guidance for resolving permission, region, or ownership errors
 
-#### §7.1.7 Examples (Informative) [type.overview.examples]
+#### §7.1.8 Examples (Informative) [type.overview.examples]
 
 **Example 7.1.7.1 (Bidirectional inference with unions):**
 
@@ -219,7 +219,7 @@ procedure normalize(input: stream::Line): string \/ io::Error
 }
 ```
 
-[21] The return type annotation supplies the expected union. The `result` statements rely on automatic widening (`string <: string \/ io::Error`) and on the contractual sequent to document the effect requirements.
+[21] The return type annotation supplies the expected union. The `result` statements rely on automatic widening (`string <: string \/ io::Error`) and on the contractual sequent to document the grant requirements.
 
 **Example 7.1.7.2 (Pointer state integrated with permissions):**
 

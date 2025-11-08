@@ -24,10 +24,10 @@
 
 - **Variable bindings** (`let`, `var`, `shadow let`, `shadow var`) introduce bindings with explicit mutability and optional pattern destructuring.
 - **Binding patterns** extend variable bindings with structured destructuring that binds multiple identifiers simultaneously.
-- **Callable declarations** (`procedure`, `comptime procedure`, `extern procedure`) introduce named computations, including their parameter lists, contracts, and effect obligations.
+- **Callable declarations** (`procedure`, `comptime procedure`, `extern procedure`) introduce named computations, including their parameter lists, contracts, and grant obligations.
 - **Type declarations** (`record`, `enum`, `modal`, `type`) introduce nominal or transparent types into the unified namespace.
 - **Visibility modifiers** (`public`, `internal`, `private`, `protected`) refine the accessibility of the associated declaration.
-- **Auxiliary declarations** (predicates, contracts, grants) rely on their dedicated clauses for semantics but use this clause for name introduction and visibility rules. Grant declarations are specified in Clause 12 (§12.x [contract.grants]).
+- **Auxiliary declarations** (behaviors, contracts, grants) rely on their dedicated clauses for semantics but use this clause for name introduction and visibility rules. Grant declarations are specified in §5.9 [decl.grant]; grant system semantics are specified in Clause 12 [contract].
 
 [4] Declarations located at module scope participate in module initialisation ordering (§4.6) and contribute to the program entry model (§5.8). Declarations inside block scopes follow the storage-duration rules established in §5.7 and the scoping rules of Clause 6.
 

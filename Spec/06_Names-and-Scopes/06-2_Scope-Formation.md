@@ -48,7 +48,7 @@ region_block
 
 [5] Every scope shall have a single parent except the implicit root scope associated with the compilation unit. The parent relation shall form a tree—cycles and multiple parents for a single scope are forbidden (diagnostic E06-201).
 
-[6] Module scope is the outermost scope for each compilation unit. All top-level declarations (`module`, `import`, `use`, `let`, `var`, `record`, `enum`, `modal`, `contract`, `predicate`, `effect`) enter this scope and become visible throughout the unit subject to visibility modifiers (§5.6).
+[6] Module scope is the outermost scope for each compilation unit. All top-level declarations (`module`, `import`, `use`, `let`, `var`, `record`, `enum`, `modal`, `contract`, `predicate`, `grant`) enter this scope and become visible throughout the unit subject to visibility modifiers (§5.6).
 
 [7] Procedure scope is established when a callable body begins. Parameters and labels have procedure-wide visibility within that scope regardless of nested blocks. Nested procedure declarations create new scopes following the rules in §5.4.
 

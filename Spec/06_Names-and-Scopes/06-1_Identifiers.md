@@ -13,7 +13,7 @@
 
 #### §6.1.1 Overview [name.identifier.overview]
 
-[1] This subclause defines how identifiers are formed, classified, and interpreted within Cursive’s unified namespace model. Identifiers name every declaration that participates in lexical scope: variables, procedures, types, modules, contracts, predicates, effects, and labels.
+[1] This subclause defines how identifiers are formed, classified, and interpreted within Cursive's unified namespace model. Identifiers name every declaration that participates in lexical scope: variables, procedures, types, modules, contracts, predicates, grants, and labels.
 
 [2] Identifier formation relies on the lexical grammar specified in §2.3 [lex.tokens]; the present clause records the semantic obligations that arise once an identifier enters a scope. In particular, it clarifies case sensitivity, Unicode handling, reserved keywords, and the relationship between identifier spelling and the single-namespace rule introduced in §6.2.
 

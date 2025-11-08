@@ -29,7 +29,7 @@
 
 - **Name resolution:** identifiers resolve using Clause 6 §6.4. Names bound to types/modules/contracts cannot appear in expression position (E08-211).
 - **Definite assignment:** Clause 5 §5.7 ensures bindings are initialised before use. Violations emit E08-210 at the expression site.
-- **Permission safety:** assignments and moves operate only on places with sufficient permission (`mut` or `own`). Violations emit E08-003.
+- **Permission safety:** assignments and moves operate only on places with sufficient permission (`mut` or `own`). Violations emit E11-403.
 - **Grant coverage:** the enclosing procedure's grants clause (within its contractual sequent) covers ε; missing grants produce E08-004.
 - **Type compatibility:** operands satisfy the subtyping/compatibility rules in Clause 7. Failures emit E08-800 with both types and the violated rule.
 
@@ -41,7 +41,7 @@
 | ----- | ----------------------------------------------------- | ---------- |
 | IF-01 | Identifier resolves to non-value entity               | E08-211    |
 | IF-02 | Type inference failed and no context provided         | E08-002    |
-| IF-03 | Place used without required permission                | E08-003    |
+| IF-03 | Place used without required permission                | E11-403    |
 | IF-04 | Runtime-only construct used in const/comptime context | E08-700    |
 | IF-05 | Match result type inference failed                    | E08-450    |
 | IF-06 | Pipeline stage omitted type while changing type       | E08-020    |
@@ -56,13 +56,13 @@
 
 #### §8.8.5 Tooling integration
 
-[6] Conforming implementations shall expose expression metadata (type, grant set, category, evaluation order index) via the tooling interface in Annex E §E.3. Diagnostics shall embed this metadata in their JSON payloads when it aids remediation—for example, E08-003 specifies the binding name and required permission, while E08-004 includes both required and supplied grant sets.
+[6] Conforming implementations shall expose expression metadata (type, grant set, category, evaluation order index) via the tooling interface in Annex E §E.3. Diagnostics shall embed this metadata in their JSON payloads when it aids remediation—for example, E11-403 specifies the binding name and required permission, while E08-004 includes both required and supplied grant sets.
 
 #### §8.8.6 Example diagnostic payload
 
 ```json
 {
-  "code": "E08-003",
+  "code": "E11-403",
   "message": "assignment requires mutable place",
   "expr_range": "src/lib.rs:42:9-42:22",
   "binding": "total",

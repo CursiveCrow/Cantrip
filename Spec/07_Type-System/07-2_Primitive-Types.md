@@ -112,7 +112,7 @@ $$
 - **E07-100** — Constant folding overflow (Clause 8 diagnostic catalog).
 - **E07-101** — Division or remainder by zero detected statically (§8.5.2).
 
-##### §7.2.2.7 Copy Predicate and Move Semantics [type.primitive.int.copy]
+##### §7.2.2.7 Copy Behavior and Move Semantics [type.primitive.int.copy]
 
 [17] All integer types satisfy `Copy`:
 
@@ -188,7 +188,7 @@ $$
 - **E07-102** — Invalid literal suffix (Annex E §E.5).
 - **E07-103** — Constant folding overflow or division by zero at compile time (Annex E §E.5).
 
-##### §7.2.3.7 Copy Predicate [type.primitive.float.copy]
+##### §7.2.3.7 Copy Behavior [type.primitive.float.copy]
 
 $$
 \forall T \in \{f32, f64\}.\; T : \text{Copy}
@@ -248,7 +248,7 @@ $$
 
 [27] **E07-104** — Non-`bool` operand supplied to logical operator (Clause 8 diagnostic). **E07-105** — `bool` used where numeric type required.
 
-##### §7.2.4.5 Copy Predicate and Examples
+##### §7.2.4.5 Copy Behavior and Examples
 
 $$
 bool : \text{Copy}
@@ -301,7 +301,7 @@ $$
 
 [31] Ordering compares code points numerically. `char` supports conversion to UTF-8/UTF-16 sequences via standard library routines (informative reference: Annex F §F.2).
 
-##### §7.2.5.4 Copy Predicate and Examples
+##### §7.2.5.4 Copy Behavior and Examples
 
 $$
 char : \text{Copy}
@@ -335,7 +335,7 @@ $$
 
 [33] `sizeof(()) = 0`, `alignof(()) = 1`. No storage is allocated for unit values; they may be freely elided.
 
-##### §7.2.6.3 Copy Predicate and Example
+##### §7.2.6.3 Copy Behavior and Example
 
 $$
 () : \text{Copy}
@@ -394,9 +394,9 @@ procedure compute_or_exit(code: i32): i32
 
 ---
 
-#### §7.2.8 Summary of Copy Predicates [type.primitive.copy]
+#### §7.2.8 Summary of Copy Behaviors [type.primitive.copy]
 
-| Type           | Copy predicate               |
+| Type           | Copy behavior               |
 | -------------- | ---------------------------- |
 | `IntegerTypes` | `T : Copy` (Prop-Int-Copy)   |
 | `f32`, `f64`   | `T : Copy` (Prop-Float-Copy) |

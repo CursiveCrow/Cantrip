@@ -45,9 +45,9 @@ applies to every compound expression `f`. No implementation may reorder independ
 
 [5] **Short-circuit exception.** The only sanctioned deviation from §8.1.3[4] is the short-circuit behaviour of `&&` and `||` (§8.3.7), which may skip evaluating their right operand when the left operand determines the result. All other operators, including pipelines and ternary constructs, must evaluate each operand.
 
-[6] **Call-by-value semantics.** Procedure calls, effect operations, and pipeline stages evaluate their arguments completely before transferring control to the callee. Divergent subexpressions (type `!`) propagate divergence to the enclosing expression, ensuring predictable side-effect ordering.
+[6] **Call-by-value semantics.** Procedure calls, grant-requiring operations, and pipeline stages evaluate their arguments completely before transferring control to the callee. Divergent subexpressions (type `!`) propagate divergence to the enclosing expression, ensuring predictable side-effect ordering.
 
-[7] **Determinism.** Given identical inputs, grant budgets, and compile options, a conforming implementation shall produce identical observable behaviour: evaluation order, side effects, and panic points are deterministic. There is no unspecified unspecified behaviour akin to C/C++ sequence points.
+[7] **Determinism.** Given identical inputs, grant budgets, and compile options, a conforming implementation shall produce identical observable behaviour: evaluation order, side effects, and panic points are deterministic. There is no unspecified behaviour akin to C/C++ sequence points.
 
 [8] **Comptime vs runtime contexts.** Expressions appearing in const/comptime positions (§8.7) must be evaluable during the compile-time execution phase (§2.2). Injecting runtime-only constructs (IO, heap allocation, raw pointer arithmetic) into such contexts is ill-formed (E08-001).
 
@@ -89,7 +89,7 @@ where `ε_f` covers intrinsic grants (e.g., `unsafe.ptr` for raw-pointer derefer
 [16] Every expression must also satisfy three auxiliary checks:
 
 - **Definite assignment** — Clause 5 §5.7 ensures bindings are initialised before use. Ill-formed usages trigger E08-210 (identifier used before assignment) within expression contexts.
-- **Permission safety** — Clause 11 tracks permissions on places. Assigning through a `let` binding or reading a moved `own` value emits E08-003.
+- **Permission safety** — Clause 11 tracks permissions on places. Assigning through a `let` binding or reading a moved `own` value emits E11-403.
 - **Type compatibility** — Operands must satisfy the subtyping/compatibility rules of Clause 7. Failures result in E08-800, which reports both types, the relevant rule (variance, equality), and suggested remedies.
 
 #### §8.1.7 Diagnostics
@@ -100,7 +100,7 @@ where `ε_f` covers intrinsic grants (e.g., `unsafe.ptr` for raw-pointer derefer
 | ----------- | ---------------------------------------------------------- | -------------------------------------------------------------- |
 | **E08-001** | Runtime-only construct used in const/comptime context      | Expression range, enclosing comptime site, offending construct |
 | **E08-002** | Type cannot be inferred and no contextual type provided    | Expression range, partial inference info, suggested annotation |
-| **E08-003** | Place used without required permission                     | Binding name, required permission, observed operation          |
+| **E11-403** | Place used without required permission                     | Binding name, required permission, observed operation          |
 | **E08-004** | Missing grant(s) from grants clause in contractual sequent | Required grant set, provided grant set                         |
 | **E08-020** | Pipeline stage omitted type annotation while changing type | Stage text, inferred before/after types                        |
 

@@ -17,7 +17,7 @@
 
 #### §5.9.1 Overview
 
-[1] Grant declarations introduce user-defined capability tokens at module scope. Grants are compile-time annotations used in procedure contractual sequent specifications to track side effects and operational capabilities.
+[1] Grant declarations introduce user-defined capability tokens at module scope. Grants are compile-time annotations used in procedure contractual sequent specifications to track operational capabilities and side effects.
 
 [2] This section specifies the declaration syntax and basic semantics for user-defined grants. The complete grant system, including built-in grants, verification rules, and propagation semantics, is specified in Clause 12 [contract].
 
@@ -41,7 +41,7 @@ grant_declaration
 - Runtime grants: `alloc`, `fs`, `net`, `thread`, `time`, `ffi`, `unsafe`, `panic`
 - Comptime grants: `comptime.alloc`, `comptime.codegen`, `comptime.config`, `comptime.diag` (see §2.2.4.2 [lex.phases.comptime])
 
-[ Note: Comptime grants are available only within `comptime` blocks and `comptime` procedures. They provide controlled access to compile-time effects such as memory allocation, code generation, configuration access, and diagnostic emission. The complete grant system, including built-in grant semantics and verification rules, is specified in Clause 12 [contract].
+[ Note: Comptime grants are available only within `comptime` blocks and `comptime` procedures. They provide controlled access to compile-time capabilities such as memory allocation, code generation, configuration access, and diagnostic emission. The complete grant system, including built-in grant semantics and verification rules, is specified in Clause 12 [contract].
 — end note ]
 
 Violations produce diagnostic E05-901.

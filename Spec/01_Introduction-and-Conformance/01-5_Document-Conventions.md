@@ -79,7 +79,7 @@
 - Suggested diagnostic message templates and quality guidelines;
 - Severity levels (error, warning, note) for each code.
 
-[18] Deprecated diagnostic codes from earlier specification versions shall be documented in the migration mapping (see `.archive/Diagnostic_Code_Migration_Map.md`). Implementations may recognize legacy codes for backward compatibility but shall normalize them to the canonical format in output.
+[18] Deprecated diagnostic codes from earlier specification versions shall be documented in the migration mapping (Annex H [changes]). Implementations may recognize legacy codes for backward compatibility but shall normalize them to the canonical format in output.
 
 **NOTE 1**: The two-digit clause prefix supports clauses up to 99. Current specification planning does not anticipate exceeding 20 clauses.
 

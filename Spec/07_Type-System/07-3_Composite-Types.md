@@ -14,7 +14,7 @@
 
 [1] Composite types combine or select among other types. They cover structural products (tuples), nominal products (records), sequential collections (arrays, slices, strings, ranges), discriminated sums (enums), and safe unions (`τ₁ \/ τ₂`).
 
-[2] Composite types integrate with permissions (§11.2), regions (§11.3), contracts (Clause 12), and generics (Clause 10). Each constructor follows the standard template: syntax, formation constraints, semantics, and canonical examples. Where relevant, Copy predicates and size/alignment rules are stated explicitly.
+[2] Composite types integrate with permissions (§11.2), regions (§11.3), contracts (Clause 12), and generics (Clause 10). Each constructor follows the standard template: syntax, formation constraints, semantics, and canonical examples. Where relevant, Copy behaviors and size/alignment rules are stated explicitly.
 
 [3] This subclause is organized as follows:
 
@@ -70,7 +70,7 @@ $$
 
 [10] Evaluation proceeds left-to-right; side effects in elements are sequenced accordingly. Runtime representation stores elements contiguously with padding inserted to satisfy each element’s alignment. Tuple alignment equals the maximum alignment of its elements; tuple size equals the padded sum of element sizes.
 
-[11] Copy predicate and variance:
+[11] Copy behavior and variance:
 
 - $(\tau_1, \ldots, \tau_n)$ satisfies `Copy` iff every $\tau_i$ does.
 - Tuples are invariant in each parameter position because elements may be both read and written.
@@ -133,7 +133,7 @@ $$
 
 [16] Records are nominal: two records are equivalent iff they share the same declaration. Fields are laid out in declaration order with padding inserted as required. Dual access refers to the same storage location. Struct update syntax (`R { field: value, ..expr }`) copies unspecified fields from `expr`.
 
-[17] Copy predicate: a record satisfies `Copy` iff every field does and no user-defined destructor is attached. Variance is invariant per field for the same reason as tuples.
+[17] Copy behavior: a record satisfies `Copy` iff every field does and no user-defined destructor is attached. Variance is invariant per field for the same reason as tuples.
 
 ##### §7.3.3.5 Examples (Informative) [type.composite.record.examples]
 
@@ -232,7 +232,7 @@ Slicing requires the source to be an array, owned string, or pointer supporting 
 
 ###### Semantics
 
-[26] A slice value is `{ ptr: Ptr<τ>, len: usize }`. Copy predicate: a slice satisfies `Copy` because the view is immutable with respect to ownership; mutability is represented through permissions on the pointer. Indexing a slice is identical to array indexing with bounds checking.
+[26] A slice value is `{ ptr: Ptr<τ>, len: usize }`. Copy behavior: a slice satisfies `Copy` because the view is immutable with respect to ownership; mutability is represented through permissions on the pointer. Indexing a slice is identical to array indexing with bounds checking.
 
 ###### Examples (Informative)
 
@@ -449,55 +449,344 @@ match circle {
 
 ##### §7.3.6.1 Overview [type.composite.union.overview]
 
-[38] Safe union types use the operator `\/` to combine types structurally. They are discriminated unions with automatically inserted runtime tags. Unlike enums, unions are structural and may be formed without a prior declaration.
+[38] Safe union types use the **union operator `\/` (reads as "or")** to combine types structurally. They are discriminated unions with automatically inserted runtime tags that track which component type is active. Unlike enums (which are nominal and require explicit declaration), unions are structural and may be formed inline without prior declaration.
+
+[39] Union types enable error handling, optional values, and control-flow merging without manual wrapper types. The type system automatically widens component types to the union and enforces exhaustive pattern matching.
 
 ##### §7.3.6.2 Syntax [type.composite.union.syntax]
+
+[40] Union type syntax:
 
 ```
 UnionType ::= Type '\/' Type ('\/' Type)*
 ```
 
-Unions are associative, commutative, and idempotent: `τ \/* τ` ≡ `τ`; ordering of components is immaterial.
+[ Note: See Annex A §A.3 [grammar.type] for complete union type grammar.
+— end note ]
+
+[41] **Union properties**:
+
+- **Binary operator**: `\/` is a type-level binary operator
+- **Associative**: `(τ₁ \/ τ₂) \/ τ₃ ≡ τ₁ \/ (τ₂ \/ τ₃)`
+- **Commutative**: `τ₁ \/ τ₂ ≡ τ₂ \/ τ₁`
+- **Idempotent**: `τ \/ τ ≡ τ`
+- **Flattening**: Nested unions automatically flatten: `(τ₁ \/ τ₂) \/ τ₃ ≡ τ₁ \/ τ₂ \/ τ₃`
+
+[42] Component ordering is semantically immaterial; `i32 \/ string` and `string \/ i32` denote the same type after normalization.
 
 ##### §7.3.6.3 Constraints [type.composite.union.constraints]
 
-[39] A union is well-formed when each component type is well-formed:
+##### §7.3.6.3.1 Formation
+
+[43] A union is well-formed when each component type is well-formed:
+
+**Binary union formation:**
 
 $$
 \dfrac{\Gamma \vdash \tau_1 : \text{Type} \quad \Gamma \vdash \tau_2 : \text{Type}}{\Gamma \vdash \tau_1 \/ \tau_2 : \text{Type}}
-\tag{WF-Union}
+\tag{WF-Union-Binary}
 $$
 
-[40] Each component is a subtype of the union:
+**N-ary union formation:**
 
 $$
-\dfrac{}{\tau_i <: \tau_1 \/ \cdots \/ \tau_n}
+\dfrac{\Gamma \vdash \tau_1 : \text{Type} \quad \cdots \quad \Gamma \vdash \tau_n : \text{Type} \quad n \geq 2}{\Gamma \vdash \tau_1 \/ \cdots \/ \tau_n : \text{Type}}
+\tag{WF-Union-Nary}
+$$
+
+[44] **Normalization**: Implementations shall normalize unions by:
+1. Flattening nested unions: `(τ₁ \/ τ₂) \/ τ₃` → `τ₁ \/ τ₂ \/ τ₃`
+2. Removing duplicates: `τ \/ τ \/ υ` → `τ \/ υ`
+3. Sorting components by canonical order (implementation-defined but stable)
+
+After normalization, union types are compared component-wise for equivalence.
+
+##### §7.3.6.3.2 Subtyping
+
+[45] Each component type is automatically a subtype of the union:
+
+**Component introduction:**
+
+$$
+\dfrac{i \in [1..n]}{\tau_i <: \tau_1 \/ \cdots \/ \tau_n}
 \tag{Sub-Union-Intro}
 $$
 
-[41] Matching on unions requires covering each component type (typically via pattern matching or type tests). Exhaustiveness rules mirror enum coverage.
+**Union subsumption:**
+
+$$
+\dfrac{\forall i.\, \tau_i <: \upsilon_1 \/ \cdots \/ \upsilon_m}{\tau_1 \/ \cdots \/ \tau_n <: \upsilon_1 \/ \cdots \/ \upsilon_m}
+\tag{Sub-Union-Subsumption}
+$$
+
+If every component of the left union is a subtype of the right union (or one of its components), then the left union is a subtype of the right union.
+
+[46] **Automatic widening**: Expressions of type `τᵢ` automatically coerce to type `τ₁ \/ ... \/ τₙ` when required by context:
+
+$$
+\dfrac{\Gamma \vdash e : \tau_i \quad \tau_i <: \tau_1 \/ \cdots \/ \tau_n}{\Gamma \vdash e : \tau_1 \/ \cdots \/ \tau_n}
+\tag{Coerce-Union-Widen}
+$$
+
+This enables returning different component types from the same procedure without explicit wrapper construction.
+
+##### §7.3.6.3.3 Pattern Matching and Exhaustiveness
+
+[47] Pattern matching on unions requires exhaustive coverage of all component types:
+
+**Exhaustiveness rule:**
+
+[ Given: Union type $\tau_1 \/ \cdots \/ \tau_n$, match patterns $p_1, \ldots, p_m$ ]
+
+$$
+\dfrac{\bigcup_{j=1}^{m} \text{cover}(p_j) \supseteq \{\tau_1, \ldots, \tau_n\}}{\text{match}(\tau_1 \/ \cdots \/ \tau_n, [p_1, \ldots, p_m]) \text{ is exhaustive}}
+\tag{WF-Union-Exhaustive}
+$$
+
+[48] Incomplete matches produce diagnostic E08-450 (non-exhaustive union match). Wildcard patterns (`_`) satisfy exhaustiveness for all remaining component types.
+
+[49] **Type refinement in patterns**: Within a match arm matching component type `τᵢ`, the matched value is refined to type `τᵢ`:
+
+```cursive
+let result: i32 \/ Error = compute()
+
+match result {
+    value: i32 => {
+        // value has type i32 here (refined)
+        println("Success: {}", value)
+    }
+    error: Error => {
+        // error has type Error here (refined)
+        println("Failed: {}", error.message)
+    }
+}
+```
 
 ##### §7.3.6.4 Semantics [type.composite.union.semantics]
 
-[42] The runtime representation stores a discriminant indicating the active component along with the payload. Size equals the maximum component size plus discriminant overhead; alignment equals the maximum component alignment. Copy predicate holds when every component type satisfies `Copy`.
+##### §7.3.6.4.1 Runtime Representation
+
+[50] Union types use **tagged union** representation:
+
+**Layout:**
+```
+struct Union<T₁, ..., Tₙ> {
+    discriminant: usize,           // Which component is active
+    payload: max_size(T₁, ..., Tₙ) // Storage for largest component
+}
+```
+
+[51] **Discriminant**: The discriminant is an unsigned integer requiring minimum bits to represent $n$ component types:
+- 2-3 components: 2 bits (u8)
+- 4-255 components: 8 bits (u8)
+- 256+ components: 16 bits (u16)
+
+Implementations may use larger discriminants for alignment purposes.
+
+[52] **Size and alignment**:
+
+$$
+\text{sizeof}(\tau_1 \/ \cdots \/ \tau_n) = \text{sizeof(discriminant)} + \max_i(\text{sizeof}(\tau_i)) + \text{padding}
+$$
+
+$$
+\text{alignof}(\tau_1 \/ \cdots \/ \tau_n) = \max(\text{alignof(discriminant)}, \max_i(\text{alignof}(\tau_i)))
+$$
+
+Padding is inserted to satisfy alignment requirements.
+
+##### §7.3.6.4.2 Construction and Widening
+
+[53] Union values are constructed by automatic widening:
+
+**Typing rule:**
+
+$$
+\dfrac{\Gamma \vdash e : \tau_i \quad \tau_i <: \tau_1 \/ \cdots \/ \tau_n}{\Gamma \vdash e : \tau_1 \/ \cdots \/ \tau_n}
+\tag{T-Union-Widen}
+$$
+
+The discriminant is set to indicate component `τᵢ`, and the payload stores the value.
+
+[54] **No explicit constructor**: Union construction is automatic through subtyping. Expressions of component type automatically widen to union type when expected by context.
+
+##### §7.3.6.4.3 Pattern Matching Semantics
+
+[55] Pattern matching inspects the discriminant and extracts the payload:
+
+**Match evaluation:**
+
+[ Given: Union value $v : \tau_1 \/ \cdots \/ \tau_n$ with active component $\tau_k$ ]
+
+$$
+\dfrac{v \text{ has discriminant } k \quad p_j \text{ matches } \tau_k}{\text{match } v \{ \ldots, p_j \Rightarrow e_j, \ldots \} \text{ selects branch } j}
+\tag{E-Union-Match}
+$$
+
+The pattern matching extracts the payload as type `τₖ` and evaluates the corresponding arm.
+
+##### §7.3.6.4.4 Copy Behavior
+
+[56] A union type satisfies `Copy` if and only if all component types satisfy `Copy`:
+
+$$
+\dfrac{\forall i.\, \tau_i : \text{Copy}}{\tau_1 \/ \cdots \/ \tau_n : \text{Copy}}
+\tag{Prop-Union-Copy}
+$$
+
+If any component is move-only, the entire union is move-only.
+
+##### §7.3.6.4.5 Never Type Absorption
+
+[57] Union with never type `!` simplifies to the other type:
+
+$$
+\tau \/ ! \equiv \tau
+\tag{Union-Never-Absorb}
+$$
+
+Since `!` is uninhabited, a union containing `!` can never hold a `!` value, so the union is equivalent to the union of all other components.
 
 ##### §7.3.6.5 Examples (Informative) [type.composite.union.examples]
+
+**Example 7.3.6.1 (Error handling with unions):**
 
 ```cursive
 procedure parse(input: string@View): i32 \/ parse::Error
     [[ |- true => true ]]
 {
     if input.is_empty() {
-        result parse::Error::invalid_data("empty")
+        result parse::Error::invalid_data("empty")  // Widens to union
     }
-    result input.to_i32()
+    result input.to_i32()  // Widens to union
 }
 
-match parse("42") {
-    value: i32 => println("value {}", value),
-    err: parse::Error => println("error {}", err.message()),
+let result = parse("42")
+match result {
+    value: i32 => println("Parsed: {}", value),
+    err: parse::Error => println("Error: {}", err.message()),
 }
 ```
+
+[1] Both return paths produce union type `i32 \/ parse::Error` through automatic widening. The match expression exhaustively handles both components.
+
+**Example 7.3.6.2 (Multi-component union):**
+
+```cursive
+procedure load_config(): Config \/ FileError \/ ParseError \/ ValidationError
+    [[ fs::read |- true => true ]]
+{
+    let contents = read_file("config.toml")
+    match contents {
+        data: string => {
+            let parsed = parse_toml(data)
+            match parsed {
+                config: Config => result config,        // Widens to 4-way union
+                err: ParseError => result err,           // Widens to 4-way union
+            }
+        }
+        err: FileError => result err,                    // Widens to 4-way union
+    }
+}
+```
+
+**Example 7.3.6.3 (Union flattening):**
+
+```cursive
+type Result<T> = T \/ Error
+type ExtendedResult<T> = Result<T> \/ Timeout
+
+// After normalization:
+// ExtendedResult<i32> ≡ i32 \/ Error \/ Timeout
+// Not: (i32 \/ Error) \/ Timeout
+```
+
+**Example 7.3.6.4 (Optional values via union):**
+
+```cursive
+type Option<T> = T \/ None
+
+record None { }  // Unit-like type for "no value"
+
+procedure find(items: [i32], target: i32): i32 \/ None
+    [[ |- true => true ]]
+{
+    loop i in 0..items.len() {
+        if items[i] == target {
+            result items[i]  // Widens to i32 \/ None
+        }
+    }
+    result None { }  // Widens to i32 \/ None
+}
+```
+
+**Example 7.3.6.5 (Never type absorption):**
+
+```cursive
+procedure may_panic(safe: bool): i32 \/ !
+    [[ panic |- true => true ]]
+{
+    if safe {
+        result 42
+    } else {
+        panic("unsafe path")  // Type: ! widens to i32 \/ !
+    }
+}
+
+// After normalization: i32 \/ ! ≡ i32
+let value: i32 = may_panic(true)  // Union simplified to i32
+```
+
+**Example 7.3.6.6 - invalid (Non-exhaustive match):**
+
+```cursive
+let result: i32 \/ Error = compute()
+
+match result {
+    value: i32 => println("Got {}", value)
+    // error[E08-450]: non-exhaustive match, missing Error case
+}
+```
+
+##### §7.3.6.6 Integration with Type Inference [type.composite.union.inference]
+
+[58] Union types participate in bidirectional type inference:
+
+**Context-driven inference:**
+```cursive
+procedure example(): i32 \/ Error {
+    if condition {
+        result 42               // Infers i32, widens to i32 \/ Error
+    } else {
+        result Error::failed()  // Infers Error, widens to i32 \/ Error
+    }
+}
+```
+
+**Inference with multiple branches:**
+```cursive
+let value = if condition {
+    42
+} else {
+    Error::failed()
+}
+// Infers type: i32 \/ Error (union of branch types)
+```
+
+[59] When branches produce different types, the type checker automatically forms a union of those types. If a return type annotation is provided, branches must be subtypes of that annotation.
+
+##### §7.3.6.7 Diagnostic Requirements [type.composite.union.diagnostics]
+
+[60] Union-related diagnostics:
+
+| Code    | Condition                                    | Section |
+|---------|----------------------------------------------|---------|
+| E08-450 | Non-exhaustive match on union type          | §8.5    |
+| E07-710 | Union component type not well-formed         | §7.3.6  |
+| E07-711 | Type mismatch: cannot widen to union         | §7.3.6  |
+| E07-712 | Single-component union (should use type directly) | §7.3.6  |
+
+[61] Implementations shall provide clear diagnostics showing which union components are missing from match expressions and suggest adding the missing patterns.
 
 ---
 
@@ -510,7 +799,9 @@ match parse("42") {
 - Uphold the `string@Managed`/`string@View` split, including defaulting rules and implicit coercion.
 - Guarantee bounds checking semantics for arrays and slices, with diagnostics that match Clause 8 listings and Annex E §E.5 payload requirements.
 - Provide exhaustive pattern diagnostics for enums and unions.
-- Preserve the stated size/alignment rules and Copy predicates.
+- Preserve the stated size/alignment rules and Copy behaviors.
+- **Union types**: Implement automatic widening (Coerce-Union-Widen), normalization (flattening, duplicate removal), exhaustiveness checking (WF-Union-Exhaustive), and runtime tagging with minimal discriminant size.
+- **Union type equivalence**: Normalize unions before comparison (associativity, commutativity, idempotence).
 
 [44] Deviations from layout, semantics, or diagnostic obligations render the implementation non-conforming unless explicitly categorized as implementation-defined elsewhere.
 

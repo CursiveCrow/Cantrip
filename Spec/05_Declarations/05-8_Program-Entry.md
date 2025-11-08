@@ -33,7 +33,7 @@ Return type `i32` expresses the process exit status.
 
 [3] `main` shall be `public`. Other visibility modifiers are rejected (E05-802).
 
-[4] `main` shall declare its contractual sequent explicitly, including any grants required for execution. The sequent follows standard procedure syntax (§5.4); `main` may use any grants necessary for program execution (I/O, allocation, etc.). `comptime` entry points and asynchronous entry points are not permitted (E05-803).
+[4] `main` shall declare a contractual sequent that explicitly lists any grants required for execution. Per §5.4 [decl.function], the contractual sequent is optional with default `[[ |- true => true ]]`, but `main` typically requires explicit grants for program execution (I/O, allocation, etc.). `comptime` entry points and asynchronous entry points are not permitted (E05-803).
 
 [5] Attributes such as `[[test]]`, `[[bench]]`, or other non-standard annotations shall not decorate `main` (E05-804).
 
@@ -92,7 +92,7 @@ internal procedure main(): i32
 
 ### §5.8.6 Conformance Requirements [decl.entry.requirements]
 
-[1] Implementations shall require exactly one `public procedure main` with an explicit contractual sequent declaration per executable program, diagnose missing or duplicate definitions (E05-801), and reject non-public entry points (E05-802).
+[1] Implementations shall require exactly one `public procedure main` per executable program, diagnose missing or duplicate definitions (E05-801), and reject non-public entry points (E05-802). The contractual sequent follows standard optionality rules per §5.4 [decl.function].
 
 [2] Compilers shall forbid entry points that are `comptime` procedures or asynchronous procedures (E05-803) and reject disallowed attributes on `main` (E05-804). `main` may declare any grants necessary for program execution.
 

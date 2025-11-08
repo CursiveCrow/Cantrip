@@ -57,9 +57,9 @@ initializer
 
 [2] When a pattern binds more than one identifier, a `:{Type}` annotation is mandatory and applies uniformly to every identifier in the pattern.
 
-[3] `initializer` must be present for every binding form. The binding operator determines whether the binding owns the produced value (`=`) or establishes a reference binding (`<-`).
+[3] `initializer` must be present for every binding form. The binding operator determines whether the binding is responsible for cleanup (`=`) or non-responsible (`<-`).
 
-Value bindings (`=`) transfer cleanup responsibility to the binding; the binding's destructor executes when the binding goes out of scope. Reference bindings (`<-`) create bindings without cleanup responsibility; the referenced value retains its original cleanup obligations. Complete semantics for reference assignment, including permission checking and region lifetime validation, are specified in §5.7.5 [decl.initialization].
+[4] **Type independence.** The type of the binding is determined by the initializer expression and is independent of the binding operator choice. Both `let x: T = value` and `let x: T <- value` create bindings of type `T`; the difference lies in cleanup responsibility (binding metadata), not in the type itself.
 
 #### §5.2.3 Constraints
 
@@ -79,7 +79,7 @@ Value bindings (`=`) transfer cleanup responsibility to the binding; the binding
 
 #### §5.2.4 Semantics
 
-[1] Binding introduction inserts the identifier or identifiers into the current lexical scope’s namespace, honouring the single-namespace rule (§5.1.3) and shadowing constraints.
+[1] Binding introduction inserts the identifier or identifiers into the current lexical scope's namespace, honouring the single-namespace rule (§5.1.3) and shadowing constraints.
 
 [2] For patterns, the initialiser expression is evaluated once; its value is destructured into the constituent bindings. The implementation behaves as if a temporary value were created, followed by individual bindings drawing from that value.
 
@@ -87,24 +87,190 @@ Value bindings (`=`) transfer cleanup responsibility to the binding; the binding
 
 [4] Pattern bindings do not change visibility or storage semantics: each identifier inherits the visibility modifier and scope of the encompassing binding.
 
-#### §5.2.5 Examples (Informative)
+[5] The binding operator (`=` or `<-`) does not affect the binding's type but determines whether the binding is recorded as responsible or non-responsible in the binding table (§6.3). This metadata is used by move checking (Clause 11) and definite assignment analysis (§5.7) but does not participate in type checking (Clause 7).
 
-**Example 5.2.5.1 (Simple bindings):**
+#### §5.2.5 Binding Operator Semantics [decl.variable.operator]
 
+##### §5.2.5.1 Value Assignment Operator (`=`)
+
+[5] The value assignment operator `=` creates a responsible binding. The binding assumes cleanup responsibility for the value and shall invoke the value's destructor when the binding goes out of scope.
+
+**Formation:**
 ```cursive
-let ORIGIN: i32 = 0
-var counter = 1
-shadow let counter = counter + 1
+let identifier: Type = expression     // Responsible, non-rebindable
+var identifier: Type = expression     // Responsible, rebindable
 ```
 
-**Example 5.2.5.2 (Pattern binding with uniform type):**
+**Cleanup Responsibility:**
+
+[6] At scope exit, the binding's destructor is invoked in LIFO order (§11.2). If the binding was created with `let`, it may transfer responsibility via the `move` keyword (§11.5). If the binding was created with `var`, responsibility cannot be transferred but the binding may be rebound in place.
+
+**Example 5.2.5.1 (Responsible bindings):**
 
 ```cursive
-let {x, y, z}: Point3 = make_point()
-// Semantically equivalent to introducing a temporary Point3
+{
+    let resource = File::open("data.txt")   // Responsible binding
+    // Use resource...
+}  // resource.drop() called automatically
 ```
 
-**Example 5.2.5.3 - invalid (Implicit shadowing):**
+##### §5.2.5.2 Reference Assignment Operator (`<-`)
+
+[7] The reference assignment operator `<-` creates a non-responsible binding. The binding does NOT assume cleanup responsibility and shall NOT invoke a destructor when the binding goes out of scope.
+
+**Formation:**
+```cursive
+let identifier: Type <- expression    // Non-responsible, non-rebindable
+var identifier: Type <- expression    // Non-responsible, rebindable
+```
+
+**Type Semantics:**
+
+[8] The type of a binding created with `<-` is identical to the type of the initializer expression. Reference assignment does NOT create a reference type or pointer type; it creates a binding to the value with the value's type but without cleanup responsibility.
+
+**Example 5.2.5.2 (Type preservation):**
+
+```cursive
+let buffer: Buffer = Buffer::new()     // Type: Buffer, responsible
+let ref: Buffer <- buffer              // Type: Buffer, non-responsible
+// Both bindings have type Buffer
+// Only difference is cleanup responsibility (binding metadata)
+```
+
+**Non-Responsibility:**
+
+[9] Non-responsible bindings do not call destructors:
+
+```cursive
+let owner = Resource::new()
+{
+    let viewer <- owner                // Non-responsible binding
+    viewer.read()                      // Access value
+}  // viewer.drop() NOT called (owner still responsible)
+// owner still valid here
+```
+
+**Multiple Non-Responsible Bindings:**
+
+[10] Multiple non-responsible bindings to the same value are permitted:
+
+```cursive
+let data = load_data()
+let view1 <- data
+let view2 <- data
+let view3 <- data
+// All three non-responsible bindings valid simultaneously
+// Only 'data' will call destructor at scope exit
+```
+
+**Invalidation After Responsibility Transfer:**
+
+[11] Non-responsible bindings become invalid when the source binding is moved. Definite assignment analysis tracks binding dependencies: when `move` invalidates the source, all derived non-responsible bindings also become invalid:
+
+```cursive
+let owner = Buffer::new()
+let viewer <- owner                    // Non-responsible (depends on owner)
+
+consume(move owner)                    // owner transfers responsibility
+// viewer becomes INVALID (derived from moved binding)
+// viewer.read()                       // ERROR E11-504: use of moved-derived binding
+```
+
+[12] This invalidation propagation prevents use-after-free: when a value's ownership transfers, all references derived from the original binding become inaccessible. The compiler tracks dependencies through definite assignment analysis with zero runtime overhead.
+
+**Transferability:**
+
+[13] Non-responsible bindings cannot be moved because they have no cleanup responsibility to transfer. Attempting to use `move` with a non-responsible binding produces diagnostic E11-502.
+
+##### §5.2.5.3 Binding Operator Choice
+
+[14] The choice between `=` and `<-` determines cleanup responsibility:
+
+| Operator | Cleanup Responsibility | Destructor Called | Transferable via `move` |
+|----------|------------------------|-------------------|-------------------------|
+| `=`      | YES                    | YES (at scope exit) | YES (if `let`)          |
+| `<-`     | NO                     | NO                  | NO                      |
+
+[15] The binding operator is orthogonal to rebindability (`let` vs `var`) and permissions (`const`, `unique`, `shared`), creating a fully compositional binding system.
+
+##### §5.2.5.4 Validity and Invalidation Rules
+
+[15.1] **Summary of non-responsible binding lifetime tracking**:
+
+Non-responsible bindings reference **objects**, not bindings. Their validity depends on whether the object exists:
+
+**Remains valid when**:
+- Source binding is in scope and not moved
+- Source binding is passed to non-responsible parameters (no `move` at call site)
+- Object is guaranteed to survive (non-destroying callees)
+
+**Becomes invalid when**:
+- Source binding is moved to responsible parameter (`move` at call site)
+- Source binding's scope ends (object destroyed)
+- Non-responsible binding's own scope ends
+
+The compiler uses **parameter responsibility** (visible in procedure signatures) to approximate object destruction at compile time, maintaining zero runtime overhead while preventing use-after-free.
+
+##### §5.2.5.5 Rebinding Semantics
+
+[16] `var` bindings may be rebound using the same assignment operator:
+
+**Responsible `var` rebinding:**
+```cursive
+var data = Buffer::new()               // Responsible
+data = Buffer::new()                   // Old buffer destroyed, new buffer bound
+```
+
+When rebinding a responsible `var`, the old value's destructor is invoked before the new value is assigned.
+
+**Non-responsible `var` rebinding:**
+```cursive
+var ref <- buffer1                     // Non-responsible
+ref <- buffer2                         // Update reference (no cleanup)
+```
+
+When rebinding a non-responsible `var`, no destructor is invoked; the binding simply refers to a different value.
+
+#### §5.2.6 Additional Examples [decl.variable.examples]
+
+**Example 5.2.6.1 (Binding operator with parameter responsibility):**
+
+```cursive
+procedure inspect(data: Buffer)        // Non-responsible parameter
+    [[ |- true => true ]]
+{
+    println("Size: {}", data.size())
+}
+
+procedure consume(move data: Buffer)   // Responsible parameter
+    [[ |- true => true ]]
+{
+    data.process()
+}
+
+let owner = Buffer::new()              // Responsible binding
+let viewer <- owner                    // Non-responsible binding (references object)
+
+inspect(owner)                         // ✅ Pass to non-responsible param
+viewer.read()                          // ✅ VALID: object survived inspect()
+
+consume(move owner)                    // Move to responsible param
+// owner becomes invalid (moved-from state)
+// viewer becomes invalid (object might be destroyed)
+// viewer.read()                       // ERROR E11-504: invalidated reference
+```
+
+**Example 5.2.6.2 (Rebinding with different operators):**
+
+```cursive
+var responsible = Data::new()          // Responsible, rebindable
+responsible = Data::new()              // Old value destroyed, new value bound
+
+var non_responsible <- some_value      // Non-responsible, rebindable  
+non_responsible <- other_value         // Update reference (no cleanup)
+```
+
+**Example 5.2.6.3 - invalid (Implicit shadowing):**
 
 ```cursive
 let limit = 10
@@ -113,18 +279,57 @@ let limit = 10
 }
 ```
 
-**Example 5.2.5.4 - invalid (Pattern arity mismatch):**
+**Example 5.2.6.4 - invalid (Pattern arity mismatch):**
 
 ```cursive
 let {left, right}: Pair = make_triple()  // error[E05-204]
 ```
 
-### §5.2.6 Conformance Requirements [decl.variable.requirements]
+**Example 5.2.6.5 - invalid (Move from non-responsible binding):**
+
+```cursive
+let buffer = Buffer::new()
+let ref <- buffer
+consume(move ref)                      // error[E11-502]: cannot move non-responsible binding
+```
+
+**Example 5.2.6.6 (Safe pattern: non-responsible bindings without move):**
+
+```cursive
+procedure inspect(data: Buffer)        // Non-responsible parameter
+    [[ |- true => true ]]
+{
+    println("Size: {}", data.size())
+}
+
+let owner = Buffer::new()              // Responsible binding
+let view1 <- owner                     // Non-responsible binding
+let view2 <- owner                     // Another non-responsible binding
+
+inspect(owner)                         // ✅ OK: owner passed, not moved
+view1.read()                           // ✅ OK: owner still valid
+view2.read()                           // ✅ OK: owner still valid
+owner.use()                            // ✅ OK: owner never moved
+
+// At scope exit: owner.drop() called, view1 and view2 do not call drop
+```
+
+#### §5.2.7 Conformance Requirements [decl.variable.requirements]
 
 [1] Implementations shall diagnose uses of `shadow` that do not match an existing outer binding with E05-201 and forbid the redeclaration.
 
 [2] Implementations shall reject reassignments to `let` bindings (E05-202) and ensure that pattern bindings obey the uniqueness and completeness constraints in §5.2.3 (E05-203–E05-204).
 
-[3] Module-scope bindings shall participate in the dependency analysis of §4.6; implementations shall detect initialiser cycles (E05-701) and block dependent initialisers per §5.7.
+[3] Implementations shall track cleanup responsibility for each binding based on the assignment operator used (`=` vs `<-`) and enforce that:
+- Responsible bindings invoke destructors at scope exit
+- Non-responsible bindings do not invoke destructors
+- Non-responsible bindings become invalid when their source binding is moved to a responsible parameter
+- Non-responsible bindings remain valid when source is passed to non-responsible parameters
+- Accessing invalidated non-responsible bindings produces diagnostic E11-504
+- Attempting to move non-responsible bindings produces diagnostic E11-502
 
-[4] Binding mutability shall not alter permission semantics; compilers shall defer permission enforcement to Clause 11 while ensuring the binding itself respects §5.2.3[6].
+[4] Implementations shall preserve type identity: bindings created with `<-` have the same type as the initializer expression, with responsibility tracked as binding metadata rather than type information.
+
+[5] Module-scope bindings shall participate in the dependency analysis of §4.6; implementations shall detect initialiser cycles (E05-701) and block dependent initialisers per §5.7.
+
+[6] Binding mutability shall not alter permission semantics; compilers shall defer permission enforcement to Clause 11 while ensuring the binding itself respects §5.2.3[6].

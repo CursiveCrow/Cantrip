@@ -24,7 +24,7 @@
 
 [5] **ISO/IEC 60559:2020 (IEEE 754-2019) — Floating-Point Arithmetic.** Governs semantics for binary32 and binary64 arithmetic used throughout the numeric type definitions (§3.2 [basic.type], §7.2 [type.primitive]) and runtime semantics (§8.3 [expr.operator]).
 
-[6] **ISO/IEC 9899:2018 / 2023 — Programming Languages — C.** The foreign-function interface (§15.1 [interop.ffi]) relies on C definitions of object representation, calling conventions, and variadic semantics.
+[6] **ISO/IEC 9899:2018 — Programming Languages — C.** The foreign-function interface (§15.1 [interop.ffi]) relies on C definitions of object representation, calling conventions, and variadic semantics.
 
 [7] **ECMA-334 — C# Language Specification (current edition).** Cited solely for the cross-reference and documentation practices mirrored in §1.6 [intro.document].
 

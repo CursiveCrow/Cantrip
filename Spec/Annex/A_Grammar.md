@@ -4,7 +4,7 @@
 
 **Part**: Annex
 **Section**: Annex A - Grammar
-**Stable label**: [implementation.diagnostics]
+**Stable label**: [grammar]
 **Forward references**: None
 
 ---
@@ -111,8 +111,8 @@ bin_literal
     ;
 
 integer_suffix
-    : 'i8' | 'i16' | 'i32' | 'i64' | 'isize'
-    | 'u8' | 'u16' | 'u32' | 'u64' | 'usize'
+    : 'i8' | 'i16' | 'i32' | 'i64' | 'i128' | 'isize'
+    | 'u8' | 'u16' | 'u32' | 'u64' | 'u128' | 'usize'
     ;
 
 float_literal
@@ -203,8 +203,8 @@ type
     ;
 
 primitive_type
-    : 'i8' | 'i16' | 'i32' | 'i64' | 'isize'
-    | 'u8' | 'u16' | 'u32' | 'u64' | 'usize'
+    : 'i8' | 'i16' | 'i32' | 'i64' | 'i128' | 'isize'
+    | 'u8' | 'u16' | 'u32' | 'u64' | 'u128' | 'usize'
     | 'f32' | 'f64'
     | 'bool' | 'char' | 'string' | '!' | '()'
     ;
@@ -228,20 +228,20 @@ tuple_type
     ;
 
 permission_type
-    : 'owned' type
+    : 'const' type
     | 'unique' type
     | 'shared' type
-    | 'readonly' type
     ;
 
 // Deprecated keywords (Version 1.0, removed in 2.0):
 // permission_type ::= 'own' type | 'mut' type | 'imm' type  // DEPRECATED
+// permission_type ::= 'owned' type | 'readonly' type  // DEPRECATED in favor of const
 
 // Context-sensitive permission defaults:
-// - Bindings (let/var): bare T means owned T
-// - Parameters: bare T means readonly T
-// - Returns: bare T means readonly T
-// - Fields: bare T means owned T (only valid permission for fields)
+// - Bindings (let/var): bare T means const T (default immutable)
+// - Parameters: bare T means const T (default immutable)
+// - Returns: bare T means const T (default immutable)
+// - Fields: bare T means const T (default immutable)
 
 pointer_type
     : '*' type
@@ -738,13 +738,13 @@ grant_predicate
     ;
 
 // Deprecated: Use grant_gated_branch instead
-effect_gated_branch
-    : 'comptime' 'if' effect_predicate block_stmt ('else' block_stmt)?
+grant_gated_branch
+    : 'comptime' 'if' grant_predicate block_stmt ('else' block_stmt)?
     ;
 
-effect_predicate
-    : 'effects_include' '(' grant_set ')'
-    | 'effects_exclude' '(' grant_set ')'
+grant_predicate
+    : 'grants_include' '(' grant_set ')'
+    | 'grants_exclude' '(' grant_set ')'
     ;
 
 loop_with_region
@@ -768,10 +768,10 @@ implementation
     ;
 ```
 
-[ Note: `loop_with_region` is syntactic sugar for the explicit region pattern described in Clause 5 §5.12.
+[ Note: `loop_with_region` is syntactic sugar for iterator loops with region allocation as described in Clause 11 §11.3 [memory.region].
 — end note ]
 
-[ Note: `with_block` provides custom implementations for effect operations within a specific scope (Clause 7 §7.3.6).
+[ Note: `with_block` provides custom implementations for grant operations within a specific scope. Complete grant semantics are specified in Clause 12 §12.3 [contract.grant].
 — end note ]
 
 ## A.6 Declaration Grammar
@@ -987,7 +987,7 @@ type_projection
     ;
 
 predicate_decl
-    : attribute* visibility? 'predicate' ident generic_params? (':' predicate_bounds)?
+    : attribute* visibility? 'behavior' ident generic_params? (':' predicate_bounds)?
       '{' predicate_item* '}'
     ;
 
@@ -1053,7 +1053,7 @@ where_predicate
     ;
 
 permission
-    : 'owned' | 'unique' | 'shared' | 'readonly'
+    : 'const' | 'unique' | 'shared'
     ;
 ```
 
@@ -1226,5 +1226,5 @@ procedure process<T, G>(data: T): Result<T>
 [ Note: Grant Inference: The `_?` hole allows the compiler to infer required grants based on procedure body (see Clause 8 §8.x and Clause 9 §9.x).
 — end note ]
 
-[ Note: Forward Reference: Complete grant semantics, propagation rules, and verification are specified in Clause 9 (Grants and Capabilities).
+[ Note: Forward Reference: Complete grant semantics, propagation rules, and verification are specified in Clause 12 [contract] (Contracts and Grants).
 — end note ]

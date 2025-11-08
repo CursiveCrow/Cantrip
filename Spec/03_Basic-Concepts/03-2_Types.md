@@ -172,8 +172,8 @@ procedure compute(value: i32): i64
 
 [25] The type system integrates with other language features:
 
-- **Expressions (§8)**: Every expression has a type computed by type-checking rules
-- **Declarations (§5)**: Bindings and procedures introduce typed entities
+- **Expressions (Clause 8)**: Every expression has a type computed by type-checking rules
+- **Declarations (Clause 5)**: Bindings and procedures introduce typed entities
 - **Generics (Clause 10)**: Type parameters abstract over concrete types
 - **Memory (Clause 11)**: Permissions and regions attach to types
 - **Contracts (Clause 12)**: Contractual sequents reference types in predicates

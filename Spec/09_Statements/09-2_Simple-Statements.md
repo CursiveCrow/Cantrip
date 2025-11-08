@@ -81,6 +81,7 @@ procedure compute(input: i32): i32
 ```ebnf
 assignment_stmt
     ::= place_expr "=" expression
+     | place_expr "<-" expression
      | place_expr compound_op expression
 
 compound_op
@@ -95,26 +96,39 @@ compound_op
 
 ##### §9.2.3.3 Constraints
 
-[12] **Mutability requirement.** The place expression shall refer to a `var` binding or a field of a `var` binding. Assigning to `let` bindings produces diagnostic E09-101.
+[12] **Mutability requirement.** The place expression shall refer to a `var` binding or a field of a structure accessed through a mutable permission. Assigning to `let` bindings produces diagnostic E09-101.
 
 [13] **Type compatibility.** The right-hand expression type shall be compatible with the place type. Mismatches produce diagnostic E09-102 (type mismatch in assignment).
 
 [14] **Permission requirement.** The place expression shall have permission allowing writes. Permission violations produce diagnostics specified in Clause 11.
 
+[15] **Binding operator restriction.** Value assignment (`=`) may only assign to bindings originally created with `=` (responsible bindings). Reference assignment (`<-`) may only assign to bindings originally created with `<-` (non-responsible bindings). Mixing assignment operators produces diagnostic E09-103 (assignment operator mismatch).
+
 ##### §9.2.3.4 Semantics
 
-[15] **Simple assignment:**
+[16] **Value assignment (`=`):**
 
 [ Given: Place expression $p$, value expression $e$, store $\sigma$ ]
 
 $$
 \frac{\langle e, \sigma \rangle \Downarrow \langle v, \sigma' \rangle \quad p \mapsto \ell \text{ in } \sigma'}{\langle p = e, \sigma \rangle \Downarrow \text{Normal}(\sigma'[\ell \mapsto v])}
-\tag{E-Assign}
+\tag{E-Assign-Value}
 $$
 
-[16] The right-hand expression evaluates first, then the place resolves to a location, then the value is stored.
+[17] The right-hand expression evaluates first, then the place resolves to a location, then the value is stored. For responsible `var` bindings, the old value's destructor is invoked before the new value is stored.
 
-[17] **Compound assignment:**
+[18] **Reference assignment (`<-`):**
+
+[ Given: Non-responsible `var` binding $x$, value expression $e$, store $\sigma$ ]
+
+$$
+\frac{\langle e, \sigma \rangle \Downarrow \langle v, \sigma' \rangle \quad x \text{ is non-responsible}}{\langle x \texttt{ <- } e, \sigma \rangle \Downarrow \text{Normal}(\sigma'[x \mapsto v])}
+\tag{E-Assign-Reference}
+$$
+
+[19] Reference assignment updates a non-responsible binding to refer to a different value. No destructor is invoked because the binding has no cleanup responsibility. The binding simply updates its reference to the new value.
+
+[20] **Compound assignment:**
 
 [ Given: Place $p$, operator $\oplus$, expression $e$ ]
 
@@ -138,11 +152,29 @@ var point = Point { x: 0.0, y: 0.0 }
 point.x = 3.14                  // Field assignment
 ```
 
-**Example 9.2.3.2 - invalid (Assignment to immutable binding):**
+**Example 9.2.3.2 (Reference assignment to var):**
+
+```cursive
+var ref <- buffer1                     // Non-responsible binding
+ref <- buffer2                         // Update reference (no cleanup)
+ref <- buffer3                         // Update again (no cleanup)
+```
+
+**Example 9.2.3.3 - invalid (Assignment to immutable binding):**
 
 ```cursive
 let constant = 42
 constant = 100                  // error[E09-101]: cannot assign to immutable binding
+```
+
+**Example 9.2.3.4 - invalid (Assignment operator mismatch):**
+
+```cursive
+var data = Buffer::new()        // Responsible binding (created with =)
+data <- other_buffer            // error[E09-103]: cannot use <- on responsible binding
+
+var ref <- buffer               // Non-responsible binding (created with <-)
+ref = other_buffer              // error[E09-103]: cannot use = on non-responsible binding
 ```
 
 #### §9.2.4 Expression Statements [stmt.simple.expr]
@@ -271,10 +303,7 @@ $$
 
 ##### §9.2.6.5 Defer on Panic
 
-[36] When a panic occurs, defer blocks execute during stack unwinding. If unwinding is disabled (implementation-defined), defers may not execute. Defer behavior during panic is specified in Clause 11 (memory model).
-
-[ Note: Clause 11 (Memory Model, Regions, and Permissions) is not yet written. Defer interaction with panic and unwinding will be fully specified there.
-— end note ]
+[36] When a panic occurs, defer blocks execute during stack unwinding. If unwinding is disabled (implementation-defined), defers may not execute. Defer behavior during panic is specified in Clause 11 §11.2.5.5 [memory.object.destructor.panic].
 
 ##### §9.2.6.6 Examples
 

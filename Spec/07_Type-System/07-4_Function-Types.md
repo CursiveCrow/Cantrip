@@ -14,7 +14,7 @@
 
 [1] Function types (also called callable types) describe procedure declarations. They record parameter types, return type, required grants, and contractual sequents. Callable types carry this information wherever they appear (variable bindings, record fields, generic arguments), ensuring that higher-order programming preserves grant and contract obligations.
 
-[2] Cursive uses a single arrow `->` for all callable types. Purity is indicated by an empty grant set and the trivial contractual sequent `[[ |- true => true ]]`. Effectful callables list their grants explicitly. Procedures with receivers desugar to ordinary callable types whose first parameter is the receiver pointer annotated with the appropriate permission (§7.4.3.4).
+[2] Cursive uses a single arrow `->` for all callable types. Purity is indicated by an empty grant set and the trivial contractual sequent `[[ |- true => true ]]`. Grant-requiring callables list their grants explicitly. Procedures with receivers desugar to ordinary callable types whose first parameter is the receiver pointer annotated with the appropriate permission (§7.4.3.4).
 
 #### §7.4.1 Syntax [type.function.syntax]
 
@@ -47,9 +47,7 @@ $$
 [6] Contractual sequents must be well-formed under the same environment:
 
 $$
-\dfrac{\Gamma \vdash \text{Must predicates valid} \quad \Gamma \vdash \text{Will predicates valid}}{\Gamma \vdash \[[
-|-\, \text{Must} => \text{Will} |
-\}\text{ ok}}
+\dfrac{\Gamma \vdash \text{Must predicates valid} \quad \Gamma \vdash \text{Will predicates valid}}{\Gamma \vdash \texttt{[[} \; \texttt{|-} \; \text{Must} \; \texttt{=>} \; \text{Will} \; \texttt{]]} \text{ ok}}
 \tag{WF-Sequent}
 $$
 
@@ -97,11 +95,7 @@ When a procedure is treated as a first-class callable, that desugared `self` par
 [12] Callable types support the following subtyping rule:
 
 $$
-\dfrac{\forall i.\; \upsilon_i <: \tau_i \quad \tau_{\text{ret}} <: \upsilon_{\text{ret}} \quad \varepsilon \subseteq \varepsilon' \quad \text{Must}' \Rightarrow \text{Must} \quad \text{Will} \Rightarrow \text{Will}'}{(\tau_1, \ldots, \tau_n) \to \tau_{\text{ret}} ! \varepsilon \[[
-|-\, \text{Must} => \text{Will} |
-\} <: (\upsilon_1, \ldots, \upsilon_n) \to \upsilon_{\text{ret}} ! \varepsilon' \[[
-|-\, \text{Must}' => \text{Will}' |
-\}}
+\dfrac{\forall i.\; \upsilon_i <: \tau_i \quad \tau_{\text{ret}} <: \upsilon_{\text{ret}} \quad \varepsilon \subseteq \varepsilon' \quad \text{Must}' \Rightarrow \text{Must} \quad \text{Will} \Rightarrow \text{Will}'}{(\tau_1, \ldots, \tau_n) \to \tau_{\text{ret}} ! \varepsilon \; \texttt{[[} \; \texttt{|-} \; \text{Must} \; \texttt{=>} \; \text{Will} \; \texttt{]]} <: (\upsilon_1, \ldots, \upsilon_n) \to \upsilon_{\text{ret}} ! \varepsilon' \; \texttt{[[} \; \texttt{|-} \; \text{Must}' \; \texttt{=>} \; \text{Will}' \; \texttt{]]}}
 \tag{Sub-Function}
 $$
 
@@ -136,7 +130,7 @@ $$
 | E07-205 | Subtyping check violates variance rules          |
 | E07-206 | Conversion of capturing closure to raw pointer   |
 
-Diagnostics reference Annex E §E.5 for payload structure (e.g., missing grant names, predicate locations).
+Diagnostics reference Annex E §E.5 for payload structure (e.g., missing grant names, behavior locations).
 
 #### §7.4.5 Interaction with Declarations [type.function.declarations]
 

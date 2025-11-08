@@ -16,7 +16,7 @@
 
 [1] Procedure declarations introduce named computations at module scope or as associated members of types.
 
-[2] Cursive provides a single callable form: _procedures_. Purity is determined by the contractual sequent's grant set. Procedures whose sequents declare an empty grant set (`[[ |- … ]]`) are pure and may be evaluated anywhere a side-effect-free computation is required. Procedures whose sequents declare non-empty grant sets may perform the capabilities named in that set.
+[2] Cursive provides a single callable form: _procedures_. Purity is determined by the contractual sequent's grant set. Procedures whose sequents declare an empty grant set (`[[ |- … ]]`) are pure and may be evaluated anywhere without requiring additional capabilities. Procedures whose sequents declare non-empty grant sets may perform the capabilities named in that set.
 
 [3] Procedures may declare a receiver parameter `self` typed as `Self` with permission qualifiers `const`, `shared`, or `unique` (§11.4). When omitted, the procedure behaves as a static callable that still participates in grant checking.
 
@@ -44,7 +44,10 @@ parameter_list
 
 parameter
     ::= receiver_shorthand
-     | parameter_name ":" type_expression
+     | parameter_modifier? parameter_name ":" type_expression
+
+parameter_modifier
+    ::= "move"
 
 receiver_shorthand
     ::= "~"            // const Self
@@ -85,6 +88,17 @@ callable_body
 
 [2] _Receiver parameter._ Procedures that include a receiver must declare it as the first parameter, either explicitly (`self: const/shared/unique Self`) or by using the shorthand `~`/`~%`/`~!`, which desugars respectively to `self: const/shared/unique Self`. A receiver parameter shall not appear in any position other than first; violations produce diagnostic E05-401.
 
+(2.1) _Parameter responsibility modifier._ Parameters may optionally include the `move` modifier to indicate that the procedure assumes cleanup responsibility for the parameter value:
+
+```cursive
+procedure process(data: Buffer)             // Non-responsible (default)
+procedure consume(move data: Buffer)        // Responsible (takes ownership)
+```
+
+(2.2) Without `move`, parameters are non-responsible: they behave like non-responsible bindings (`let param <- argument`) and do not invoke destructors when the procedure returns. With `move`, parameters are responsible: they behave like responsible bindings (`let param = argument`) and invoke destructors when the procedure returns.
+
+(2.3) Call sites must use `move` when calling procedures with `move` parameters: `consume(move x)`. Omitting `move` at the call site when required produces diagnostic E05-409. Using `move` at the call site when the parameter lacks the `move` modifier produces diagnostic E05-410.
+
 [3] _Contractual sequents optional._ Contractual sequent specifications are optional. When omitted, the procedure defaults to `[[ |- true => true ]]` (pure procedure). Procedures shall include explicit sequents when they require grants, enforce preconditions, or guarantee postconditions. Sequents may appear on the same line as the signature (for simple cases) or on the following line (recommended style for complex contracts).
 
 [4] _Expression bodies._ Expression-bodied procedures (`= expression ;`) shall not include explicit contractual sequents; the default `[[ |- true => true ]]` is implicit. Including a sequent with expression bodies is ill-formed (diagnostic E05-408).
@@ -113,6 +127,52 @@ callable_body
 
 [5] `comptime` procedures execute during compile-time evaluation. Failure to evaluate successfully renders any compile-time use ill-formed.
 
+##### §5.4.4.1 Parameter Responsibility Semantics [decl.function.params.responsibility]
+
+[6] Parameter cleanup responsibility is determined by the presence of the `move` modifier:
+
+**Non-responsible parameters (default):**
+```cursive
+procedure process(data: Buffer)
+    [[ |- true => true ]]
+{
+    // data is non-responsible (like 'let data <- argument')
+    // data.drop() NOT called when procedure returns
+}
+```
+
+When a procedure is called with a non-responsible parameter, the argument remains valid after the call. The parameter binding does not invoke a destructor.
+
+**Responsible parameters (`move` modifier):**
+```cursive
+procedure consume(move data: Buffer)
+    [[ |- true => true ]]
+{
+    // data is responsible (like 'let data = argument')
+    // data.drop() WILL be called when procedure returns
+}
+```
+
+When a procedure is called with a responsible parameter, cleanup responsibility transfers from the argument to the parameter. The argument binding becomes invalid (moved) and the parameter binding invokes the destructor at the end of the procedure body.
+
+[7] **Call site requirement.** When calling a procedure with a `move` parameter, the call site must use the `move` keyword on the argument:
+
+```cursive
+let buffer = Buffer::new()
+process(buffer)             // ✅ OK: non-responsible parameter, buffer still valid
+consume(move buffer)        // ✅ OK: responsible parameter, buffer becomes invalid
+consume(buffer)             // ❌ ERROR E05-409: missing move for responsible parameter
+```
+
+[8] **Binding semantics equivalence.** Parameter responsibility semantics are equivalent to the corresponding local binding forms:
+
+| Parameter Form        | Equivalent Local Binding | Responsibility | Destructor Called |
+|-----------------------|--------------------------|----------------|-------------------|
+| `data: T`             | `let data <- argument`   | NO             | NO                |
+| `move data: T`        | `let data = argument`    | YES            | YES               |
+
+This equivalence ensures consistent behavior between parameter passing and local bindings.
+
 #### §5.4.5 Examples (Informative)
 
 **Example 5.4.5.1 (Pure procedure with expression body):**
@@ -124,7 +184,37 @@ procedure clamp(value: i32, min: i32, max: i32): i32
 
 [1] Expression-bodied procedures are implicitly pure; no sequent is needed.
 
-**Example 5.4.5.2 (Procedure with receiver and grants):**
+**Example 5.4.5.2 (Non-responsible parameter):**
+
+```cursive
+procedure inspect(data: Buffer)
+    [[ |- true => true ]]
+{
+    println("Size: {}", data.size())
+    // data remains valid, no destructor called
+}
+
+let buffer = Buffer::new()
+inspect(buffer)                  // buffer still valid after call
+buffer.use()                     // ✅ OK
+```
+
+**Example 5.4.5.3 (Responsible parameter with move):**
+
+```cursive
+procedure consume(move data: Buffer)
+    [[ |- true => true ]]
+{
+    process_data(data)
+    // data.drop() called automatically when procedure returns
+}
+
+let buffer = Buffer::new()
+consume(move buffer)             // buffer becomes invalid
+// buffer.use()                  // error[E11-503]: use of moved value
+```
+
+**Example 5.4.5.4 (Procedure with receiver and grants):**
 
 ```cursive
 procedure deposit(~!, amount: i64)
@@ -134,7 +224,7 @@ procedure deposit(~!, amount: i64)
 }
 ```
 
-**Example 5.4.5.3 (Pure procedure without sequent):**
+**Example 5.4.5.5 (Pure procedure without sequent):**
 
 ```cursive
 procedure add(a: i32, b: i32): i32
@@ -145,7 +235,39 @@ procedure add(a: i32, b: i32): i32
 
 [2] Pure procedures with no grants, preconditions, or postconditions omit the sequent entirely.
 
-**Example 5.4.5.4 - invalid (Expression body with explicit sequent):**
+**Example 5.4.5.4 (Parameter responsibility modifiers):**
+
+```cursive
+// Non-responsible parameter (default)
+procedure inspect(data: Buffer)
+    [[ |- true => true ]]
+{
+    println("Size: {}", data.size())
+    // data is NOT destroyed when procedure returns
+}
+
+// Responsible parameter (takes ownership)
+procedure consume(move data: Buffer)
+    [[ |- true => true ]]
+{
+    process_buffer(data)
+    // data IS destroyed when procedure returns
+}
+
+procedure demo()
+    [[ alloc::heap |- true => true ]]
+{
+    let buffer = Buffer::new()
+    
+    inspect(buffer)                    // ✅ OK: buffer still valid after call
+    println("Still valid: {}", buffer.size())
+    
+    consume(move buffer)               // ✅ OK: transfer responsibility
+    // buffer is now invalid (moved)
+}
+```
+
+**Example 5.4.5.6 - invalid (Expression body with explicit sequent):**
 
 ```cursive
 procedure unsafe_add(lhs: i32, rhs: i32): i32
@@ -153,14 +275,40 @@ procedure unsafe_add(lhs: i32, rhs: i32): i32
 = lhs + rhs  // error[E05-408]: expression bodies cannot have explicit sequents
 ```
 
-[3] Expression-bodied procedures are implicitly pure and cannot declare sequents.
+**Example 5.4.5.7 - invalid (Missing move at call site):**
+
+```cursive
+procedure consume(move data: Buffer)
+    [[ |- true => true ]]
+{ }
+
+let buffer = Buffer::new()
+consume(buffer)              // error[E05-409]: parameter requires move
+```
+
+**Example 5.4.5.8 - invalid (Unexpected move at call site):**
+
+```cursive
+procedure process(data: Buffer)
+    [[ |- true => true ]]
+{ }
+
+let buffer = Buffer::new()
+process(move buffer)         // error[E05-410]: parameter does not accept move
+```
 
 #### §5.4.6 Conformance Requirements [decl.function.requirements]
 
 [1] Implementations shall diagnose malformed or missing receiver parameters on procedures (E05-401).
 
-[2] Compilers shall ensure that procedures with empty grant sets do not perform grant-requiring operations (E05-406) and that expression-bodied forms do not include explicit contractual sequents (E05-408).
+[2] Implementations shall enforce parameter responsibility semantics:
+- Track which parameters have the `move` modifier (responsible)
+- Parameters without `move` are non-responsible (do not call destructors)
+- Verify call sites use `move` when required (E05-409)
+- Reject `move` at call sites when parameter is non-responsible (E05-410)
 
-[3] Implementations shall enforce compile-time restrictions on `comptime` procedures (E05-402) and require explicit return types unless §5.4.3[6] applies (E05-403).
+[3] Compilers shall ensure that procedures with empty grant sets do not perform grant-requiring operations (E05-406) and that expression-bodied forms do not include explicit contractual sequents (E05-408).
 
-[4] Tooling shall record contractual sequents, grant sets, receiver permissions, and callable kinds in reflection metadata so that downstream analyses can reason about capability requirements.
+[4] Implementations shall enforce compile-time restrictions on `comptime` procedures (E05-402) and require explicit return types unless §5.4.3[6] applies (E05-403).
+
+[5] Tooling shall record contractual sequents, grant sets, receiver permissions, parameter responsibility modifiers, and callable kinds in reflection metadata so that downstream analyses can reason about capability requirements and cleanup responsibilities.

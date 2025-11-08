@@ -50,7 +50,7 @@ visibility_modifier
 - For modal state payloads, visibility is limited to transition procedures defined in that state’s block.
 - Module-scope `private` is rejected by [1].
 
-[4] **protected** — May be applied only to members declared inside a type or modal state block. It grants visibility to the declaring type and to predicates or contracts (Clause 10 and Clause 12) that provide implementations for that type. Outside those contexts `protected` behaves like `internal`. Module-scope or stand-alone `protected` declarations are rejected by [1].
+[4] **protected** — May be applied only to members declared inside a type or modal state block. It grants visibility to the declaring type and to behaviors or contracts (Clause 10 and Clause 12) that provide implementations for that type. Outside those contexts `protected` behaves like `internal`. Module-scope or stand-alone `protected` declarations are rejected by [1].
 
 #### §5.6.5 Re-export and Aliasing Rules
 
@@ -62,11 +62,11 @@ visibility_modifier
 
 [4] _Nested visibility._ When a type member has explicit visibility that differs from the containing type's visibility, the more restrictive modifier applies. For example, a `private` field in a `public` record remains `private`; a `protected` procedure in a `public` type remains `protected`. This ensures that explicit modifiers are never widened by inheritance.
 
-[5] _Protected access context._ `protected` members are accessible only within: - The declaring type's own procedures - Predicate implementations (`predicate X for Y`) where `Y` matches the declaring type - Contract implementations (`contract X for Y`) where `Y` matches the declaring type - Modal state transition procedures defined within the same state block (for state-specific `protected` members)
+[5] _Protected access context._ `protected` members are accessible only within: - The declaring type's own procedures - Behavior implementations (`behavior X for Y`) where `Y` matches the declaring type - Contract implementations (`contract X for Y`) where `Y` matches the declaring type - Modal state transition procedures defined within the same state block (for state-specific `protected` members)
 
-    Attempts to access `protected` members from other contexts (e.g., external modules, unrelated predicates) emit diagnostic E05-605 (protected member access violation).
+    Attempts to access `protected` members from other contexts (e.g., external modules, unrelated behaviors) emit diagnostic E05-605 (protected member access violation).
 
-[6] _Visibility inheritance in type hierarchies._ When a type implements a predicate or contract, `protected` members of the implementing type become accessible within the predicate/contract implementation, but not within the predicate/contract declaration itself. This allows implementations to access internal helpers while keeping the interface clean.
+[6] _Visibility inheritance in type hierarchies._ When a type implements a behavior or contract, `protected` members of the implementing type become accessible within the behavior/contract implementation, but not within the behavior/contract declaration itself. This allows implementations to access internal helpers while keeping the interface clean.
 
 #### §5.6.6 Examples (Informative)
 
@@ -91,7 +91,7 @@ public record User {
 }
 ```
 
-User predicate implementations may reference `helper`, whereas external modules cannot.
+User behavior implementations may reference `helper`, whereas external modules cannot.
 
 **Example 5.6.6.3 - invalid (Visibility widening on re-export):**
 
@@ -105,10 +105,10 @@ public use auth::internal_helper  // error[E05-603]
 private use auth::Session         // error[E05-604]
 ```
 
-**Example 5.6.6.5 (Protected access through predicate):**
+**Example 5.6.6.5 (Protected access through behavior):**
 
 ```cursive
-predicate UserStorage for User {
+behavior UserStorage for User {
     procedure seed(~%, data: Seed)
         [[ |- true => true ]] {
         User.helper(data.initial_password)
@@ -121,5 +121,5 @@ predicate UserStorage for User {
 [1] Implementations shall reject attempts to apply `private` or `protected` at module scope (E05-601) and forbid visibility modifiers on local bindings (E05-602).
 
 [2] Compilers shall prevent re-exports from widening or narrowing visibility (E05-603–E05-604) and ensure that `protected` members are accessible only within the contexts described in §5.6.4.
-[ Note: Predicate `UserStorage` may call the protected `helper`, while unrelated modules cannot.
+[ Note: Behavior `UserStorage` may call the protected `helper`, while unrelated modules cannot.
 — end note ]

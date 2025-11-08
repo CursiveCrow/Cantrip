@@ -14,12 +14,17 @@
 
 [1] Modal types define compile-time state machines. Each modal value inhabits exactly one named state at a time; state transitions are enforced by the type system, ensuring that operations occur in valid orders without runtime overhead. Modal types integrate with the contract system (Clause 13) and the witness system (Clause 14) to express and verify obligations.
 
-(1.1) **Transition Signatures vs. Implementations**: Modal types use two distinct syntactic forms for transitions:
+(1.1) **Transition Signatures vs. Implementations**: Modal types use two distinct syntactic forms with semantically meaningful operators:
 
-- **Transition signatures** (`@Source::name(params) -> @Target`): Declare valid state transitions within the modal body. These lightweight declarations define the state machine graph and use `->` to indicate state-to-state transitions.
-- **Procedure implementations**: Provide the actual transition logic using standard procedure syntax (§5.4) with `:` for return types. Each transition signature must have a corresponding procedure implementation named `ModalType.name` that takes a receiver in the source state and returns the target state.
+- **Transition signatures** (`@Source::name(params) -> @Target`): Declare valid state transitions within the modal body. These lightweight declarations define the state machine graph and use the **mapping operator `->` (reads as "transitions to" or "maps to")** to indicate the state-to-state relationship.
 
-[ Note: The `->` syntax in transition signatures is distinct from the `:` return type indicator in procedure implementations. This distinction clarifies that signatures declare the state machine structure, while implementations provide executable code.
+- **Procedure implementations**: Provide the actual transition logic using standard procedure syntax (§5.4) with the **type operator `:` (reads as "is of type")** for return type annotations. Each transition signature must have a corresponding procedure implementation named `ModalType.name` that takes a receiver in the source state and returns the target state.
+
+[ Note: The semantic distinction between operators clarifies intent:
+- **`->` (mapping operator)**: Declares a state transition relationship (`@Source` maps to `@Target`)
+- **`:` (type operator)**: Declares a type annotation (`return value : Type`)
+
+Transition signatures use `->` because they declare state graph edges (how states map to each other). Procedure implementations use `:` because they follow standard procedure syntax where return types are type annotations. The operators have distinct semantic meanings that reflect their different roles.
 — end note ]
 
 [2] Examples include file handles (Closed → Open → Closed), parser contexts, transactional resources, and capability tokens. The built-in pointer modal type `Ptr<T>` (§7.5) is a specific instance of this general mechanism.
@@ -37,13 +42,18 @@ StateMember      ::= ProcedureDecl | FunctionDecl | TransitionSignature
 TransitionSignature ::= '@' Ident '::' Ident '(' ParamList? ')' '->' '@' Ident
 ```
 
-[4] **Transition Declarations and Implementations**: Modal types distinguish between transition _signatures_ (which use `->` syntax) and transition _implementations_ (which use standard procedure syntax with `:`):
+[4] **Transition Declarations and Implementations**: Modal types distinguish between transition _signatures_ and transition _implementations_ using semantically distinct operators:
 
-- **Transition signatures** (inside modal body): Use the form `@SourceState::name(params) -> @TargetState` to declare valid state transitions. These lightweight declarations define the state machine graph.
+- **Transition signatures** (inside modal body): Use the form `@SourceState::name(params) -> @TargetState` to declare valid state transitions. The **mapping operator `->` (reads as "transitions to")** indicates that invoking this transition maps the value from the source state to the target state. These lightweight declarations define the state machine graph.
 
-- **Procedure implementations**: Each transition signature shall have a corresponding procedure implementation using standard procedure syntax (§5.4). The procedure is named `ModalType.name`, takes receiver `self: perm Self@Source`, and returns `Self@Target` using the `:` return type indicator (not `->`). Implementations may appear at module scope or within the state body as full procedure declarations.
+- **Procedure implementations**: Each transition signature shall have a corresponding procedure implementation using standard procedure syntax (§5.4). The procedure is named `ModalType.name`, takes receiver `self: perm Self@Source`, and returns `Self@Target` using the **type operator `:` (reads as "is of type")**. Implementations may appear at module scope or within the state body as full procedure declarations.
 
-[Note: Transition signatures use `->` to indicate state-to-state transitions, while implementations use `:` as the return type indicator per standard procedure syntax (§5.4). This syntactic distinction clarifies the difference between declaring the state machine graph and implementing transition logic. — end note]
+[ Note: The semantic distinction between operators reflects their different purposes:
+- **`->` (mapping operator)**: Expresses a transition relationship in the state graph (source state **maps to** target state)
+- **`:` (type operator)**: Expresses a type annotation (return value **is of type** target state)
+
+This is not merely syntactic sugar; the operators have distinct semantic meanings. `->` declares a relationship between states (graph edge), while `:` declares a type constraint (type annotation). The distinction is grammatically unambiguous and reflects the dual nature of transitions: they are both state graph edges (declared with `->`) and type-returning procedures (implemented with `:`).
+— end note ]
 
 [5] Each state may:
 
@@ -73,9 +83,34 @@ $$
 \tag{WF-Modal-Type}
 $$
 
+#### §7.6.2.5 Parser Disambiguation [type.modal.disambiguation]
+
+[7] The `->` and `:` operators are grammatically unambiguous in modal contexts:
+
+**Context 1: Transition signatures (within modal body)**
+- Form: `@StateIdentifier::name(params) -> @StateIdentifier`
+- Operator: `->` (mapping operator)
+- Context markers: Appears after parameter list within modal state block
+- Parser rule: When `@Ident::Ident(...)` is followed by `->`, parse as transition signature
+
+**Context 2: Procedure implementations (module or state scope)**
+- Form: `procedure ModalType.name(params): ReturnType`
+- Operator: `:` (type operator)
+- Context markers: Appears after parameter list in procedure declaration
+- Parser rule: When `procedure` keyword precedes, `:` introduces return type
+
+**Disambiguation table:**
+
+| Syntactic Context                    | Operator | Parsed As               |
+|--------------------------------------|----------|-------------------------|
+| Inside modal body after `@Ident::(...)` | `->` | Transition signature    |
+| After `procedure` keyword and params  | `:`  | Return type annotation  |
+
+[8] Implementations shall not confuse these contexts. The `->` operator appears exclusively in transition signature positions within modal type bodies. The `:` operator appears in return type positions across all procedure declarations (modal and non-modal). No backtracking or lookahead beyond the closing `)` of the parameter list is required.
+
 #### §7.6.3 State Types [type.modal.state]
 
-[7] Each state induces a nominal subtype `M@State`. Values of type `M` have unknown state. Pattern matching refines the state:
+[9] Each state induces a nominal subtype `M@State`. Values of type `M` have unknown state. Pattern matching refines the state:
 
 ```cursive
 match conn {

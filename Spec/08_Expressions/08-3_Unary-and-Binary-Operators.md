@@ -21,7 +21,7 @@
 [2] Table 8.3.1 lists operators from highest to lowest precedence. All binary operators associate left-to-right except exponentiation and assignments, which associate right-to-left.
 
 | Level | Operators                                      | Associativity        | Notes    |
-| ----- | ---------------------------------------------- | -------------------- | -------- | -------------------- | ------ |
+| ----- | ---------------------------------------------- | -------------------- | -------- |
 | 1     | Postfix (`()`, `[]`, `.`, `::`, pipeline `=>`) | Left                 | See §8.2 |
 | 2     | Prefix (`!`, `-`, `&`, `move`)                 | Right                | §8.3.3   |
 | 3     | `**`                                           | Right                | §8.3.4   |
@@ -31,11 +31,11 @@
 | 7     | `..`, `..=` (binary form)                      | Left                 | §8.3.5   |
 | 8     | Bitwise `&`                                    | Left                 | §8.3.4   |
 | 9     | Bitwise `^`                                    | Left                 | §8.3.4   |
-| 10    | Bitwise `                                      | `                    | Left     | §8.3.4               |
+| 10    | Bitwise `\|`                                   | Left                 | §8.3.4   |
 | 11    | `<`, `<=`, `>`, `>=`                           | Left                 | §8.3.6   |
 | 12    | `==`, `!=`                                     | Left                 | §8.3.6   |
 | 13    | `&&`                                           | Left (short-circuit) | §8.3.7   |
-| 14    | `                                              |                      | `        | Left (short-circuit) | §8.3.7 |
+| 14    | `\|\|`                                         | Left (short-circuit) | §8.3.7   |
 | 15    | `=`, `op=`                                     | Right                | §8.3.8   |
 
 #### §8.3.3 Unary operators
@@ -56,7 +56,80 @@
 
 **Move (`move e`)**
 
-[7] `move` consumes an `own` value. The operand must be a value (not a place) whose type is move-only. Result type equals the operand type. Attempting to move a value that does not have ownership emits E08-331.
+[7] The `move` operator explicitly transfers cleanup responsibility from a binding to the move expression's consumer. It is required when passing responsible bindings to procedures that accept responsibility for cleanup.
+
+**Syntax**:
+```ebnf
+move_expr ::= "move" identifier
+```
+
+**Constraints**:
+
+(7.1) The operand shall be an identifier referring to a `let` binding created with `= value` (responsible and transferable). Attempting to move from non-transferable bindings produces diagnostics:
+- `var` bindings: E11-501 (cannot transfer from var binding)
+- Non-responsible bindings (`<-`): E11-502 (cannot transfer from non-responsible binding)
+
+(7.2) The binding shall be accessible in the current scope and shall not have been previously moved. Using a moved binding produces E11-503 (use of moved value).
+
+**Typing rule**:
+
+[ Given: Binding `x` with type `τ` and cleanup responsibility ]
+
+$$
+\frac{\Gamma \vdash x : \tau \quad x \text{ is responsible and transferable}}{\Gamma \vdash \texttt{move } x : \tau \quad x \text{ becomes invalid}}
+\tag{T-Move}
+$$
+
+**Semantics**:
+
+(7.3) Evaluation transfers cleanup responsibility to the recipient. The moved-from binding becomes invalid and shall not be used again in the current scope. Definite assignment analysis (§5.7) tracks moved bindings and prevents further use.
+
+(7.4) **Invalidation propagation**: When a binding is moved, all non-responsible bindings derived from it (created via `let n <- source`) also become invalid. This prevents use-after-free by ensuring that references cannot access values after ownership has transferred (§5.7.5.2, §11.5.5.1A).
+
+(7.5) At scope exit, moved bindings do not invoke destructors (responsibility has transferred). Non-moved bindings invoke destructors normally per RAII rules (§11.2).
+
+**Examples**:
+
+**Example 8.3.3.1 (Valid move transfer):**
+```cursive
+procedure consume(buffer: Buffer)
+    [[ |- true => true ]]
+{
+    // buffer now responsible for cleanup
+}
+
+procedure demo()
+    [[ alloc::heap |- true => true ]]
+{
+    let data = Buffer::new()     // data is responsible
+    consume(move data)            // Responsibility transferred
+    // data is now invalid
+    // data.size()                // error[E11-503]: use of moved value
+}
+```
+
+**Example 8.3.3.2 - invalid (Move from var):**
+```cursive
+var counter = 0
+let moved = move counter  // error[E11-501]: cannot transfer from var binding
+```
+
+**Example 8.3.3.3 - invalid (Move from reference binding):**
+```cursive
+let original = Buffer::new()
+let ref <- original
+consume(move ref)  // error[E11-502]: cannot transfer from non-responsible binding
+```
+
+**Example 8.3.3.4 (Invalidation propagation to derived bindings):**
+```cursive
+let owner = Buffer::new()      // Responsible
+let viewer <- owner            // Non-responsible (depends on owner)
+
+consume(move owner)            // owner becomes invalid
+// viewer ALSO becomes invalid (derived from moved binding)
+// viewer.read()               // error[E11-504]: use of moved-derived binding
+```
 
 #### §8.3.4 Arithmetic and bitwise operators
 
@@ -103,7 +176,7 @@
 [20] Diagnostics:
 
 - Non-place left operand → E08-340.
-- Insufficient permission → E08-003.
+- Insufficient permission → E11-403.
 - Unsupported compound operator/type combination → E08-341.
 - Chained assignment attempts (e.g., `x = y = z`) emit E08-342 unless each assignment is standalone.
 

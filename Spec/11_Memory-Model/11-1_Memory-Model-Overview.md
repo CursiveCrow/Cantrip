@@ -43,14 +43,16 @@
 
 **Table 11.1 — Binding forms and permissions**
 
-| Binding Form     | Cleanup Responsibility | Rebindable | Transferable     | Permission Options    |
-| ---------------- | ---------------------- | ---------- | ---------------- | --------------------- |
-| `let x = value`  | YES (responsible)      | NO         | YES (via `move`) | const, unique, shared |
-| `var x = value`  | YES (responsible)      | YES        | NO               | const, unique, shared |
-| `let x <- value` | NO (non-responsible)   | NO         | NO               | const, unique, shared |
-| `var x <- value` | NO (non-responsible)   | YES        | NO               | const, unique, shared |
+| Binding Form     | Cleanup Responsibility | Rebindable | Transferable via `move` | Permission Options    |
+| ---------------- | ---------------------- | ---------- | ----------------------- | --------------------- |
+| `let x = value`  | YES (responsible)      | NO         | YES                     | const, unique, shared |
+| `var x = value`  | YES (responsible)      | YES        | NO                      | const, unique, shared |
+| `let x <- value` | NO (non-responsible)   | NO         | NO                      | const, unique, shared |
+| `var x <- value` | NO (non-responsible)   | YES        | NO                      | const, unique, shared |
 
-[6] The orthogonal design means binding categories (who cleans up, who can transfer) are independent from permissions (what operations are allowed). A binding can be responsible yet immutable (`let x: const`), or non-responsible yet mutable (`let x: unique <-`).
+[6] The orthogonal design means binding categories (who cleans up, whether rebindable) are independent from permissions (what operations are allowed). A binding can be responsible yet immutable (`let x: const`), or non-responsible yet permit unique access (`let x: unique <-`). Only `let` bindings created with `=` can transfer cleanup responsibility via `move`; this restriction preserves local reasoning by avoiding the need to track whether a `var` binding might be rebound after being moved.
+
+[6.1] **Non-responsible binding invalidation**: Non-responsible bindings (`<-`) reference objects, not bindings. They remain valid as long as the object exists. When a binding is moved to a **responsible parameter** (procedure parameter with `move` modifier, §5.4.3[2.1]), the object might be destroyed by the callee. Therefore, all non-responsible bindings referencing that object become invalid. Conversely, passing to **non-responsible parameters** (no `move` modifier) guarantees object survival, preserving reference validity. The compiler uses parameter responsibility as a compile-time signal for potential destruction, tracking dependencies through definite assignment analysis (§5.7.4[5]) with zero runtime overhead.
 
 #### §11.1.3 No Garbage Collection
 
@@ -77,7 +79,7 @@
 
 #### §11.1.4 No Borrow Checker
 
-[10] Cursive achieves memory safety without borrow checking or lifetime annotations. The design explicitly avoids Rust-style lifetime parameters (`'a` annotations) and exclusive borrowing rules.
+[10] Cursive achieves memory safety without borrow checking or lifetime annotations. The design explicitly avoids lifetime parameters and exclusive borrowing rules characteristic of borrow-checked systems.
 
 [11] **Alternative mechanisms:**
 
@@ -86,25 +88,20 @@
 - **Explicit `move`** makes responsibility transfer visible without lifetime tracking
 - **Field partitioning** prevents aliasing hazards for `shared` permission
 
-[12] Comparison with Rust's borrow checker:
+[ Rationale: Cursive's memory model differs fundamentally from borrow-checked approaches. Borrow checking systems typically use:
+- Lifetime annotations (`'a`, `'b` parameters)
+- Exclusive mutable borrowing (shared XOR mutable rule)
+- Complex lifetime inference
+- Implicit moves in many contexts
 
-**Table 11.3 — Borrow checker vs Cursive permissions**
+Cursive instead uses:
+- Lexical regions (no annotation parameters)
+- Three-tier permission system (const/unique/shared)
+- Explicit move keyword (always visible)
+- Local reasoning (no whole-program analysis)
 
-| Feature              | Rust Borrow Checker                 | Cursive Memory Model             |
-| -------------------- | ----------------------------------- | -------------------------------- |
-| Lifetime annotations | Required (`'a`, `'b`)               | Not needed (regions are lexical) |
-| Shared mutable       | Forbidden (`&mut` is exclusive)     | Allowed (`shared` permission)    |
-| Move keyword         | Implicit in many contexts           | Always explicit at call site     |
-| Aliasing control     | XOR rule (shared XOR mutable)       | Three-tier (const/unique/shared) |
-| Mental model         | Complex (lifetimes, borrows)        | Simpler (scopes, permissions)    |
-| Game dev patterns    | Difficult (self-referential graphs) | Natural (shared with partitions) |
-
-[13] **Rationale for no borrow checker:**
-
-- **Local reasoning**: Determining safety should not require whole-program lifetime analysis
-- **LLM-friendly**: Fewer annotations, more predictable patterns
-- **Practical power**: `shared` permission enables graph structures, ECS patterns
-- **Simplicity**: Regions + permissions achieves safety without borrow complexity
+This approach provides memory safety with simpler mental model, better support for complex data structures (via `shared` permission), and more predictable behavior for LLM-assisted development.
+— end rationale ]
 
 #### §11.1.5 Explicit Over Implicit Philosophy
 
@@ -145,18 +142,40 @@
 
 [19] These integrations compose to provide end-to-end memory safety without runtime enforcement.
 
-#### §11.1.8 Conformance Requirements
+#### §11.1.8 Reference Tracking Without Runtime Cost
 
-[20] Implementations shall:
+[21] A key innovation in Cursive's memory model is tracking object lifetimes for non-responsible bindings **without runtime overhead**. The mechanism:
+
+1. **Compile-time dependency tracking**: Non-responsible bindings (`<-`) recorded as referencing objects via source bindings
+2. **Parameter responsibility signal**: Procedure parameters declare whether they will destroy objects (`move` modifier)
+3. **Invalidation propagation**: Move to responsible parameter → invalidate all references to that object
+4. **Validity preservation**: Pass to non-responsible parameter → references remain valid
+
+This provides the **safety of garbage collection** (no dangling references) with the **cost of manual management** (zero runtime overhead) by leveraging information already present in procedure signatures.
+
+**Comparison to other approaches**:
+
+| Approach              | Safety | Cost        | How Achieved                  |
+|-----------------------|--------|-------------|-------------------------------|
+| Garbage Collection    | ✅     | Runtime GC  | Runtime reference tracking    |
+| Rust Borrow Checker   | ✅     | Zero        | Compile-time lifetime params  |
+| **Cursive References** | ✅     | **Zero**    | **Parameter responsibility**  |
+
+Cursive achieves safe references through explicit parameter annotations rather than lifetime parameters or runtime tracking.
+
+#### §11.1.9 Conformance Requirements
+
+[22] Implementations shall:
 
 1. Enforce cleanup responsibility through binding categories (let/var with =/←)
 2. Implement the permission system (const/unique/shared) with compile-time checking
 3. Provide region-based allocation with escape analysis preventing dangling references
 4. Support explicit `move` keyword for responsibility transfer
-5. Implement RAII with LIFO destruction order at scope exit
-6. Guarantee zero runtime overhead for all safety mechanisms
-7. Reject programs with memory safety violations at compile time
-8. Provide the four storage duration categories: static, automatic, region, heap
+5. Track non-responsible binding dependencies and invalidate based on parameter responsibility
+6. Implement RAII with LIFO destruction order at scope exit
+7. Guarantee zero runtime overhead for all safety mechanisms
+8. Reject programs with memory safety violations at compile time
+9. Provide the four storage duration categories: static, automatic, region, heap
 
 ---
 

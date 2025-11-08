@@ -112,7 +112,7 @@ Every normative subclause should follow this structure combining **ISO-style num
 
 Additional prefixes used for specialized semantic categories:
 
-- **Prop-Feature-Case**: Predicate satisfaction and property proofs (e.g., Prop-Int-Copy)
+- **Prop-Feature-Case**: Behavior satisfaction and property proofs (e.g., Prop-Int-Copy proves integers satisfy Copy behavior)
 - **Coerce-Feature-Case**: Type coercion rules (e.g., Coerce-Never)
 - **Prov-Feature-Case**: Provenance and aliasing rules (e.g., Prov-Addr)
 - **Ptr-Feature-Case**: Pointer-specific properties and constraints (e.g., Ptr-Size)
@@ -297,10 +297,10 @@ VarDeclStmt ::= "let" Pattern (":" Type)? "=" Expr
 | Category            | Recommended Names                          | Usage Context                           |
 | ------------------- | ------------------------------------------ | --------------------------------------- |
 | Abstract functions  | `f`, `g`, `h`                              | Type signatures, higher-order functions |
-| Abstract procedures | `m`, `n`, `o`                              | Statement/effect demonstrations         |
+| Abstract procedures | `m`, `n`, `o`                              | Statement/grant demonstrations          |
 | Mathematical ops    | `add`, `subtract`, `multiply`, `divide`    | Arithmetic examples                     |
 | Standard operations | `map`, `filter`, `reduce`, `transform`     | Collection processing                   |
-| Boolean queries     | `is_valid`, `has_value`, `can_access`      | Predicate functions                     |
+| Boolean queries     | `is_valid`, `has_value`, `can_access`      | Boolean test functions                  |
 | Converters          | `to_string`, `parse_int`, `from_bytes`     | Type conversions                        |
 | Generic processing  | `process`, `compute`, `calculate`, `apply` | Algorithm examples                      |
 
@@ -326,10 +326,10 @@ VarDeclStmt ::= "let" Pattern (":" Type)? "=" Expr
 | `Vec<T>`                    | Rust collection type       | Use Cursive array syntax `[T]` or concrete collection types    |
 | `Arc<T>`, `Rc<T>`           | Rust reference counting    | Use Cursive's permission system (shared/unique)                |
 | `RefCell<T>`, `Cell<T>`     | Rust interior mutability   | Use Cursive's permission system                                |
-| `str`, `&str`               | Rust string types          | Use Cursive's `string` primitive type                          |
+| `str`, `&str`               | Rust string types          | Use Cursive's `string` modal type (`string@Managed`, `string@View`) |
 | `mut` keyword/prefix        | Rust mutability marker     | Use Cursive's permission annotations (unique, shared, const)   |
 | `&T`, `&mut T`              | Rust reference syntax      | Use Cursive's pointer/reference syntax with permissions        |
-| `impl Trait`                | Rust syntax                | Use Cursive's predicate syntax                                 |
+| `impl Trait`                | Rust syntax                | Use Cursive's behavior syntax                                  |
 | `dyn Trait`                 | Rust trait objects         | Use Cursive's witness system                                   |
 | `.unwrap()`, `.expect()`    | Rust Option/Result methods | Use Cursive's pattern matching and error handling              |
 
@@ -535,7 +535,7 @@ Each clause specifies what information must be available at that phase and what 
 - Name resolution (with shadowing and qualification)
 - Type inference
 - Overload resolution
-- Predicate resolution
+- Behavior resolution
 - Permission checking
 - Region escape analysis
 
@@ -651,15 +651,15 @@ Each clause specifies what information must be available at that phase and what 
   - 9.3 Control Flow (if/while/for/loop/break/continue) [stmt.control]
   - 9.4 Evaluation Order, Sequencing, Short-circuit, Divergence [stmt.order]
 
-- **10 Generics and Predicates** [generic]
+- **10 Generics and Behaviors** [generic]
 
   **Forward references:** Witness System (Clause 13), Memory Model (Clause 11)
 
   - 10.1 Region Parameters Overview [generic.regions]
   - 10.2 Type Parameters (declaration, scope, defaults) [generic.parameter]
   - 10.3 Bounds and Where-Constraints [generic.bounds]
-  - 10.4 Predicates: Declarations and Items [generic.predicate]
-  - 10.5 Predicate Implementations and Coherence (overlap/orphan) [generic.implementation]
+  - 10.4 Behaviors: Declarations and Items [generic.behavior]
+  - 10.5 Behavior Implementations and Coherence (overlap/orphan) [generic.implementation]
   - 10.6 Resolution and Monomorphization [generic.resolution]
   - 10.7 Variance and Its Inference [generic.variance]
 
@@ -696,7 +696,7 @@ Each clause specifies what information must be available at that phase and what 
   **Forward references:** None (integrates Clauses 10 and 12)
 
   - 13.1 Overview and Purpose [witness.overview]
-  - 13.2 Witness Kinds (predicate, contract) [witness.kind]
+  - 13.2 Witness Kinds (behavior witness, contract witness) [witness.kind]
   - 13.3 Formation and Construction (static vs dynamic sites) [witness.formation]
   - 13.4 Representation and Erasure [witness.representation]
   - 13.5 Dispatch Semantics (static vs dynamic via witness) [witness.dispatch]
@@ -708,10 +708,22 @@ Each clause specifies what information must be available at that phase and what 
 
   **Forward references:** None
 
-  - 15.1 Concurrency Model (threads/tasks surface; library interplay) [concurrency.model]
-  - 15.2 Memory Model (happens-before, synchronizes-with, DRF) [concurrency.memory]
-  - 15.3 Atomic Operations and Orderings (acq/rel/seqcst/relaxed) [concurrency.atomic]
-  - 15.4 Synchronization Primitives (surface specification) [concurrency.synchronization]
+  - 14.1 Concurrency Model (threads/tasks surface; library interplay) [concurrency.model]
+  - 14.2 Memory Model (happens-before, synchronizes-with, DRF) [concurrency.memory]
+  - 14.3 Atomic Operations and Orderings (acq/rel/seqcst/relaxed) [concurrency.atomic]
+  - 14.4 Synchronization Primitives (surface specification) [concurrency.synchronization]
+
+- **15 Interoperability and ABI** [interop]
+
+  **Forward references:** None
+
+  - 15.1 FFI Declarations and Safety Obligations [interop.ffi]
+  - 15.2 FFI-Specific Unsafe Usage (raw pointers, sequent obligations) [interop.unsafe]
+  - 15.3 C Compatibility (repr, strings, procedure pointers, variadics) [interop.c]
+  - 15.4 Platform-Specific Features (inline asm, SIMD, intrinsics) [interop.platform]
+  - 15.5 Linkage and Symbol Visibility (name mangling, static/dynamic) [interop.linkage]
+  - 15.6 ABI Specification (calling conventions, data layout, name mangling) [interop.abi]
+  - 15.7 Binary Compatibility [interop.compatibility]
 
 - **16 Compile-Time Evaluation and Reflection** [comptime]
 
@@ -720,18 +732,6 @@ Each clause specifies what information must be available at that phase and what 
   - 16.1 Const/Comptime Execution (const procedures/contexts/blocks) [comptime.execution]
   - 16.2 Reflection and Type Queries [comptime.reflection]
   - 16.3 Code Generation Patterns via Attributes (derivations; no macros) [comptime.codegen]
-
-- **15 Interoperability and ABI** [interop]
-
-  **Forward references:** None
-
-  - 16.1 FFI Declarations and Safety Obligations [interop.ffi]
-  - 16.2 FFI-Specific Unsafe Usage (raw pointers, sequent obligations) [interop.unsafe]
-  - 16.3 C Compatibility (repr, strings, procedure pointers, variadics) [interop.c]
-  - 16.4 Platform-Specific Features (inline asm, SIMD, intrinsics) [interop.platform]
-  - 16.5 Linkage and Symbol Visibility (name mangling, static/dynamic) [interop.linkage]
-  - 16.6 ABI Specification (calling conventions, data layout, name mangling) [interop.abi]
-  - 16.7 Binary Compatibility [interop.compatibility]
 
 ### Annexes
 
@@ -779,7 +779,7 @@ Each clause specifies what information must be available at that phase and what 
     - E.2.1 Name Resolution Algorithm [implementation.algorithms.name]
     - E.2.2 Type Inference Algorithm [implementation.algorithms.type]
     - E.2.3 Overload Resolution Algorithm [implementation.algorithms.overload]
-    - E.2.4 Predicate Resolution Algorithm [implementation.algorithms.predicate]
+    - E.2.4 Behavior Resolution Algorithm [implementation.algorithms.behavior]
     - E.2.5 Permission Checking Algorithm [implementation.algorithms.permission]
     - E.2.6 Region Escape Analysis Algorithm [implementation.algorithms.region]
   - E.3 AST Requirements and Well-Formedness [implementation.ast]
@@ -793,8 +793,8 @@ Each clause specifies what information must be available at that phase and what 
   — end note ]
 
   - F.1 Library Organization [library.organization]
-  - F.2 Core Types and Predicates [library.core]
-  - F.3 Standard Predicates [library.predicates]
+  - F.2 Core Types and Behaviors [library.core]
+  - F.3 Standard Behaviors [library.behaviors]
 
 - **Annex G: Portability Considerations** [portability]
 

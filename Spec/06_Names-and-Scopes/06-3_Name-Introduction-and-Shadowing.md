@@ -28,8 +28,8 @@ declaration
      | type_declaration
      | procedure_declaration
      | contract_declaration
-     | predicate_declaration
-     | effect_declaration
+     | behavior_declaration
+     | grant_declaration
      | module_declaration
      | label_declaration
 
@@ -62,7 +62,22 @@ binding_head
 
 #### §6.3.4 Semantics [name.shadow.semantics]
 
-[11] When a declaration introduces a binding, the compiler records the tuple `(identifier, entity, type, visibility, source_location)` and inserts it into the current scope’s binding table. Two-phase compilation (§2.2) ensures that all bindings are recorded before semantic resolution proceeds.
+[11] When a declaration introduces a binding, the compiler records the following metadata and inserts it into the current scope's binding table:
+
+- **identifier**: The name of the binding
+- **entity**: The bound entity (value, type, module, etc.)
+- **type**: The type of the binding
+- **visibility**: Visibility modifier (public, internal, private, protected)
+- **cleanup_responsibility**: Whether binding is responsible for calling destructor (boolean)
+- **rebindability**: Whether binding can be reassigned (`let` vs `var`)
+- **source_location**: File, line, and column for diagnostics
+
+[11.1] Cleanup responsibility is determined by:
+- For variable bindings: Assignment operator (`=` is responsible, `<-` is non-responsible)
+- For procedure parameters: Presence of `move` modifier (`move param` is responsible, `param` is non-responsible)
+- For pattern bindings: Inherits from enclosing binding
+
+[11.2] Two-phase compilation (§2.2) ensures that all bindings are recorded before semantic resolution proceeds. The binding metadata is used during type checking, move checking, and definite assignment analysis.
 
 [12] During name lookup (§6.4), when a reference traverses from an inner scope to an outer scope, any inner binding marked with `shadow` masks the outer binding for the duration of that inner scope. Once control exits the inner scope, the original binding becomes visible again.
 

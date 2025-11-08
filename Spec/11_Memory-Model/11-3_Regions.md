@@ -103,26 +103,117 @@ region r {
 
 ##### §11.3.3.1 Overview
 
-[10] Escape analysis prevents region-allocated values from outliving their region. The compiler statically verifies that region-allocated data does not escape the region block.
+[10] Escape analysis prevents region-allocated values from outliving their region. The compiler statically verifies that region-allocated data does not escape the region block through provenance tracking and escape checking at region boundaries.
 
-##### §11.3.3.2 Escape Rules
+[11] Escape analysis operates on compile-time **provenance metadata** associated with each value. Provenance tracks the allocation source (stack, region, or heap) and is propagated through operations. Complete algorithm specifications appear in Annex E §E.2.6 [implementation.algorithms.region].
 
-[11] **Non-escape constraint**: Values allocated in a region shall not escape that region. Violations produce diagnostic E11-101.
+##### §11.3.3.2 Provenance Metadata [memory.region.provenance]
 
-(11.1) A value _escapes_ a region when:
+[12] Every value has associated provenance metadata indicating its allocation source:
 
-- It is returned from a procedure containing the region
-- It is stored in a location with longer lifetime (module-scope, parent region without explicit parent allocation)
-- A pointer to it escapes (provenance tracking, §7.5.3)
-
-[12] **Escape checking rule**:
-
-[ Given: Region $r$, value $v$ allocated in $r$, target scope $s$ ]
+**Provenance Type:**
 
 $$
-\frac{v \text{ allocated in region } r \quad s \text{ outlives } r}{v \text{ escapes to } s \Rightarrow \text{ERROR E11-101}}
-\tag{WF-No-Escape}
+\text{Provenance} ::= \text{Stack} \mid \text{Region}(r) \mid \text{Heap}
 $$
+
+where $r$ is a region identifier bound to a lexical region scope.
+
+[13] **Provenance assignment rules**:
+
+- Values allocated with `^` in region $r$ have provenance $\text{Region}(r)$
+- Local variables (without `^`) have provenance $\text{Stack}$
+- Values converted via `.to_heap()` have provenance $\text{Heap}$
+- Module-scope values have provenance $\text{Static}$ (treated as Heap for escape purposes)
+
+[14] **Provenance is metadata**: Provenance information is tracked by the compiler but is not part of the type system. A value of type `T` has the same type regardless of whether it has provenance Stack, Region(r), or Heap. Provenance affects only escape analysis, not type checking.
+
+##### §11.3.3.3 Provenance Propagation [memory.region.propagation]
+
+[15] Provenance propagates through operations according to these rules:
+
+**Address-of propagation:**
+
+[ Given: Value $v$ with provenance $\pi$ ]
+
+$$
+\frac{\text{prov}(v) = \pi}{\text{prov}(\&v) = \pi}
+\tag{Prov-Addr}
+$$
+
+Taking the address of a value produces a pointer with the same provenance as the value.
+
+**Field access propagation:**
+
+[ Given: Structure $s$ with provenance $\pi$, field $f$ ]
+
+$$
+\frac{\text{prov}(s) = \pi}{\text{prov}(s.f) = \pi}
+\tag{Prov-Field}
+$$
+
+Accessing a field inherits the structure's provenance.
+
+**Procedure return propagation:**
+
+[ Given: Procedure call $p(\text{args})$ with conservative provenance ]
+
+$$
+\frac{}{\text{prov}(p(\text{args})) = \text{Heap}}
+\tag{Prov-Call-Conservative}
+$$
+
+Procedure calls conservatively assume Heap provenance unless the procedure's signature specifies otherwise (future extension). Implementations may refine this with interprocedural analysis.
+
+[16] Complete provenance propagation rules for all expression forms are specified in Annex E §E.2.6 [implementation.algorithms.region].
+
+##### §11.3.3.4 Escape Checking [memory.region.escape.checking]
+
+[17] **Escape prohibition**: Values with region provenance shall not escape their region. Implementations shall check escape at:
+
+1. **Return statements**: Returning a Region(r)-provenance value when r is local
+2. **Region block exit**: Storing region-allocated values in outer scopes
+3. **Closure capture**: Capturing region values in closures that outlive the region
+4. **Field assignment**: Assigning region values to fields of longer-lived structures
+
+[18] **Formal escape constraint**:
+
+[ Given: Expression $e$ with provenance $\pi$, target scope $s$ ]
+
+$$
+\frac{\text{prov}(e) = \text{Region}(r) \quad r \text{ is lexically nested in } s}
+     {\text{escape}_s(e) \Rightarrow \text{ERROR E11-101}}
+\tag{WF-No-Region-Escape}
+$$
+
+The rule states: if a value has region provenance and the region is local to the current analysis scope, escaping that value to the target scope is forbidden.
+
+[19] **Diagnostic E11-101**: "Cannot escape region-allocated value from region `{region_id}`"
+
+The diagnostic shall include:
+- Region identifier
+- Allocation site (where `^` occurred)
+- Escape site (where escape was attempted)
+- Provenance path (how provenance propagated to escape site)
+
+##### §11.3.3.5 Permitted Escape via Heap Conversion [memory.region.escape.heap]
+
+[20] Region-allocated values may escape only after explicit conversion to heap allocation:
+
+**Heap conversion rule:**
+
+[ Given: Value $v$ with provenance $\text{Region}(r)$ ]
+
+$$
+\frac{\text{prov}(v) = \text{Region}(r)}{\text{prov}(v\texttt{.to\_heap()}) = \text{Heap}}
+\tag{Prov-Heap-Convert}
+$$
+
+[21] The `.to_heap()` operation (standard library) copies the value to heap storage and returns a heap-allocated value with provenance Heap. The original region-allocated value remains valid until the region exits.
+
+[22] Heap conversion requires the `alloc::heap` grant in the procedure's contractual sequent. Attempting to call `.to_heap()` without the grant produces diagnostic E11-102 (heap allocation requires alloc::heap grant).
+
+##### §11.3.3.6 Examples [memory.region.escape.examples]
 
 **Example 11.3.3.1 - invalid (Region escape):**
 
@@ -137,11 +228,7 @@ procedure create_data(): Buffer
 }
 ```
 
-##### §11.3.3.3 Escape via Heap
-
-[13] To return region-allocated data, explicitly convert to heap allocation:
-
-**Example 11.3.3.2 (Explicit heap escape):**
+**Example 11.3.3.2 (Heap conversion allows escape):**
 
 ```cursive
 procedure create_data(): Buffer
@@ -150,12 +237,47 @@ procedure create_data(): Buffer
     region temp {
         let data = ^Buffer::new()
         data.prepare()
-        result data.to_heap()  // Explicit conversion before escape
+        result data.to_heap()  // ✅ OK: explicit heap conversion
     }
 }
 ```
 
-[14] The `.to_heap()` method (standard library, implementation-defined) allocates on the heap and returns a heap-backed value that can escape.
+**Example 11.3.3.3 (Pointer escape prevention):**
+
+```cursive
+procedure get_pointer(): Ptr<i32>@Valid
+    [[ alloc::region |- true => true ]]
+{
+    region r {
+        let value = ^42
+        let ptr = &value           // ptr has provenance Region(r)
+        result ptr                 // error[E11-101]: pointer provenance is Region(r)
+    }
+}
+```
+
+**Example 11.3.3.4 (Stack values can escape):**
+
+```cursive
+procedure create_value(): i32
+    [[ |- true => true ]]
+{
+    region r {
+        let stack_value = 42       // Provenance: Stack (no ^)
+        result stack_value         // ✅ OK: stack values can escape
+    }
+}
+```
+
+##### §11.3.3.7 Algorithm Reference [memory.region.escape.algorithm]
+
+[23] The complete escape analysis algorithm, including:
+- Provenance propagation for all expression forms
+- Interprocedural provenance tracking
+- Escape checking at all control-flow points
+- Conservative analysis for complex cases
+
+is specified in Annex E §E.2.6 [implementation.algorithms.region]. Implementations shall follow the algorithm or a refinement that rejects strictly more programs (i.e., more conservative).
 
 #### §11.3.4 Caret Stacking for Parent Regions [memory.region.stacking]
 
