@@ -136,13 +136,11 @@ comptime procedure fields_of<T>(): [FieldInfo]
     [[ comptime::alloc |- true => true ]]
 
 comptime procedure has_field<T>(name: string@View): bool
-    [[ |- true => true ]]
 
 comptime procedure field_info_of<T>(name: string@View): FieldInfo \/ Unit
     [[ comptime::alloc |- true => true ]]
 
 comptime procedure field_offset<T>(name: string@View): usize \/ Unit
-    [[ |- true => true ]]
 ```
 
 [13] **Semantics:**
@@ -255,7 +253,6 @@ comptime procedure procedures_of<T>(): [ProcedureInfo]
     [[ comptime::alloc |- true => true ]]
 
 comptime procedure has_procedure<T>(name: string@View): bool
-    [[ |- true => true ]]
 
 comptime procedure procedure_info_of<T>(name: string@View): ProcedureInfo \/ Unit
     [[ comptime::alloc |- true => true ]]
@@ -318,14 +315,12 @@ comptime {
 record Buffer {
     data: [u8],
 
-    procedure consume(move self: unique Self): ()
-        [[ |- true => true ]]
+    procedure consume(move ~!): ()
     {
         // Consumes buffer
     }
 
-    procedure inspect(self: const Self): usize
-        [[ |- true => true ]]
+    procedure inspect(~): usize
     {
         result self.data.len()
     }
@@ -379,7 +374,6 @@ comptime procedure variants_of<T>(): [VariantInfo]
     [[ comptime::alloc |- true => true ]]
 
 comptime procedure has_variant<T>(name: string@View): bool
-    [[ |- true => true ]]
 
 comptime procedure variant_info_of<T>(name: string@View): VariantInfo \/ Unit
     [[ comptime::alloc |- true => true ]]

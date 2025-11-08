@@ -14,7 +14,9 @@
 
 [1] Function types (also called callable types) describe procedure declarations. They record parameter types, return type, required grants, and contractual sequents. Callable types carry this information wherever they appear (variable bindings, record fields, generic arguments), ensuring that higher-order programming preserves grant and contract obligations.
 
-[2] Cursive uses a single arrow `->` for all callable types. Purity is indicated by an empty grant set and the trivial contractual sequent `[[ |- true => true ]]`. Grant-requiring callables list their grants explicitly. Procedures with receivers desugar to ordinary callable types whose first parameter is the receiver pointer annotated with the appropriate permission (§7.4.3.4).
+[2] Cursive uses a single arrow `->` for all callable types. Purity is indicated by an empty grant set and the trivial contractual sequent `[[ ∅ |- true => true ]]` (canonical: `[[ |- true => true ]]`). When sequents are omitted, they default to this form. Grant-requiring callables list their grants explicitly. Procedures with receivers desugar to ordinary callable types whose first parameter is the receiver pointer annotated with the appropriate permission (§7.4.3.4).
+
+[2.1] **Transition types**: Modal type transitions use a special form of function type syntax `@Source -> @Target` that is syntactic sugar for `(Self@Source, ...params) -> Self@Target`, where `Self` is the modal type and `@State` desugars to `Self@State` in modal scope. Transition types are first-class function types and can be bound and passed as parameters. See §7.6.4 for details.
 
 #### §7.4.1 Syntax [type.function.syntax]
 
@@ -33,7 +35,7 @@ WillClause     ::= PredicateExpr (',' PredicateExpr)* | 'true'
 [ Note: The token `|-` is the ASCII representation of the mathematical turnstile symbol `⊢` (U+22A2). Lexers shall recognize `|-` as a single two-character token used exclusively in contractual sequents. This ensures the sequent syntax `[[ grants |- must => will ]]` is parsed consistently.
 — end note ]
 
-[4] An omitted `GrantClause` denotes the empty grant set. An omitted `SequentClause` is equivalent to `[[ |- true => true ]]`. Parameters may be absent (`()`), yielding a nullary callable. Tuples are used to encode variadic parameters after desugaring (§9.3).
+[4] An omitted `GrantClause` denotes the empty grant set. An omitted `SequentClause` is equivalent to `[[ ∅ |- true => true ]]` (empty grant set, canonical: `[[ |- true => true ]]`). Parameters may be absent (`()`), yielding a nullary callable. Tuples are used to encode variadic parameters after desugaring (§9.3).
 
 #### §7.4.2 Formation Rules [type.function.formation]
 
@@ -71,7 +73,7 @@ The environment record layout follows §8.6; it is a nominal record whose fields
 
 ##### §7.4.3.3 Contracts [type.function.semantics.contract]
 
-[10] The contractual sequent `[[ |- must => will ]]` is interpreted as follows:
+[10] The contractual sequent `[[ must => will ]]` (or `[[ grants |- must => will ]]` when grants are present) is interpreted as follows:
 
 - `must` predicates describe caller obligations. At a call site, the type checker verifies these predicates under the caller's context.
 - `will` predicates describe callee guarantees. After a call, these predicates may be assumed by the caller.
@@ -138,9 +140,8 @@ Diagnostics reference Annex E §E.5 for payload structure (e.g., missing grant n
 
 ```cursive
 procedure add(lhs: i32, rhs: i32): i32
-    [[ |- true => true ]]
 { ... }
-// Type: (i32, i32) -> i32 ! ∅ [[ |- true => true ]]
+// Type: (i32, i32) -> i32 ! ∅ [[ ∅ |- true => true ]] (canonical: `[[ |- true => true ]]`)
 
 procedure write_line(~%, text: string@View): ()
     [[ io::write |- text.len() < 4096 => true ]]
@@ -148,13 +149,13 @@ procedure write_line(~%, text: string@View): ()
     io::write_all(text)
 }
 // Type: (Ptr<Self>@Shared, string@View) -> () ! { io::write }
-//       [[ |- text.len() < 4096 => true ]]
+//       [[ text.len() < 4096 => true ]] (canonical: `[[ |- text.len() < 4096 => true ]]`)
 ```
 
 [17] Closure literals adopt their inferred FunctionType. Example:
 
 ```cursive
-let scale: (f64) -> f64 = |value| [[ |- true => true ]] { result value * 2.0 }
+let scale: (f64) -> f64 = |value| { result value * 2.0 }
 ```
 
 Closures capturing variables produce a synthesized record `_Closure_Scale` with fields for each capture and an apply function `_Closure_Scale::call(self@Const, value: f64)` matching the FunctionType.
@@ -195,8 +196,7 @@ procedure make_logger(stream: io::Writer@Unique): (string@View) -> () ! { io::wr
 
 ```cursive
 let pure_add: (i32, i32) -> i32 = add
-let noisy_add: (i32, i32) -> i32 ! { io::write }
-    [[ |- true => true ]] = annotate(add)
+let noisy_add: (i32, i32) -> i32 ! { io::write } = annotate(add)
 // pure_add <: noisy_add because it requires no grants and has identical contract
 ```
 

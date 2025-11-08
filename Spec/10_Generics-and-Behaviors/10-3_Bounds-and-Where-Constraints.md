@@ -102,7 +102,6 @@ procedure serialize<T: Display + Clone>(value: T): string@Managed
 
 ```cursive
 procedure complex<T, U>(a: T, b: U): Result
-    [[ |- true => true ]]
     where T: Display + Clone,
           U: Serializable,
           T::Output = U
@@ -164,15 +163,15 @@ procedure combined<T: Display>(value: T)
 
 [16] A type `τ` satisfies bound `B` (written `τ : B`) when:
 
-- If `B` is a behavior: a behavior implementation `predicate B for τ` exists (§10.5)
+- If `B` is a behavior: a behavior implementation `behavior B for τ` exists (§10.5)
 - If `B` is a contract: a contract implementation `τ: B` exists in the type declaration (Clause 12)
 
 [17] **Satisfaction judgment**:
 
-[ Given: Type `τ`, bound `B` (predicate or contract) ]
+[ Given: Type `τ`, bound `B` (behavior or contract) ]
 
 $$
-\frac{\text{predicate } B \text{ for } \tau \text{ implemented}}{\Gamma \vdash \tau : B}
+\frac{\text{behavior } B \text{ for } \tau \text{ implemented}}{\Gamma \vdash \tau : B}
 \tag{WF-Bound-Satisfied}
 $$
 
@@ -208,7 +207,6 @@ predicate Ord {
 }
 
 procedure min<T: Ord>(a: T, b: T): T
-    [[ |- true => true ]]
 {
     if a.compare(b) <= 0 {
         result a
@@ -509,7 +507,7 @@ procedure use_bounded<T: Display>(value: T)
 [47] Associated type projections are resolved based on the concrete type at instantiation:
 
 $$
-\frac{\Gamma \vdash \tau : P \quad \text{predicate } P \text{ for } \tau \{ \text{type } I = \upsilon \}}{\Gamma \vdash \tau::I \equiv \upsilon}
+\frac{\Gamma \vdash \tau : P \quad \text{behavior } P \text{ for } \tau \{ \text{type } I = \upsilon \}}{\Gamma \vdash \tau::I \equiv \upsilon}
 \tag{Assoc-Resolve}
 $$
 

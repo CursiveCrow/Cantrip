@@ -20,8 +20,7 @@
 - foundational concepts: objects, values, storage duration, alignment, and name binding categories (Clause 3 [basic]);
 - modules, declarations, names and scopes, types, and expressions (Clauses 4–8);
 - statements and control flow (Clause 9);
-- the generics, permission, contract, and witness systems that ensure memory safety and semantic guarantees (Clauses 10–13) [ Note: Clauses 10 (Generics and Behaviors), 11 (Memory Model, Regions, and Permissions), 12 (Contracts), and 13 (Witness System) are not yet written. Forward references to these clauses will be fully specified when those clauses are authored.
-  — end note ];
+- the generics, permission, contract, and witness systems that ensure memory safety and semantic guarantees (Clauses 10–13);
 - concurrency, interoperability, and compile-time evaluation (Clauses 14–16).
 
 [3] The specification intentionally excludes topics whose evolution is decoupled from language conformance. Excluded topics include:
@@ -31,9 +30,9 @@
 - concurrency libraries beyond the surface guarantees described in §14.1 [concurrency.model];
 - tooling, build systems, or project layout conventions (informative guidance may appear in companion documents).
 
-[4] Certain behaviours are implementation-defined but remain within the specification’s boundary. Conforming implementations shall document at least integer and floating-point representations, pointer and region sizes, alignment rules, diagnostic formatting, and resource ceilings consistent with §1.5.4 [intro.conformance.impldef].
+[4] Certain behaviors are implementation-defined but remain within the specification's boundary. Conforming implementations shall document at least integer and floating-point representations, pointer and region sizes, alignment rules, diagnostic formatting, and resource ceilings consistent with §1.5.4 [intro.conformance.impldef].
 
-[5] Undefined behaviour is catalogued centrally in Annex B.2 [behavior.undefined]. Any construct not explicitly marked as undefined shall be diagnosed or defined. Implementers shall ensure that undefined entries referenced in later clauses map back to the Annex catalogue.
+[5] Undefined behavior is catalogued centrally in Annex B.2 [behavior.undefined]. Any construct not explicitly marked as undefined shall be diagnosed or defined. Implementers shall ensure that undefined entries referenced in later clauses map back to the Annex catalogue.
 
 #### §1.1.1 Intended Audiences [intro.scope.audience]
 

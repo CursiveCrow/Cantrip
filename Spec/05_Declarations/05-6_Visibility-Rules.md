@@ -75,7 +75,6 @@ visibility_modifier
 ```cursive
 let cache_size = 1024          // internal by default
 public procedure fetch(id: UserId): Record
-    [[ |- true => true ]]
 { ... }
 private let temp = 0           // error[E05-601]
 ```
@@ -87,7 +86,7 @@ public record User {
     public id: UserId
     private password_hash: string
 
-    protected procedure helper(~) [[ |- true => true ]] { ... }
+    protected procedure helper(~) { ... }
 }
 ```
 
@@ -110,7 +109,7 @@ private use auth::Session         // error[E05-604]
 ```cursive
 behavior UserStorage for User {
     procedure seed(~%, data: Seed)
-        [[ |- true => true ]] {
+ {
         User.helper(data.initial_password)
     }
 }

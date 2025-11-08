@@ -137,7 +137,7 @@ record Cat {
 
 ```cursive
 // Pure function (no grants)
-let pure: (i32) -> i32 = |x| [[ |- true => true ]] { result x * 2 }
+let pure: (i32) -> i32 = |x| { result x * 2 }
 
 // Function with grants
 let writer: (i32) -> i32 ! {io::write} = pure
@@ -302,7 +302,6 @@ let int_container: Container<i32> = Container { items: [1, 2, 3] }
 // Callable contravariant in parameters, covariant in results
 
 procedure accepts_callback(f: (i32) -> string@View)
-    [[ |- true => true ]]
 {
     let result = f(42)
 }
@@ -313,7 +312,7 @@ let specific: (i16) -> string@Managed = |x: i16| [[ alloc::heap ]] {
 }
 
 // Less specific parameter, less specific return
-let general: (i64) -> string@View = |x: i64| [[ |- true => true ]] {
+let general: (i64) -> string@View = |x: i64| {
     result "value"
 }
 
@@ -324,12 +323,11 @@ let general: (i64) -> string@View = |x: i64| [[ |- true => true ]] {
 
 ```cursive
 procedure run_pure(f: () -> i32): i32
-    [[ |- true => true ]]
 {
     result f()
 }
 
-let pure_fn = || [[ |- true => true ]] { result 42 }
+let pure_fn = || { result 42 }
 run_pure(pure_fn)  // ∅ ⊆ ∅ ✓
 
 // Cannot pass grant-requiring function to pure context
@@ -347,7 +345,6 @@ let value: i32 = 42
 let union: i32 \/ string@Managed = value  // i32 <: i32 \/ string@Managed
 
 procedure process(input: i32 \/ string@View \/ bool)
-    [[ |- true => true ]]
 {
     match input {
         n: i32 => println("Number: {}", n),

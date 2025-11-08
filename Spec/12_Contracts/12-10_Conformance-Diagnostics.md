@@ -53,7 +53,7 @@
 | Code    | Description                               | Section    |
 | ------- | ----------------------------------------- | ---------- |
 | E12-001 | Invalid sequent brackets (not [[]])       | §12.2.3[1] |
-| E12-002 | Missing or duplicate turnstile            | §12.2.3[2] |
+| E12-002 | Missing turnstile when grants present, or duplicate turnstile | §12.2.3[2] |
 | E12-003 | Missing or duplicate implication operator | §12.2.3[3] |
 | E12-004 | Sequent components in wrong order         | §12.2.3[4] |
 | E12-005 | Effectful expression in must/will clause  | §12.2.3[5] |

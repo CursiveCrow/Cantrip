@@ -255,21 +255,21 @@ checksum(data[..])
 - `string@Managed`: growable, heap-allocated buffer (`ptr`, `len`, `cap`), not `Copy`.
 - `string@View`: read-only view over UTF-8 data (`ptr`, `len`), `Copy`.
 
-(27.1) **String type defaulting**: A bare `string` identifier defaults to `string@View`. The `string@Managed` state shall be explicitly specified. This default aligns with the common use case of string parameters and return types, which typically use read-only views. There is an implicit coercion `string@Managed <: string@View` established via the modal subtyping rule (`Sub-Modal-Widen`).
+(27.1) **String type defaulting**: A bare `string` identifier in a type annotation defaults to `string@View`. The `string@Managed` state shall be explicitly specified. This default aligns with the common use case of string parameters and return types, which typically use read-only views. There is an implicit coercion `string@Managed <: string@View` established via the modal subtyping rule (`Sub-Modal-Widen`).
 
-[ Note: String is a special case of the modal type system (§7.6) where the language provides a default state for ergonomic reasons. The defaulting behavior (`string` → `string@View`) applies in type annotation contexts and is unique to the built-in string type. User-defined modal types do not support default states and must be explicitly annotated with their state in all contexts. In type inference contexts (without explicit annotations), the compiler infers the most specific state based on usage; explicit `string` annotations resolve to `string@View` for common-case ergonomics.
+[ Note: String is a special case of the modal type system (§7.6) where the language provides a default state for ergonomic reasons. The defaulting behavior (`string` → `string@View`) applies in explicit type annotation contexts. Type inference will still determine the most specific type based on usage; for example, `let x = string::from("...")` will correctly infer `x` as `string@Managed`. User-defined modal types do not support default states and must be explicitly annotated with their state in all contexts.
 — end note ]
 
 ###### Syntax
 
 ```
-StringType ::= 'string'              // Defaults to string@View
+StringType ::= 'string'              // Defaults to string@View in annotations
              | 'string' '@Managed'
              | 'string' '@View'
 StringLiteral ::= '"' UTF8Text '"'
 ```
 
-[ Note: The grammar allows bare `string` as a type identifier. When used in type annotations, it resolves to `string@View` per the defaulting rule (27.1). See Annex A §A.2 for the authoritative grammar.
+[ Note: The grammar allows bare `string` as a type identifier. In explicit type annotations, bare `string` resolves to `string@View` per the defaulting rule (27.1). Type inference remains unaffected by this default. See Annex A §A.2 for the authoritative grammar.
 — end note ]
 
 (27.2) `string` is a built-in modal type (§7.6) with two states:
@@ -495,6 +495,7 @@ $$
 $$
 
 [44] **Normalization**: Implementations shall normalize unions by:
+
 1. Flattening nested unions: `(τ₁ \/ τ₂) \/ τ₃` → `τ₁ \/ τ₂ \/ τ₃`
 2. Removing duplicates: `τ \/ τ \/ υ` → `τ \/ υ`
 3. Sorting components by canonical order (implementation-defined but stable)
@@ -569,6 +570,7 @@ match result {
 [50] Union types use **tagged union** representation:
 
 **Layout:**
+
 ```
 struct Union<T₁, ..., Tₙ> {
     discriminant: usize,           // Which component is active
@@ -577,6 +579,7 @@ struct Union<T₁, ..., Tₙ> {
 ```
 
 [51] **Discriminant**: The discriminant is an unsigned integer requiring minimum bits to represent $n$ component types:
+
 - 2-3 components: 2 bits (u8)
 - 4-255 components: 8 bits (u8)
 - 256+ components: 16 bits (u16)
@@ -653,7 +656,6 @@ Since `!` is uninhabited, a union containing `!` can never hold a `!` value, so 
 
 ```cursive
 procedure parse(input: string@View): i32 \/ parse::Error
-    [[ |- true => true ]]
 {
     if input.is_empty() {
         result parse::Error::invalid_data("empty")  // Widens to union
@@ -709,7 +711,6 @@ type Option<T> = T \/ None
 record None { }  // Unit-like type for "no value"
 
 procedure find(items: [i32], target: i32): i32 \/ None
-    [[ |- true => true ]]
 {
     loop i in 0..items.len() {
         if items[i] == target {
@@ -753,6 +754,7 @@ match result {
 [58] Union types participate in bidirectional type inference:
 
 **Context-driven inference:**
+
 ```cursive
 procedure example(): i32 \/ Error {
     if condition {
@@ -764,6 +766,7 @@ procedure example(): i32 \/ Error {
 ```
 
 **Inference with multiple branches:**
+
 ```cursive
 let value = if condition {
     42
@@ -779,11 +782,11 @@ let value = if condition {
 
 [60] Union-related diagnostics:
 
-| Code    | Condition                                    | Section |
-|---------|----------------------------------------------|---------|
-| E08-450 | Non-exhaustive match on union type          | §8.5    |
-| E07-710 | Union component type not well-formed         | §7.3.6  |
-| E07-711 | Type mismatch: cannot widen to union         | §7.3.6  |
+| Code    | Condition                                         | Section |
+| ------- | ------------------------------------------------- | ------- |
+| E08-450 | Non-exhaustive match on union type                | §8.5    |
+| E07-710 | Union component type not well-formed              | §7.3.6  |
+| E07-711 | Type mismatch: cannot widen to union              | §7.3.6  |
 | E07-712 | Single-component union (should use type directly) | §7.3.6  |
 
 [61] Implementations shall provide clear diagnostics showing which union components are missing from match expressions and suggest adding the missing patterns.

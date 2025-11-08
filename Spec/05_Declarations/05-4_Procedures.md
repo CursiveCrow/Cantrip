@@ -16,7 +16,7 @@
 
 [1] Procedure declarations introduce named computations at module scope or as associated members of types.
 
-[2] Cursive provides a single callable form: _procedures_. Purity is determined by the contractual sequent's grant set. Procedures whose sequents declare an empty grant set (`[[ |- … ]]`) are pure and may be evaluated anywhere without requiring additional capabilities. Procedures whose sequents declare non-empty grant sets may perform the capabilities named in that set.
+[2] Cursive provides a single callable form: _procedures_. Purity is determined by the contractual sequent's grant set. Procedures whose sequents declare an empty grant set (e.g., omitted sequents defaulting to `[[ ∅ |- true => true ]]`, or explicit `[[ P => Q ]]` without grants) are pure and may be evaluated anywhere without requiring additional capabilities. Procedures whose sequents declare non-empty grant sets may perform the capabilities named in that set.
 
 [3] Procedures may declare a receiver parameter `self` typed as `Self` with permission qualifiers `const`, `shared`, or `unique` (§11.4). When omitted, the procedure behaves as a static callable that still participates in grant checking.
 
@@ -65,22 +65,22 @@ return_clause
 
 callable_body
     ::= block                   // all procedures
-     | "=" expression ";"     // pure procedures only (implicit [[ |- true => true ]])
+     | "=" expression ";"     // pure procedures only (implicit [[ ∅ |- true => true ]])
      | ";"                     // extern declarations
 ```
 
 [1] `callable_attributes` encompasses optimisation, diagnostic, and linkage attributes defined in Clauses 9 and 16.
 
-[2] Contractual sequents use semantic brackets `⟦ ⟧` (Unicode U+27E6, U+27E7) or ASCII `[[ ]]` with the form `[[ grants |- must => will ]]`. The sequent clause is **optional**: when omitted, it defaults to `[[ |- true => true ]]` (pure procedure with no grants, preconditions, or postconditions). Procedures shall include explicit sequents only when they require grants, have preconditions, or guarantee postconditions.
+[2] Contractual sequents use semantic brackets `⟦ ⟧` (Unicode U+27E6, U+27E7) or ASCII `[[ ]]` with the form `[[ grants |- must => will ]]` (or `[[ must => will ]]` when no grants). The sequent clause is **optional**: when omitted, it defaults to `[[ ∅ |- true => true ]]` (empty grant set, canonical: `[[ |- true => true ]]`, pure procedure with no grants, preconditions, or postconditions). Procedures shall include explicit sequents only when they require grants, have preconditions, or guarantee postconditions.
 
 (2.1) Smart defaulting rules apply within sequent brackets:
 
 - Grant-only: `[[ io::write ]]` expands to `[[ io::write |- true => true ]]`
-- Precondition-only: `[[ |- x > 0 ]]` expands to `[[ |- x > 0 => true ]]`
-- Postcondition-only: `[[ |- => result > 0 ]]` expands to `[[ |- true => result > 0 ]]`
-- No turnstile when no grants: `[[ P => Q ]]` expands to `[[ |- P => Q ]]`
+- Precondition-only: `[[ x > 0 ]]` expands to `[[ x > 0 => true ]]` (canonical: `[[ |- x > 0 => true ]]`)
+- Postcondition-only: `[[ => result > 0 ]]` expands to `[[ true => result > 0 ]]` (canonical: `[[ |- true => result > 0 ]]`)
+- No turnstile when no grants: `[[ P => Q ]]` (preferred form, canonical: `[[ |- P => Q ]]`)
 
-[3] Expression-bodied forms (`= expression ;`) are syntactic sugar for pure procedures and shall not include a contractual sequent (the default `[[ |- true => true ]]` is implicit). Including an explicit sequent with expression bodies is ill-formed (diagnostic E05-408).
+[3] Expression-bodied forms (`= expression ;`) are syntactic sugar for pure procedures and shall not include a contractual sequent (the default `[[ ∅ |- true => true ]]` is implicit, canonical: `[[ |- true => true ]]` with empty grant set). Including an explicit sequent with expression bodies is ill-formed (diagnostic E05-408).
 
 #### §5.4.3 Constraints
 
@@ -99,9 +99,9 @@ procedure consume(move data: Buffer)        // Responsible (takes ownership)
 
 (2.3) Call sites must use `move` when calling procedures with `move` parameters: `consume(move x)`. Omitting `move` at the call site when required produces diagnostic E05-409. Using `move` at the call site when the parameter lacks the `move` modifier produces diagnostic E05-410.
 
-[3] _Contractual sequents optional._ Contractual sequent specifications are optional. When omitted, the procedure defaults to `[[ |- true => true ]]` (pure procedure). Procedures shall include explicit sequents when they require grants, enforce preconditions, or guarantee postconditions. Sequents may appear on the same line as the signature (for simple cases) or on the following line (recommended style for complex contracts).
+[3] _Contractual sequents optional._ Contractual sequent specifications are optional. When omitted, the procedure defaults to `[[ ∅ |- true => true ]]` (empty grant set, canonical: `[[ |- true => true ]]`, pure procedure). Procedures shall include explicit sequents when they require grants, enforce preconditions, or guarantee postconditions. Sequents may appear on the same line as the signature (for simple cases) or on the following line (recommended style for complex contracts).
 
-[4] _Expression bodies._ Expression-bodied procedures (`= expression ;`) shall not include explicit contractual sequents; the default `[[ |- true => true ]]` is implicit. Including a sequent with expression bodies is ill-formed (diagnostic E05-408).
+[4] _Expression bodies._ Expression-bodied procedures (`= expression ;`) shall not include explicit contractual sequents; the default `[[ ∅ |- true => true ]]` is implicit (canonical: `[[ |- true => true ]]` with empty grant set). Including a sequent with expression bodies is ill-formed (diagnostic E05-408).
 
 [5] _Pure procedures._ Procedures whose contractual sequents declare an empty grant set may not call procedures whose grant sets are non-empty nor perform operations that require grants. Violations emit diagnostic E05-406.
 
@@ -132,9 +132,9 @@ procedure consume(move data: Buffer)        // Responsible (takes ownership)
 [6] Parameter cleanup responsibility is determined by the presence of the `move` modifier:
 
 **Non-responsible parameters (default):**
+
 ```cursive
 procedure process(data: Buffer)
-    [[ |- true => true ]]
 {
     // data is non-responsible (like 'let data <- argument')
     // data.drop() NOT called when procedure returns
@@ -144,9 +144,9 @@ procedure process(data: Buffer)
 When a procedure is called with a non-responsible parameter, the argument remains valid after the call. The parameter binding does not invoke a destructor.
 
 **Responsible parameters (`move` modifier):**
+
 ```cursive
 procedure consume(move data: Buffer)
-    [[ |- true => true ]]
 {
     // data is responsible (like 'let data = argument')
     // data.drop() WILL be called when procedure returns
@@ -166,10 +166,10 @@ consume(buffer)             // ❌ ERROR E05-409: missing move for responsible p
 
 [8] **Binding semantics equivalence.** Parameter responsibility semantics are equivalent to the corresponding local binding forms:
 
-| Parameter Form        | Equivalent Local Binding | Responsibility | Destructor Called |
-|-----------------------|--------------------------|----------------|-------------------|
-| `data: T`             | `let data <- argument`   | NO             | NO                |
-| `move data: T`        | `let data = argument`    | YES            | YES               |
+| Parameter Form | Equivalent Local Binding | Responsibility | Destructor Called |
+| -------------- | ------------------------ | -------------- | ----------------- |
+| `data: T`      | `let data <- argument`   | NO             | NO                |
+| `move data: T` | `let data = argument`    | YES            | YES               |
 
 This equivalence ensures consistent behavior between parameter passing and local bindings.
 
@@ -188,7 +188,6 @@ procedure clamp(value: i32, min: i32, max: i32): i32
 
 ```cursive
 procedure inspect(data: Buffer)
-    [[ |- true => true ]]
 {
     println("Size: {}", data.size())
     // data remains valid, no destructor called
@@ -203,7 +202,6 @@ buffer.use()                     // ✅ OK
 
 ```cursive
 procedure consume(move data: Buffer)
-    [[ |- true => true ]]
 {
     process_data(data)
     // data.drop() called automatically when procedure returns
@@ -240,7 +238,6 @@ procedure add(a: i32, b: i32): i32
 ```cursive
 // Non-responsible parameter (default)
 procedure inspect(data: Buffer)
-    [[ |- true => true ]]
 {
     println("Size: {}", data.size())
     // data is NOT destroyed when procedure returns
@@ -248,7 +245,6 @@ procedure inspect(data: Buffer)
 
 // Responsible parameter (takes ownership)
 procedure consume(move data: Buffer)
-    [[ |- true => true ]]
 {
     process_buffer(data)
     // data IS destroyed when procedure returns
@@ -258,10 +254,10 @@ procedure demo()
     [[ alloc::heap |- true => true ]]
 {
     let buffer = Buffer::new()
-    
+
     inspect(buffer)                    // ✅ OK: buffer still valid after call
     println("Still valid: {}", buffer.size())
-    
+
     consume(move buffer)               // ✅ OK: transfer responsibility
     // buffer is now invalid (moved)
 }
@@ -279,7 +275,6 @@ procedure unsafe_add(lhs: i32, rhs: i32): i32
 
 ```cursive
 procedure consume(move data: Buffer)
-    [[ |- true => true ]]
 { }
 
 let buffer = Buffer::new()
@@ -290,7 +285,6 @@ consume(buffer)              // error[E05-409]: parameter requires move
 
 ```cursive
 procedure process(data: Buffer)
-    [[ |- true => true ]]
 { }
 
 let buffer = Buffer::new()
@@ -302,6 +296,7 @@ process(move buffer)         // error[E05-410]: parameter does not accept move
 [1] Implementations shall diagnose malformed or missing receiver parameters on procedures (E05-401).
 
 [2] Implementations shall enforce parameter responsibility semantics:
+
 - Track which parameters have the `move` modifier (responsible)
 - Parameters without `move` are non-responsible (do not call destructors)
 - Verify call sites use `move` when required (E05-409)

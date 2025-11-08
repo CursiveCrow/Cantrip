@@ -148,7 +148,6 @@ let mixed: Pair<i32, string@Managed> = Pair { first: 1, second: string.from("hel
 
 ```cursive
 procedure swap<T>(a: unique T, b: unique T): (T, T)
-    [[ |- true => true ]]
 {
     result (b, a)
 }
@@ -308,7 +307,7 @@ procedure twice<T, ε>(f: () -> T ! ε): (T, T)
 }
 
 // Inference:
-let pure = || [[ |- true => true ]] { result 42 }
+let pure = || { result 42 }
 let pair = twice(pure)  // ε inferred as ∅
 
 let writer = || [[ io::write |- true => true ]] { println("hi") }
@@ -332,7 +331,7 @@ procedure map<T, U, ε>(values: [T], f: (T) -> U ! ε): [U]
 
 // Usage with pure function
 let numbers = [1, 2, 3, 4, 5]
-let doubled = map(numbers, |x| [[ |- true => true ]] { result x * 2 })
+let doubled = map(numbers, |x| { result x * 2 })
 
 // Usage with grant-requiring function
 let logged = map(numbers, |x| [[ io::write |- true => true ]] {

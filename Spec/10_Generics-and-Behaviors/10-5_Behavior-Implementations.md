@@ -36,7 +36,7 @@ behavior_clause
     ::= "with" behavior_list
 
 behavior_list
-    ::= behavior_reference ("+" behavior_reference)*
+    ::= behavior_reference ("," behavior_reference)*
 
 behavior_reference
     ::= type_expression    // Must resolve to behavior
@@ -45,7 +45,7 @@ behavior_reference
 [5] Example:
 
 ```cursive
-record Point with Display + Clone {
+record Point with Display, Clone {
     x: f64,
     y: f64,
 
@@ -62,7 +62,7 @@ record Point with Display + Clone {
 }
 ```
 
-[6] The behavior clause `with Display + Clone` attaches both behaviors to `Point`. Procedures implementing behavior methods appear in the record body.
+[6] The behavior clause `with Display, Clone` attaches both behaviors to `Point`. Procedures implementing behavior methods appear in the record body.
 
 #### §10.5.3 Standalone Implementation Syntax [generic.implementation.standalone]
 
@@ -121,7 +121,7 @@ behavior Display for Point {
 [ Given: Behavior `P` declaring items `{I₁, ..., Iₙ}`, implementation for type `T` ]
 
 $$
-\frac{\forall i. \; \text{item } I_i \text{ is specified in implementation or has default}}{\text{predicate } P \text{ for } T \text{ complete}}
+\frac{\forall i. \; \text{item } I_i \text{ is specified in implementation or has default}}{\text{behavior } P \text{ for } T \text{ complete}}
 \tag{WF-Impl-Complete}
 $$
 
@@ -189,7 +189,7 @@ behavior Iterator for Range {
 [19] Blanket implementation syntax uses the generic for-clause:
 
 ```cursive
-predicate ToString for<T> T where T: Display {
+behavior ToString for<T> T where T: Display {
     procedure to_string(~): string@Managed
         [[ alloc::heap |- true => true ]]
     {
@@ -268,7 +268,7 @@ println("{}", p.debug())  // "Debug: Point"
 
 ##### §10.5.6.1 Orphan Rule Statement
 
-[25] A behavior implementation `predicate P for T` is permitted if and only if at least one of the following holds:
+[25] A behavior implementation `behavior P for T` is permitted if and only if at least one of the following holds:
 
 1. Behavior `P` is defined in the current module, OR
 2. The outermost type constructor of `T` is defined in the current module
@@ -278,7 +278,7 @@ println("{}", p.debug())  // "Debug: Point"
 [ Given: Behavior `P`, type `T`, implementing module `M` ]
 
 $$
-\frac{P \in \text{Module}(M) \lor \text{outer}(T) \in \text{Module}(M)}{\text{predicate } P \text{ for } T \text{ in } M \text{ permitted}}
+\frac{P \in \text{Module}(M) \lor \text{outer}(T) \in \text{Module}(M)}{\text{behavior } P \text{ for } T \text{ in } M \text{ permitted}}
 \tag{WF-Orphan-Allowed}
 $$
 
@@ -309,7 +309,7 @@ $$
 behavior Display { ... }
 
 // Module A can provide blanket implementation
-predicate ToString for<T> T where T: Display {
+behavior ToString for<T> T where T: Display {
     // OK: Display is local to module A
 }
 
@@ -337,7 +337,7 @@ public behavior PrettyPrint {
 }
 
 // Valid: PrettyPrint is local
-predicate PrettyPrint for std::collections::List {
+behavior PrettyPrint for std::collections::List {
     procedure pretty(~): string@Managed
     {
         result "List pretty"
@@ -355,7 +355,7 @@ public record MyType {
 }
 
 // Valid: MyType is local
-predicate std::display::Display for MyType {
+behavior std::display::Display for MyType {
     procedure show(~): string@View
     {
         result "MyType"
@@ -370,7 +370,7 @@ predicate std::display::Display for MyType {
 
 // error[E10-505]: orphan rule violation
 // Neither std::display::Display nor std::collections::List is local
-predicate std::display::Display for std::collections::List {
+behavior std::display::Display for std::collections::List {
     // Cannot implement external behavior for external type
 }
 ```
@@ -408,11 +408,11 @@ $$
 ```cursive
 // Overlapping blanket implementations (ill-formed)
 
-predicate Printer for<T> T where T: Display {
+behavior Printer for<T> T where T: Display {
     // Implementation 1
 }
 
-predicate Printer for<T> T where T: Debug {
+behavior Printer for<T> T where T: Debug {
     // Implementation 2
 }
 
@@ -444,11 +444,11 @@ behavior ShowInt {
 }
 
 // Non-overlapping: disjoint bounds
-predicate ShowInt for<T> T where T: NumericType {
+behavior ShowInt for<T> T where T: NumericType {
     // Only numeric types
 }
 
-predicate ShowInt for<T> T where T: Container {
+behavior ShowInt for<T> T where T: Container {
     // Only container types
 }
 
@@ -480,11 +480,11 @@ behavior Display for Data {
 ```cursive
 // NOT SUPPORTED: Specialization
 
-predicate Formatter for<T> T {
+behavior Formatter for<T> T {
     // General implementation
 }
 
-predicate Formatter for i32 {
+behavior Formatter for i32 {
     // Specialized for i32 - NOT ALLOWED
 }
 ```
@@ -598,8 +598,8 @@ behavior Converter<string@Managed> for<T> Wrapper<T> where T: Display {
 $$
 \frac{
 \begin{array}{c}
-\text{predicate } P\langle\alpha\rangle \text{ for } T\langle\beta\rangle \quad \text{where } \beta : B \\
-\text{predicate } P\langle\tau\rangle \text{ declared} \quad T\langle\beta\rangle \text{ declared}
+\text{behavior } P\langle\alpha\rangle \text{ for } T\langle\beta\rangle \quad \text{where } \beta : B \\
+\text{behavior } P\langle\tau\rangle \text{ declared} \quad T\langle\beta\rangle \text{ declared}
 \end{array}
 }{\text{implementation valid if bounds and signatures match after substitution}}
 \tag{WF-Impl-Generic}
@@ -642,7 +642,7 @@ record User {
     name: string@Managed,
 }
 
-predicate Serializable for User {
+behavior Serializable for User {
     type Format = string@Managed    // Override default
 
     procedure serialize(~): string@Managed
@@ -710,7 +710,7 @@ println("{}", pair.show())  // Uses blanket implementation
 
 // error[E10-505]: orphan rule violation
 // Cannot implement external behavior for external type
-predicate std::fmt::Display for std::collections::List {
+behavior std::fmt::Display for std::collections::List {
     procedure show(~): string@View
     {
         result "List"
@@ -730,7 +730,7 @@ behavior Logger {
 }
 
 // Implementation 1
-predicate Logger for<T> T where T: Display {
+behavior Logger for<T> T where T: Display {
     procedure log(~, message: string@View)
         [[ io::write |- true => true ]]
     {
@@ -739,7 +739,7 @@ predicate Logger for<T> T where T: Display {
 }
 
 // Implementation 2 - OVERLAPS with Implementation 1
-predicate Logger for<T> T where T: Debug {
+behavior Logger for<T> T where T: Debug {
     procedure log(~, message: string@View)
         [[ io::write |- true => true ]]
     {
@@ -756,8 +756,8 @@ predicate Logger for<T> T where T: Debug {
 [51] Implementations shall:
 
 1. Support inline behavior attachment via `with Behavior` clause
-2. Support standalone behavior implementations via `predicate P for T`
-3. Support blanket implementations via `predicate P for<T> T where ...`
+2. Support standalone behavior implementations via `behavior P for T`
+3. Support blanket implementations via `behavior P for<T> T where ...`
 4. Enforce that all behavior procedures and associated types are provided
 5. Check procedure signature compatibility (parameters, return, receiver, grants, sequent)
 6. Enforce orphan rule: require local behavior or local type constructor (E10-505)

@@ -1,11 +1,12 @@
 # Cursive Language Specification
+
 ## Clause 1 — Introduction and Conformance
 
 **Part**: I — Introduction and Conformance
 **File**: 01-5_Document-Conventions.md  
 **Section**: §1.6 Document Conventions  
 **Stable label**: [intro.document]  
-**Forward references**: §1.4.5 [intro.notation.style], Clause 4 §4.A [module.index], Annex A [grammar], Annex E §E.2.1 [implementation.algorithms]
+**Forward references**: §1.4.5 [intro.notation.style], Annex A [grammar], Annex E §E.2.1 [implementation.algorithms]
 
 ---
 
@@ -16,6 +17,7 @@
 #### §1.6.1 Stable Labels [intro.document.labels]
 
 [2] Each clause and subclause carries a stable label of the form `[clause.topic[.subtopic]]`. Clause 1 uses the following labels:
+
 - `[intro.scope]`, `[intro.refs]`, `[intro.terms]`, `[intro.notation]`, `[intro.conformance]`, `[intro.document]`, `[intro.versioning]`.
 - Subclauses append descriptive suffixes, e.g. `[intro.document.labels]` or `[intro.conformance.impl]`.
 
@@ -32,6 +34,7 @@
 #### §1.6.3 Validation Requirements [intro.document.validation]
 
 [7] Prior to publication, editors shall verify that every label resolves to an existing target and that no dangling references remain. Automated tooling should generate:
+
 - an outbound reference table listing, for each section, the labels it references;
 - an inbound reference table to identify orphans (sections with no references);
 - a report for unresolved labels or malformed cross-references.
@@ -53,6 +56,7 @@
 #### §1.6.6 Diagnostic Code Format [intro.document.diagnostics]
 
 [13] All diagnostic codes in this specification shall use the canonical format `E[CC]-[NNN]`, where:
+
 - `E` denotes an error diagnostic;
 - `[CC]` is a two-digit clause number with leading zero (01, 02, ..., 16);
 - `-` is a hyphen separator for visual clarity;
@@ -61,12 +65,14 @@
 **Example**: `E02-001` indicates the first diagnostic in Clause 02 (Lexical Structure and Translation).
 
 [14] Each clause allocates sequential diagnostic codes starting from 001. Within a clause, diagnostic codes should be allocated by subsection to facilitate maintenance and avoid conflicts. For instance, Clause 07 (Type System) may reserve:
+
 - `E07-001` through `E07-099` for §7.1 (Type foundations);
 - `E07-100` through `E07-299` for §7.2 (Primitive types);
 - `E07-300` through `E07-499` for §7.3 (Composite types);
 - and so forth.
 
 [15] Implementations shall report diagnostic codes using this exact format in compiler output, error messages, and diagnostic payloads. The format facilitates:
+
 - **Clause identification**: The two-digit prefix immediately identifies which specification clause defines the error.
 - **Visual parsing**: The hyphen separator aids human readers in distinguishing clause from sequential number.
 - **Machine processing**: The regular pattern `E\d{2}-\d{3}` enables reliable automated parsing and validation.
@@ -74,6 +80,7 @@
 [16] Reserved ranges within a clause may be documented to accommodate future expansion of specific subsections without renumbering existing diagnostics. Implementations should not define diagnostic codes outside the ranges specified by this document.
 
 [17] Annex E §E.5 [implementation.diagnostics] provides the authoritative diagnostic code registry, including:
+
 - Complete enumeration of all diagnostic codes across all clauses;
 - Structured payload schemas for machine-readable diagnostic output;
 - Suggested diagnostic message templates and quality guidelines;

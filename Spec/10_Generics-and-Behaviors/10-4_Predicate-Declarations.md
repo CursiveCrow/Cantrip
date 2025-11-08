@@ -39,7 +39,7 @@
 [5] Types may attach both behaviors and contracts:
 
 ```cursive
-record Account: Ledgered with Serializable + Display {
+record Account: Ledgered with Serializable, Display {
     // Ledgered is a contract (abstract requirement, defined in Clause 12)
     // Serializable and Display are behaviors (concrete code reuse)
 }
@@ -58,7 +58,7 @@ behavior_extension
     ::= "with" behavior_reference_list
 
 behavior_reference_list
-    ::= behavior_reference ("+" behavior_reference)*
+    ::= behavior_reference ("," behavior_reference)*
 
 behavior_reference
     ::= type_expression    // Must resolve to behavior name
@@ -428,7 +428,6 @@ let slice_ptr: Ptr<[i32]>@Valid = &array[..]  // OK: behind pointer
 
 ```cursive
 procedure store<T: Sized>(value: T): T
-    [[ |- true => true ]]
 {
     let stored = value
     result stored
@@ -447,7 +446,6 @@ store(42)              // OK: i32 is Sized
 ```cursive
 behavior Drop {
     procedure drop(~!)
-        [[ |- true => true ]]
 }
 ```
 
@@ -553,7 +551,6 @@ behavior Drop for Connection {
 ```cursive
 behavior Resettable {
     procedure reset(~!)
-        [[ |- true => true ]]
     {
         self = Self::default()  // OK: unique permission allows assignment
     }
@@ -674,7 +671,6 @@ behavior Debug with Display {
 ```cursive
 behavior Converter<U> {
     procedure convert(~): U
-        [[ |- true => true ]]
     {
         panic("Converter::convert not implemented for this type")
     }

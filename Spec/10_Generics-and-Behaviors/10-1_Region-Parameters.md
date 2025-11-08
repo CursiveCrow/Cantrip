@@ -175,7 +175,7 @@ Rather than type parameters, Cursive provides:
 This approach keeps allocation strategy as an explicit runtime concern rather than a type-level abstraction, aligning with Cursive's explicit-over-implicit philosophy.
 — end rationale ]
 
-[15] Future editions will **not** add region type parameters. If field experience reveals need for additional arena control beyond named bindings and modal states, extensions will use first-class arena values (library types, collection patterns) rather than type-level parameterization.
+[15] Region type parameters are not supported in version 1.0. Future editions may reconsider based on field experience if the Arena modal type proves insufficient for all use cases. If additional arena control is needed beyond named bindings and modal states, extensions will prioritize first-class arena values (library types, collection patterns) rather than type-level parameterization.
 
 #### §10.1.8 Integration with Other Systems
 

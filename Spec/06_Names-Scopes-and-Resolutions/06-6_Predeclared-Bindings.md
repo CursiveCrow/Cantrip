@@ -27,7 +27,7 @@
 - **Boolean constants**: `true`, `false`.
 - **Numeric literal helpers**: literal suffix constructors matching the primitive types above.
 - **Intrinsic operations**: `panic`, `assert` (if included in the core language; optional extensions may add more).
-- **Pointer helpers**: `Ptr`, `MutPtr`, `ImmPtr` (subject to Clause 12).
+- **Pointer helpers**: `Ptr` (subject to §7.5).
 
 [4] Implementations may extend this set with additional intrinsics, but they shall document the extensions and adhere to the protection rules below.
 

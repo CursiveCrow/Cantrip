@@ -16,7 +16,7 @@
 
 #### §1.7.1 Version Identifiers [intro.versioning.identifiers]
 
-[2] The specification defined herein corresponds to version **1.0.0**. Minor revisions (`1.x.0`) add backwards-compatible features; patch revisions (`1.0.x`) provide errata and clarifications without changing behaviour. Major revisions (`2.0.0`, `3.0.0`, …) may introduce breaking changes but shall follow the migration process in §1.7.4 [intro.versioning.deprecation].
+[2] The specification defined herein corresponds to version **1.0.0**. Minor revisions (`1.x.0`) add backwards-compatible features; patch revisions (`1.0.x`) provide errata and clarifications without changing behavior. Major revisions (`2.0.0`, `3.0.0`, …) may introduce breaking changes but shall follow the migration process in §1.7.4 [intro.versioning.deprecation].
 
 [3] Projects shall declare a minimum required language version in their manifest or build configuration. If no version is declared, implementations may default to the latest supported minor release within the highest major version they provide (for example, 1.0 defaults to 1.latest within the 1.x series).
 
@@ -24,7 +24,7 @@
 
 [4] Conforming implementations shall document the set of language versions they support, including the default compilation version. When multiple versions are supported simultaneously, the implementation shall expose a mechanism (flag, configuration value, or project manifest entry) that selects the desired version.
 
-[5] Preview or experimental versions may be offered, but they shall require explicit opt-in (e.g., `--language-version 2.0-preview`). Preview behaviour shall never silently override stable semantics.
+[5] Preview or experimental versions may be offered, but they shall require explicit opt-in (e.g., `--language-version 2.0-preview`). Preview behavior shall never silently override stable semantics.
 
 #### §1.7.3 Feature Stability Classes [intro.versioning.features]
 
@@ -46,9 +46,9 @@
 
 #### §1.7.5 Errata and Patch Releases [intro.versioning.patch]
 
-[11] Patch releases address specification defects, typographical errors, or clarifications that do not change behaviour. When errata alter normative text, the change log in Annex H [changes] shall record the revision, rationale, and impacted sections.
+[11] Patch releases address specification defects, typographical errors, or clarifications that do not change behavior. When errata alter normative text, the change log in Annex H [changes] shall record the revision, rationale, and impacted sections.
 
-[12] Implementations are encouraged to adopt patch releases promptly. When behaviour diverges from a published patch release, implementations shall document the discrepancy and, if possible, provide compatibility modes.
+[12] Implementations are encouraged to adopt patch releases promptly. When behavior diverges from a published patch release, implementations shall document the discrepancy and, if possible, provide compatibility modes.
 
 #### §1.7.6 Project Manifest Schema [intro.versioning.manifest]
 

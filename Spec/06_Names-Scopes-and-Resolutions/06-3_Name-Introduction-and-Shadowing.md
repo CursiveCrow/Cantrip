@@ -46,6 +46,8 @@ binding_head
 
 [4] `identifier_declaration_head` captures non-variable declarations (type, procedure, module, etc.) that may legally use `shadow`. Full grammar details appear in Annex A §A.4; this subclause restricts when the `shadow` prefix is valid.
 
+[ Note: `identifier_declaration_head` is a placeholder for the leading keywords of other declaration forms, such as `type`, `procedure`, `record`, etc. It signifies that the `shadow` keyword can prefix not just `let` and `var`, but any declaration that introduces an identifier. — end note ]
+
 #### §6.3.3 Constraints [name.shadow.constraints]
 
 [5] Every declaration introduces at most one binding per identifier. Multiple declarators in the same statement are prohibited; use pattern destructuring when multiple identifiers are required (§5.2).
@@ -73,6 +75,7 @@ binding_head
 - **source_location**: File, line, and column for diagnostics
 
 [11.1] Cleanup responsibility is determined by:
+
 - For variable bindings: Assignment operator (`=` is responsible, `<-` is non-responsible)
 - For procedure parameters: Presence of `move` modifier (`move param` is responsible, `param` is non-responsible)
 - For pattern bindings: Inherits from enclosing binding

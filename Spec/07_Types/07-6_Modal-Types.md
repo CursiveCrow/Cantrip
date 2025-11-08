@@ -50,18 +50,13 @@ StateMember      ::= ProcedureDecl | FunctionDecl | TransitionSignature
 TransitionSignature ::= '@' Ident '::' Ident '(' ParamList? ')' '->' '@' Ident
 ```
 
-[4] **Transition Declarations and Implementations**: Modal types distinguish between transition _signatures_ and transition _implementations_ using semantically distinct operators:
+[4] **Transition Declarations and Implementations**: Modal types distinguish between transition _signatures_ and transition _implementations_:
 
 - **Transition signatures** (inside modal body): Use the form `@SourceState::name(params) -> @TargetState` to declare valid state transitions. The **mapping operator `->` (reads as "transitions to")** indicates that invoking this transition maps the value from the source state to the target state. These lightweight declarations define the state machine graph.
 
-- **Procedure implementations**: Each transition signature shall have a corresponding procedure implementation using standard procedure syntax (§5.4). The procedure is named `ModalType.name`, takes receiver `self: perm Self@Source`, and returns `Self@Target` using the **type operator `:` (reads as "is of type")**. Implementations may appear at module scope or within the state body as full procedure declarations.
+- **Procedure implementations**: Each transition signature shall have a corresponding procedure implementation using standard procedure syntax (§5.4). The procedure is named `ModalType.name`, takes receiver using shorthand (`~`, `~%`, or `~!` corresponding to `const`, `shared`, or `unique` permission on `Self@Source`), and returns a transition type `@Source -> @Target` using the **type operator `:` (reads as "is of type")**. The transition type `@Source -> @Target` is syntactic sugar for the function type `(Self@Source, ...params) -> Self@Target`, where `Self` is the modal type and `@State` desugars to `Self@State` in modal scope. Implementations may appear at module scope or within the state body as full procedure declarations.
 
-[ Note: The semantic distinction between operators reflects their different purposes:
-
-- **`->` (mapping operator)**: Expresses a transition relationship in the state graph (source state **maps to** target state)
-- **`:` (type operator)**: Expresses a type annotation (return value **is of type** target state)
-
-This is not merely syntactic sugar; the operators have distinct semantic meanings. `->` declares a relationship between states (graph edge), while `:` declares a type constraint (type annotation). The distinction is grammatically unambiguous and reflects the dual nature of transitions: they are both state graph edges (declared with `->`) and type-returning procedures (implemented with `:`).
+[ Note: Transition types are first-class function types. The syntax `@Source -> @Target` in a procedure return type is syntactic sugar for `(Self@Source, ...params) -> Self@Target`, where `Self` is the modal type. This allows transitions to be bound, passed as parameters, and used in higher-order operations. The `->` operator in transition types expresses the state transition relationship as part of the type system, making transitions first-class values while preserving their semantic meaning.
 — end note ]
 
 [5] Each state may:
@@ -77,7 +72,7 @@ This is not merely syntactic sugar; the operators have distinct semantic meaning
 1. State names `Sᵢ` are unique.
 2. Field types within each state are well-formed under the enclosing context.
 3. Transition clauses reference existing states.
-4. Methods use receivers consistent with pointer semantics: `self: perm Self@State` where `perm ∈ {const, shared, unique}`.
+4. Methods use receivers consistent with pointer semantics: receiver shorthand (`~`, `~%`, `~!`) corresponding to permissions `{const, shared, unique}` on `Self@State`.
 
 (6.1) _Missing transition implementation._ If a transition signature `@Source::name(params) -> @Target` is declared but no corresponding procedure `ModalType.name` with matching signature exists, diagnostic E07-505 is emitted. The implementation must match the signature exactly: receiver permission, parameter types, and target state must align. Implementations with mismatched signatures do not satisfy the signature requirement.
 
@@ -117,7 +112,7 @@ $$
 | Inside modal body after `@Ident::(...)` | `->`     | Transition signature   |
 | After `procedure` keyword and params    | `:`      | Return type annotation |
 
-[8] Implementations shall not confuse these contexts. The `->` operator appears exclusively in transition signature positions within modal type bodies. The `:` operator appears in return type positions across all procedure declarations (modal and non-modal). No backtracking or lookahead beyond the closing `)` of the parameter list is required.
+[8] **Transition type parsing**: When parsing a return type after `:` in a procedure declaration, if the type contains `->` between state identifiers (`@Ident -> @Ident`), it is parsed as a transition type. Transition types may only appear in return type positions of procedures declared within modal scope (i.e., procedures that are methods of a modal type). The parser recognizes transition types by the pattern `@` followed by an identifier, `->`, `@`, and another identifier.
 
 #### §7.6.3 State Types [type.modal.state]
 
@@ -157,7 +152,7 @@ modal Connection {
 **Procedure implementation** (at module scope or inline):
 
 ```cursive
-procedure Connection.open(self: unique Self@Closed, path: string@View): Self@Open
+procedure Connection.open(~!, path: string@View): @Closed -> @Open
     [[ io::open |- true => witness Connection@Open ]]
 {
     let handle = os::open(path)
@@ -168,18 +163,20 @@ procedure Connection.open(self: unique Self@Closed, path: string@View): Self@Ope
 [9] The signature `@Source::name(params) -> @Target` declares the transition, including receiver shorthand (`~`, `~%`, `~!`) if the transition requires a self parameter. The implementation shall:
 
 - Be named `ModalType.name`
-- Take receiver matching the signature's shorthand: `~` → `self: const Self@Source`, `~%` → `self: shared Self@Source`, `~!` → `self: unique Self@Source`
-- Return `Self@Target` where Target matches the signature
-- Use `:` for the return type (standard procedure syntax), not `->`
+- Take receiver using shorthand matching the signature: `~` (const), `~%` (shared), `~!` (unique)
+- Return a transition type `@Source -> @Target` where Source and Target match the signature
+- The transition type `@Source -> @Target` desugars to function type `(Self@Source, ...params) -> Self@Target`, where `@State` desugars to `Self@State` in modal scope
 
 Typing rule:
 
 $$
-\dfrac{\Gamma \vdash self : M@S \quad \Gamma \vdash \text{body}: M@Target \quad \text{contract ok}}{\Gamma \vdash \text{procedure } M.name(self: perm M@S, ...): M@Target}
+\dfrac{\Gamma \vdash self : M@S \quad \Gamma \vdash \text{body}: M@Target \quad \text{contract ok}}{\Gamma \vdash \text{procedure } M.name(self: perm M@S, ...): @S \to @Target}
 \tag{T-Transition}
 $$
 
-The body must `result` a value of type `M@Target`. Failing to do so triggers E07-502. Witness semantics are described in §7.6.5.
+The body must `result` a value of type `M@Target` (where `M@Target` is the desugared form of `@Target` in modal scope). The transition type `@S -> @Target` is equivalent to the function type `(M@S, ...params) -> M@Target`. Failing to return the correct type triggers E07-502. Witness semantics are described in §7.6.5.
+
+[ Rationale: For transitions on `unique` receivers (`~!`), returning `result ModalType@NewState { ... }` performs an in-place update of the object's memory. The fields are overwritten, and the object's conceptual state changes without requiring a new allocation. This ensures that state transitions on unique values are efficient, zero-cost abstractions. Transitions on `const` or `shared` receivers must construct and return a new object in the target state, as they cannot modify the original in place. — end rationale ]
 
 #### §7.6.5 Contracts and Witnesses [type.modal.contract]
 
@@ -194,7 +191,7 @@ The body must `result` a value of type `M@Target`. Failing to do so triggers E07
 **Example:**
 
 ```cursive
-procedure close(self: unique Self@Open): Self@Closed
+procedure close(~!): @Open -> @Closed
     [[ io::close, witness Connection@Open
        |- true => witness Connection@Closed ]]
 {
@@ -247,21 +244,21 @@ modal FileHandle {
 **Transition implementations at module scope:**
 
 ```cursive
-procedure FileHandle.open(self: unique Self@Closed, path: string@View): Self@Open
+procedure FileHandle.open(~!, path: string@View): @Closed -> @Open
 [[io::open |- true => witness FileHandle@Open]]
 {
 let handle = os::open(path)
 result FileHandle@Open { path: path.to_owned(), handle }
 }
 
-procedure FileHandle.read(self: shared Self@Open, buffer: [u8]): Self@Open
+procedure FileHandle.read(~%, buffer: [u8]): @Open -> @Open
 [[io::read, witness FileHandle@Open |- buffer.len() > 0 => true]]
 {
 os::read(self.handle, buffer)
 result self
 }
 
-procedure FileHandle.close(self: unique Self@Open): Self@Closed
+procedure FileHandle.close(~!): @Open -> @Closed
 [[io::close, witness FileHandle@Open |- true => witness FileHandle@Closed]]
 {
 os::close(self.handle)
@@ -296,21 +293,21 @@ modal Transaction {
 }
 
 // Transition implementations
-procedure Transaction.begin(self: unique Self@Idle): Self@Active
+procedure Transaction.begin(~!): @Idle -> @Active
     [[ db::begin |- true => witness Transaction@Active ]]
 {
     db::begin()
     result Transaction@Active {}
 }
 
-procedure Transaction.commit(self: unique Self@Active): Self@Idle
+procedure Transaction.commit(~!): @Active -> @Idle
     [[ db::commit, witness Transaction@Active |- true => witness Transaction@Idle ]]
 {
     db::commit()
     result Transaction@Idle {}
 }
 
-procedure Transaction.rollback(self: unique Self@Active): Self@Idle
+procedure Transaction.rollback(~!): @Active -> @Idle
     [[ db::rollback, witness Transaction@Active |- true => witness Transaction@Idle ]]
 {
     db::rollback()

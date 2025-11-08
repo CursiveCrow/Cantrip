@@ -61,37 +61,29 @@ Expands to: `[[ grants |- true => true ]]`
 **Precondition-only form**:
 
 ```ebnf
-"[[" "|-" must_clause "]]"
+"[[" must_clause "]]"
 ```
 
-Expands to: `[[ |- must => true ]]`
+Expands to: `[[ must => true ]]` (canonical form: `[[ |- must => true ]]`)
 
 **Postcondition-only form**:
 
 ```ebnf
-"[[" "|-" "=>" will_clause "]]"
+"[[" "=>" will_clause "]]"
 ```
 
-Expands to: `[[ |- true => will ]]`
+Expands to: `[[ true => will ]]` (canonical form: `[[ |- true => will ]]`)
 
 **Precondition and postcondition (no grants)**:
-
-```ebnf
-"[[" "|-" must_clause "=>" will_clause "]]"
-```
-
-Standard form with empty grant set.
-
-**Implication without turnstile**:
 
 ```ebnf
 "[[" must_clause "=>" will_clause "]]"
 ```
 
-Expands to: `[[ |- must => will ]]` (turnstile optional when no grants)
+Preferred form without turnstile. Canonical form: `[[ |- must => will ]]`
 
 **Empty sequent**:
-[6] Procedures without explicit sequent clauses default to `[[ |- true => true ]]` (pure procedure with no requirements or guarantees).
+[6] Procedures without explicit sequent clauses default to `[[ ∅ |- true => true ]]` (empty grant set, pure procedure with no requirements or guarantees). The canonical internal form is `[[ |- true => true ]]` where the grant set is empty (∅).
 
 ##### §12.2.2.3 Examples of All Forms
 
@@ -127,24 +119,24 @@ procedure log_message(message: string@View)
 
 ```cursive
 procedure divide(a: i32, b: i32): i32
-    [[ |- b != 0 ]]
+    [[ b != 0 ]]
 {
     result a / b
 }
 
-// Desugars to: [[ |- b != 0 => true ]]
+// Desugars to: [[ b != 0 => true ]]
 ```
 
 **Example 12.2.2.4 (Postcondition-only form)**:
 
 ```cursive
 procedure absolute_value(x: i32): i32
-    [[ |- => result >= 0 ]]
+    [[ => result >= 0 ]]
 {
     if x < 0 { result -x } else { result x }
 }
 
-// Desugars to: [[ |- true => result >= 0 ]]
+// Desugars to: [[ true => result >= 0 ]]
 ```
 
 **Example 12.2.2.5 (No turnstile when no grants)**:
@@ -158,7 +150,7 @@ procedure clamp(value: i32, min: i32, max: i32): i32
     else { result value }
 }
 
-// Desugars to: [[ |- min <= max => result >= min && result <= max ]]
+// Desugars to: [[ min <= max => result >= min && result <= max ]] (canonical: `[[ |- min <= max => result >= min && result <= max ]]`)
 ```
 
 **Example 12.2.2.6 (Omitted sequent - pure procedure)**:
@@ -169,18 +161,18 @@ procedure add(a: i32, b: i32): i32
     result a + b
 }
 
-// Defaults to: [[ |- true => true ]]
+// Sequent omitted - defaults to [[ ∅ |- true => true ]] (canonical: `[[ |- true => true ]]` with empty grant set)
 ```
 
 #### §12.2.3 Constraints [contract.sequent.constraints]
 
 [1] _Semantic bracket requirement._ Contractual sequents shall use semantic brackets `⟦ ⟧` or ASCII `[[ ]]`. Other bracket forms (parentheses, square brackets, curly braces) are not valid for sequent delimiters and shall produce diagnostic E12-001.
 
-[2] _Turnstile placement._ The turnstile `|-` shall separate the grant clause from the must clause. It shall appear exactly once per sequent. Violations produce diagnostic E12-002.
+[2] _Turnstile placement._ The turnstile `|-` shall separate the grant clause from the must clause. When grants are present, the turnstile is required. When no grants are present, the turnstile may be omitted, allowing the form `[[ must => will ]]` which desugars to `[[ |- must => will ]]`. The turnstile shall appear at most once per sequent. Violations produce diagnostic E12-002.
 
 [3] _Implication placement._ The implication operator `=>` shall separate the must clause from the will clause. It shall appear exactly once per sequent. Violations produce diagnostic E12-003.
 
-[4] _Component ordering._ Sequent components shall appear in the order: grants, turnstile, must, implication, will. Reordering components is ill-formed and produces diagnostic E12-004.
+[4] _Component ordering._ Sequent components shall appear in the order: grants (optional), turnstile (required if grants present, optional if no grants), must, implication, will. When no grants are present, the form `[[ must => will ]]` is valid and desugars to `[[ |- must => will ]]`. Reordering components is ill-formed and produces diagnostic E12-004.
 
 [5] _Predicate purity._ Expressions in must and will clauses shall be pure: they shall not perform I/O, mutate state, allocate memory, or have observable side effects. Effectful predicates produce diagnostic E12-005.
 
@@ -214,7 +206,7 @@ $$
 - `must true`: No preconditions (always satisfied)
 - `will true`: No postconditions (no guarantees)
 
-[13] The trivial sequent `[[ |- true => true ]]` represents a pure procedure with no requirements and no guarantees. Such procedures may still perform local computation and return values; the sequent indicates only that there are no external requirements or observable guarantees beyond the type signature.
+[13] The trivial sequent `[[ ∅ |- true => true ]]` (canonical form: `[[ |- true => true ]]` with empty grant set) represents a pure procedure with no requirements and no guarantees. When sequents are omitted entirely, they default to this form. Such procedures may still perform local computation and return values; the sequent indicates only that there are no external requirements or observable guarantees beyond the type signature.
 
 ##### §12.2.4.3 Multiple Predicates
 
@@ -286,17 +278,17 @@ procedure grants_only()
 
 // Form 3: Precondition only
 procedure precond_only(b: i32)
-    [[ |- b != 0 ]]
+    [[ b != 0 ]]
 { }
 
 // Form 4: Postcondition only
 procedure postcond_only(): i32
-    [[ |- => result > 0 ]]
+    [[ => result > 0 ]]
 { result 42 }
 
 // Form 5: Must + will, no grants
 procedure no_grants(x: i32): i32
-    [[ |- x >= 0 => result >= x ]]
+    [[ x >= 0 => result >= x ]]
 { result x + 1 }
 
 // Form 6: Implication without turnstile
@@ -332,7 +324,7 @@ procedure validate_transfer(from: Account, to: Account, amount: i64): bool
 
 [18] Contractual sequents attach to procedure declarations as specified in §5.4 [decl.function]. The sequent clause appears after the procedure signature, either on the same line (for simple sequents) or on the following line (recommended for complex sequents).
 
-[19] Expression-bodied procedures (`= expression ;`) shall not include explicit sequents; they implicitly default to `[[ |- true => true ]]`. Including a sequent with expression bodies produces diagnostic E05-408 (defined in Clause 5).
+[19] Expression-bodied procedures (`= expression ;`) shall not include explicit sequents; they implicitly default to `[[ ∅ |- true => true ]]` (empty grant set, canonical: `[[ |- true => true ]]`). Including a sequent with expression bodies produces diagnostic E05-408 (defined in Clause 5).
 
 [20] Extern procedures may include sequents specifying their contract. The sequent serves as documentation and verification obligation for callers; the implementation is external and assumed to satisfy the contract.
 
@@ -340,7 +332,7 @@ procedure validate_transfer(from: Account, to: Account, amount: i64): bool
 
 ```cursive
 // Single-line sequent (simple)
-procedure simple(x: i32): i32 [[ |- x > 0 => result > x ]]
+procedure simple(x: i32): i32 [[ x > 0 => result > x ]]
 { result x + 1 }
 
 // Multi-line sequent (recommended for readability)
@@ -403,18 +395,18 @@ $$
 
 [23] Sequent syntax diagnostics:
 
-| Code    | Condition                                 | Constraint |
-| ------- | ----------------------------------------- | ---------- |
-| E12-001 | Invalid sequent brackets (not [[]])       | [1]        |
-| E12-002 | Missing or duplicate turnstile            | [2]        |
-| E12-003 | Missing or duplicate implication operator | [3]        |
-| E12-004 | Sequent components in wrong order         | [4]        |
-| E12-005 | Effectful expression in must/will clause  | [5]        |
-| E12-006 | Undefined grant in grant clause           | [6]        |
-| E12-007 | `result` identifier used in must clause   | [7]        |
-| E12-008 | `@old` operator used in must clause       | [8]        |
-| E12-009 | Nested `@old` operators                   | [8]        |
-| E12-010 | Ambiguous abbreviated sequent             | [9]        |
+| Code    | Condition                                                     | Constraint |
+| ------- | ------------------------------------------------------------- | ---------- |
+| E12-001 | Invalid sequent brackets (not [[]])                           | [1]        |
+| E12-002 | Missing turnstile when grants present, or duplicate turnstile | [2]        |
+| E12-003 | Missing or duplicate implication operator                     | [3]        |
+| E12-004 | Sequent components in wrong order                             | [4]        |
+| E12-005 | Effectful expression in must/will clause                      | [5]        |
+| E12-006 | Undefined grant in grant clause                               | [6]        |
+| E12-007 | `result` identifier used in must clause                       | [7]        |
+| E12-008 | `@old` operator used in must clause                           | [8]        |
+| E12-009 | Nested `@old` operators                                       | [8]        |
+| E12-010 | Ambiguous abbreviated sequent                                 | [9]        |
 
 #### §12.2.9 Conformance Requirements [contract.sequent.requirements]
 

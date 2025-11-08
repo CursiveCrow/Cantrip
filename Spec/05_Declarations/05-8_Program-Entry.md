@@ -33,7 +33,7 @@ Return type `i32` expresses the process exit status.
 
 [3] `main` shall be `public`. Other visibility modifiers are rejected (E05-802).
 
-[4] `main` shall declare a contractual sequent that explicitly lists any grants required for execution. Per §5.4 [decl.function], the contractual sequent is optional with default `[[ |- true => true ]]`, but `main` typically requires explicit grants for program execution (I/O, allocation, etc.). `comptime` entry points and asynchronous entry points are not permitted (E05-803).
+[4] `main` shall declare a contractual sequent that explicitly lists any grants required for execution. When `main` uses operations that require grants (such as I/O, allocation, file system access, etc.), the sequent clause is **required** and must explicitly declare those grants. If `main` performs no grant-requiring operations, the sequent clause may be omitted and defaults to `[[ ∅ |- true => true ]]` (empty grant set, canonical: `[[ |- true => true ]]`). `comptime` entry points and asynchronous entry points are not permitted (E05-803).
 
 [5] Attributes such as `[[test]]`, `[[bench]]`, or other non-standard annotations shall not decorate `main` (E05-804).
 

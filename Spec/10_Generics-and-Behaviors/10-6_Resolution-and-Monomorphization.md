@@ -230,8 +230,8 @@ let c = identity(3.14)        // Instantiation 3: T = f64
 $$
 \frac{
 \begin{array}{c}
-\Gamma \vdash e : T \quad \text{predicate } P \text{ for } T \text{ exists} \\
-\text{predicate } P \{ \text{procedure } m \}
+\Gamma \vdash e : T \quad \text{behavior } P \text{ for } T \text{ exists} \\
+\text{behavior } P \{ \text{procedure } m \}
 \end{array}
 }{\Gamma \vdash e.m() \Rightarrow T.m() \text{ (direct call)}}
 \tag{Mono-Pred-Call}
@@ -259,7 +259,7 @@ resolve_projection(T::A):
 $$
 \frac{
 \begin{array}{c}
-\Gamma \vdash T \equiv \tau \quad \text{predicate } P \text{ for } \tau \{ \text{type } A = \upsilon \}
+\Gamma \vdash T \equiv \tau \quad \text{behavior } P \text{ for } \tau \{ \text{type } A = \upsilon \}
 \end{array}
 }{\Gamma \vdash T::A \equiv \upsilon}
 \tag{Resolve-Assoc}
@@ -287,7 +287,7 @@ predicate Container {
     { result () }
 }
 
-predicate Container for List<T> {
+behavior Container for List<T> {
     type Element = T
 
     procedure get(~, index: usize): T
@@ -371,7 +371,7 @@ resolve_predicate_call(receiver_type, behavior, method):
 $$
 \frac{
 \begin{array}{c}
-\text{predicate } P \text{ for } \tau \{ \text{procedure } m \{ \text{body}_{\text{override}} \} \} \\
+\text{behavior } P \text{ for } \tau \{ \text{procedure } m \{ \text{body}_{\text{override}} \} \} \\
 \text{predicate } P \{ \text{procedure } m \{ \text{body}_{\text{default}} \} \}
 \end{array}
 }{\text{call } \tau.m() \Rightarrow \text{body}_{\text{override}}}
@@ -383,7 +383,7 @@ $$
 $$
 \frac{
 \begin{array}{c}
-\text{predicate } P \text{ for } \tau \{ \text{no procedure } m \} \\
+\text{behavior } P \text{ for } \tau \{ \text{no procedure } m \} \\
 \text{predicate } P \{ \text{procedure } m \{ \text{body}_{\text{default}} \} \}
 \end{array}
 }{\text{call } \tau.m() \Rightarrow \text{body}_{\text{default}}[\text{Self} \mapsto \tau]}
@@ -394,10 +394,10 @@ $$
 
 [46] When multiple behavior implementations could apply (specific vs blanket), resolution prefers specific implementations:
 
-1. Check for direct implementation: `predicate P for ConcreteType`
+1. Check for direct implementation: `behavior P for ConcreteType`
 2. If not found, check blanket implementations matching type's bounds
 3. If multiple blankets match, error E10-607 (ambiguous implementation)
-4. If no implementation found, error E10-608 (predicate not satisfied)
+4. If no implementation found, error E10-608 (behavior not satisfied)
 
 [47] This ordering ensures that specific implementations can specialize behavior without conflicting with blanket defaults.
 
@@ -603,7 +603,7 @@ procedure apply<T, U, ε>(value: T, f: (T) -> U ! ε): U
     result f(value)
 }
 
-let pure = |x: i32| [[ |- true => true ]] { result x * 2 }
+let pure = |x: i32| { result x * 2 }
 let doubled = apply(5, pure)
 // T = i32 (from first argument)
 // U = i32 (from closure return)

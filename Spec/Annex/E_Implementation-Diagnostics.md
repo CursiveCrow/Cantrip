@@ -300,15 +300,15 @@ procedure build(): Buffer [[alloc::region]] {
 
 **Subsection §2.2: Translation Phases**
 
-| Code    | Section   | Description                                       | Severity |
-| ------- | --------- | ------------------------------------------------- | -------- |
-| E02-101 | §2.2.3[4] | Comptime evaluation exceeded maximum iterations   | E        |
-| E02-102 | §2.2.3[4] | Comptime evaluation exceeded maximum memory       | E        |
-| E02-103 | §2.2.3[4] | Comptime evaluation exceeded maximum stack depth  | E        |
-| E02-104 | §2.2.3[4] | Comptime evaluation exceeded time limit           | E        |
-| E02-105 | §2.2.4[2] | Semantic analysis encountered circular dependency | E        |
-| E02-106 | §2.2.4[3] | Type checking failed due to unresolved dependency | E        |
-| E02-107 | §2.2.5[1] | Code generation encountered unsupported construct | E        |
+| Code    | Section   | Description                                      | Severity |
+| ------- | --------- | ------------------------------------------------ | -------- |
+| E02-101 | §2.2.3[4] | Comptime evaluation exceeded maximum iterations  | E        |
+| E02-102 | §2.2.3[4] | Comptime evaluation exceeded maximum memory      | E        |
+| E02-103 | §2.2.3[4] | Comptime evaluation exceeded maximum stack depth | E        |
+| E02-104 | §2.2.3[4] | Comptime evaluation exceeded time limit          | E        |
+| E02-105 | §2.2.3[3] | Collection cardinality exceeded comptime limit   | E        |
+| E02-106 | §2.2.3[4] | Runtime-only grant used in comptime execution    | E        |
+| E02-107 | §2.2.3[5] | Generated symbol name collision                  | E        |
 
 **Subsection §2.3: Lexical Elements**
 
@@ -589,6 +589,7 @@ procedure build(): Buffer [[alloc::region]] {
 
 | Code    | Section | Description                                  | Severity |
 | ------- | ------- | -------------------------------------------- | -------- |
+| E07-003 | §7.7.6  | Type mismatch in expression                  | E        |
 | E07-700 | §7.7.6  | Subtyping check failure / variance violation | E        |
 | E07-701 | §7.7.6  | Cyclic type alias                            | E        |
 | E07-702 | §7.7.6  | Type compatibility failure for operation     | E        |

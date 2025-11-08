@@ -211,11 +211,10 @@ let viewer <- responsible           // viewer is non-responsible
 ```cursive
 behavior Drop {
     procedure drop(~!)
-        [[ |- true => true ]]
 }
 ```
 
-[36] Types implement `Drop` by providing a `drop` method with receiver `self: unique Self`. The method receives exclusive access to the object and may perform any cleanup operations required. The contractual sequent may include grants necessary for cleanup (e.g., `[[ fs::close |- ... ]]`).
+[36] Types implement `Drop` by providing a `drop` method with receiver `~!` (shorthand for `self: unique Self`). The method receives exclusive access to the object and may perform any cleanup operations required. The contractual sequent may include grants necessary for cleanup (e.g., `[[ fs::close |- ... ]]`).
 
 **Example 11.2.5.1 (Drop implementation):**
 
@@ -355,7 +354,6 @@ $$
 
 ```cursive
 procedure process_buffer(buffer: unique Buffer)
-    [[ |- true => true ]]
 {
     let responsible = buffer        // responsible has cleanup responsibility
     let viewer <- responsible       // viewer is non-responsible

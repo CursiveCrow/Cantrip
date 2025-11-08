@@ -150,13 +150,12 @@ behavior_reference
 
 [9] _Transition implementations._ Each transition signature `@Source::name(params) -> @Target` shall have a corresponding procedure implementation. The procedure shall be named `ModalType.name`, and follow standard procedure syntax (§5.4):
 
-- Receiver matches the signature's shorthand: `~` → `self: const Self@Source`, `~%` → `self: shared Self@Source`, `~!` → `self: unique Self@Source`
-- Return type is `Self@Target` using the **type operator `:`** (reads as "is of type")
+- Receiver uses shorthand matching the signature: `~` (const), `~%` (shared), `~!` (unique)
+- Return type is a transition type `@Source -> @Target` using the **type operator `:`** (reads as "is of type")
+- The transition type `@Source -> @Target` is syntactic sugar for the function type `(Self@Source, ...params) -> Self@Target`, where `@State` desugars to `Self@State` in modal scope
 - Includes contractual sequent specification per §5.4.3[3.1]
 
-Procedure implementations may be declared at module scope or within the state body as complete procedure declarations. The semantic distinction between operators is:
-- **`->` (mapping operator)**: Declares a state transition (state A maps to state B)
-- **`:` (type operator)**: Declares a type annotation (return value is of type T)
+Procedure implementations may be declared at module scope or within the state body as complete procedure declarations. Transition types are first-class function types, allowing transitions to be bound and passed as parameters.
 
 This distinction clarifies intent: signatures declare the state machine graph (using mapping semantics), while implementations provide executable procedures (using type annotation semantics).
 
@@ -240,19 +239,19 @@ modal File {
 }
 
 // Procedure implementations (can be at module scope or inline in state body)
-procedure File.open(self: unique Self@Closed, path: Path): Self@Open
+procedure File.open(~!, path: Path): @Closed -> @Open
     [[ fs::open |- path.exists() => result.state() == @Open ]]
 {
     // ... implementation
 }
 
-procedure File.read(self: shared Self@Open, buffer: BufferView): Self@Open
+procedure File.read(~%, buffer: BufferView): @Open -> @Open
     [[ fs::read |- buffer.capacity() > 0 => buffer.filled() ]]
 {
     // ... implementation
 }
 
-procedure File.close(self: unique Self@Open): Self@Closed
+procedure File.close(~!): @Open -> @Closed
     [[ fs::close |- true => result.state() == @Closed ]]
 {
     // ... implementation

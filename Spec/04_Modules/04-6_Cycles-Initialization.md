@@ -42,7 +42,7 @@ d. If `m` performs `public use n::*` and the wildcard expansion includes any bin
 
 [6] **Failure propagation.** If a module's initialization fails, every module that depends on it through an eager edge is blocked from initializing. Diagnostic E04-501 shall identify the blocked modules and the failing predecessor.
 
-[7] **Deferred evaluation fidelity.** Implementations may evaluate module initializers lazily provided the observable behaviour matches eager evaluation: each initializer runs at most once, dependencies remain respected, and no additional side effects occur.
+[7] **Deferred evaluation fidelity.** Implementations may evaluate module initializers lazily provided the observable behavior matches eager evaluation: each initializer runs at most once, dependencies remain respected, and no additional side effects occur.
 
 [8] **Uninitialised access.** A module shall not read an eager binding from another module before that binding's initializer has completed successfully. Violations emit diagnostic E04-502 referencing the dependency chain.
 
@@ -189,4 +189,4 @@ Attempting to instantiate a generic with an inaccessible internal type from a th
 
 (4.7) Clause 7 specifies type formation rules; Clause 4 specifies visibility rules. When both are violated simultaneously, implementations **should** emit the visibility diagnostic (E07-750, E04-701) before the type error diagnostic to help programmers understand the root cause.
 
-**Previous**: §4.5 Qualified Name Resolution (§4.5 [module.qualified]) | **Next**: §4.A Diagnostics and Indices (§4.A [module.index])
+**Previous**: §4.5 Qualified Name Resolution (§4.5 [module.qualified]) | **Next**: Clause 5 — Declarations (§5 [decl])

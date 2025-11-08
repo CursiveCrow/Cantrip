@@ -77,7 +77,7 @@ modal Arena {
 [7] The `alloc` method allocates a value in the arena and returns the arena in @Active state:
 
 ```cursive
-procedure Arena.alloc<T>(self: unique Self@Active, value: T): Self@Active
+procedure Arena.alloc<T>(~!, value: T): Self@Active
     [[ alloc::region |- true => true ]]
 {
     // Implementation: bump-allocate space for T, write value
@@ -96,8 +96,7 @@ $$\frac{\Gamma \vdash arena : \text{Arena}@\text{Active} \quad \Gamma \vdash v :
 [10] The `reset` method bulk-frees all allocations and returns the arena to empty @Active state:
 
 ```cursive
-procedure Arena.reset(self: unique Self@Active): Self@Active
-    [[ |- true => true ]]
+procedure Arena.reset(~!): Self@Active
 {
     // Reset allocation pointer to beginning
     // All previously allocated values become invalid
@@ -110,8 +109,7 @@ procedure Arena.reset(self: unique Self@Active): Self@Active
 [12] The `free` method transitions the arena to @Freed state, deallocating the arena's backing memory:
 
 ```cursive
-procedure Arena.free(self: unique Self@Active): Self@Freed
-    [[ |- true => true ]]
+procedure Arena.free(~!): Self@Freed
 {
     // Deallocate arena backing memory
     result Arena@Freed { }
@@ -395,7 +393,6 @@ procedure get_pointer(): Ptr<i32>@Valid
 
 ```cursive
 procedure create_value(): i32
-    [[ |- true => true ]]
 {
     region r {
         let stack_value = 42       // Provenance: Stack (no ^)

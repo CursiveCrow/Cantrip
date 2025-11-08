@@ -18,6 +18,9 @@
 
 [2] Permissions are orthogonal to cleanup responsibility (§11.2). A binding can be responsible yet immutable, or non-responsible yet mutable. Permissions attach to types at binding sites as specified in §7.1.3.
 
+[ Note: Permissions are type qualifiers, not binding modifiers. The syntax `let x: const Type` means the binding `x` has type `const Type`, where `const` is part of the type itself. Similarly, `let x: unique Type` means `x` has type `unique Type`. The permission qualifier (`const`, `unique`, or `shared`) is part of the type system, not a separate binding attribute. This distinction is important: permissions control what operations are allowed on values, while binding responsibility (determined by `=` vs `<-`) controls cleanup semantics.
+— end note ]
+
 [3] This section specifies permission semantics, the permission lattice, compile-time enforcement rules, and field-level partitioning for safe `shared` usage.
 
 #### §11.4.2 Permission Definitions [memory.permission.definitions]
@@ -33,7 +36,14 @@
 - ❌ Call methods requiring unique or shared
 - ✅ Create multiple `const` bindings to same object (unlimited aliasing)
 
-[5] `const` is the default permission when omitted in type annotations.
+[5] **Default permission rule**: `const` is the default permission when omitted in **all** type contexts:
+- Variable bindings: `let x: i32` is equivalent to `let x: const i32`
+- Procedure parameters: `procedure f(x: i32)` is equivalent to `procedure f(x: const i32)`
+- Return types: `procedure f(): i32` is equivalent to `procedure f(): const i32`
+- Record fields: `record R { x: i32 }` is equivalent to `record R { x: const i32 }`
+- Type expressions: Any type `T` without an explicit permission qualifier is treated as `const T`
+
+Mutability is strictly opt-in: to enable mutation, `unique` or `shared` must be explicitly specified. This ensures that all code is immutable by default, making mutation explicit and visible.
 
 **Example 11.4.2.1 (Const permission):**
 

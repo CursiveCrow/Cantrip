@@ -106,7 +106,6 @@ consume(move non_responsible)   // ✗ ERROR E11-502: cannot move non-responsibl
 ```cursive
 // Non-responsible parameter (default - NO move modifier)
 procedure inspect(data: Buffer)     // data is non-responsible
-    [[ |- true => true ]]
 {
     println("{}", data.size())
     // data.drop() NOT called when procedure returns
@@ -114,7 +113,6 @@ procedure inspect(data: Buffer)     // data is non-responsible
 
 // Responsible parameter (WITH move modifier)
 procedure consume(move data: Buffer)  // data is responsible
-    [[ |- true => true ]]
 {
     data.process()
     // data.drop() IS called when procedure returns
@@ -191,16 +189,16 @@ let ref2: shared <- collaborative       // ✓ Multiple shared bindings OK
 [[ io::write ]]                          // Expands to: [[ io::write |- true => true ]]
 
 // Precondition-only
-[[ |- x > 0 ]]                          // Expands to: [[ |- x > 0 => true ]]
+[[ x > 0 ]]                              // Expands to: [[ x > 0 => true ]] (canonical: `[[ |- x > 0 => true ]]`)
 
 // Postcondition-only
-[[ |- => result >= 0 ]]                 // Expands to: [[ |- true => result >= 0 ]]
+[[ => result >= 0 ]]                     // Expands to: [[ true => result >= 0 ]] (canonical: `[[ |- true => result >= 0 ]]`)
 
-// No grants
-[[ x > 0 => result > x ]]               // Expands to: [[ |- x > 0 => result > x ]]
+// No grants (preferred form without turnstile)
+[[ x > 0 => result > x ]]                // Expands to: [[ x > 0 => result > x ]] (canonical: `[[ |- x > 0 => result > x ]]`)
 
 // Complete omission (pure procedure)
-procedure add(a: i32, b: i32): i32      // Defaults to: [[ |- true => true ]]
+procedure add(a: i32, b: i32): i32      // Sequent omitted - defaults to: [[ ∅ |- true => true ]]
 ```
 
 ### Grant System
@@ -222,17 +220,16 @@ procedure add(a: i32, b: i32): i32      // Defaults to: [[ |- true => true ]]
 
 ```cursive
 procedure write_log(msg: string@View)
-    [[ io::write |- true => true ]]
+    [[ io::write ]]
 { println("{}", msg) }
 
 procedure caller()
-    [[ io::write |- true => true ]]  // Must declare io::write
+    [[ io::write ]]  // Must declare io::write
 {
     write_log("message")             // ✓ OK: {io::write} ⊆ {io::write}
 }
 
 procedure invalid_caller()
-    [[ |- true => true ]]            // No grants
 {
     write_log("message")             // ✗ ERROR E12-030: missing io::write
 }
@@ -263,7 +260,7 @@ region batch as workspace {
 
 ```cursive
 procedure invalid_escape(): Buffer
-    [[ alloc::region |- true => true ]]
+    [[ alloc::region ]]
 {
     region temp {
         let data = ^Buffer::new()
@@ -272,7 +269,7 @@ procedure invalid_escape(): Buffer
 }
 
 procedure valid_heap_escape(): Buffer
-    [[ alloc::region, alloc::heap |- true => true ]]
+    [[ alloc::region, alloc::heap ]]
 {
     region temp {
         let data = ^Buffer::new()
@@ -311,8 +308,8 @@ modal FileHandle {
 }
 
 // Procedure implementations (use : not ->)
-procedure FileHandle.open(self: unique Self@Closed, path: string@View): Self@Open
-    [[ fs::open |- true => true ]]
+procedure FileHandle.open(~!, path: string@View): @Closed -> @Open
+    [[ fs::open ]]
 {
     // Implementation
 }
@@ -420,7 +417,7 @@ record User: Serializable {
 
 ```cursive
 procedure process_data()
-    [[ alloc::heap |- true => true ]]
+    [[ alloc::heap ]]
 {
     let data = Buffer::new()         // data is responsible
     transform(data)                   // No move = data still valid
@@ -432,14 +429,13 @@ procedure process_data()
 
 ```cursive
 procedure inspect_buffer(buffer: Buffer)  // Non-responsible parameter
-    [[ |- true => true ]]
 {
     println("Size: {}", buffer.size())
     // buffer.drop() NOT called (non-responsible)
 }
 
 procedure demo()
-    [[ alloc::heap |- true => true ]]
+    [[ alloc::heap ]]
 {
     let owner = Buffer::new()
     let view <- owner                // Non-responsible binding
@@ -533,8 +529,28 @@ let x: const Buffer = get_buffer()
 
 // WRONG: Expecting Copy types to be special
 let data: i32 = 42
-let copy = data                  // This is a move in Cursive!
-// Must use explicit: copy data
+let copy = data                  // This is a move in Cursive, not a copy!
+// Must use explicit `copy` keyword for a true copy:
+// let true_copy = copy data
+```
+
+#### Anti-Pattern 6: Mixing Assignment Operators on `var`
+
+```cursive
+// WRONG: A `var` binding's responsibility mode is fixed at creation
+
+var responsible = Buffer::new()
+responsible <- other_buffer         // ✗ ERROR E09-103: cannot mix `=` and `<-`
+
+var non_responsible <- value
+non_responsible = other_value       // ✗ ERROR E09-103: cannot mix `<-` and `=`
+
+// CORRECT: Use the same operator for rebinding
+var data = Buffer::new()
+data = other_buffer                 // ✓ OK (`=` and `=`)
+
+var view <- buffer1
+view <- buffer2                     // ✓ OK (`<-` and `<-`)
 ```
 
 ---
@@ -692,7 +708,7 @@ procedure map<T, U>(values: [T], f: (T) -> U): [U]
 
 // With bounds
 procedure display<T: Display>(value: T)
-    [[ io::write |- true => true ]]
+    [[ io::write ]]
 {
     println("{}", value.show())
 }
@@ -721,10 +737,10 @@ procedure apply<T, U, ε>(f: (T) -> U ! ε): U
 }
 
 // Usage:
-let pure = || [[ |- true => true ]] { result 42 }
+let pure = || { result 42 }
 apply(pure)                        // ε = ∅
 
-let writer = || [[ io::write |- true => true ]] { println("hi") }
+let writer = || [[ io::write ]] { println("hi") }
 apply(writer)                      // ε = {io::write}
 ```
 
@@ -737,14 +753,14 @@ apply(writer)                      // ε = {io::write}
 ```cursive
 // Static dispatch (default, zero-cost)
 procedure static_print<T: Display>(value: T)
-    [[ io::write |- true => true ]]
+    [[ io::write ]]
 {
     println("{}", value.show())  // Direct call via monomorphization
 }
 
 // Dynamic dispatch (explicit, 16-byte dense pointer)
 procedure dynamic_print(value: witness<Display>)
-    [[ io::write |- true => true ]]
+    [[ io::write ]]
 {
     value::show()                // Vtable dispatch
 }
@@ -796,7 +812,7 @@ comptime {
 
 ```cursive
 comptime procedure factorial(n: usize): usize
-    [[ |- n <= 20 => result > 0 ]]
+    [[ n <= 20 => result > 0 ]]
 {
     if n <= 1 { result 1 }
     else { result n * factorial(n - 1) }
@@ -862,19 +878,19 @@ comptime {
 ```cursive
 // const: Safe to share (immutable)
 let config: const Config = load_config()
-spawn(|| [[ |- true => true ]] {
+spawn(|| {
     use_config(config)           // ✓ OK: const is shareable
 })
 
 // unique: Safe to transfer (exclusive ownership via move)
 let data: unique Buffer = Buffer::new()
-spawn(move || [[ alloc::heap |- true => true ]] {
+spawn(move || [[ alloc::heap ]] {
     process(data)                // ✓ OK: unique transferred via move
 })
 
 // shared: Requires synchronization
 let mutex: Mutex<i32> = Mutex::new(0)
-spawn(|| [[ sync::lock |- true => true ]] {
+spawn(|| [[ sync::lock ]] {
     let locked = mutex.lock()    // Synchronization required
     locked.data = locked.data + 1
     locked.unlock()
@@ -911,7 +927,6 @@ procedure malloc(size: usize): *mut u8
 // Cursive export to C (with body)
 [[extern(C)]]
 public procedure cursive_add(a: i32, b: i32): i32
-    [[ |- true => true ]]
 {
     result a + b
 }
@@ -1045,14 +1060,14 @@ procedure add(a: i32, b: i32): i32
 {
     result a + b
 }
-// Sequent defaults to: [[ |- true => true ]]
+// Sequent omitted - defaults to: [[ ∅ |- true => true ]] (empty grant set)
 ```
 
 ### With Grants
 
 ```cursive
 procedure write_log(msg: string@View)
-    [[ io::write |- true => true ]]
+    [[ io::write ]]
 {
     println("{}", msg)
 }
@@ -1062,7 +1077,7 @@ procedure write_log(msg: string@View)
 
 ```cursive
 procedure divide(a: i32, b: i32): i32
-    [[ |- b != 0 => result == a / b ]]
+    [[ b != 0 => result == a / b ]]
 {
     result a / b
 }
@@ -1075,7 +1090,7 @@ record Counter {
     value: i32,
 
     procedure increment(~!)      // ~! = self: unique Self
-        [[ |- true => self.value >= @old(self.value) ]]
+        [[ true => self.value >= @old(self.value) ]]
     {
         self.value += 1
     }
@@ -1098,7 +1113,7 @@ procedure clamp(x: i32, min: i32, max: i32): i32
 
 ```cursive
 procedure parse(input: string@View): i32 \/ ParseError
-    [[ |- input.len() > 0 => true ]]
+    [[ input.len() > 0 ]]
 {
     if input.is_empty() {
         result ParseError::Empty
@@ -1186,7 +1201,7 @@ fn process(data: &mut Buffer) -> Result<(), Error> {
 
 ```cursive
 procedure process(data: unique Buffer): () \/ Error
-    [[ alloc::heap |- true => true ]]
+    [[ alloc::heap ]]
 {
     match data.append(42) {
         _: () => result (),
@@ -1258,7 +1273,7 @@ procedure find(items: [i32], target: i32): Option<i32>
 
 ```cursive
 procedure find(items: [i32], target: i32): i32 \/ None
-    [[ |- items.len() > 0 => true ]]
+    [[ items.len() > 0 ]]
 {
     loop i in 0..items.len() {
         if items[i] == target {
@@ -1346,7 +1361,7 @@ public record Counter {
     }
 
     procedure get(~): i32
-        [[ |- true => result >= 0 ]]
+        [[ true => result >= 0 ]]
     {
         result self.value
     }
@@ -1362,7 +1377,7 @@ behavior Display for Counter {
 
 // Main entry point
 public procedure main(): i32
-    [[ io::write, counter_modify, alloc::heap |- true => true ]]
+    [[ io::write, counter_modify, alloc::heap ]]
 {
     let counter = Counter { value: 0 }
 
@@ -1564,9 +1579,8 @@ fn process(data: &mut Vec<i32>) -> Result<(), Error> {
 **Cursive**:
 
 ```cursive
-procedure process(data: unique Buffer<i32>)
-    -> () \/ Error
-    [[ alloc::heap |- true => true ]]
+procedure process(data: unique Buffer<i32>): () \/ Error
+    [[ alloc::heap ]]
 {
     data.push(42)
     data.sort()
@@ -1590,7 +1604,7 @@ procedure process(data: unique Buffer<i32>)
 1. **Cursive is NOT Rust**: Don't assume Rust semantics, even when syntax looks similar
 2. **Explicit is better**: Always use explicit `move`, explicit permissions, explicit grants
 3. **Two-axis orthogonality**: Binding category (let/var, =/←) is separate from permissions (const/unique/shared)
-4. **Read the sequent**: `[[ grants |- must => will ]]` tells you everything about a procedure
+4. **Read the sequent**: `[[ grants |- must => will ]]` (or `[[ must => will ]]` when no grants) tells you everything about a procedure
 5. **Modal types are state machines**: Transitions are enforced at compile time
 6. **Regions are arenas**: Not lifetime parameters, concrete lexical scopes with O(1) cleanup
 7. **Zero-cost is real**: All safety is compile-time (except explicit witnesses)

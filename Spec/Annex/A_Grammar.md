@@ -195,6 +195,7 @@ type
     | modal_type
     | witness_type
     | function_type
+    | transition_type
     | grant_poly_type
     | generic_type
     | union_type
@@ -233,10 +234,6 @@ permission_type
     | 'unique' type
     | 'shared' type
     ;
-
-// Deprecated keywords (Version 1.0, removed in 2.0):
-// permission_type ::= 'own' type | 'mut' type | 'imm' type  // DEPRECATED
-// permission_type ::= 'owned' type | 'readonly' type  // DEPRECATED in favor of const
 
 // Context-sensitive permission defaults:
 // - Bindings (let/var): bare T means const T (default immutable)
@@ -279,6 +276,10 @@ allocation_state
 
 function_type
     : '(' type_list? ')' '->' type grant_annotation?
+    ;
+
+transition_type
+    : '@' ident '->' '@' ident
     ;
 
 grant_poly_type
@@ -944,7 +945,7 @@ procedure_decl
       ident generic_params?
       '(' param_list? ')' (':' type)?
       where_clause?
-      contract_clause+
+      contract_clause?
       callable_body
     ;
 
@@ -1031,7 +1032,7 @@ qualified_name
     ;
 
 module_path
-    : ident ('.' ident)*
+    : ident ('::' ident)*
     ;
 
 ident_list
@@ -1140,10 +1141,10 @@ assertion_list
   - `Q` — Consequent (postconditions)
 - Sequent components may be omitted with smart defaulting:
   - Grant-only: `[[ io::write ]]` expands to `[[ io::write |- true => true ]]`
-  - Precondition-only: `[[ |- x > 0 ]]` expands to `[[ |- x > 0 => true ]]`
-  - Postcondition-only: `[[ |- => result > 0 ]]` expands to `[[ |- true => result > 0 ]]`
-  - No grants: `[[ |- P => Q ]]` or `[[ P => Q ]]` (turnstile optional if no grants)
-  - Pure function: entire sequent clause may be omitted, defaults to `[[ |- true => true ]]`
+  - Precondition-only: `[[ x > 0 ]]` expands to `[[ x > 0 => true ]]` (canonical: `[[ |- x > 0 => true ]]`)
+  - Postcondition-only: `[[ => result > 0 ]]` expands to `[[ true => result > 0 ]]` (canonical: `[[ |- true => result > 0 ]]`)
+  - No grants: `[[ P => Q ]]` (preferred form, canonical: `[[ |- P => Q ]]`)
+  - Pure function: entire sequent clause may be omitted, defaults to `[[ ∅ |- true => true ]]` (empty grant set, canonical form)
 
 Conjunction within antecedents and consequents uses explicit `&&` operator, not comma separation.
 

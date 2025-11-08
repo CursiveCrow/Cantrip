@@ -14,7 +14,7 @@
 
 #### §5.7.1 Overview
 
-[1] This subclause specifies how declarations acquire initial values and how the compiler ensures every binding is definitely assigned before use. Cursive provides two assignment operators for bindings: `=` for value assignment and `<-` for reference assignment.
+[1] This subclause specifies how declarations acquire initial values and how the compiler ensures every binding is definitely assigned before use. Cursive provides two binding operators: `=` for responsible bindings and `<-` for non-responsible bindings.
 
 [2] Module-scope initialization interacts with the dependency model in §4.6; block-scoped initialization and reassignment rules integrate with permissions in Clause 12.
 
@@ -54,7 +54,7 @@
 
 This compile-time approximation ensures memory safety without runtime tracking: references cannot access potentially destroyed objects.
 
-[6] With reference bindings (`<-`), the compiler enforces permissions from Clause 11. Assignments that violate permission rules are diagnosed in that clause.
+[6] With non-responsible bindings (`<-`), the compiler enforces permissions from Clause 11. Assignments that violate permission rules are diagnosed in that clause.
 
 #### §5.7.5 Non-Responsible Binding Validity
 
@@ -64,7 +64,7 @@ This compile-time approximation ensures memory safety without runtime tracking: 
 
 ##### §5.7.5.2 Invalidation on Potential Object Destruction
 
-[2] Non-responsible bindings reference the **object**, not the binding. The `<-` operator creates a reference that remains valid as long as the object exists. However, non-responsible bindings become invalid when the object **might be destroyed**.
+[2] Non-responsible bindings bind to the **object**, not the binding. The `<-` operator creates a non-responsible binding that remains valid as long as the object exists. However, non-responsible bindings become invalid when the object **might be destroyed**.
 
 [3] The compiler uses **parameter responsibility** as the compile-time signal for potential destruction. When a binding is moved to a procedure with a **responsible parameter** (marked with `move`), the callee might destroy the object, so all non-responsible bindings referencing that object become invalid:
 
@@ -82,14 +82,13 @@ $$
 
 ```cursive
 procedure consume(move data: Buffer)   // Responsible parameter (might destroy)
-    [[ |- true => true ]]
 {
     data.process()
     // data.drop() called at scope exit
 }
 
 let owner = Buffer::new()              // Responsible
-let viewer <- owner                    // Non-responsible (references the object)
+let viewer <- owner                    // Non-responsible (binds to object)
 
 consume(move owner)                    // Object might be destroyed by consume
 // owner becomes invalid (moved-from state)
@@ -110,7 +109,6 @@ consume(move owner)                    // Object might be destroyed by consume
 
 ```cursive
 procedure inspect(data: Buffer)        // Non-responsible parameter (no move)
-    [[ |- true => true ]]
 {
     println("Size: {}", data.size())
     // data.drop() NOT called (non-responsible parameter)
@@ -171,7 +169,7 @@ let ref: Buffer <- buffer              // Type: Buffer, non-responsible
 var current_view <- buffer1
 current_view.read()
 
-current_view <- buffer2                // Update reference
+current_view <- buffer2                // Rebind to different object
 current_view.read()                    // Now reads from buffer2
 // No destructors called during rebinding
 ```
@@ -212,14 +210,12 @@ Copy types (§10.4.5.2) have no destructors, so concerns about object destructio
 
 ```cursive
 procedure inspect(data: Buffer)        // Non-responsible parameter (no move modifier)
-    [[ |- true => true ]]
 {
     println("Size: {}", data.size())
     // data.drop() NOT called (non-responsible parameter)
 }
 
 procedure consume(move data: Buffer)   // Responsible parameter (might destroy)
-    [[ |- true => true ]]
 {
     data.process()
     // data.drop() IS called at scope exit
@@ -251,7 +247,7 @@ owner.use()                            // ✅ VALID: owner still responsible
 
 | Operation on Source                     | Non-Responsible Binding State | Rationale                       |
 |-----------------------------------------|-------------------------------|---------------------------------|
-| Create `let n <- source`                | Valid                         | References object               |
+| Create `let n <- source`                | Valid                         | Binds to object                 |
 | Pass `source` to non-responsible param  | Remains valid                 | Object survives call            |
 | Pass `inspect(source)` (no move)        | Remains valid                 | Object not destroyed            |
 | Move to responsible param `move source` | Becomes invalid               | Object might be destroyed       |

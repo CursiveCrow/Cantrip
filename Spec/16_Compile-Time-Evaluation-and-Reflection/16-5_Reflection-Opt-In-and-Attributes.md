@@ -111,23 +111,23 @@ comptime {
 
 ##### §16.5.4.1 Zero-Cost Guarantee
 
-[13] **Normative guarantee.** Types without the `[[reflect]]` attribute SHALL incur zero reflection overhead:
+[13] **Normative guarantee.** Types without the `[[reflect]]` attribute SHALL incur zero instance overhead:
 
 $$
 \frac{T \text{ not marked } \texttt{[[reflect]]}}{\text{sizeof}(T)_{\text{with\_reflection}} = \text{sizeof}(T)_{\text{without\_reflection}}}
-\tag{P-Reflect-Zero-Cost}
+\tag{P-Reflect-Zero-Instance-Cost}
 $$
 
-[14] Implementations shall not generate reflection metadata, increase type size, change alignment, or modify runtime representation for non-reflected types.
+[14] Implementations shall not generate reflection metadata, increase type instance size, change alignment, or modify runtime representation for non-reflected types.
 
-[15] **Metadata generation.** Types marked with `[[reflect]]` generate compile-time metadata structures. The metadata is embedded in the compilation unit's debug information or a separate reflection section, but does NOT increase the size of type instances:
+[15] **Metadata generation.** Types marked with `[[reflect]]` generate compile-time metadata structures. The metadata is embedded in the compilation unit's debug information or a separate reflection section, contributing to binary size but NOT increasing the size of type instances:
 
 $$
 \frac{T \text{ marked } \texttt{[[reflect]]}}{\text{sizeof}(T)_{\text{instance}} = \text{sizeof}(T)_{\text{without\_reflect}}}
 \tag{P-Reflect-No-Instance-Overhead}
 $$
 
-[16] The metadata exists separately from instances; each instance has the same size regardless of reflection.
+[16] The metadata exists separately from instances; each instance has the same size regardless of reflection. Reflection metadata contributes to binary size (stored in debug information or dedicated sections) but does not affect runtime instance size or performance.
 
 ##### §16.5.4.2 Metadata Accessibility
 

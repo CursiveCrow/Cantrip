@@ -26,15 +26,15 @@
 
 - **Acceptance**: It shall accept every program that satisfies the rules of §1.5.4 [intro.conformance.program].
 - **Rejection**: It shall issue a diagnostic for any ill-formed program (§1.5.5 [intro.conformance.diagnostics]).
-- **Semantics**: It shall implement the runtime behaviour described in Clauses 2–16 for well-formed programs that avoid undefined behaviour.
-- **Documentation**: It shall document every implementation-defined behaviour identified in §1.5.3 [intro.conformance.impldef].
+- **Semantics**: It shall implement the runtime behavior described in Clauses 2–16 for well-formed programs that avoid undefined behavior.
+- **Documentation**: It shall document every implementation-defined behavior identified in §1.5.3 [intro.conformance.impldef].
 - **Extension safety**: Extensions shall not alter the meaning of conforming programs nor mask diagnostics that the base language would require.
 
 [5] Conforming implementations may provide additional tools, optimisations, and analyses. Such features shall be disableable when they would otherwise change language semantics.
 
-#### §1.5.3 Implementation-Defined Behaviour [intro.conformance.impldef]
+#### §1.5.3 Implementation-Defined Behavior [intro.conformance.impldef]
 
-[6] Implementation-defined behaviour occurs when this specification allows multiple outcomes but requires that an implementation choose one deterministically and document it. The following categories are implementation-defined:
+[6] Implementation-defined behavior occurs when this specification allows multiple outcomes but requires that an implementation choose one deterministically and document it. The following categories are implementation-defined:
 
 - Numeric representation widths beyond mandated minima (§3.5 [basic.align]);
 - Pointer and region size, alignment, and layout details (§11.6 [memory.layout]);

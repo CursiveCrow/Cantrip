@@ -96,6 +96,7 @@ initializer
 [5] The value assignment operator `=` creates a responsible binding. The binding assumes cleanup responsibility for the value and shall invoke the value's destructor when the binding goes out of scope.
 
 **Formation:**
+
 ```cursive
 let identifier: Type = expression     // Responsible, non-rebindable
 var identifier: Type = expression     // Responsible, rebindable
@@ -114,11 +115,15 @@ var identifier: Type = expression     // Responsible, rebindable
 }  // resource.drop() called automatically
 ```
 
-##### §5.2.5.2 Reference Assignment Operator (`<-`)
+##### §5.2.5.2 Non-Responsible Binding Operator (`<-`)
 
-[7] The reference assignment operator `<-` creates a non-responsible binding. The binding does NOT assume cleanup responsibility and shall NOT invoke a destructor when the binding goes out of scope.
+[7] The non-responsible binding operator `<-` creates a binding that does NOT assume cleanup responsibility. The binding shall NOT invoke a destructor when it goes out of scope.
+
+[ Note: The `<-` operator does NOT create a reference type or pointer type. Both `let x: T = value` and `let x: T <- value` create bindings of type `T`; the difference is only in cleanup responsibility (binding metadata), not in the type itself. The terminology "non-responsible binding" emphasizes that this is about cleanup semantics, not type semantics.
+— end note ]
 
 **Formation:**
+
 ```cursive
 let identifier: Type <- expression    // Non-responsible, non-rebindable
 var identifier: Type <- expression    // Non-responsible, rebindable
@@ -126,7 +131,7 @@ var identifier: Type <- expression    // Non-responsible, rebindable
 
 **Type Semantics:**
 
-[8] The type of a binding created with `<-` is identical to the type of the initializer expression. Reference assignment does NOT create a reference type or pointer type; it creates a binding to the value with the value's type but without cleanup responsibility.
+[8] The type of a binding created with `<-` is identical to the type of the initializer expression. The `<-` operator creates a non-responsible binding to the value with the value's type but without cleanup responsibility. It does NOT create a reference type, pointer type, or any other type-level construct.
 
 **Example 5.2.5.2 (Type preservation):**
 
@@ -186,8 +191,8 @@ consume(move owner)                    // owner transfers responsibility
 
 [14] The choice between `=` and `<-` determines cleanup responsibility:
 
-| Operator | Cleanup Responsibility | Destructor Called | Transferable via `move` |
-|----------|------------------------|-------------------|-------------------------|
+| Operator | Cleanup Responsibility | Destructor Called   | Transferable via `move` |
+| -------- | ---------------------- | ------------------- | ----------------------- |
 | `=`      | YES                    | YES (at scope exit) | YES (if `let`)          |
 | `<-`     | NO                     | NO                  | NO                      |
 
@@ -200,11 +205,13 @@ consume(move owner)                    // owner transfers responsibility
 Non-responsible bindings reference **objects**, not bindings. Their validity depends on whether the object exists:
 
 **Remains valid when**:
+
 - Source binding is in scope and not moved
 - Source binding is passed to non-responsible parameters (no `move` at call site)
 - Object is guaranteed to survive (non-destroying callees)
 
 **Becomes invalid when**:
+
 - Source binding is moved to responsible parameter (`move` at call site)
 - Source binding's scope ends (object destroyed)
 - Non-responsible binding's own scope ends
@@ -216,6 +223,7 @@ The compiler uses **parameter responsibility** (visible in procedure signatures)
 [16] `var` bindings may be rebound using the same assignment operator:
 
 **Responsible `var` rebinding:**
+
 ```cursive
 var data = Buffer::new()               // Responsible
 data = Buffer::new()                   // Old buffer destroyed, new buffer bound
@@ -224,9 +232,10 @@ data = Buffer::new()                   // Old buffer destroyed, new buffer bound
 When rebinding a responsible `var`, the old value's destructor is invoked before the new value is assigned.
 
 **Non-responsible `var` rebinding:**
+
 ```cursive
 var ref <- buffer1                     // Non-responsible
-ref <- buffer2                         // Update reference (no cleanup)
+ref <- buffer2                         // Rebind to different object (no cleanup)
 ```
 
 When rebinding a non-responsible `var`, no destructor is invoked; the binding simply refers to a different value.
@@ -237,19 +246,17 @@ When rebinding a non-responsible `var`, no destructor is invoked; the binding si
 
 ```cursive
 procedure inspect(data: Buffer)        // Non-responsible parameter
-    [[ |- true => true ]]
 {
     println("Size: {}", data.size())
 }
 
 procedure consume(move data: Buffer)   // Responsible parameter
-    [[ |- true => true ]]
 {
     data.process()
 }
 
 let owner = Buffer::new()              // Responsible binding
-let viewer <- owner                    // Non-responsible binding (references object)
+let viewer <- owner                    // Non-responsible binding (binds to object)
 
 inspect(owner)                         // ✅ Pass to non-responsible param
 viewer.read()                          // ✅ VALID: object survived inspect()
@@ -266,8 +273,8 @@ consume(move owner)                    // Move to responsible param
 var responsible = Data::new()          // Responsible, rebindable
 responsible = Data::new()              // Old value destroyed, new value bound
 
-var non_responsible <- some_value      // Non-responsible, rebindable  
-non_responsible <- other_value         // Update reference (no cleanup)
+var non_responsible <- some_value      // Non-responsible, rebindable
+non_responsible <- other_value         // Rebind to different object (no cleanup)
 ```
 
 **Example 5.2.6.3 - invalid (Implicit shadowing):**
@@ -297,7 +304,6 @@ consume(move ref)                      // error[E11-502]: cannot move non-respon
 
 ```cursive
 procedure inspect(data: Buffer)        // Non-responsible parameter
-    [[ |- true => true ]]
 {
     println("Size: {}", data.size())
 }
@@ -321,6 +327,7 @@ owner.use()                            // ✅ OK: owner never moved
 [2] Implementations shall reject reassignments to `let` bindings (E05-202) and ensure that pattern bindings obey the uniqueness and completeness constraints in §5.2.3 (E05-203–E05-204).
 
 [3] Implementations shall track cleanup responsibility for each binding based on the assignment operator used (`=` vs `<-`) and enforce that:
+
 - Responsible bindings invoke destructors at scope exit
 - Non-responsible bindings do not invoke destructors
 - Non-responsible bindings become invalid when their source binding is moved to a responsible parameter

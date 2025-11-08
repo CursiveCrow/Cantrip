@@ -100,6 +100,8 @@ enum Status {
 
 [11] Enums without explicit discriminant values are assigned sequentially from 0. Explicit values may be assigned using `= N` syntax.
 
+[ Rationale: Tuple-records are not FFI-safe because C does not have a direct equivalent and their layout, even with `repr(C)`, is not guaranteed to be compatible across different C compilers and platforms. Standard `record` types with `repr(C)` provide the necessary layout stability for reliable FFI. — end rationale ]
+
 ##### §15.3.2.4 repr(C) Restrictions
 
 [12] Types marked `[[repr(C)]]` shall satisfy:
@@ -227,7 +229,7 @@ procedure use_callback()
 }
 ```
 
-[22] **Restriction** (Decision D4): Only procedures explicitly declared `[[extern(C)]]` can be passed as C function pointers. Regular Cursive procedures cannot be converted to C callbacks. Attempting conversion produces diagnostic E15-040.
+[22] **Restriction** (Decision D4): Only procedures explicitly declared `[[extern(C)]]` can be passed as C function pointers. Regular Cursive procedures, including non-capturing closures, cannot be converted to C callbacks. Attempting conversion produces diagnostic E15-040.
 
 ##### §15.3.4.2 Function Pointer Types
 

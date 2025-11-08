@@ -111,7 +111,7 @@ This approach provides memory safety with simpler mental model, better support f
 
 (14.1) **Explicit responsibility transfer**: The `move` keyword is required at call sites to transfer cleanup responsibility. Implicit transfers are forbidden.
 
-(14.2) **Explicit permissions**: Type annotations include permission qualifiers (`const`, `unique`, `shared`) when needed; `const` is the default but can be stated explicitly for documentation.
+(14.2) **Explicit permissions**: Type annotations include permission qualifiers (`const`, `unique`, `shared`) when needed. `const` is the default permission in all contexts (bindings, parameters, return types, fields); mutability requires explicit `unique` or `shared` qualifiers. The `const` qualifier may be stated explicitly for documentation but is redundant.
 
 (14.3) **Explicit allocation**: Region allocation requires the `^` operator; there are no hidden heap allocations.
 
