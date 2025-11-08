@@ -4,7 +4,7 @@
 
 **Part**: I — Introduction and Conformance
 **File**: 01-0_Scope.md  
-**Section**: 1.1 Scope  
+**Section**: §1.1 Scope  
 **Stable label**: [intro.scope]  
 **Forward references**: §2.1–§2.5 [lex.source]–[lex.units], Clause 3 [basic], Clauses 4–10, §11–§14, §16.6 [interop.abi], Annex B.2 [behavior.undefined]
 
@@ -20,7 +20,7 @@
 - foundational concepts: objects, values, storage duration, alignment, and name binding categories (Clause 3 [basic]);
 - modules, declarations, names and scopes, types, and expressions (Clauses 4–8);
 - statements and control flow (Clause 9);
-- the generics, permission, contract, and witness systems that ensure memory safety and semantic guarantees (Clauses 10–13) [ Note: Clauses 10 (Generics and Predicates), 11 (Memory Model, Regions, and Permissions), 12 (Contracts), and 13 (Witness System) are not yet written. Forward references to these clauses will be fully specified when those clauses are authored.
+- the generics, permission, contract, and witness systems that ensure memory safety and semantic guarantees (Clauses 10–13) [ Note: Clauses 10 (Generics and Behaviors), 11 (Memory Model, Regions, and Permissions), 12 (Contracts), and 13 (Witness System) are not yet written. Forward references to these clauses will be fully specified when those clauses are authored.
   — end note ];
 - concurrency, interoperability, and compile-time evaluation (Clauses 14–16).
 

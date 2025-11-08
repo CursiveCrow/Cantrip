@@ -73,7 +73,7 @@ $$
 
 [10] Rules without premises are axioms. Precondition boxes (`[ Given: … ]`) precede rules when necessary to state environmental requirements. Immediately following each rule, prose shall explain the rule's effect in plain language.
 
-(10.1) **Formal rule naming convention.** Rule tags shall follow a consistent prefix scheme to indicate their semantic category:
+[11] **Formal rule naming convention.** Rule tags shall follow a consistent prefix scheme to indicate their semantic category:
 
 - **T-Feature-Case**: Type formation and typing rules (e.g., T-If, T-Bool-True)
 - **E-Feature-Case**: Evaluation and operational semantics rules

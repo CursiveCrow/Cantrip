@@ -97,7 +97,7 @@
 
 **Iterator loops**
 
-[24] Syntax enforces explicit iterator annotation: `loop item: ItemType in iterator_expr { … }`. Missing `ItemType` yields E08-461. The iterator expression shall implement the iteration protocol defined by Clause 11; otherwise E08-462 is emitted. Inside the loop, `item` has type `ItemType` and inherits permissions from the iterator yield.
+[24] Syntax enforces explicit iterator annotation: `loop item: ItemType in iterator_expr { … }`. Missing `ItemType` yields E08-461. The iterator expression shall satisfy the iteration protocol defined by Clause 11; otherwise E08-462 is emitted. Inside the loop, `item` has type `ItemType` and inherits permissions from the iterator yield.
 
 **Break/continue**
 

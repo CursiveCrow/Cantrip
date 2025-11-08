@@ -14,7 +14,7 @@
 
 #### §13.3.1 Overview
 
-[1] Witness construction creates dense pointer values from concrete types that implement behaviors, satisfy contracts, or inhabit modal states. Construction is type-driven: witness types in annotations trigger automatic coercion from concrete values to witness values.
+[1] Witness construction creates dense pointer values from concrete types that satisfy behaviors, satisfy contracts, or inhabit modal states. Construction is type-driven: witness types in annotations trigger automatic coercion from concrete values to witness values.
 
 [2] This subclause specifies witness formation rules, construction semantics for each allocation state, cleanup responsibility, grant requirements, and the explicit `move` requirement for responsible witnesses.
 
@@ -273,7 +273,7 @@ let cw: const witness<Display> = const_point
 
 #### §13.3.6 Constraints [witness.formation.constraints]
 
-[1] _Satisfaction requirement._ The source value's type must implement the behavior, satisfy the contract, or be in the modal state specified by the witness property. Violations produce diagnostic E13-001.
+[1] _Satisfaction requirement._ The source value's type must satisfy the behavior, satisfy the contract, or be in the modal state specified by the witness property. Violations produce diagnostic E13-001.
 
 [2] _Move requirement for responsible witnesses._ Creating `@Heap` or `@Region` witnesses requires explicit `move` keyword. Omitting `move` produces diagnostic E13-010.
 
@@ -293,12 +293,12 @@ let cw: const witness<Display> = const_point
 
 [7] Witness formation diagnostics:
 
-| Code    | Condition                                                    | Constraint |
-| ------- | ------------------------------------------------------------ | ---------- |
-| E13-001 | Type does not implement behavior/satisfy contract/have state | [1]        |
-| E13-010 | Missing `move` for responsible witness (@Heap/@Region)       | [2]        |
-| E13-011 | Region witness escapes region                                | [5]        |
-| E13-012 | Grant missing for witness construction (alloc::heap/region)  | [4]        |
+| Code    | Condition                                                   | Constraint |
+| ------- | ----------------------------------------------------------- | ---------- |
+| E13-001 | Type does not satisfy behavior/satisfy contract/have state  | [1]        |
+| E13-010 | Missing `move` for responsible witness (@Heap/@Region)      | [2]        |
+| E13-011 | Region witness escapes region                               | [5]        |
+| E13-012 | Grant missing for witness construction (alloc::heap/region) | [4]        |
 
 #### §13.3.8 Conformance Requirements [witness.formation.requirements]
 

@@ -3,7 +3,7 @@
 
 **Part**: I — Introduction and Conformance
 **File**: 01-5_Document-Conventions.md  
-**Section**: 1.6 Document Conventions  
+**Section**: §1.6 Document Conventions  
 **Stable label**: [intro.document]  
 **Forward references**: §1.4.5 [intro.notation.style], Clause 4 §4.A [module.index], Annex A [grammar], Annex E §E.2.1 [implementation.algorithms]
 

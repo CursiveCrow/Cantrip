@@ -4,7 +4,7 @@
 
 **Part**: I — Introduction and Conformance
 **File**: 01-1_Normative-References.md  
-**Section**: 1.2 Normative References  
+**Section**: §1.2 Normative References  
 **Stable label**: [intro.refs]  
 **Forward references**: §1.5 [intro.conformance], §2.1 [lex.source], §2.3 [lex.tokens], §15.1 [interop.ffi], §15.6 [interop.abi], Annex G.1 [portability.platform]
 

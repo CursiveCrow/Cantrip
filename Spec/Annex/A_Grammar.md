@@ -193,6 +193,7 @@ type
     | pointer_type
     | safe_ptr_type
     | modal_type
+    | witness_type
     | function_type
     | grant_poly_type
     | generic_type
@@ -261,6 +262,19 @@ modal_type
 modal_state
     : ident
     | '_?'
+    ;
+
+witness_type
+    : 'witness' '<' witness_property '>' allocation_state?
+    ;
+
+witness_property
+    : ident
+    | ident '@' ident
+    ;
+
+allocation_state
+    : '@' ('Stack' | 'Region' | 'Heap')
     ;
 
 function_type
@@ -612,6 +626,14 @@ closure_expr
     | '|' param_list? '|' block_expr
     ;
 
+region_expr
+    : 'region' ident ('as' ident)? block_expr
+    ;
+
+comptime_expr
+    : 'comptime' block_expr
+    ;
+
 assign_op
     : '=' | '+=' | '-=' | '*=' | '/=' | '%=' | '&=' | '|=' | '^=' | '<<=' | '>>='
     ;
@@ -737,16 +759,6 @@ grant_predicate
     | 'grants_exclude' '(' grant_set ')'
     ;
 
-// Deprecated: Use grant_gated_branch instead
-grant_gated_branch
-    : 'comptime' 'if' grant_predicate block_stmt ('else' block_stmt)?
-    ;
-
-grant_predicate
-    : 'grants_include' '(' grant_set ')'
-    | 'grants_exclude' '(' grant_set ')'
-    ;
-
 loop_with_region
     : 'loop' pattern ':' type 'in' expr 'region' ident block_stmt
     ;
@@ -792,7 +804,7 @@ decl
     | type_decl
     | procedure_decl
     | contract_decl
-    | predicate_decl
+    | behavior_decl
     ;
 
 type_decl
@@ -807,6 +819,7 @@ type_decl
 record_decl
     : attribute* visibility? 'record' ident generic_params?
       implements_clause?
+      where_clause?
       record_body
       type_constraint?
     ;
@@ -859,7 +872,7 @@ field_type
     ;
 
 enum_decl
-    : attribute* visibility? 'enum' ident generic_params? enum_body
+    : attribute* visibility? 'enum' ident generic_params? where_clause? enum_body
     ;
 
 enum_body
@@ -871,7 +884,7 @@ enum_variant
     ;
 
 union_decl
-    : attribute* visibility? 'union' ident generic_params? union_body
+    : attribute* visibility? 'union' ident generic_params? where_clause? union_body
     ;
 
 union_body
@@ -883,12 +896,28 @@ union_field
     ;
 
 modal_decl
-    : attribute* visibility? 'modal' ident generic_params? modal_body
+    : attribute* visibility? 'modal' ident generic_params? where_clause? modal_body
     ;
 
 modal_body
     : '{' modal_state+ state_coercion* procedure_decl* '}'
     ;
+
+// Built-in Arena modal type (informative - actual declaration is internal)
+// modal Arena {
+//     @Active { ptr: Ptr<u8>, capacity: usize, allocated: usize }
+//     @Active::alloc<T>(~!, value: T) -> @Active
+//     @Active::alloc_array<T>(~!, count: usize) -> @Active
+//     @Active::reset(~!) -> @Active
+//     @Active::freeze(~) -> @Frozen
+//     @Active::free(~!) -> @Freed
+//
+//     @Frozen { ptr: Ptr<u8>, allocated: usize }
+//     @Frozen::thaw(~!) -> @Active
+//     @Frozen::free(~!) -> @Freed
+//
+//     @Freed { }
+// }
 
 modal_state
     : '@' ident record_body where_clause?
@@ -951,7 +980,7 @@ self_param
 
 contract_decl
     : attribute* visibility? 'contract' ident generic_params?
-      extends_clause? contract_body
+      extends_clause? where_clause? contract_body
     ;
 
 extends_clause
@@ -972,7 +1001,7 @@ associated_type_decl
     ;
 
 type_bound
-    : ':' predicate_bounds
+    : ':' behavior_bounds
     ;
 
 procedure_signature
@@ -986,12 +1015,13 @@ type_projection
     | 'Self' '::' ident
     ;
 
-predicate_decl
-    : attribute* visibility? 'behavior' ident generic_params? (':' predicate_bounds)?
-      '{' predicate_item* '}'
+behavior_decl
+    : attribute* visibility? 'behavior' ident generic_params? (':' behavior_bounds)?
+      where_clause?
+      '{' behavior_item* '}'
     ;
 
-predicate_item
+behavior_item
     : procedure_decl
     | type_decl
     ;
@@ -1023,7 +1053,7 @@ generic_param
     ;
 
 type_param
-    : ident (':' predicate_bounds)?
+    : ident (':' behavior_bounds)?
     ;
 
 const_param
@@ -1034,11 +1064,11 @@ grant_param
     : ident                             // Grant parameter, e.g., G
     ;
 
-predicate_bounds
-    : predicate_ref ('+' predicate_ref)*
+behavior_bounds
+    : behavior_ref ('+' behavior_ref)*
     ;
 
-predicate_ref
+behavior_ref
     : ident ('<' type_args '>')?
     ;
 
@@ -1047,8 +1077,8 @@ where_clause
     ;
 
 where_predicate
-    : ident ':' predicate_bounds
-    | type ':' predicate_bounds
+    : ident ':' behavior_bounds
+    | type ':' behavior_bounds
     | ident '<:' '{' grant_set '}'        // Grant parameter bounds
     ;
 

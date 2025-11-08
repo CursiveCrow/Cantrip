@@ -2,7 +2,7 @@
 
 **Part**: II — Lexical Structure and Translation
 **File**: 02-2_Translation-Phases.md  
-**Section**: 2.2 Translation Phases  
+**Section**: §2.2 Translation Phases  
 **Stable label**: [lex.phases]  
 **Forward references**: §2.1 [lex.source], §2.3 [lex.tokens], Annex E §E.1 [implementation.phases]
 
@@ -53,7 +53,7 @@ phase_pipeline
 | String size            | 1 MiB                       | E02-104    |
 | Collection cardinality | 10,000 elements             | E02-105    |
 
-[4] _Grant safety._ Comptime execution shall refuse any grant that is not listed in the grants clause of the executing item's contractual sequent. Runtime-only capabilities (for example `fs.read` or `net.send`) are forbidden and shall raise diagnostic E02-106. Comptime blocks declare their capability requirements explicitly through the same sequent mechanism used by procedures; complete grant semantics are specified in Clause 12 [contract].
+[4] _Grant safety._ Comptime execution shall refuse any grant that is not listed in the grants clause of the executing item's contractual sequent. Runtime-only capabilities (e.g., file system or network grants as will be cataloged in §12.3 [contract.grant]) are forbidden and shall raise diagnostic E02-106. Comptime blocks declare their capability requirements explicitly through the same sequent mechanism used by procedures; complete grant semantics are specified in Clause 12 [contract].
 
 [5] _Generated symbol hygiene._ Code generation shall ensure that generated declarations do not collide with declarations already present in the AST. Name collisions shall be diagnosed as E02-107.
 

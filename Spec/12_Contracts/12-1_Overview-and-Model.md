@@ -38,17 +38,17 @@
 
 **Table 12.1 — Contracts vs behaviors**
 
-| Aspect                  | Contracts (Clause 12)                            | Behaviors (Clause 10)                   |
-| ----------------------- | ------------------------------------------------ | --------------------------------------- | ------------------- | ------------------------- | ------------------- |
-| Purpose                 | Abstract interface specification                 | Concrete code reuse                     |
-| Procedure bodies        | **NO bodies allowed** (purely abstract)          | **ALL procedures MUST have bodies**     |
-| Associated types        | Requirements (no defaults)                       | May have defaults                       |
-| Dispatch                | Static (monomorphization) or dynamic (witnesses) | Static (monomorphization)               |
-| Attachment syntax       | `record T: Contract`                             | `record T with Behavior`                |
-| Declaration syntax      | `contract Name { ... }`                          | `behavior Name { ... }`                 |
-| Implementation location | Inline in type body                              | Inline or standalone `behavior B for T` |
-| Sequents                | Optional (defaults to `[[ |- true => true ]]`)            | Optional (defaults to `[[ |- true => true ]]`) |
-| Primary use case        | Defining polymorphic interfaces                  | Sharing default implementations         |
+| Aspect                  | Contracts (Clause 12)                            | Behaviors (Clause 10)                            |
+| ----------------------- | ------------------------------------------------ | ------------------------------------------------ |
+| Purpose                 | Abstract interface specification                 | Concrete code reuse                              |
+| Procedure bodies        | **NO bodies allowed** (purely abstract)          | **ALL procedures MUST have bodies**              |
+| Associated types        | Requirements (no defaults)                       | May have defaults                                |
+| Dispatch                | Static (monomorphization) or dynamic (witnesses) | Static (monomorphization)                        |
+| Attachment syntax       | `record T: Contract`                             | `record T with Behavior`                         |
+| Declaration syntax      | `contract Name { ... }`                          | `behavior Name { ... }`                          |
+| Implementation location | Inline in type body                              | Inline or standalone `behavior B for T`          |
+| Sequents                | Optional (defaults to `[[ |- true => true ]]`)   | Optional (defaults to `[[ |- true => true ]]`)   |
+| Primary use case        | Defining polymorphic interfaces                  | Sharing default implementations                  |
 
 [6] Types may attach both contracts and behaviors simultaneously:
 

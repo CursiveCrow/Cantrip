@@ -78,7 +78,7 @@ procedure helper(value: i32): i32
 - **Begin**: Storage allocation and initialization complete
 - **End**: Object destruction begins (destructor executes, storage released)
 
-[10] Between these points, the object is _live_; outside this interval, the object is _dead_. Accessing dead objects produces undefined behavior (UB-ID: B.2.01).
+[10] Between these points, the object is _live_; outside this interval, the object is _dead_. Accessing dead objects produces undefined behavior [UB-ID: B.2.01].
 
 ##### §3.3.3.2 Lifetime Categories
 

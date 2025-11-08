@@ -4,7 +4,7 @@
 
 **Part**: I — Introduction and Conformance
 **File**: 01-2_Terms-Definitions.md  
-**Section**: 1.3 Terms and Definitions  
+**Section**: §1.3 Terms and Definitions  
 **Stable label**: [intro.terms]  
 **Forward references**: §2.5 [lex.units], Clause 3 [basic], Clause 5 [decl], Clause 6 [name], Clause 8 [expr], §11.3 [memory.region], §11.4 [memory.permission], Clause 12 [contract], Clause 13 [witness]
 

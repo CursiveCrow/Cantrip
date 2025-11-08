@@ -123,15 +123,11 @@ behavior_reference
 
 [4] **Modal state transitions**: Modal types use two distinct syntactic forms with semantically meaningful operators:
 
-- **Transition signatures** (`@SourceState::transition_name(params) -> @TargetState`): Declare valid state transitions within the modal body. These lightweight declarations define the state machine graph and use the **mapping operator `->` (reads as "transitions to" or "maps to")** to indicate the state-to-state relationship.
+- **Transition signatures** (`@SourceState::transition_name(params) -> @TargetState`): Declare valid state transitions within the modal body using the mapping operator `->`.
 
-- **Procedure implementations**: Provide the actual transition logic using standard procedure syntax (§5.4) with the **type operator `:` (reads as "is of type")** for return type annotations. Each transition signature must have a corresponding procedure implementation.
+- **Procedure implementations**: Provide the actual transition logic using standard procedure syntax (§5.4) with the type operator `:` for return type annotations.
 
-[ Note: The semantic distinction between operators clarifies intent:
-- **`->` (mapping operator)**: Declares a transition relationship between states (`@Source` transitions to `@Target`)
-- **`:` (type operator)**: Annotates that a value or return is of a particular type (`result : Self@Target`)
-
-Transition signatures use `->` because they declare state graph edges (mappings between states). Procedure implementations use `:` because they follow standard procedure syntax where return types are type annotations. This distinction is grammatically unambiguous: `->` appears only in transition signatures within modal bodies; `:` appears in return type positions following parameter lists.
+[ Note: The mapping operator `->` declares transition signatures (state graph edges); the type operator `:` annotates return types in procedure implementations. See §7.6.2.5 [type.modal.disambiguation] for complete operator semantics and parser disambiguation rules.
 — end note ]
 
 #### §5.5.3 Constraints

@@ -2,7 +2,7 @@
 
 **Part**: II — Lexical Structure and Translation
 **File**: 02-4_Tokenization-and-Statement-Termination.md  
-**Section**: 2.4 Tokenization and Statement Termination  
+**Section**: §2.4 Tokenization and Statement Termination  
 **Stable label**: [lex.terminators]  
 **Forward references**: §2.3 [lex.tokens], Clause 8 §8.4 [expr.structured], Annex A §A.2 [grammar.lexical]
 
@@ -97,7 +97,16 @@ let shift = value >> 3        // lexer emits single '>>'
 let ptr: Ptr<Ptr<i32>> = make_ptr()  // parser splits '>>' into two closers
 ```
 
-### §2.4.6 Conformance Requirements
+### §2.4.6 Diagnostic Summary
+
+[1] Diagnostics associated with this subclause:
+
+| Code    | Condition                                   | Constraint |
+| ------- | ------------------------------------------- | ---------- |
+| E02-211 | Unexpected end of file during statement     | [1.2]      |
+| E02-300 | Delimiter nesting too deep (exceeds 256)    | [3.1]      |
+
+### §2.4.7 Conformance Requirements
 
 [1] Implementations shall expose diagnostics that identify the continuation rule responsible when statement termination behaves unexpectedly (e.g., pointing to a trailing operator or unclosed delimiter).
 

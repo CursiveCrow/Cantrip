@@ -59,6 +59,7 @@
 [7] The `move` operator explicitly transfers cleanup responsibility from a binding to the move expression's consumer. It is required when passing responsible bindings to procedures that accept responsibility for cleanup.
 
 **Syntax**:
+
 ```ebnf
 move_expr ::= "move" identifier
 ```
@@ -66,6 +67,7 @@ move_expr ::= "move" identifier
 **Constraints**:
 
 (7.1) The operand shall be an identifier referring to a `let` binding created with `= value` (responsible and transferable). Attempting to move from non-transferable bindings produces diagnostics:
+
 - `var` bindings: E11-501 (cannot transfer from var binding)
 - Non-responsible bindings (`<-`): E11-502 (cannot transfer from non-responsible binding)
 
@@ -84,13 +86,14 @@ $$
 
 (7.3) Evaluation transfers cleanup responsibility to the recipient. The moved-from binding becomes invalid and shall not be used again in the current scope. Definite assignment analysis (§5.7) tracks moved bindings and prevents further use.
 
-(7.4) **Invalidation propagation**: When a binding is moved, all non-responsible bindings derived from it (created via `let n <- source`) also become invalid. This prevents use-after-free by ensuring that references cannot access values after ownership has transferred (§5.7.5.2, §11.5.5.1A).
+(7.4) **Invalidation propagation**: When a binding is moved, all non-responsible bindings derived from it (created via `let n <- source`) also become invalid. This prevents use-after-free by ensuring that references cannot access values after ownership has transferred (§5.7.5.2, §11.5.5.2).
 
 (7.5) At scope exit, moved bindings do not invoke destructors (responsibility has transferred). Non-moved bindings invoke destructors normally per RAII rules (§11.2).
 
 **Examples**:
 
 **Example 8.3.3.1 (Valid move transfer):**
+
 ```cursive
 procedure consume(buffer: Buffer)
     [[ |- true => true ]]
@@ -109,12 +112,14 @@ procedure demo()
 ```
 
 **Example 8.3.3.2 - invalid (Move from var):**
+
 ```cursive
 var counter = 0
 let moved = move counter  // error[E11-501]: cannot transfer from var binding
 ```
 
 **Example 8.3.3.3 - invalid (Move from reference binding):**
+
 ```cursive
 let original = Buffer::new()
 let ref <- original
@@ -122,6 +127,7 @@ consume(move ref)  // error[E11-502]: cannot transfer from non-responsible bindi
 ```
 
 **Example 8.3.3.4 (Invalidation propagation to derived bindings):**
+
 ```cursive
 let owner = Buffer::new()      // Responsible
 let viewer <- owner            // Non-responsible (depends on owner)
@@ -153,7 +159,7 @@ consume(move owner)            // owner becomes invalid
 
 [13] `<`, `<=`, `>`, `>=` require operands of identical numeric or `char` type. Result is `bool`. Comparisons on `f32`/`f64` follow IEEE 754 semantics (`NaN` is unordered).
 
-[14] `==` and `!=` are available exactly when the operand type implements the `Eq` predicate (Clause 11). Primitive types implement `Eq` by default. Custom types shall derive or implement `Eq`; otherwise E08-310 is emitted. Equality is symmetric and reflexive for non-`NaN` values.
+[14] `==` and `!=` are available exactly when the operand type satisfies the `Eq` behavior (Clause 11). Primitive types satisfy `Eq` by default. Custom types shall derive or satisfy `Eq`; otherwise E08-310 is emitted. Equality is symmetric and reflexive for non-`NaN` values.
 
 #### §8.3.7 Logical operators
 

@@ -235,7 +235,7 @@ procedure add(a: i32, b: i32): i32
 
 [2] Pure procedures with no grants, preconditions, or postconditions omit the sequent entirely.
 
-**Example 5.4.5.4 (Parameter responsibility modifiers):**
+**Example 5.4.5.6 (Parameter responsibility modifiers):**
 
 ```cursive
 // Non-responsible parameter (default)
@@ -267,7 +267,7 @@ procedure demo()
 }
 ```
 
-**Example 5.4.5.6 - invalid (Expression body with explicit sequent):**
+**Example 5.4.5.7 - invalid (Expression body with explicit sequent):**
 
 ```cursive
 procedure unsafe_add(lhs: i32, rhs: i32): i32
@@ -275,7 +275,7 @@ procedure unsafe_add(lhs: i32, rhs: i32): i32
 = lhs + rhs  // error[E05-408]: expression bodies cannot have explicit sequents
 ```
 
-**Example 5.4.5.7 - invalid (Missing move at call site):**
+**Example 5.4.5.8 - invalid (Missing move at call site):**
 
 ```cursive
 procedure consume(move data: Buffer)
@@ -286,7 +286,7 @@ let buffer = Buffer::new()
 consume(buffer)              // error[E05-409]: parameter requires move
 ```
 
-**Example 5.4.5.8 - invalid (Unexpected move at call site):**
+**Example 5.4.5.9 - invalid (Unexpected move at call site):**
 
 ```cursive
 procedure process(data: Buffer)
