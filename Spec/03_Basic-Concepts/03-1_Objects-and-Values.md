@@ -169,7 +169,7 @@ let x: i32 = 42
 let y = x                 // Value 42 is copied; both x and y are valid
 let z = x + y             // Both bindings still accessible
 
-// Non-Copy type (assume Buffer does not implement Copy)
+// Non-Copy type (assume Buffer does not satisfy Copy)
 let buffer = allocate_buffer()
 let moved = buffer        // Value moved; `buffer` becomes inaccessible
 // let invalid = buffer   // error[E05-703]: use of moved value
@@ -192,7 +192,7 @@ let limit = 100           // Initialization
 
 [24] An object's _lifetime_ begins when its storage is allocated and initialization completes, and ends when the object is destroyed. Between these points, the object is _valid_; outside this interval, the object is _invalid_.
 
-[25] Accessing an invalid object through any means (dereferencing a dangling pointer, using a moved-from binding, reading destroyed storage) produces undefined behavior (UB-ID: B.2.01 "access to object outside its lifetime").
+[25] Accessing an invalid object through any means (dereferencing a dangling pointer, using a moved-from binding, reading destroyed storage) produces undefined behavior [UB-ID: B.2.01].
 
 [26] Cursive's region-based memory model (§11.3) and permission system (§11.4) prevent most lifetime errors at compile time by ensuring that:
 
@@ -221,7 +221,7 @@ procedure demo()
 
 [28] An object may exist in an _uninitialized state_ between allocation and initialization. Uninitialized objects have allocated storage and a defined type, but their representation is indeterminate.
 
-[29] Reading an uninitialized object produces undefined behavior (UB-ID: B.2.02 "read of uninitialized memory") unless the type explicitly permits uninitialized reads (e.g., `u8` arrays in unsafe contexts).
+[29] Reading an uninitialized object produces undefined behavior [UB-ID: B.2.02] unless the type explicitly permits uninitialized reads (e.g., `u8` arrays in unsafe contexts).
 
 [30] Cursive prevents uninitialized reads through definite assignment analysis (§5.7), which statically verifies that every binding is initialized before use. Programs that pass definite assignment are guaranteed not to read uninitialized values outside unsafe blocks.
 

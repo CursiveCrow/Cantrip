@@ -4,7 +4,7 @@
 
 **Part**: I — Introduction and Conformance
 **File**: 01-4_Conformance.md  
-**Section**: 1.5 Conformance  
+**Section**: §1.5 Conformance  
 **Stable label**: [intro.conformance]  
 **Forward references**: §1.5.3–§1.5.6 [intro.conformance.impldef]–[intro.conformance.unspecified], §1.7 [intro.versioning], Clause 2 [lex], Clauses 5–14, Annex B.2 [behavior.undefined]
 

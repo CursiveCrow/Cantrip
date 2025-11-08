@@ -36,7 +36,7 @@ $$
 \text{addr} \equiv 0 \pmod{\text{alignof}(T)}
 $$
 
-[6] Violating alignment requirements produces undefined behavior (UB-ID: B.2.10 "misaligned object access") on platforms with strict alignment enforcement. On platforms with relaxed alignment, misaligned access may succeed with performance penalties.
+[6] Violating alignment requirements produces undefined behavior [UB-ID: B.2.10] on platforms with strict alignment enforcement. On platforms with relaxed alignment, misaligned access may succeed with performance penalties.
 
 ##### §3.5.2.2 Alignment Rules by Type Family
 

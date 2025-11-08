@@ -118,6 +118,9 @@ procedure conditional_allocation(should_allocate: bool): i32
 
 [12] Objects with _region storage duration_ are allocated within an explicit region block and destroyed when that region exits. Region storage provides fine-grained lifetime control with deterministic deallocation.
 
+[ Note: Region allocation is implemented through the `Arena` modal type (§11.3.2), a built-in modal type with states representing the arena lifecycle (@Active, @Frozen, @Freed). The `region` keyword creates a scoped `Arena@Active` with automatic cleanup. This note provides early context; complete semantics are specified in §11.3.
+— end note ]
+
 **Syntax:**
 [13] Region blocks use the `region` keyword:
 

@@ -318,20 +318,20 @@ VarDeclStmt ::= "let" Pattern (":" Type)? "=" Expr
 
 **Critical**: Do NOT use the following in Cursive specification examples. These are Rust-specific types, patterns, and syntax that do not exist in Cursive:
 
-| Avoid                       | Reason                     | Cursive Alternative                                            |
-| --------------------------- | -------------------------- | -------------------------------------------------------------- |
-| `Option<T>`, `Some`, `None` | Rust-specific pattern      | Use Cursive enums if nullable types are needed                 |
-| `Result<T, E>`, `Ok`, `Err` | Rust-specific pattern      | Use Cursive enums for error handling patterns                  |
-| `Box<T>`                    | Rust heap allocation type  | Use Cursive's pointer types with region/permission annotations |
-| `Vec<T>`                    | Rust collection type       | Use Cursive array syntax `[T]` or concrete collection types    |
-| `Arc<T>`, `Rc<T>`           | Rust reference counting    | Use Cursive's permission system (shared/unique)                |
-| `RefCell<T>`, `Cell<T>`     | Rust interior mutability   | Use Cursive's permission system                                |
+| Avoid                       | Reason                     | Cursive Alternative                                                 |
+| --------------------------- | -------------------------- | ------------------------------------------------------------------- |
+| `Option<T>`, `Some`, `None` | Rust-specific pattern      | Use Cursive enums if nullable types are needed                      |
+| `Result<T, E>`, `Ok`, `Err` | Rust-specific pattern      | Use Cursive enums for error handling patterns                       |
+| `Box<T>`                    | Rust heap allocation type  | Use Cursive's pointer types with region/permission annotations      |
+| `Vec<T>`                    | Rust collection type       | Use Cursive array syntax `[T]` or concrete collection types         |
+| `Arc<T>`, `Rc<T>`           | Rust reference counting    | Use Cursive's permission system (shared/unique)                     |
+| `RefCell<T>`, `Cell<T>`     | Rust interior mutability   | Use Cursive's permission system                                     |
 | `str`, `&str`               | Rust string types          | Use Cursive's `string` modal type (`string@Managed`, `string@View`) |
-| `mut` keyword/prefix        | Rust mutability marker     | Use Cursive's permission annotations (unique, shared, const)   |
-| `&T`, `&mut T`              | Rust reference syntax      | Use Cursive's pointer/reference syntax with permissions        |
-| `impl Trait`                | Rust syntax                | Use Cursive's behavior syntax                                  |
-| `dyn Trait`                 | Rust trait objects         | Use Cursive's witness system                                   |
-| `.unwrap()`, `.expect()`    | Rust Option/Result methods | Use Cursive's pattern matching and error handling              |
+| `mut` keyword/prefix        | Rust mutability marker     | Use Cursive's permission annotations (unique, shared, const)        |
+| `&T`, `&mut T`              | Rust reference syntax      | Use Cursive's pointer/reference syntax with permissions             |
+| `impl Trait`                | Rust syntax                | Use Cursive's behavior syntax                                       |
+| `dyn Trait`                 | Rust trait objects         | Use Cursive's witness system                                        |
+| `.unwrap()`, `.expect()`    | Rust Option/Result methods | Use Cursive's pattern matching and error handling                   |
 
 **Additional Avoidance Patterns**:
 
@@ -733,6 +733,18 @@ Each clause specifies what information must be available at that phase and what 
   - 16.2 Reflection and Type Queries [comptime.reflection]
   - 16.3 Code Generation Patterns via Attributes (derivations; no macros) [comptime.codegen]
 
+- **17 The Standard Library** [stdlib]
+
+  **Forward references:** None
+
+  - 17.1 Overview and Purpose [stdlib.overview]
+  - 17.2 Core Types and Behaviors [stdlib.core]
+  - 17.3 Standard Behaviors [stdlib.behaviors]
+  - 17.4 Library Organization [stdlib.organization]
+  - 17.5 Standard Library API [stdlib.api]
+  - 17.6 Standard Library Implementation [stdlib.implementation]
+  - 17.7 Standard Library Usage [stdlib.usage]
+
 ### Annexes
 
 **Normative Annexes:**
@@ -787,33 +799,24 @@ Each clause specifies what information must be available at that phase and what 
   - E.5 Diagnostic Requirements and Quality Guidelines [implementation.diagnostics]
   - E.6 Edition System Implementation [implementation.editions]
 
-- **Annex F: Standard Library Overview** [library]
-
-  [ Note: Full library specification maintained in separate document.
-  — end note ]
-
-  - F.1 Library Organization [library.organization]
-  - F.2 Core Types and Behaviors [library.core]
-  - F.3 Standard Behaviors [library.behaviors]
-
-- **Annex G: Portability Considerations** [portability]
+- **Annex F: Portability Considerations** [portability]
 
   - G.1 Platform-Specific Behavior [portability.platform]
   - G.2 Separate Compilation and Linking [portability.compilation]
   - G.3 Binary Compatibility Guidelines [portability.compatibility]
 
-- **Annex H: Changes and Evolution** [changes]
+- **Annex G: Changes and Evolution** [changes]
 
   - H.1 Version Changes [changes.editions]
   - H.2 Deprecation Policy [changes.deprecation]
   - H.3 Migration Guidance [changes.migration]
 
-- **Annex I: Glossary** [glossary]
+- **Annex H: Glossary** [glossary]
 
   - I.1 Technical Terms [glossary.terms]
   - I.2 Notation Index [glossary.notation]
 
-- **Annex J: Cross-Reference Indices** [index]
+- **Annex I: Cross-Reference Indices** [index]
   - J.1 Stable Label Index (machine-readable JSON) [index.labels]
   - J.2 Grammar Production Index [index.grammar]
   - J.3 Formal Rule Index (T-/E-/WF-/P- rules) [index.rules]

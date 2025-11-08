@@ -173,7 +173,7 @@ let DEFAULT = tables::DEFAULT_TABLE  // eager edge
 - Internal/private types from `m` itself, OR
 - Types visible in `m` through import/use declarations
 
-Attempting to instantiate a generic with an inaccessible internal type from a third module **shall** produce diagnostic E04-701.
+Attempting to instantiate a generic with an inaccessible internal type from a third module **shall** produce diagnostic E07-750.
 
 **Contract and Witness Integration:**
 

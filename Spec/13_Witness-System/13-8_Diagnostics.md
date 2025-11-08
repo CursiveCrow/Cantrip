@@ -24,12 +24,12 @@
 
 ##### §13.8.2.1 Formation and Construction Diagnostics (E13-001 through E13-012)
 
-| Code    | Description                                                  | Section    |
-| ------- | ------------------------------------------------------------ | ---------- |
-| E13-001 | Type does not implement behavior/satisfy contract/have state | §13.3.6[1] |
-| E13-010 | Missing `move` for responsible witness (@Heap/@Region)       | §13.3.6[2] |
-| E13-011 | Region witness escapes region                                | §13.3.6[5] |
-| E13-012 | Grant missing for witness construction (alloc::heap/region)  | §13.3.6[4] |
+| Code    | Description                                                 | Section    |
+| ------- | ----------------------------------------------------------- | ---------- |
+| E13-001 | Type does not satisfy behavior/satisfy contract/have state  | §13.3.6[1] |
+| E13-010 | Missing `move` for responsible witness (@Heap/@Region)      | §13.3.6[2] |
+| E13-011 | Region witness escapes region                               | §13.3.6[5] |
+| E13-012 | Grant missing for witness construction (alloc::heap/region) | §13.3.6[4] |
 
 ##### §13.8.2.2 Dispatch Diagnostics (E13-020 through E13-022)
 

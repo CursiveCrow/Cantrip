@@ -396,6 +396,23 @@ procedure build(): Buffer [[alloc::region]] {
 | ------- | --------- | ----------------------------------------------- | -------- |
 | E07-750 | §4.6.7[5] | Internal type referenced across module boundary | E        |
 
+##### §E.5.1.2A Clause 03: Basic Concepts
+
+**Subsection §3.1: Objects and Values**
+
+| Code    | Section    | Description                                      | Severity |
+| ------- | ---------- | ------------------------------------------------ | -------- |
+| E03-101 | §3.1.7[33] | Inference hole could not be resolved             | E        |
+| E03-102 | §3.1.7     | Type inference failed; incompatible branch types | E        |
+
+**Subsection §3.5: Alignment and Layout**
+
+| Code    | Section      | Description                             | Severity |
+| ------- | ------------ | --------------------------------------- | -------- |
+| E03-201 | §3.5.2.3[10] | Explicit alignment smaller than natural | E        |
+
+---
+
 ##### §E.5.1.3 Clause 05: Declarations
 
 **Subsection §5.2: Variable Bindings**
@@ -497,14 +514,16 @@ procedure build(): Buffer [[alloc::region]] {
 
 **Subsection §6.4: Name Lookup**
 
-| Code    | Section    | Description                                       | Severity |
-| ------- | ---------- | ------------------------------------------------- | -------- |
-| E06-400 | §6.4.4     | Ambiguous identifier (multiple imported bindings) | E        |
-| E06-401 | §6.4.4     | Undefined identifier (not found in any scope)     | E        |
-| E06-402 | §6.4.4[13] | Qualified-name prefix is not module or type       | E        |
-| E06-403 | §6.4.4[13] | Qualified-name suffix is not exported             | E        |
-| E06-404 | §6.4.4[13] | Module-qualified name missing target item         | E        |
-| E06-405 | §6.4.4[13] | Type-qualified name missing associated item       | E        |
+| Code    | Section      | Description                                       | Severity |
+| ------- | ------------ | ------------------------------------------------- | -------- |
+| E06-400 | §6.4.4       | Ambiguous identifier (multiple imported bindings) | E        |
+| E06-401 | §6.4.4       | Undefined identifier (not found in any scope)     | E        |
+| E06-402 | §6.4.4[13]   | Qualified-name prefix is not module or type       | E        |
+| E06-403 | §6.4.4[13]   | Qualified-name suffix is not exported             | E        |
+| E06-404 | §6.4.4[13]   | Module-qualified name missing target item         | E        |
+| E06-405 | §6.4.4[13]   | Type-qualified name missing associated item       | E        |
+| E06-406 | §6.4.4[12.2] | Qualified name chain too long                     | E        |
+| E06-407 | §6.4.4[13.1] | Empty qualified name component                    | E        |
 
 ##### §E.5.1.5 Clause 07: Type System
 
@@ -557,16 +576,6 @@ procedure build(): Buffer [[alloc::region]] {
 | E07-503 | §7.6.8[13]  | Modal pattern match missing required state branch              | E        |
 | E07-504 | §7.6.2[6.3] | State-specific field accessed outside its defining state       | E        |
 | E07-505 | §7.6.2[6.1] | Transition signature lacks a matching procedure implementation | E        |
-
-**Subsection §7.6: Modal Types**
-
-| Code    | Section | Description                                   | Severity |
-| ------- | ------- | --------------------------------------------- | -------- |
-| E07-500 | §7.6.8  | Duplicate modal state name                    | E        |
-| E07-501 | §7.6.8  | Transition references undeclared state        | E        |
-| E07-502 | §7.6.4  | Transition body fails to produce target state | E        |
-| E07-503 | §7.6.8  | Modal pattern match missing state branch      | E        |
-| E07-504 | §7.6.6  | State field accessed outside defining state   | E        |
 
 **Subsection §7.3: Composite Types (Union Types)**
 
@@ -766,6 +775,7 @@ procedure build(): Buffer [[alloc::region]] {
 | E10-407 | §10.4.8 | Behavior procedure has invalid receiver                         | E        |
 | E10-411 | §10.4.5 | Type claims Copy but does not satisfy structural requirements   | E        |
 | E10-412 | §10.4.5 | Type implements both Copy and Drop (mutual exclusion violation) | E        |
+| E10-413 | §10.4.3 | Conflicting procedures from extended behaviors                  | E        |
 
 **Subsection §10.5: Behavior Implementations and Coherence**
 
@@ -812,10 +822,11 @@ procedure build(): Buffer [[alloc::region]] {
 
 | Code    | Section     | Description                                   | Severity |
 | ------- | ----------- | --------------------------------------------- | -------- |
-| E11-101 | §11.3.3[18] | Region-allocated value escapes region         | E        |
-| E11-102 | §11.3.3[22] | Heap allocation requires alloc::heap grant    | E        |
-| E11-103 | §11.3.6     | Region allocation outside region block        | E        |
-| E11-104 | §11.3.6     | Invalid caret stacking (too many ^ for depth) | E        |
+| E11-101 | §11.3.4[18] | Region-allocated value escapes region         | E        |
+| E11-102 | §11.3.4[22] | Heap allocation requires alloc::heap grant    | E        |
+| E11-103 | §11.3.8     | Region allocation outside region block        | E        |
+| E11-104 | §11.3.5     | Invalid caret stacking (too many ^ for depth) | E        |
+| E11-110 | §11.3.7[33] | Arena binding escapes region                  | E        |
 
 **Subsection §11.4: Permissions**
 
@@ -948,16 +959,45 @@ procedure build(): Buffer [[alloc::region]] {
 | E12-090 | §12.9.4[7] | Quantifier (forall/exists) unsupported         | E        |
 | E12-091 | §12.9.5[9] | Contract procedure has body (must be abstract) | E        |
 
+##### §E.5.1.10 Clause 14: Concurrency and Memory Ordering
+
+**Subsection §14.1: Concurrency Model**
+
+| Code    | Description                                  | Section    |
+| ------- | -------------------------------------------- | ---------- |
+| E14-100 | Thread return type is not const              | §14.1.7[1] |
+| E14-101 | Shared data captured without synchronization | §14.1.7[2] |
+| E14-102 | Thread dropped without join or detach        | §14.1.7[4] |
+| E14-103 | Thread spawning missing thread::spawn grant  | §14.1.7[3] |
+| E14-104 | Thread join missing thread::join grant       | §14.1.7[3] |
+
+**Subsection §14.3: Atomic Operations**
+
+| Code    | Description                                      | Section    |
+| ------- | ------------------------------------------------ | ---------- |
+| E14-200 | Atomic operation on non-atomic type              | §14.3.4[1] |
+| E14-201 | Atomic operation with incorrect permission       | §14.3.4[2] |
+| E14-202 | Invalid memory ordering for operation            | §14.3.4[3] |
+| E14-203 | Atomic operation on unsupported type (e.g. i128) | §14.3.4[5] |
+| E14-204 | Misaligned atomic access                         | §14.3.4[4] |
+
+**Subsection §14.4: Synchronization Primitives**
+
+| Code    | Description                                  | Section    |
+| ------- | -------------------------------------------- | ---------- |
+| E14-300 | Type constraint violation for sync primitive | §14.4.5[1] |
+| E14-301 | Missing grant for synchronization operation  | §14.4.5[3] |
+
 ##### §E.5.1.11 Clause 13: Witness System
 
 **Subsection §13.3: Formation and Construction**
 
-| Code    | Description                                                  | Section    |
-| ------- | ------------------------------------------------------------ | ---------- |
-| E13-001 | Type does not implement behavior/satisfy contract/have state | §13.3.6[1] |
-| E13-010 | Missing `move` for responsible witness (@Heap/@Region)       | §13.3.6[2] |
-| E13-011 | Region witness escapes region                                | §13.3.6[5] |
-| E13-012 | Grant missing for witness construction (alloc::heap/region)  | §13.3.6[4] |
+| Code    | Description                                                 | Section    |
+| ------- | ----------------------------------------------------------- | ---------- |
+| E13-001 | Type does not satisfy behavior/satisfy contract/have state  | §13.3.6[1] |
+| E13-010 | Missing `move` for responsible witness (@Heap/@Region)      | §13.3.6[2] |
+| E13-011 | Region witness escapes region                               | §13.3.6[5] |
+| E13-012 | Grant missing for witness construction (alloc::heap/region) | §13.3.6[4] |
 
 **Subsection §13.5: Dispatch Semantics**
 

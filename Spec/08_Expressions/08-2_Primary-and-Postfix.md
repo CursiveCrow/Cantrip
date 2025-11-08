@@ -154,13 +154,13 @@ Attempting to take the address of a value emits E08-260.
 #### §8.2.13 Canonical Example
 
 ```cursive
-let payload: string@Owned \/ ParseError = raw
+let payload: string@Managed \/ ParseError = raw
     => trim
     => parse: Ast \/ ParseError
-    => render: string@Owned \/ ParseError
+    => render: string@Managed \/ ParseError
 
 match payload {
-    html: string@Owned => io::write(html),
+    html: string@Managed => io::write(html),
     err: ParseError => log::error(err.message()),
 }
 ```

@@ -110,7 +110,7 @@ WitnessTable = {
 
 **Behavior witnesses** (`witness<Display>`):
 
-- Runtime evidence that a value implements behavior Display
+- Runtime evidence that a value satisfies behavior Display
 - VTable contains pointers to behavior procedure implementations
 - Enables heterogeneous collections of different types with common behavior
 

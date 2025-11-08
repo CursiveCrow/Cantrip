@@ -34,16 +34,11 @@ grant_clause
 
 must_clause
     ::= predicate_expression
-     | predicate_list
      | "true"
 
 will_clause
     ::= predicate_expression
-     | predicate_list
      | "true"
-
-predicate_list
-    ::= predicate_expression ("," predicate_expression)*
 ```
 
 [ Note: See Annex A §A.7 [grammar.sequent] for complete authoritative grammar.
@@ -105,9 +100,9 @@ Expands to: `[[ |- must => will ]]` (turnstile optional when no grants)
 ```cursive
 procedure transfer_funds(~!, to: unique Account, amount: i64)
     [[ ledger::post, ledger::validate |-
-       amount > 0, self.balance >= amount, self.id != to.id
+       amount > 0 && self.balance >= amount && self.id != to.id
        =>
-       self.balance == @old(self.balance) - amount,
+       self.balance == @old(self.balance) - amount &&
        to.balance == @old(to.balance) + amount
     ]]
 {
@@ -156,14 +151,14 @@ procedure absolute_value(x: i32): i32
 
 ```cursive
 procedure clamp(value: i32, min: i32, max: i32): i32
-    [[ min <= max => result >= min, result <= max ]]
+    [[ min <= max => result >= min && result <= max ]]
 {
     if value < min { result min }
     else if value > max { result max }
     else { result value }
 }
 
-// Desugars to: [[ |- min <= max => result >= min, result <= max ]]
+// Desugars to: [[ |- min <= max => result >= min && result <= max ]]
 ```
 
 **Example 12.2.2.6 (Omitted sequent - pure procedure)**:
@@ -223,17 +218,17 @@ $$
 
 ##### §12.2.4.3 Multiple Predicates
 
-[14] Multiple predicates in must or will clauses are conjoined:
+[14] Multiple predicates in must or will clauses are conjoined using the `&&` operator:
 
 $$
-\texttt{must} \; P_1, P_2, \ldots, P_n \equiv \texttt{must} \; P_1 \land P_2 \land \cdots \land P_n
+\texttt{must} \; P_1 \;\&\&\; P_2 \;\&\&\; \cdots \;\&\&\; P_n \equiv \texttt{must} \; P_1 \land P_2 \land \cdots \land P_n
 $$
 
 $$
-\texttt{will} \; Q_1, Q_2, \ldots, Q_n \equiv \texttt{will} \; Q_1 \land Q_2 \land \cdots \land Q_n
+\texttt{will} \; Q_1 \;\&\&\; Q_2 \;\&\&\; \cdots \;\&\&\; Q_n \equiv \texttt{will} \; Q_1 \land Q_2 \land \cdots \land Q_n
 $$
 
-[15] The comma operator in predicate lists binds less tightly than logical operators within predicates, so `must a > 0, b > 0` means `(a > 0) ∧ (b > 0)`, not `a > (0, b) > 0`.
+[15] The `&&` operator binds less tightly than comparison operators within predicates, so `must a > 0 && b > 0` means `(a > 0) ∧ (b > 0)`, not `a > (0 && b) > 0`.
 
 ##### §12.2.4.4 Desugaring Algorithm
 
@@ -321,11 +316,11 @@ procedure validate_transfer(from: Account, to: Account, amount: i64): bool
     [[
         ledger::validate
         |-
-        from.balance >= amount,
-        amount > 0,
+        from.balance >= amount &&
+        amount > 0 &&
         from.id != to.id
         =>
-        result => from.balance >= amount,
+        result => from.balance >= amount &&
         result => to.id != from.id
     ]]
 {
@@ -353,10 +348,10 @@ procedure complex(~!, data: Buffer, size: usize)
     [[
         alloc::heap, io::write
         |-
-        data.capacity() >= size,
+        data.capacity() >= size &&
         size > 0
         =>
-        self.data.len() >= size,
+        self.data.len() >= size &&
         self.data.capacity() >= size
     ]]
 {

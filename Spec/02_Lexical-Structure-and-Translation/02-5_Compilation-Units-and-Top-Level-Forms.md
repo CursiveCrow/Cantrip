@@ -2,7 +2,7 @@
 
 **Part**: II — Lexical Structure and Translation  
 **File**: 02-5_Compilation-Units-and-Top-Level-Forms.md  
-**Section**: 2.5 Compilation Units and Top-Level Forms  
+**Section**: §2.5 Compilation Units and Top-Level Forms  
 **Stable label**: [lex.units]  
 **Forward references**: Clause 4 [module], Clause 5 [decl]
 

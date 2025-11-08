@@ -38,7 +38,7 @@
 
 - **Unit insertion:** expressions lacking `result` implicitly yield `()` to match contexts expecting unit.
 - **Pointer/modal widening:** `Ptr<T>@State <: Ptr<T>` and `Modal@State <: Modal` (Clause 7 §7.7). This is the only implicit pointer conversion.
-- **String state defaulting:** bare `string` resolves to `string@View`; `string@Owned` may coerce to `string@View` when required.
+- **String state defaulting:** bare `string` resolves to `string@View`; `string@Managed` may coerce to `string@View` when required.
 - **Pipeline annotations:** when a pipeline stage omits its annotation under §8.1.3[9], the checker inserts an equality coercion `τ → τ` after proving equivalence.
 
 [7] No numeric promotions occur implicitly; developers must cast explicitly when combining different numeric types. Likewise, there is no implicit conversion between `bool` and integers.

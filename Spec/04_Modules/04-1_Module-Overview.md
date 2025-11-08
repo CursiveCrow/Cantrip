@@ -105,3 +105,5 @@ workspace/
 [2] Build caches may persist manifest resolution results provided they do not modify the normative mapping.
 
 ---
+
+**Previous**: Clause 3 — Basic Concepts (§3.6 [basic.binding]) | **Next**: §4.2 Module Syntax (§4.2 [module.syntax])
