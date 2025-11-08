@@ -1,5 +1,7 @@
 # The Cursive Language Specification
 
+## Clause 2 — Lexical Structure and Translation
+
 **Part**: II — Lexical Structure and Translation
 **File**: 02-2_Translation-Phases.md  
 **Section**: §2.2 Translation Phases  

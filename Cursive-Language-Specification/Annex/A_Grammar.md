@@ -701,10 +701,15 @@ block_stmt
     ;
 
 var_decl_stmt
-    : 'let' pattern (':' type)? '=' expr
-    | 'var' pattern (':' type)? '=' expr
-    | 'alias' identifier (':' type)? '=' expr
-    | 'shadow' var_decl_stmt
+    : 'let' pattern (':' type)? binding_op expr
+    | 'var' pattern (':' type)? binding_op expr
+    | 'shadow' 'let' pattern (':' type)? binding_op expr
+    | 'shadow' 'var' pattern (':' type)? binding_op expr
+    ;
+
+binding_op
+    : '='
+    | '<-'
     ;
 
 assign_stmt
@@ -819,22 +824,18 @@ type_decl
 
 record_decl
     : attribute* visibility? 'record' ident generic_params?
-      implements_clause?
+      contract_clause_list?
+      behavior_clause?
       where_clause?
       record_body
-      type_constraint?
     ;
 
-implements_clause
-    : ':' contract_list
+contract_clause_list
+    : ':' contract_ref (',' contract_ref)*
     ;
 
-contract_list
-    : ident (',' ident)*
-    ;
-
-type_constraint
-    : 'where' '{' invariant (',' invariant)* '}'
+behavior_clause
+    : 'with' behavior_ref (',' behavior_ref)*
     ;
 
 invariant
@@ -970,22 +971,32 @@ param_list
     ;
 
 param
-    : ident ':' type
+    : param_modifier? ident ':' type
     | self_param
     ;
 
+param_modifier
+    : 'move'
+    ;
+
 self_param
-    : 'self' ':' self_type
-    | 'self' ':' permission self_type
+    : '~'            // Shorthand for self: const Self
+    | '~%'           // Shorthand for self: shared Self
+    | '~!'           // Shorthand for self: unique Self
+    | 'self' ':' permission? self_type
     ;
 
 contract_decl
     : attribute* visibility? 'contract' ident generic_params?
-      extends_clause? where_clause? contract_body
+      contract_extends_clause? where_clause? contract_body
     ;
 
-extends_clause
-    : 'extends' ident (',' ident)*
+contract_extends_clause
+    : ':' contract_ref (',' contract_ref)*
+    ;
+
+contract_ref
+    : ident ('<' type_args '>')?
     ;
 
 contract_body
@@ -1017,9 +1028,14 @@ type_projection
     ;
 
 behavior_decl
-    : attribute* visibility? 'behavior' ident generic_params? (':' behavior_bounds)?
+    : attribute* visibility? 'behavior' ident generic_params?
+      behavior_extension?
       where_clause?
       '{' behavior_item* '}'
+    ;
+
+behavior_extension
+    : 'with' behavior_ref (',' behavior_ref)*
     ;
 
 behavior_item
@@ -1197,9 +1213,8 @@ grant_set
 
 grant_ref
     : grant_path
-    | 'grants' '<' ident '>'     // Grant parameter reference
+    | ident                       // Grant parameter reference (simple identifier)
     | '_?'                        // Grant inference hole
-    | '!' grant_ref                // Grant exclusion (future)
     ;
 
 grant_path
@@ -1259,3 +1274,111 @@ procedure process<T, G>(data: T): Result<T>
 
 [ Note: Forward Reference: Complete grant semantics, propagation rules, and verification are specified in Clause 12 [contract] (Contracts and Grants).
 — end note ]
+
+---
+
+## A.10 Consolidated Grammar Reference
+
+[1] This section provides a consolidated reference grouping all grammar productions by syntactic category for quick lookup. The authoritative definitions appear in §§A.1–A.9 above; this section provides navigation only.
+
+### A.10.1 Lexical Productions
+
+**Identifiers**: `identifier`, `ident_start`, `ident_continue`  
+**Literals**: `literal`, `integer_literal`, `float_literal`, `boolean_literal`, `char_literal`, `string_literal`  
+**Numeric**: `dec_literal`, `hex_literal`, `oct_literal`, `bin_literal`, `integer_suffix`, `float_suffix`  
+**Comments**: `line_comment`, `block_comment`, `doc_comment`, `module_doc`  
+**Separators**: `NEWLINE`, `separator`  
+**Attributes**: `attribute`, `attribute_body`, `attr_args`, `attr_arg`
+
+### A.10.2 Type Productions
+
+**Primitive types**: `primitive_type` (integers, floats, bool, char, string, unit, never)  
+**Compound types**: `array_type`, `slice_type`, `tuple_type`  
+**Permission types**: `permission_type` (const, unique, shared)  
+**Pointer types**: `pointer_type` (raw), `safe_ptr_type` (modal)  
+**Modal types**: `modal_type`, `modal_state`  
+**Witness types**: `witness_type`, `witness_property`, `allocation_state`  
+**Function types**: `function_type`, `transition_type`  
+**Generic types**: `generic_type`, `type_args`  
+**Union types**: `union_type`  
+**Special**: `self_type`, `type_hole`, `permission_hole_type`
+
+### A.10.3 Pattern Productions
+
+**Patterns**: `pattern`, `wildcard_pattern`, `literal_pattern`, `ident_pattern`, `tuple_pattern`, `record_pattern`, `enum_pattern`, `modal_pattern`  
+**Pattern components**: `field_pattern_list`, `pattern_payload`, `pattern_list`
+
+### A.10.4 Expression Productions
+
+**Expression hierarchy**: `expr`, `seq_expr`, `assignment_expr`, `pipeline_expr`, `range_expr`  
+**Logical operators**: `logical_or_expr`, `logical_and_expr`  
+**Bitwise operators**: `bitwise_or_expr`, `bitwise_xor_expr`, `bitwise_and_expr`  
+**Comparison**: `equality_expr`, `relational_expr`  
+**Arithmetic**: `additive_expr`, `multiplicative_expr`, `power_expr`, `shift_expr`  
+**Unary**: `unary_expr`, `unary_op`, `caret_prefix`  
+**Postfix**: `postfix_expr`, `postfix_suffix`  
+**Primary**: `primary_expr`, `literal`, `identifier`, `tuple_expr`, `record_expr`, `enum_expr`, `array_expr`, `unit_expr`  
+**Control flow**: `if_expr`, `match_expr`, `loop_expr`, `block_expr`  
+**Advanced**: `closure_expr`, `region_expr`, `comptime_expr`  
+**Operators**: `assign_op`, `add_op`, `mul_op`, `shift_op`, `eq_op`, `rel_op`
+
+### A.10.5 Statement Productions
+
+**Statements**: `statement`, `block_stmt`, `var_decl_stmt`, `assign_stmt`, `expr_stmt`, `labeled_stmt`, `return_stmt`, `break_stmt`, `continue_stmt`, `defer_stmt`, `empty_stmt`  
+**L-values**: `l_value`  
+**Labels**: `label_ref`  
+**Special**: `grant_gated_branch`, `loop_with_region`, `with_block`
+
+### A.10.6 Declaration Productions
+
+**Top level**: `top_level`, `use_decl`, `decl`  
+**Types**: `type_decl`, `record_decl`, `tuple_struct_decl`, `enum_decl`, `union_decl`, `modal_decl`  
+**Procedures**: `procedure_decl`, `procedure_kind`, `callable_body`, `param_list`, `param`, `param_modifier`, `self_param`  
+**Contracts**: `contract_decl`, `contract_extends_clause`, `contract_body`, `contract_item`, `procedure_signature`  
+**Behaviors**: `behavior_decl`, `behavior_extension`, `behavior_item`  
+**Components**: `record_body`, `record_item`, `record_member`, `record_field`, `partition_directive`, `enum_body`, `enum_variant`, `modal_body`, `modal_state`  
+**Generics**: `generic_params`, `generic_param`, `type_param`, `const_param`, `grant_param`, `behavior_bounds`, `where_clause`, `where_predicate`  
+**Visibility**: `visibility`  
+**Associated types**: `associated_type_decl`, `type_projection`  
+**Qualifiers**: `permission`, `binding_op`
+
+### A.10.7 Contract Grammar Productions
+
+**Sequents**: `contract_clause`, `sequent_clause`, `sequent_spec`  
+**Components**: `antecedent`, `consequent`, `predicate_block`, `assertion_list`  
+**Reference**: Complete sequent syntax specified in §A.7
+
+### A.10.8 Assertion Grammar Productions
+
+**Assertions**: `assertion`, `logic_expr`, `logic_term`  
+**Operators**: `compare_op`  
+**Quantifiers**: `forall`, `exists` (in logic_term)  
+**Special**: `@old` operator, `result` identifier
+
+### A.10.9 Grant Grammar Productions
+
+**Grants**: `grant_set`, `grant_ref`, `grant_path`  
+**Built-in categories**: `alloc_grant`, `file_system_grant`, `network_grant`, `time_grant`, `thread_grant`, `ffi_grant`, `unsafe_grant`, `panic_grant`  
+**Reference**: Complete grant semantics in Clause 12 §12.3
+
+### A.10.10 Grammar Production Cross-Reference Table
+
+[2] Table A.10 provides a complete index of all grammar productions defined in this annex:
+
+| Production     | Section | Category    | Used In                   |
+| -------------- | ------- | ----------- | ------------------------- |
+| identifier     | A.1     | Lexical     | All constructs            |
+| type           | A.2     | Type        | Declarations, annotations |
+| pattern        | A.3     | Pattern     | Match, destructuring      |
+| expr           | A.4     | Expression  | All executable contexts   |
+| statement      | A.5     | Statement   | Procedure bodies          |
+| decl           | A.6     | Declaration | Module scope              |
+| sequent_clause | A.7     | Contract    | Procedure signatures      |
+| assertion      | A.8     | Assertion   | Contracts, invariants     |
+| grant_set      | A.9     | Grant       | Sequent grants clause     |
+
+[3] The grammar is complete and unambiguous. All productions are defined with clear precedence and associativity. Implementations should be able to generate parsers directly from these ANTLR-style productions.
+
+---
+
+**Previous**: Annex A §A.9 Grant Grammar | **Next**: Annex B — Behavior Classification ([behavior])

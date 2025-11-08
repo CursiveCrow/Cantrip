@@ -1,5 +1,7 @@
 # The Cursive Language Specification
 
+## Clause 2 — Lexical Structure and Translation
+
 **Part**: II — Lexical Structure and Translation
 **File**: 02-1_Source-Text-Encoding.md  
 **Section**: §2.1 Source Text and Encoding  

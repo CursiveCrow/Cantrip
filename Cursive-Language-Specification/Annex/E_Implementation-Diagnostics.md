@@ -1018,17 +1018,172 @@ procedure build(): Buffer [[alloc::region]] {
 
 ---
 
-#### §E.5.2 Reserved Ranges [implementation.diagnostics.reserved]
+##### §E.5.1.12 Clause 15: Interoperability and ABI
 
-[6] The following diagnostic code ranges are reserved for future clauses:
+**Subsection §15.1: FFI Declarations**
 
-- **E01-xxx**: Reserved for Clause 01 (Introduction and Conformance). Currently no diagnostics defined.
-- **E03-xxx**: Reserved for Clause 03 (Basic Concepts).
-- **E14-xxx**: Reserved for Clause 14 (Concurrency and Memory Ordering).
-- **E15-xxx**: Reserved for Clause 15 (Interoperability and ABI).
-- **E16-xxx**: Reserved for Clause 16 (Compile-Time Evaluation and Reflection).
+|| Code | Description | Section |
+|| ------- | ---------------------------------------------------------- | ----------- |
+|| E15-001 | Invalid calling convention string | §15.1.3[1] |
+|| E15-002 | Non-FFI-safe type in extern signature | §15.1.3[2] |
+|| E15-003 | Missing required grants (ffi::call, unsafe::ptr) | §15.1.3[3] |
+|| E15-004 | Extern procedure with body not declared public | §15.1.3[4] |
+|| E15-005 | Variadic parameters in extern signature (not supported) | §15.1.3[5] |
+|| E15-006 | Permission qualifier in extern signature | §15.1.3[7] |
+|| E15-007 | Modal type in extern signature | §15.1.3[8] |
+|| E15-008 | Extern procedure captures variables (closures forbidden) | §15.1.3[9] |
+|| E15-009 | unwind attribute on non-extern procedure | §15.1.3[10] |
+|| E15-010 | Extern procedure call outside unsafe block | §15.1.6[22] |
 
-[7] Implementations shall not define diagnostics in reserved ranges. When new clauses are added, their diagnostic codes shall follow the sequential allocation strategy defined in §1.6.6.
+**Subsection §15.2: FFI Unsafe Usage**
+
+|| Code | Description | Section |
+|| ------- | --------------------------------------------- | -------- |
+|| E15-020 | Dereference of potentially null FFI pointer | §15.2.5 |
+|| E15-021 | FFI call with mismatched calling convention | §15.2.6 |
+|| E15-022 | Region pointer passed to storing FFI function | §15.2.3 |
+
+**Subsection §15.3: C Compatibility**
+
+|| Code | Description | Section |
+|| ------- | ----------------------------------------------- | ----------- |
+|| E15-030 | Non-C-compatible field in repr(C) type | §15.3.2[12] |
+|| E15-031 | repr(C) enum missing tag_type specification | §15.3.2[10] |
+|| E15-040 | Non-extern function pointer in FFI context | §15.3.4[22] |
+
+**Subsection §15.4: Platform Features**
+
+|| Code | Description | Section |
+|| ------- | ------------------------------------------------- | ------- |
+|| E15-050 | Platform query used outside comptime context | §15.4.2 |
+|| E15-051 | Inline assembly attempted (not supported in v1.0) | §15.4.3 |
+|| E15-052 | SIMD intrinsic attempted (not supported in v1.0) | §15.4.4 |
+|| E15-053 | Unsupported platform-specific attribute | §15.4.5 |
+
+**Subsection §15.5: Linkage and Symbol Visibility**
+
+|| Code | Description | Section |
+|| ------- | ----------------------------------------------- | ---------- |
+|| E15-060 | Multiple definitions of type (ODR violation) | §15.5.5 |
+|| E15-061 | Multiple definitions of procedure (ODR) | §15.5.5 |
+|| E15-062 | Linkage attribute on non-public entity | §15.5.8 |
+|| E15-070 | Weak symbols not supported on target platform | §15.5.7 |
+
+**Subsection §15.6: ABI Specification**
+
+|| Code | Description | Section |
+|| ------- | ----------------------------------- | ------- |
+|| E15-080 | Unsupported calling convention | §15.6.2 |
+|| E15-081 | ABI mismatch (incompatible types) | §15.6.3 |
+|| E15-082 | Stack misalignment detected | §15.6.2 |
+
+**Subsection §15.7: Binary Compatibility**
+
+|| Code | Description | Section |
+|| ------- | ---------------------------------------------------- | ------- |
+|| E15-090 | Link-time symbol conflict (ODR violation detected) | §15.7.4 |
+|| E15-091 | ABI version mismatch | §15.7.2 |
+|| E15-092 | Incompatible object file format | §15.7.4 |
+
+##### §E.5.1.14 Clause 16: Compile-Time Evaluation and Reflection
+
+**Subsection §16.2: Comptime Procedures**
+
+|| Code | Description | Section |
+|| ------- | ---------------------------------------------------- | ------------ |
+|| E16-001 | Runtime grant in comptime procedure sequent | §16.2.3.1[8] |
+|| E16-002 | Non-pure operation in comptime procedure | §16.2.3.2 |
+|| E16-003 | Recursion depth exceeded (>256) | §16.2.3.3 |
+|| E16-004 | Evaluation steps exceeded (>1M) | §16.2.3.3 |
+|| E16-005 | Memory allocation exceeded (>64MiB) | §16.2.3.3 |
+|| E16-006 | String size exceeded (>1MiB) in comptime | §16.2.3.3 |
+|| E16-007 | Runtime-only construct in comptime context | §16.2.3 |
+|| E16-008 | Return type not compile-time representable | §16.2.3.4 |
+|| E16-009 | Comptime procedure with receiver | §16.2.3.5 |
+|| E16-010 | Comptime procedure called from runtime context | §16.2.5 |
+
+**Subsection §16.3: Comptime Blocks**
+
+|| Code | Description | Section |
+|| ------- | ------------------------------------------------- | -------- |
+|| E16-020 | Comptime binding referenced from runtime code | §16.3.3 |
+|| E16-021 | Cyclic dependency in comptime blocks | §16.3.4 |
+|| E16-022 | Comptime block result type not representable | §16.3.3 |
+
+**Subsection §16.4: Comptime Intrinsics**
+
+|| Code | Description | Section |
+|| ------- | ------------------------------------------- | ------- |
+|| E16-030 | Comptime assertion failed | §16.4.2 |
+|| E16-031 | Comptime error (fatal) | §16.4.2 |
+|| E16-032 | Comptime warning (non-fatal) | §16.4.2 |
+|| E16-040 | Configuration key not found | §16.4.3 |
+|| E16-041 | Platform query in runtime context | §16.4.3 |
+
+**Subsection §16.5: Reflection Opt-In**
+
+|| Code | Description | Section |
+|| ------- | -------------------------------------------------- | ------- |
+|| E16-100 | [[reflect]] on non-type declaration | §16.5.3 |
+|| E16-101 | Reflection query on non-reflected type | §16.5.3 |
+|| E16-110 | Reflection API in runtime context | §16.5.4 |
+|| E16-111 | Private reflection details accessed cross-module | §16.5.3 |
+|| E16-112 | Reflection on uninstantiated generic | §16.5.3 |
+
+**Subsection §16.6: Type Reflection Queries**
+
+|| Code | Description | Section |
+|| ------- | --------------------------------------- | ------- |
+|| E16-120 | Field not found during query | §16.6.3 |
+|| E16-121 | Procedure not found during query | §16.6.4 |
+|| E16-122 | Variant not found during query | §16.6.5 |
+
+**Subsection §16.7: Quote Expressions**
+
+|| Code | Description | Section |
+|| ------- | ----------------------------------------------------- | ------- |
+|| E16-200 | Quote expression in runtime context | §16.7.3 |
+|| E16-201 | Interpolation expression not compile-time evaluable | §16.7.3 |
+|| E16-202 | Interpolated value type not embeddable | §16.7.3 |
+|| E16-203 | Generated code failed type checking | §16.7.3 |
+
+**Subsection §16.8: Code Generation API**
+
+|| Code | Description | Section |
+|| ------- | -------------------------------------------------- | ------- |
+|| E16-210 | Generated procedure name collision | §16.8.4 |
+|| E16-211 | Generated type name collision | §16.8.4 |
+|| E16-212 | Generated constant name collision | §16.8.4 |
+|| E16-213 | Procedure name collision on type | §16.8.4 |
+|| E16-220 | TypeRef references non-existent type | §16.8.4 |
+|| E16-221 | add_procedure/add_function target not found | §16.8.4 |
+|| E16-230 | Generated code failed validation | §16.8.7 |
+|| E16-231 | ProcedureSpec malformed (missing required field) | §16.8.3 |
+|| E16-232 | TypeSpec malformed (missing required field) | §16.8.3 |
+|| E16-233 | SequentSpec malformed (invalid grant identifier) | §16.8.3 |
+|| E16-240 | Quote interpolation malformed | §16.7.3 |
+
+---
+
+#### §E.5.2 Diagnostic Code Allocation Strategy [implementation.diagnostics.allocation]
+
+[9] Diagnostic codes within each clause are allocated by subsection to facilitate maintenance and avoid conflicts:
+
+**Allocation Pattern**:
+
+- **E[CC]-001 to E[CC]-099**: First major subsection
+- **E[CC]-100 to E[CC]-199**: Second major subsection
+- **E[CC]-200 to E[CC]-299**: Third major subsection
+- And so forth within the clause
+
+[10] This pattern enables adding diagnostics to existing subsections without renumbering. Reserved gaps between subsections allow future expansion.
+
+[11] **Cross-clause shared codes**: In rare cases, a diagnostic defined in one clause may be referenced by another clause when the error condition naturally belongs to the first clause but manifests during processing defined by the second clause. Examples:
+
+- E11-403 (permission violation) used by both Clause 8 (expressions) and Clause 11 (memory model)
+- E07-750 (internal type visibility) used by both Clause 4 (modules) and Clause 7 (types)
+
+[12] Such sharing is explicitly documented in both locations with forward/backward references to avoid confusion.
 
 ---
 

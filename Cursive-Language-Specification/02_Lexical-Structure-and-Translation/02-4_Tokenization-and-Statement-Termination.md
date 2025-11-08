@@ -1,5 +1,7 @@
 # The Cursive Language Specification
 
+## Clause 2 — Lexical Structure and Translation
+
 **Part**: II — Lexical Structure and Translation
 **File**: 02-4_Tokenization-and-Statement-Termination.md  
 **Section**: §2.4 Tokenization and Statement Termination  
@@ -101,10 +103,10 @@ let ptr: Ptr<Ptr<i32>> = make_ptr()  // parser splits '>>' into two closers
 
 [1] Diagnostics associated with this subclause:
 
-| Code    | Condition                                   | Constraint |
-| ------- | ------------------------------------------- | ---------- |
-| E02-211 | Unexpected end of file during statement     | [1.2]      |
-| E02-300 | Delimiter nesting too deep (exceeds 256)    | [3.1]      |
+| Code    | Condition                                | Constraint |
+| ------- | ---------------------------------------- | ---------- |
+| E02-211 | Unexpected end of file during statement  | [1.2]      |
+| E02-300 | Delimiter nesting too deep (exceeds 256) | [3.1]      |
 
 ### §2.4.7 Conformance Requirements
 

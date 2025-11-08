@@ -1,5 +1,7 @@
 # The Cursive Language Specification
 
+## Clause 2 — Lexical Structure and Translation
+
 **Part**: II — Lexical Structure and Translation  
 **File**: 02-5_Compilation-Units-and-Top-Level-Forms.md  
 **Section**: §2.5 Compilation Units and Top-Level Forms  
