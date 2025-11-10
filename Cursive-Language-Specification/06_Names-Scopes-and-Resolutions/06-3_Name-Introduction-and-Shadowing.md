@@ -20,31 +20,38 @@
 
 #### §6.3.2 Syntax [name.shadow.syntax]
 
-[3] Binding-introducing declarations employ the following productions (excerpted from Annex A §A.4):
+[3] Binding-introducing declarations take one of the following forms (excerpted from Annex A §A.6):
 
-```ebnf
-declaration
-    ::= variable_declaration
-     | type_declaration
-     | procedure_declaration
-     | contract_declaration
-     | behavior_declaration
-     | grant_declaration
-     | module_declaration
-     | label_declaration
-
-variable_declaration
-    ::= binding_head pattern type_annotation? "=" expression
-
-binding_head
-    ::= "let"
-     | "var"
-     | "shadow" "let"
-     | "shadow" "var"
-     | "shadow" identifier_declaration_head
+**Declarations** take one of the following forms:
+```
+<variable_declaration>
+<type_declaration>
+<procedure_declaration>
+<contract_declaration>
+<behavior_declaration>
+<grant_declaration>
+<module_declaration>
+<label_declaration>
 ```
 
-[4] `identifier_declaration_head` captures non-variable declarations (type, procedure, module, etc.) that may legally use `shadow`. Full grammar details appear in Annex A §A.4; this subclause restricts when the `shadow` prefix is valid.
+**Variable declarations** match the pattern:
+```
+<binding_head> <pattern> [ ":" <type> ] "=" <expression>
+```
+
+**Binding heads** take one of the following forms:
+```
+"let"
+"var"
+"shadow" "let"
+"shadow" "var"
+"shadow" <identifier_declaration_head>
+```
+
+[ Note: See Annex A §A.6 [grammar.declaration] for complete declaration grammar. The `shadow` keyword may prefix variable bindings and other declaration forms.
+— end note ]
+
+[4] `identifier_declaration_head` captures non-variable declarations (type, procedure, module, etc.) that may legally use `shadow`. Full grammar details appear in Annex A §A.6; this subclause restricts when the `shadow` prefix is valid.
 
 [ Note: `identifier_declaration_head` is a placeholder for the leading keywords of other declaration forms, such as `type`, `procedure`, `record`, etc. It signifies that the `shadow` keyword can prefix not just `let` and `var`, but any declaration that introduces an identifier. — end note ]
 

@@ -22,15 +22,19 @@
 
 #### §4.5.2 Syntax
 
-[1] Qualified names use the scope operator `::` and follow:
+[1] Qualified names use the scope operator `::` and match one of the following patterns:
 
-```ebnf
-qualified_name
-    ::= module_path "::" identifier
-     | alias "::" identifier
+```
+<module_path> "::" <identifier>
+<identifier> "::" <identifier>
 ```
 
-[2] `module_path` expands per §4.1; `alias` denotes an alias introduced with `import module as alias`.
+where the first form uses a full module path, and the second form uses an alias (an identifier introduced by `import module as alias`) in place of the module path.
+
+[ Note: The normative grammar in Annex A §A.6 represents both forms as `module_path '::' ident | ident '::' ident`, treating aliases as identifiers that semantically resolve to module paths.
+— end note ]
+
+[2] `module_path` expands per §4.1.
 
 #### §4.5.3 Constraints
 

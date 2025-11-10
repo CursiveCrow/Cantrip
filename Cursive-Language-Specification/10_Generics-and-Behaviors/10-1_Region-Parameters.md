@@ -40,32 +40,41 @@ region session {
 
 [7] Region allocation syntax (defined in §11.3.2):
 
-```ebnf
-region_block
-    ::= "region" identifier? block_stmt
-
-region_alloc_expr
-    ::= "^" expression
-     | "^"+ expression    // Caret stacking for parent regions
+**Region blocks** match the pattern:
 ```
+"region" [ <identifier> ] <block_stmt>
+```
+
+**Region allocation expressions** take one of the following forms:
+```
+"^" <expression>
+"^" "^" ... <expression>    // Caret stacking for parent regions
+```
+
+[ Note: See §11.3.2 [memory.region] for complete region allocation semantics.
+— end note ]
 
 [8] Generic parameter lists (§10.2.2) currently support type, const, and grant parameters but not region parameters:
 
-```ebnf
-generic_params
-    ::= "<" generic_param_list ">"
-
-generic_param_list
-    ::= generic_param ("," generic_param)*
-
-generic_param
-    ::= type_param
-     | const_param
-     | grant_param
-     // region_param reserved for future edition
+**Generic parameters** match the pattern:
+```
+"<" <generic_param_list> ">"
 ```
 
-[ Note: See Annex A §A.7 [grammar.declaration] for complete generic parameter grammar.
+where **generic parameter lists** match:
+```
+<generic_param> [ "," <generic_param> ... ]
+```
+
+and each **generic parameter** takes one of the following forms:
+```
+<type_param>
+<const_param>
+<grant_param>
+// region_param reserved for future edition
+```
+
+[ Note: See §10.2.2 [generic.params] and Annex A §A.6 for the complete generic parameter grammar.
 — end note ]
 
 #### §10.1.4 Constraints (Current Edition)

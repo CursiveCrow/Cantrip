@@ -28,9 +28,9 @@
 
 [4] Move expression syntax:
 
-```ebnf
-move_expr
-    ::= "move" identifier
+**Move expressions** match the pattern:
+```
+"move" <identifier>
 ```
 
 [ Note: See Annex A §A.4 [grammar.expression] for complete move syntax.

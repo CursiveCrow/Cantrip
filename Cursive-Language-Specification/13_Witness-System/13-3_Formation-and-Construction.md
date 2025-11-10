@@ -24,17 +24,21 @@
 
 [3] Witness types follow the modal type syntax (§7.6) with the property in angle brackets:
 
-```ebnf
-witness_type
-    ::= "witness" "<" witness_property ">" witness_allocation_state?
+**Witness types** match the pattern:
+```
+"witness" "<" <witness_property> ">" [ <witness_allocation_state> ]
+```
 
-witness_property
-    ::= behavior_identifier
-     | contract_identifier
-     | type_identifier "@" state_identifier
+where **witness properties** take one of the following forms:
+```
+<behavior_identifier>
+<contract_identifier>
+<type_identifier> "@" <state_identifier>
+```
 
-witness_allocation_state
-    ::= "@" ("Stack" | "Region" | "Heap")
+and **witness allocation states** match the pattern:
+```
+"@" ( "Stack" | "Region" | "Heap" )
 ```
 
 [4] Allocation state is optional; omitted state defaults to `@Stack`.

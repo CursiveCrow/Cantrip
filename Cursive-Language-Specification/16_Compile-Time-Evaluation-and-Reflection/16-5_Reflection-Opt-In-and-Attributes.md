@@ -22,15 +22,17 @@
 
 [3] The `[[reflect]]` attribute syntax:
 
-```ebnf
-reflect_attribute
-    ::= "[[" "reflect" "]]"
-
-reflected_type_declaration
-    ::= reflect_attribute+ type_declaration
+**Reflect attributes** match the pattern:
+```
+"[[" "reflect" "]]"
 ```
 
-[ Note: See Annex A §A.9 [grammar.attribute] for complete attribute grammar.
+**Reflected type declarations** match the pattern:
+```
+<reflect_attribute> [ <reflect_attribute> ... ] <type_declaration>
+```
+
+[ Note: See §1.4.3 [intro.attributes] for the general attribute grammar.
 — end note ]
 
 [4] The attribute appears immediately before the type declaration it modifies. Multiple attributes may precede a type; `[[reflect]]` may combine with other attributes (`[[repr(C)]]`, `[[repr(packed)]]`, etc.).

@@ -324,9 +324,9 @@ procedure demo()
 
 [47] Reference of value assignment syntax (specified in §5.7.5):
 
-```ebnf
-reference_assignment
-    ::= binding_head identifier type_annotation? "<-" expression
+**Reference of value assignments** match the pattern:
+```
+<binding_head> <identifier> [ <type_annotation> ] "<-" <expression>
 ```
 
 [48] This form creates a binding that does not call destructors.

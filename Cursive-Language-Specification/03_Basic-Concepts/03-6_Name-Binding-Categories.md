@@ -35,16 +35,16 @@
 
 **Table 3.6.1 — Name binding categories**
 
-| Category  | Introducing forms                         | Usage contexts                       | Specified in |
-| --------- | ----------------------------------------- | ------------------------------------ | ------------ |
-| Value     | `let`, `var`, module-scope bindings       | Expressions, assignments             | §5.2         |
-| Type      | `record`, `enum`, `modal`, `type` (alias) | Type annotations, generic arguments  | §5.5         |
-| Module    | Compilation units, `import` aliases       | Qualified names `module::item`       | Clause 4     |
-| Callable  | `procedure` declarations                  | Call expressions, first-class values | §5.4         |
-| Behavior  | `behavior` declarations                   | Generic bounds, `with` clauses       | §10.4        |
-| Contract  | `contract` declarations                   | Contract clauses on types            | §10.4        |
-| Label     | `'label:` in procedure bodies             | `break 'label`, `continue 'label`    | §9.3         |
-| Grant     | `grant` declarations                      | Contractual sequent grant sets       | §5.9         |
+| Category | Introducing forms                         | Usage contexts                       | Specified in |
+| -------- | ----------------------------------------- | ------------------------------------ | ------------ |
+| Value    | `let`, `var`, module-scope bindings       | Expressions, assignments             | §5.2         |
+| Type     | `record`, `enum`, `modal`, `type` (alias) | Type annotations, generic arguments  | §5.5         |
+| Module   | Compilation units, `import` aliases       | Qualified names `module::item`       | Clause 4     |
+| Callable | `procedure` declarations                  | Call expressions, first-class values | §5.4         |
+| Behavior | `behavior` declarations                   | Generic bounds, `with` clauses       | §10.4        |
+| Contract | `contract` declarations                   | Contract clauses on types            | §10.4        |
+| Label    | `'label:` in procedure bodies             | `break 'label`, `continue 'label`    | §9.3         |
+| Grant    | `grant` declarations                      | Contractual sequent grant sets       | §5.9         |
 
 #### §3.6.3 Value Bindings [basic.binding.value]
 
@@ -181,8 +181,8 @@ record User: Serializable with Display {   // Uses both binding categories
 ```cursive
 procedure search(haystack: [i32], needle: i32): bool
 {
-    'outer: for row in haystack {
-        'inner: for item in row {
+    'outer: loop row: [i32] in haystack {
+        'inner: loop item: i32 in row {
             if item == needle {
                 break 'outer            // Targets outer loop
             }

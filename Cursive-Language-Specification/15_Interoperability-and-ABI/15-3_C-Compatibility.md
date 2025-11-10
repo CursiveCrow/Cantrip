@@ -22,12 +22,14 @@
 
 ##### §15.3.2.1 The repr(C) Attribute
 
-[3] The `[[repr(C)]]` attribute instructs the compiler to lay out a type using C-compatible rules:
+[3] The `[[repr(C)]]` attribute instructs the compiler to lay out a type using C-compatible rules, matching the pattern:
 
-```ebnf
-repr_c_attribute
-    ::= "[[" "repr" "(" "C" ")" "]]"
 ```
+"[[" "repr" "(" "C" ")" "]]"
+```
+
+[ Note: See §1.4.3 [intro.attributes] for the general attribute grammar.
+— end note ]
 
 [4] repr(C) may be applied to records and enums. It guarantees the type's memory layout matches what a C compiler would produce on the target platform.
 

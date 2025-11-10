@@ -24,17 +24,24 @@
 
 #### §4.1.2 Syntax
 
-[1] Module paths obey:
+[1] A module path matches the pattern:
 
-```ebnf
-module_path        ::= module_component ( "::" module_component )*
-module_component   ::= identifier
+```
+<identifier> [ "::" <identifier> [ "::" <identifier> ... ] ]
 ```
 
-[ Note: See Annex A §A.7 [grammar.declaration] for complete module grammar.
+where the bracketed portions are optional and may repeat zero or more times.
+
+[2] Each of the following examples is a valid module path under this syntax:
+
+- `main`
+- `utilities::math`
+- `core::io::file`
+
+[ Note: See Annex A §A.6 [grammar.declaration] for the normative grammar production.
 — end note ]
 
-[2] Each compilation unit contributes one `module_path`; mapping rules appear in §4.1.3.
+[3] Each compilation unit contributes one `module_path`; mapping rules appear in §4.1.3.
 
 #### §4.1.3 Constraints
 

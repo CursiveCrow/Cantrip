@@ -38,10 +38,13 @@
 
 **Grammar:**
 
-```ebnf
-pattern ::= ...
-         | identifier ":" type_expression    // Type annotation pattern for unions
+**Type annotation patterns** (for union types) match the pattern:
 ```
+<identifier> ":" <type>
+```
+
+[ Note: See Annex A §A.3 [grammar.pattern] for the complete pattern grammar.
+— end note ]
 
 **Typing rule:**
 

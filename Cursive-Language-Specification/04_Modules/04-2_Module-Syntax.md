@@ -20,47 +20,49 @@
 
 #### §4.2.2 Syntax
 
-[1] Module-level items extend §2.5’s grammar as follows (authoritative production appears in Annex A §A.7):
+[1] Module-level items extend §2.5's grammar as follows (authoritative production appears in Annex A §A.6):
 
-```ebnf
-module_item
-    ::= import_declaration
-     | use_declaration
-     | declaration_item          // see Clause 5
-
-import_declaration
-    ::= "import" module_path ("as" identifier)? terminator
-
-use_declaration
-    ::= visibility_modifier? "use" use_clause terminator
-
-visibility_modifier
-    ::= "public"
-
-use_clause
-    ::= qualified_path
-     | qualified_path "as" identifier
-     | qualified_path "::" "{" use_list "}"
-     | qualified_path "::" "*"
-
-qualified_path
-    ::= module_path
-     | module_path "::" identifier
-
-use_list
-    ::= use_specifier ("," use_specifier)*
-
-use_specifier
-    ::= identifier
-     | identifier "as" identifier
-
-terminator
-    ::= ";" | newline
+**Import declarations** match the pattern:
 ```
+"import" <module_path> [ "as" <identifier> ]
+```
+
+**Use declarations** match the pattern:
+```
+[ "public" ] "use" <use_clause>
+```
+
+**Use clauses** take one of the following forms:
+```
+<qualified_path>
+<qualified_path> "as" <identifier>
+<qualified_path> "::" "{" <use_list> "}"
+<qualified_path> "::" "*"
+```
+
+**Qualified paths** match the pattern:
+```
+<module_path>
+<module_path> "::" <identifier>
+```
+
+**Use lists** match the pattern:
+```
+<use_specifier> [ "," <use_specifier> [ "," <use_specifier> ... ] ]
+```
+
+**Use specifiers** take one of the following forms:
+```
+<identifier>
+<identifier> "as" <identifier>
+```
+
+[ Note: The normative grammar production `use_decl` in Annex A §A.6 unifies import and use declarations. Statement termination follows §2.4 [lex.units] rules.
+— end note ]
 
 [2] `visibility_modifier` is limited to `public` for re-export intent; other visibility keywords belong to Clause 5.
 
-[3] `terminator` interacts with implicit termination rules in §2.4; a newline suffices unless a continuation predicate applies.
+[3] Statement termination interacts with implicit termination rules in §2.4; a newline suffices unless a continuation predicate applies.
 
 #### §4.2.3 Constraints
 

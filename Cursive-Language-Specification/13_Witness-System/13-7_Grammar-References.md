@@ -20,14 +20,21 @@
 
 [2] Witness type syntax (simplified notation):
 
-```ebnf
-WitnessType ::= "witness" "<" WitnessProperty ">" AllocationState?
+**Witness types** match the pattern:
+```
+"witness" "<" <WitnessProperty> ">" [ <AllocationState> ]
+```
 
-WitnessProperty ::= BehaviorIdentifier
-                 | ContractIdentifier
-                 | Type "@" StateIdentifier
+where **witness properties** take one of the following forms:
+```
+<BehaviorIdentifier>
+<ContractIdentifier>
+<Type> "@" <StateIdentifier>
+```
 
-AllocationState ::= "@" ("Stack" | "Region" | "Heap")
+and **allocation states** match the pattern:
+```
+"@" ( "Stack" | "Region" | "Heap" )
 ```
 
 [3] The witness property (in angle brackets) specifies what is being witnessed. The allocation state (optional, defaults to @Stack) specifies where the witness is allocated.
@@ -39,8 +46,9 @@ AllocationState ::= "@" ("Stack" | "Region" | "Heap")
 
 [4] Witness construction via type coercion:
 
-```ebnf
-WitnessConstruction ::= Expression
+**Witness construction expressions** are simply:
+```
+<Expression>
 
 // Where expression has type T
 // And target type is witness<B>@State
@@ -53,12 +61,12 @@ WitnessConstruction ::= Expression
 
 [6] Witness method invocation:
 
-```ebnf
-WitnessMethodCall ::= WitnessExpression "::" Identifier "(" ArgumentList? ")"
-
-WitnessExpression ::= Expression
-// Where expression has type witness<B>
+**Witness method calls** match the pattern:
 ```
+<WitnessExpression> "::" <Identifier> "(" [ <ArgumentList> ] ")"
+```
+
+where **witness expressions** are any `<Expression>` with type `witness<B>`.
 
 [7] Method calls use the scope operator `::` consistently with all Cursive procedure calls.
 
@@ -69,11 +77,15 @@ WitnessExpression ::= Expression
 
 [8] Witness state transitions:
 
-```ebnf
-WitnessTransition ::= WitnessExpression "::" TransitionMethod "(" ")"
+**Witness transition calls** match the pattern:
+```
+<WitnessExpression> "::" <TransitionMethod> "(" ")"
+```
 
-TransitionMethod ::= "to_region"
-                  | "to_heap"
+where **transition methods** take one of the following forms:
+```
+"to_region"
+"to_heap"
 ```
 
 [9] Transitions are built-in methods on witness types, following modal transition syntax (§7.6).

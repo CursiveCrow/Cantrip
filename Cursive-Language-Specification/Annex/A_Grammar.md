@@ -70,7 +70,8 @@ attr_args
     ;
 
 attr_arg
-    : ident '=' literal
+    : ident '(' attr_args? ')'
+    | ident '=' literal
     | literal
     | ident
     ;
@@ -499,6 +500,7 @@ postfix_suffix
     | '[' expr ']'
     | '[' range_suffix ']'
     | '(' argument_list? ')'
+    | 'as' type
     | '?'
     ;
 
@@ -800,8 +802,7 @@ top_level
     ;
 
 use_decl
-    : 'use' qualified_name
-    | 'use' qualified_name '::' '{' ident_list '}'
+    : visibility_modifier? 'use' use_clause
     | 'import' module_path ('as' ident)?
     ;
 
@@ -811,6 +812,7 @@ decl
     | procedure_decl
     | contract_decl
     | behavior_decl
+    | grant_decl
     ;
 
 type_decl
@@ -1034,6 +1036,10 @@ behavior_decl
       '{' behavior_item* '}'
     ;
 
+grant_decl
+    : visibility? 'grant' ident
+    ;
+
 behavior_extension
     : 'with' behavior_ref (',' behavior_ref)*
     ;
@@ -1044,11 +1050,37 @@ behavior_item
     ;
 
 qualified_name
-    : ident ('::' ident)*
+    : module_path '::' ident          // module_path::identifier
+    | ident '::' ident                // alias::identifier (alias is an ident introduced by import)
     ;
 
 module_path
     : ident ('::' ident)*
+    ;
+
+visibility_modifier
+    : 'public'                    // Limited to 'public' for re-export intent in use declarations
+    ;
+
+qualified_path
+    : module_path
+    | module_path '::' ident
+    ;
+
+use_clause
+    : qualified_path
+    | qualified_path 'as' ident
+    | qualified_path '::' '{' use_list '}'
+    | qualified_path '::' '*'
+    ;
+
+use_list
+    : use_specifier (',' use_specifier)*
+    ;
+
+use_specifier
+    : ident
+    | ident 'as' ident
     ;
 
 ident_list
@@ -1316,11 +1348,11 @@ procedure process<T, G>(data: T): Result<T>
 **Comparison**: `equality_expr`, `relational_expr`  
 **Arithmetic**: `additive_expr`, `multiplicative_expr`, `power_expr`, `shift_expr`  
 **Unary**: `unary_expr`, `unary_op`, `caret_prefix`  
-**Postfix**: `postfix_expr`, `postfix_suffix`  
+**Postfix**: `postfix_expr`, `postfix_suffix` (includes `'as' type` cast operator)  
 **Primary**: `primary_expr`, `literal`, `identifier`, `tuple_expr`, `record_expr`, `enum_expr`, `array_expr`, `unit_expr`  
 **Control flow**: `if_expr`, `match_expr`, `loop_expr`, `block_expr`  
 **Advanced**: `closure_expr`, `region_expr`, `comptime_expr`  
-**Operators**: `assign_op`, `add_op`, `mul_op`, `shift_op`, `eq_op`, `rel_op`
+**Operators**: `assign_op`, `add_op`, `mul_op`, `shift_op`, `eq_op`, `rel_op`, `'as'` (type cast)
 
 ### A.10.5 Statement Productions
 
@@ -1332,13 +1364,15 @@ procedure process<T, G>(data: T): Result<T>
 ### A.10.6 Declaration Productions
 
 **Top level**: `top_level`, `use_decl`, `decl`  
+**Module syntax**: `visibility_modifier`, `qualified_path`, `use_clause`, `use_list`, `use_specifier`, `module_path`, `qualified_name`  
 **Types**: `type_decl`, `record_decl`, `tuple_struct_decl`, `enum_decl`, `union_decl`, `modal_decl`  
 **Procedures**: `procedure_decl`, `procedure_kind`, `callable_body`, `param_list`, `param`, `param_modifier`, `self_param`  
 **Contracts**: `contract_decl`, `contract_extends_clause`, `contract_body`, `contract_item`, `procedure_signature`  
 **Behaviors**: `behavior_decl`, `behavior_extension`, `behavior_item`  
+**Grants**: `grant_decl`  
 **Components**: `record_body`, `record_item`, `record_member`, `record_field`, `partition_directive`, `enum_body`, `enum_variant`, `modal_body`, `modal_state`  
 **Generics**: `generic_params`, `generic_param`, `type_param`, `const_param`, `grant_param`, `behavior_bounds`, `where_clause`, `where_predicate`  
-**Visibility**: `visibility`  
+**Visibility**: `visibility`, `visibility_modifier`  
 **Associated types**: `associated_type_decl`, `type_projection`  
 **Qualifiers**: `permission`, `binding_op`
 
@@ -1373,6 +1407,7 @@ procedure process<T, G>(data: T): Result<T>
 | expr           | A.4     | Expression  | All executable contexts   |
 | statement      | A.5     | Statement   | Procedure bodies          |
 | decl           | A.6     | Declaration | Module scope              |
+| grant_decl     | A.6     | Declaration | Grant declarations        |
 | sequent_clause | A.7     | Contract    | Procedure signatures      |
 | assertion      | A.8     | Assertion   | Contracts, invariants     |
 | grant_set      | A.9     | Grant       | Sequent grants clause     |

@@ -27,20 +27,18 @@
 
 [4] Inline implementations use the behavior clause in type declarations (§5.5.2):
 
-```ebnf
-record_declaration
-    ::= visibility_modifier? "record" identifier generic_params?
-        contract_clause? behavior_clause? record_body
-
-behavior_clause
-    ::= "with" behavior_list
-
-behavior_list
-    ::= behavior_reference ("," behavior_reference)*
-
-behavior_reference
-    ::= type_expression    // Must resolve to behavior
+**Record declarations with behaviors** match the pattern:
 ```
+[ <visibility_modifier> ] "record" <identifier> [ <generic_params> ]
+    [ <contract_clause> ] [ <behavior_clause> ] <record_body>
+```
+
+**Behavior clauses** match the pattern:
+```
+"with" <behavior_reference> [ "," <behavior_reference> ... ]
+```
+
+where each **behavior reference** is a `<type_expression>` that must resolve to a behavior.
 
 [5] Example:
 
@@ -68,27 +66,32 @@ record Point with Display, Clone {
 
 [7] Standalone implementations use the following syntax:
 
-```ebnf
-behavior_implementation
-    ::= visibility_modifier? "behavior" behavior_name generic_params?
-        "for" for_type where_clause? implementation_body
+**Behavior implementations** match the pattern:
+```
+[ <visibility_modifier> ] "behavior" <behavior_name> [ <generic_params> ]
+    "for" <for_type> [ <where_clause> ] <implementation_body>
+```
 
-for_type
-    ::= type_expression
-     | generic_for_clause
+**For-type clauses** take one of the following forms:
+```
+<type_expression>
+"for" "<" <generic_param_list> ">" <type_expression>
+```
 
-generic_for_clause
-    ::= "for" "<" generic_param_list ">" type_expression
+**Implementation bodies** match the pattern:
+```
+"{" [ <implementation_item> ... ] "}"
+```
 
-implementation_body
-    ::= "{" implementation_item* "}"
+where each **implementation item** takes one of the following forms:
+```
+<associated_type_spec>
+<procedure_declaration>
+```
 
-implementation_item
-    ::= associated_type_spec
-     | procedure_declaration
-
-associated_type_spec
-    ::= "type" identifier "=" type_expression
+**Associated type specifications** match the pattern:
+```
+"type" <identifier> "=" <type_expression>
 ```
 
 [ Note: See Annex A §A.7 [grammar.declaration] for complete behavior implementation grammar.

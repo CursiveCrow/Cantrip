@@ -116,7 +116,7 @@ $$
 
 ```text
 module analytics::core       // no eager initialisers
-module analytics::config     // eager: const CONFIG = load_config()
+module analytics::config     // eager: let CONFIG = load_config()
 module analytics::reporting  // eager: reads CONFIG during initialisation
 ```
 

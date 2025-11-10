@@ -24,17 +24,19 @@
 
 [4] Quote expression syntax:
 
-```ebnf
-quote_expr
-    ::= "quote" block_expr
-     | "quote" expression
-
-interpolation
-    ::= "$" "(" expression ")"
-     | "$" identifier
+**Quote expressions** take one of the following forms:
+```
+"quote" <block_expr>
+"quote" <expression>
 ```
 
-[ Note: See Annex A §A.4 [grammar.expression] for complete quote expression grammar.
+**Interpolations** take one of the following forms:
+```
+"$" "(" <expression> ")"
+"$" <identifier>
+```
+
+[ Note: See Annex A §A.4 [grammar.expression] for the normative `quote_expr` production.
 — end note ]
 
 [5] **Quote forms:**

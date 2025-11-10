@@ -26,9 +26,9 @@
 
 [4] Unsafe block syntax:
 
-```ebnf
-unsafe_block
-    ::= "unsafe" block_stmt
+**Unsafe blocks** match the pattern:
+```
+"unsafe" <block_stmt>
 ```
 
 [ Note: See Annex A §A.5 [grammar.statement] for complete unsafe syntax.

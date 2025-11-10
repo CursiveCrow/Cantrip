@@ -45,19 +45,20 @@
 
 #### §7.1.3 Permission-Qualified Types [type.overview.permissions]
 
-[6.1] **Syntax.** Permission qualifiers attach to types at the binding site, following the grammar:
+[6.1] **Syntax.** Permission qualifiers attach to types at the binding site, following the pattern:
 
-```ebnf
-variable_binding
-    ::= binding_head identifier ":" permission? type_expression "=" expression
-
-permission
-    ::= "const"
-     | "shared"
-     | "unique"
+```
+<binding_head> <identifier> ":" [ <permission> ] <type> "=" <expression>
 ```
 
-[ Note: See Annex A §A.7 [grammar.declaration] for complete binding grammar.
+where **permissions** take one of the following forms:
+```
+"const"
+"shared"
+"unique"
+```
+
+[ Note: See Annex A §A.5 [grammar.statement] for the normative `var_decl_stmt` production and §A.2 [grammar.type] for `permission_type`.
 — end note ]
 
 [6.2] **Formation and Composition.** Permission qualifiers bind more tightly than modal state selectors. The syntax `unique Self@Open` is parsed as `(unique Self)@Open`, where `unique` modifies the base type `Self` and `@Open` selects the modal state variant of the permission-qualified type.

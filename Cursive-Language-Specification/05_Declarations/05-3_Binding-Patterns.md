@@ -22,31 +22,32 @@
 
 #### §5.3.2 Syntax
 
-```ebnf
-binding_pattern
-    ::= identifier_pattern
-     | record_pattern
-     | tuple_pattern
-
-identifier_pattern
-    ::= identifier
-
-record_pattern
-    ::= "{" record_field_list "}"
-
-record_field_list
-    ::= record_field ("," record_field)*
-
-record_field
-    ::= identifier ("as" identifier)?
-     | identifier ":" binding_pattern
-
-tuple_pattern
-    ::= "(" pattern_list ")"
-
-pattern_list
-    ::= binding_pattern ("," binding_pattern)*
+**Binding patterns** take one of the following forms:
 ```
+<identifier>
+"{" <record_field_list> "}"
+"(" <pattern_list> ")"
+```
+
+**Record field lists** match the pattern:
+```
+<record_field> [ "," <record_field> [ "," <record_field> ... ] ]
+```
+
+**Record fields** take one of the following forms:
+```
+<identifier>
+<identifier> "as" <identifier>
+<identifier> ":" <binding_pattern>
+```
+
+**Pattern lists** match the pattern:
+```
+<binding_pattern> [ "," <binding_pattern> [ "," <binding_pattern> ... ] ]
+```
+
+[ Note: See Annex A §A.3 [grammar.pattern] for the normative pattern grammar.
+— end note ]
 
 [1] `record_pattern` binds named fields; an optional `as` clause renames the bound field while preserving the source field name. `tuple_pattern` binds positional elements in order.
 

@@ -24,16 +24,18 @@
 
 [4] Comptime block syntax:
 
-```ebnf
-comptime_block
-    ::= "comptime" block_expr
-
-block_expr
-    ::= "{" statement* "}"
-     | "{" statement* "result" expression "}"
+**Comptime blocks** match the pattern:
+```
+"comptime" <block_expr>
 ```
 
-[ Note: See Annex A §A.4 [grammar.expression] for complete comptime block grammar.
+**Block expressions** take one of the following forms:
+```
+"{" <statement>* "}"
+"{" <statement>* "result" <expression> "}"
+```
+
+[ Note: See Annex A §A.4 [grammar.expression] for the normative `comptime_block` production.
 — end note ]
 
 [5] The `comptime` keyword immediately precedes a block expression. The block introduces a lexical scope (§6.2) that exists only during compilation.

@@ -111,12 +111,12 @@
 
 ##### §8.4.7.2 Syntax
 
-```ebnf
-closure_expr
-    ::= '|' parameter_list? '|' sequent_clause? block_expr
+**Closure expressions** match the pattern:
+```
+"|" [ <parameter_list> ] "|" [ <sequent_clause> ] <block_expr>
 ```
 
-[ Note: See Annex A §A.4 [grammar.expression] for complete closure grammar.
+[ Note: See Annex A §A.4 [grammar.expression] for the normative `closure_expr` production.
 — end note ]
 
 [27] Closures use vertical bars `|...|` to delimit parameters (which may be empty). The sequent clause is optional and defaults to `[[ |- true => true ]]` (pure closure). The block expression forms the closure body.

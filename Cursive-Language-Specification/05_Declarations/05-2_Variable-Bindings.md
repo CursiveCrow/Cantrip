@@ -22,35 +22,37 @@
 
 #### §5.2.2 Syntax
 
-```ebnf
-variable_binding
-    ::= binding_head pattern type_annotation? binding_operator initializer
-
-binding_head
-    ::= "let"
-     | "var"
-     | "shadow" "let"
-     | "shadow" "var"
-
-pattern
-    ::= identifier
-     | "{" identifier_list "}"
-
-identifier_list
-    ::= identifier ("," identifier)*
-
-type_annotation
-    ::= ":" type_expression
-
-binding_operator
-    ::= "="
-     | "<-"
-
-initializer
-    ::= expression
+**Variable bindings** match the pattern:
+```
+<binding_head> <pattern> [ ":" <type_expression> ] <binding_operator> <expression>
 ```
 
-[ Note: See Annex A §A.7 [grammar.declaration] for complete declaration grammar.
+**Binding heads** take one of the following forms:
+```
+"let"
+"var"
+"shadow" "let"
+"shadow" "var"
+```
+
+**Patterns** take one of the following forms:
+```
+<identifier>
+"{" <identifier_list> "}"
+```
+
+**Identifier lists** match the pattern:
+```
+<identifier> [ "," <identifier> [ "," <identifier> ... ] ]
+```
+
+**Binding operators** are:
+```
+"="     (responsible for cleanup)
+"<-"    (non-responsible)
+```
+
+[ Note: See Annex A §A.5 [grammar.statement] for the normative `var_decl_stmt` production.
 — end note ]
 
 [1] Every binding introduces at least one identifier. Patterns specify that identifier set explicitly; anonymous bindings are ill-formed.

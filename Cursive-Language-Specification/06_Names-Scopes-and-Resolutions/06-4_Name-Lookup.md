@@ -20,12 +20,20 @@
 
 #### §6.4.2 Syntax [name.lookup.syntax]
 
-[3] Lookup operates on identifiers and qualified names defined in Annex A §A.7:
+[3] Lookup operates on identifiers and qualified names:
 
-```ebnf
-unqualified_name ::= identifier
-qualified_name   ::= identifier ("::" identifier)+
+**Unqualified names** are:
 ```
+<identifier>
+```
+
+**Qualified names** match the pattern:
+```
+<identifier> "::" <identifier> [ "::" <identifier> ... ]
+```
+
+[ Note: See Annex A §A.6 [grammar.declaration] for the normative `qualified_name` production.
+— end note ]
 
 [4] Longer chains (e.g., `pkg::module::Type::member`) are therefore part of the grammar itself; prefix resolution applies repeatedly to each `::` component (§6.4.4).
 

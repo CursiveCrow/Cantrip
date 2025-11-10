@@ -27,35 +27,49 @@
 
 [4] Bound syntax follows:
 
-```ebnf
-type_param_with_bound
-    ::= identifier ":" behavior_bounds
-
-behavior_bounds
-    ::= behavior_bound ("+" behavior_bound)*
-
-behavior_bound
-    ::= type_expression    // Must resolve to behavior or contract name
-
-where_clause
-    ::= "where" where_predicate_list
-
-where_predicate_list
-    ::= where_predicate ("," where_predicate)*
-
-where_predicate
-    ::= type_param ":" behavior_bounds
-     | associated_type_equality
-     | grant_bound
-
-associated_type_equality
-    ::= type_param "::" identifier "=" type_expression
-
-grant_bound
-    ::= grant_param "⊆" "{" grant_set "}"
+**Type parameters with bounds** match the pattern:
+```
+<identifier> ":" <behavior_bounds>
 ```
 
-[ Note: See Annex A §A.7 [grammar.declaration] for complete bounds grammar.
+**Behavior bounds** match the pattern:
+```
+<behavior_bound> [ "+" <behavior_bound> ... ]
+```
+
+where each **behavior bound** is:
+```
+<type_expression>    // Must resolve to behavior or contract name
+```
+
+**Where clauses** match the pattern:
+```
+"where" <where_predicate_list>
+```
+
+where **where predicate lists** match:
+```
+<where_predicate> [ "," <where_predicate> ... ]
+```
+
+**Where predicates** take one of the following forms:
+```
+<type_param> ":" <behavior_bounds>
+<associated_type_equality>
+<grant_bound>
+```
+
+**Associated type equalities** match the pattern:
+```
+<type_param> "::" <identifier> "=" <type>
+```
+
+**Grant bounds** match the pattern:
+```
+<grant_param> "⊆" "{" <grant_set> "}"
+```
+
+[ Note: See Annex A §A.6 [grammar.declaration] for the normative bounds grammar.
 — end note ]
 
 [5] The `+` operator combines multiple behavior or contract bounds. Bounds may be specified inline or in `where` clauses; both forms are semantically equivalent.

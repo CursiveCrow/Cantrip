@@ -12,7 +12,7 @@
 
 ### §1.3 Terms and Definitions [intro.terms]
 
-[1] The vocabulary below is normative. When a term is defined in this clause it shall carry the same meaning throughout Clauses 2–16 and the annexes. Paragraph numbering resets within each subclause per the organisational template described in §1.6 [intro.document].
+[1] The vocabulary below is normative. When a term is defined in this clause it shall carry the same meaning throughout Clauses 2–16 and the annexes. Paragraph numbering resets within each subclause per the organizational template described in §1.6 [intro.document].
 
 #### §1.3.1 General Language Terms [intro.terms.general]
 

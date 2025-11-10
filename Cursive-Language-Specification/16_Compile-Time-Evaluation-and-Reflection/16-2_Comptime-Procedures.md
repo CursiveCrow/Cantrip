@@ -24,21 +24,20 @@
 
 [4] Comptime procedure syntax extends procedure declarations (§5.4.2):
 
-```ebnf
-comptime_procedure_declaration
-    ::= attribute* visibility_modifier? "comptime" "procedure" identifier
-        generic_params? "(" parameter_list? ")" return_clause? sequent_clause?
-        callable_body
-
-return_clause
-    ::= ":" type_expression
-
-callable_body
-    ::= block_stmt
-     | "=" expression
+**Comptime procedure declarations** match the pattern:
+```
+[ <attributes> ] [ <visibility> ] "comptime" "procedure" <identifier>
+    [ <generic_params> ] "(" [ <parameter_list> ] ")" [ ":" <type> ] [ <sequent_clause> ]
+    <callable_body>
 ```
 
-[ Note: See Annex A §A.6 [grammar.declaration] for complete comptime procedure grammar.
+**Callable bodies** take one of the following forms:
+```
+<block_stmt>
+"=" <expression>
+```
+
+[ Note: See Annex A §A.6 [grammar.declaration] for the normative `procedure_decl` production with `comptime` modifier.
 — end note ]
 
 [5] The `comptime` keyword appears immediately before `procedure`. All other syntax elements (parameters, return types, sequents, bodies) follow standard procedure rules.

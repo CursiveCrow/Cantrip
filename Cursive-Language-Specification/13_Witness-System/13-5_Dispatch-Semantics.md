@@ -22,9 +22,9 @@
 
 [3] Witness method invocation uses the scope operator `::` (same as all procedure calls):
 
-```ebnf
-witness_method_call
-    ::= witness_expression "::" method_identifier "(" argument_list? ")"
+**Witness method calls** match the pattern:
+```
+<witness_expression> "::" <method_identifier> "(" [ <argument_list> ] ")"
 ```
 
 [4] The syntax is identical to static procedure calls. The witness type determines that dispatch is dynamic.

@@ -178,10 +178,7 @@ let moved = buffer        // Value moved; `buffer` becomes inaccessible
 **Example 3.1.4.2 (Initialization and assignment):**
 
 ```cursive
-var counter: i32          // Object created but not initialized
-// let x = counter        // error[E05-703]: use of uninitialized binding
-
-counter = 0               // Initialization (first write)
+var counter: i32 = 0      // Initialization (first write)
 counter = counter + 1     // Assignment (subsequent write) - allowed for `var`
 
 let limit = 100           // Initialization
@@ -227,23 +224,23 @@ procedure demo()
 
 #### §3.1.7 Holes and Inference Placeholders [basic.object.holes]
 
-[31] A _hole_ (denoted `_` in many contexts) is a placeholder indicating that the compiler should infer a type, permission, or other annotation. Holes are not objects or values; they are compile-time markers that guide type inference (§7.8) and are replaced with concrete types during semantic analysis.
+[31] A _hole_ (denoted `_?` in many contexts) is a placeholder indicating that the compiler should infer a type, permission, or other annotation. Holes are not objects or values; they are compile-time markers that guide type inference (§7.8) and are replaced with concrete types during semantic analysis.
 
 [32] Holes may appear in:
 
-- Type annotations: `let x: _ = expression` (infer type from expression)
-- Generic arguments: `make_vec::<_>()` (infer type parameter from context)
-- Permission annotations: `let ptr: _ Ptr<T>` (infer permission from usage)
+- Type annotations: `let x: _? = expression` (infer type from expression)
+- Generic arguments: `make_vec::<_?>()` (infer type parameter from context)
+- Permission annotations: `let ptr: _? Ptr<T>` (infer permission from usage)
 
 [33] If inference cannot determine a unique solution, the compiler emits a diagnostic requesting an explicit annotation. Holes that survive inference are ill-formed (E03-101).
 
 **Example 3.1.7.1 (Hole inference):**
 
 ```cursive
-let numbers: _ = [1, 2, 3, 4]      // Inferred as [i32; 4]
-let first: _ = numbers[0]           // Inferred as i32 from array element type
+let numbers: _? = [1, 2, 3, 4]      // Inferred as [i32; 4]
+let first: _? = numbers[0]           // Inferred as i32 from array element type
 
-// let ambiguous: _ = if condition { 1 } else { 2.0 }
+// let ambiguous: _? = if condition { 1 } else { 2.0 }
 // error[E03-102]: cannot infer type; branches have incompatible types
 ```
 

@@ -28,47 +28,67 @@
 
 [4] Generic parameter syntax follows:
 
-```ebnf
-generic_params
-    ::= "<" generic_param_list ">"
-
-generic_param_list
-    ::= generic_param ("," generic_param)*
-
-generic_param
-    ::= type_param
-     | const_param
-     | grant_param
-
-type_param
-    ::= identifier (":" behavior_bounds)?
-
-predicate_bounds
-    ::= behavior_bound ("+" behavior_bound)*
-
-predicate_bound
-    ::= type_expression    // Resolves to behavior or contract
-
-const_param
-    ::= "const" identifier ":" const_type
-
-const_type
-    ::= "usize" | "u8" | "u16" | "u32" | "u64" | "u128"
-     | "isize" | "i8" | "i16" | "i32" | "i64" | "i128"
-     | "bool"
-
-grant_param
-    ::= identifier                          // Unbounded grant variable
-     | identifier "⊆" "{" grant_set "}"   // Bounded grant variable
-
-grant_set
-    ::= grant_identifier ("," grant_identifier)*
-
-grant_identifier
-    ::= qualified_name    // Module-qualified grant name
+**Generic parameters** match the pattern:
+```
+"<" <generic_param_list> ">"
 ```
 
-[ Note: See Annex A §A.7 [grammar.declaration] for complete generic parameter grammar.
+where **generic parameter lists** match:
+```
+<generic_param> [ "," <generic_param> ... ]
+```
+
+**Generic parameters** take one of the following forms:
+```
+<type_param>
+<const_param>
+<grant_param>
+```
+
+**Type parameters** match the pattern:
+```
+<identifier> [ ":" <behavior_bounds> ]
+```
+
+**Behavior bounds** match the pattern:
+```
+<behavior_bound> [ "+" <behavior_bound> ... ]
+```
+
+where each **behavior bound** is:
+```
+<type_expression>    // Resolves to behavior or contract
+```
+
+**Const parameters** match the pattern:
+```
+"const" <identifier> ":" <const_type>
+```
+
+where **const types** are:
+```
+"usize" | "u8" | "u16" | "u32" | "u64" | "u128"
+"isize" | "i8" | "i16" | "i32" | "i64" | "i128"
+"bool"
+```
+
+**Grant parameters** take one of the following forms:
+```
+<identifier>                                  // Unbounded grant variable
+<identifier> "⊆" "{" <grant_set> "}"         // Bounded grant variable
+```
+
+where **grant sets** match:
+```
+<grant_identifier> [ "," <grant_identifier> ... ]
+```
+
+and each **grant identifier** is:
+```
+<qualified_name>    // Module-qualified grant name
+```
+
+[ Note: See Annex A §A.6 [grammar.declaration] for the normative generic parameter grammar.
 — end note ]
 
 [5] Type parameters may have bounds specifying behaviors or contracts that constrain valid instantiations. Bounds may be declared inline (`<T: Display>`) or in `where` clauses (§10.3).

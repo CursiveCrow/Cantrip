@@ -24,50 +24,61 @@
 
 #### §5.4.2 Syntax
 
-```ebnf
-procedure_declaration
-    ::= callable_attributes? visibility_modifier? procedure_head procedure_signature callable_body
-
-procedure_head
-    ::= procedure_kind identifier
-
-procedure_kind
-    ::= "procedure"
-     | "comptime" "procedure"
-     | "extern" string_literal? "procedure"
-
-procedure_signature
-    ::= generic_params? "(" parameter_list? ")" return_clause? sequent_clause?
-
-parameter_list
-    ::= parameter ("," parameter)*
-
-parameter
-    ::= receiver_shorthand
-     | parameter_modifier? parameter_name ":" type_expression
-
-parameter_modifier
-    ::= "move"
-
-receiver_shorthand
-    ::= "~"            // const Self
-     | "~%"           // shared Self
-     | "~!"           // unique Self
-
-sequent_clause
-    ::= "[[" sequent_expr "]]"
-
-sequent_expr
-    ::= /* see Annex A §A.7 for complete sequent grammar */
-
-return_clause
-    ::= ":" type_expression
-
-callable_body
-    ::= block                   // all procedures
-     | "=" expression ";"     // pure procedures only (implicit [[ ∅ |- true => true ]])
-     | ";"                     // extern declarations
+**Procedure declarations** match the pattern:
 ```
+[ <attributes> ] [ <visibility> ] <procedure_head> <procedure_signature> <callable_body>
+```
+
+**Procedure heads** match the pattern:
+```
+<procedure_kind> <identifier>
+```
+
+**Procedure kinds** take one of the following forms:
+```
+"procedure"
+"comptime" "procedure"
+"extern" [ <string_literal> ] "procedure"
+```
+
+**Procedure signatures** match the pattern:
+```
+[ <generic_params> ] "(" [ <parameter_list> ] ")" [ ":" <type> ] [ <sequent_clause> ]
+```
+
+**Parameter lists** match the pattern:
+```
+<parameter> [ "," <parameter> [ "," <parameter> ... ] ]
+```
+
+**Parameters** take one of the following forms:
+```
+<receiver_shorthand>
+[ "move" ] <identifier> ":" <type>
+```
+
+**Receiver shorthands** are:
+```
+"~"     // const Self
+"~%"    // shared Self
+"~!"    // unique Self
+```
+
+**Sequent clauses** match the pattern:
+```
+"[[" <sequent_expr> "]]"
+```
+where `<sequent_expr>` follows the sequent grammar specified in Annex A §A.7.
+
+**Callable bodies** take one of the following forms:
+```
+<block>                    // all procedures
+"=" <expression> ";"       // pure procedures only
+";"                        // extern declarations
+```
+
+[ Note: See Annex A §A.6 [grammar.declaration] for the normative `procedure_decl` production.
+— end note ]
 
 [1] `callable_attributes` encompasses optimisation, diagnostic, and linkage attributes defined in Clauses 9 and 16.
 

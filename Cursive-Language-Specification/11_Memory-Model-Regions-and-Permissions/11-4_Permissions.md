@@ -203,13 +203,15 @@ data.modify()                    // OK: unique restored
 
 [18] Partition directives appear in record bodies:
 
-```ebnf
-partition_directive
-    ::= "<<" identifier ">>"
-     | "<<" "_" ">>"    // Reset to default
+**Partition directives** take one of the following forms:
+```
+"<<" <identifier> ">>"
+"<<" "_" ">>"    // Reset to default
+```
 
-record_body
-    ::= "{" (partition_directive | record_field)* "}"
+**Record bodies** match the pattern:
+```
+"{" [ <partition_directive> | <record_field> ... ] "}"
 ```
 
 [ Note: See Annex A §A.6 [grammar.declaration] for complete record grammar with partition directives.

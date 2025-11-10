@@ -122,9 +122,9 @@ procedure Arena.free(~!): Self@Freed
 
 [13] Region block syntax:
 
-```ebnf
-region_block
-    ::= "region" identifier ("as" identifier)? block_stmt
+**Region blocks** match the pattern:
+```
+"region" <identifier> [ "as" <identifier> ] <block_stmt>
 ```
 
 [ Note: See Annex A §A.5 [grammar.statement] for complete region grammar.
@@ -173,10 +173,10 @@ region outer {
 
 [17] The `^` prefix operator is syntactic sugar for arena allocation:
 
-```ebnf
-region_alloc_expr
-    ::= "^" expression
-     | "^"+ expression    // Multiple carets for parent arenas
+**Region allocation expressions** take one of the following forms:
+```
+"^" <expression>
+"^" "^" ... <expression>    // Multiple carets for parent arenas
 ```
 
 [18] **Desugaring rule**: Within a region block, `^expr` desugars to `arena.alloc(expr)` where `arena` is the active arena binding (named or implicit):

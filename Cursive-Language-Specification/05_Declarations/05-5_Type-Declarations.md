@@ -20,100 +20,107 @@
 
 #### §5.5.2 Syntax
 
-```ebnf
-type_declaration
-    ::= record_declaration
-     | record_tuple_declaration
-     | enum_declaration
-     | modal_declaration
-     | type_alias
-
-record_declaration
-    ::= attribute_list? visibility_modifier? "record" identifier generic_params?
-        contract_clause? predicate_clause? record_body
-
-record_body
-    ::= "{" record_member_list? "}"
-
-record_member_list
-    ::= record_member ("," record_member)*
-
-record_member
-    ::= visibility_modifier? identifier ":" type_expression
-     | procedure_declaration
-
-record_tuple_declaration
-    ::= attribute_list? visibility_modifier? "record" identifier generic_params?
-        contract_clause? predicate_clause? "(" record_tuple_field_list? ")" record_body?
-
-record_tuple_field_list
-    ::= record_tuple_field ("," record_tuple_field)*
-
-record_tuple_field
-    ::= visibility_modifier? type_expression
-
-enum_declaration
-    ::= attribute_list? visibility_modifier? "enum" identifier generic_params?
-        contract_clause? predicate_clause? enum_body
-
-enum_body
-    ::= "{" enum_variant_list? "}"
-
-enum_variant_list
-    ::= enum_variant ("," enum_variant)*
-
-enum_variant
-    ::= visibility_modifier? identifier
-        ( "(" type_list? ")"
-        | "{" enum_field_list? "}"
-        )?
-
-enum_field_list
-    ::= enum_field ("," enum_field)*
-
-enum_field
-    ::= visibility_modifier? identifier ":" type_expression
-
-modal_declaration
-    ::= attribute_list? visibility_modifier? "modal" identifier generic_params?
-        contract_clause? predicate_clause? modal_body
-
-modal_body
-    ::= "{" modal_state_block+ "}"
-
-modal_state_block
-    ::= state_identifier state_payload? state_transition*
-
-state_identifier
-    ::= "@" identifier
-
-state_payload
-    ::= "{" state_field_list? "}"
-
-state_field_list
-    ::= state_field ("," state_field)*
-
-state_field
-    ::= visibility_modifier? identifier ":" type_expression
-
-state_transition
-    ::= state_identifier "::" identifier "(" parameter_list? ")" "->" state_identifier
-
-type_alias
-    ::= visibility_modifier? "type" identifier generic_params? "=" type_expression
-
-contract_clause
-    ::= ":" contract_reference ("," contract_reference)*
-
-behavior_clause
-    ::= "with" behavior_reference ("," behavior_reference)*
-
-contract_reference
-    ::= type_expression
-
-behavior_reference
-    ::= type_expression
+**Type declarations** take one of the following forms:
 ```
+<record_declaration>
+<record_tuple_declaration>
+<enum_declaration>
+<modal_declaration>
+<type_alias>
+```
+
+**Record declarations** match the pattern:
+```
+[ <attributes> ] [ <visibility> ] "record" <identifier> [ <generic_params> ]
+    [ <contract_clause> ] [ <predicate_clause> ] <record_body>
+```
+
+**Record bodies** match the pattern:
+```
+"{" [ <record_member_list> ] "}"
+```
+
+where `<record_member_list>` is:
+```
+<record_member> [ "," <record_member> [ "," <record_member> ... ] ]
+```
+
+and each `<record_member>` takes one of the following forms:
+```
+[ <visibility> ] <identifier> ":" <type>
+<procedure_declaration>
+```
+
+**Tuple record declarations** match the pattern:
+```
+[ <attributes> ] [ <visibility> ] "record" <identifier> [ <generic_params> ]
+    [ <contract_clause> ] [ <predicate_clause> ] "(" [ <field_list> ] ")" [ <record_body> ]
+```
+
+where `<field_list>` is:
+```
+[ <visibility> ] <type> [ "," [ <visibility> ] <type> ... ]
+```
+
+**Enum declarations** match the pattern:
+```
+[ <attributes> ] [ <visibility> ] "enum" <identifier> [ <generic_params> ]
+    [ <contract_clause> ] [ <predicate_clause> ] <enum_body>
+```
+
+**Enum bodies** match the pattern:
+```
+"{" [ <enum_variant_list> ] "}"
+```
+
+where `<enum_variant_list>` is:
+```
+<enum_variant> [ "," <enum_variant> [ "," <enum_variant> ... ] ]
+```
+
+and each `<enum_variant>` matches:
+```
+[ <visibility> ] <identifier> [ "(" [ <type_list> ] ")" | "{" [ <field_list> ] "}" ]
+```
+
+**Modal declarations** match the pattern:
+```
+[ <attributes> ] [ <visibility> ] "modal" <identifier> [ <generic_params> ]
+    [ <contract_clause> ] [ <predicate_clause> ] <modal_body>
+```
+
+**Modal bodies** match the pattern:
+```
+"{" <modal_state_block> [ <modal_state_block> ... ] "}"
+```
+
+where each `<modal_state_block>` matches:
+```
+"@" <identifier> [ "{" <field_list> "}" ] [ <state_transition> ... ]
+```
+
+and each `<state_transition>` matches:
+```
+"@" <identifier> "::" <identifier> "(" [ <parameter_list> ] ")" "->" "@" <identifier>
+```
+
+**Type aliases** match the pattern:
+```
+[ <visibility> ] "type" <identifier> [ <generic_params> ] "=" <type>
+```
+
+**Contract clauses** match the pattern:
+```
+":" <contract_reference> [ "," <contract_reference> ... ]
+```
+
+**Behavior clauses** match the pattern:
+```
+"with" <behavior_reference> [ "," <behavior_reference> ... ]
+```
+
+[ Note: See Annex A §A.6 [grammar.declaration] for the normative type declaration productions.
+— end note ]
 
 [1] `attribute_list` follows §1.4.3; representation attributes such as `[[repr(packed)]]` or `[[repr(transparent)]]` attach to records, tuple records, enums, or modal types.
 

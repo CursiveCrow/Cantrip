@@ -20,13 +20,16 @@
 
 #### §5.6.2 Syntax
 
-```ebnf
-visibility_modifier
-    ::= "public"
-     | "internal"
-     | "private"
-     | "protected"
+**Visibility modifiers** take one of the following forms:
 ```
+"public"
+"internal"
+"private"
+"protected"
+```
+
+[ Note: See Annex A §A.6 [grammar.declaration] for the normative `visibility` production.
+— end note ]
 
 #### §5.6.3 Defaults and Placement
 

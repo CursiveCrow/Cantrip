@@ -22,27 +22,39 @@
 
 [3] Scope boundaries coincide with the following syntactic constructs:
 
-```ebnf
-scope
-    ::= module_scope
-     | procedure_scope
-     | block_scope
-
-module_scope
-    ::= compilation_unit
-
-procedure_scope
-    ::= procedure_body | comptime_callable_body
-
-block_scope
-    ::= "{" statement* "}"
-     | region_block
-
-region_block
-    ::= "region" identifier? "{" statement* "}"
+**Scopes** take one of the following forms:
+```
+<module_scope>
+<procedure_scope>
+<block_scope>
 ```
 
-[4] The canonical forms for `procedure_body` and `statement` appear in Clause 9; `compilation_unit` is defined in §2.5.2; `region_block` is elaborated in §11.3 [memory.region].
+**Module scopes** are:
+```
+<compilation_unit>
+```
+
+**Procedure scopes** take one of the following forms:
+```
+<procedure_body>
+<comptime_callable_body>
+```
+
+**Block scopes** take one of the following forms:
+```
+"{" <statement>* "}"
+<region_block>
+```
+
+**Region blocks** match the pattern:
+```
+"region" [ <identifier> ] "{" <statement>* "}"
+```
+
+[ Note: See Clause 9 for `procedure_body` and `statement` grammar; §2.5.2 for `compilation_unit`; §11.3 [memory.region] for region semantics.
+— end note ]
+
+[4] The canonical forms for procedure bodies and statements appear in Clause 9; compilation units are defined in §2.5.2; region blocks are elaborated in §11.3 [memory.region].
 
 #### §6.2.3 Constraints [name.scope.constraints]
 

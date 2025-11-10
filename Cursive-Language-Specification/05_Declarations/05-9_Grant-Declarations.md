@@ -23,10 +23,13 @@
 
 #### §5.9.2 Syntax
 
-```ebnf
-grant_declaration
-    ::= visibility_modifier? "grant" identifier
+**Grant declarations** match the pattern:
 ```
+[ <visibility> ] "grant" <identifier>
+```
+
+[ Note: See Annex A §A.6 [grammar.declaration] for the normative `grant_decl` production.
+— end note ]
 
 [3] Grant declarations consist of an optional visibility modifier followed by the `grant` keyword and an identifier.
 

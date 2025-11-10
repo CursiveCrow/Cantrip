@@ -22,33 +22,40 @@
 
 #### §15.1.2 Syntax
 
-[4] FFI declarations use the `extern` attribute with calling convention specification:
+[4] FFI declarations use the `extern` attribute with calling convention specification, matching the pattern:
 
-```ebnf
-ffi_procedure_declaration
-    ::= "[[" "extern" "(" calling_convention ")" ffi_attributes? "]]"
-        visibility_modifier? "procedure" identifier
-        generic_params? "(" parameter_list? ")" (":" type_expression)?
-        sequent_clause?
-        callable_body
-
-calling_convention
-    ::= string_literal
-
-ffi_attributes
-    ::= "," ffi_attribute ("," ffi_attribute)*
-
-ffi_attribute
-    ::= "unwind" "(" unwind_behavior ")"
-     | "no_mangle"
-     | "weak"
-
-unwind_behavior
-    ::= "abort"
-     | "catch"
+```
+"[[" "extern" "(" <calling_convention> ")" [ "," <ffi_attributes> ] "]]"
+    [ <visibility> ] "procedure" <identifier>
+    [ <generic_params> ] "(" [ <parameter_list> ] ")" [ ":" <type> ]
+    [ <sequent_clause> ]
+    <callable_body>
 ```
 
-[ Note: See Annex A §A.6 [grammar.declaration] for complete FFI declaration grammar.
+where **calling conventions** are:
+```
+<string_literal>    // e.g., "C", "stdcall", "fastcall", "system"
+```
+
+**FFI attributes** match the pattern:
+```
+<ffi_attribute> [ "," <ffi_attribute> ... ]
+```
+
+**FFI attribute forms** are:
+```
+"unwind" "(" <unwind_behavior> ")"
+"no_mangle"
+"weak"
+```
+
+**Unwind behaviors** are:
+```
+"abort"
+"catch"
+```
+
+[ Note: See Annex A §A.6 [grammar.declaration] for the normative `procedure_decl` production with extern attributes.
 — end note ]
 
 [5] The `extern` attribute marks a procedure as using a foreign calling convention. The calling convention string specifies the ABI: `"C"` for C calling convention, `"stdcall"` for Windows stdcall, `"fastcall"` for fastcall, `"system"` for platform system ABI.

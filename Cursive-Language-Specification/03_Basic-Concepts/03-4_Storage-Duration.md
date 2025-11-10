@@ -100,14 +100,12 @@ procedure allocate_resources(): i32
 procedure conditional_allocation(should_allocate: bool): i32
     [[ alloc::heap |- true => true ]]
 {
-    var result: i32
+    var result: i32 = 0   // Initialize with default value
 
     if should_allocate {
         let data = allocate_buffer()   // Automatic storage, created in if-block
         result = process(data)
         // `data` destroyed here when if-block exits
-    } else {
-        result = 0
     }
 
     result result
@@ -151,7 +149,7 @@ procedure process_batch(items: [Item])
     region batch {
         let workspace = create_workspace_in(batch)
 
-        for item in items {
+        loop item: Item in items {
             let processed = transform(item, workspace)
             output(processed)
         }

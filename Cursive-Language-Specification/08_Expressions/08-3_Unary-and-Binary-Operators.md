@@ -60,9 +60,13 @@
 
 **Syntax**:
 
-```ebnf
-move_expr ::= "move" identifier
+**Move expressions** match the pattern:
 ```
+"move" <identifier>
+```
+
+[ Note: See Annex A §A.4 [grammar.expression] for the normative `move_expr` production.
+— end note ]
 
 **Constraints**:
 

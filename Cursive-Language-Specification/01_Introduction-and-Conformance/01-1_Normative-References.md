@@ -9,7 +9,6 @@
 **Forward references**: §1.5 [intro.conformance], §2.1 [lex.source], §2.3 [lex.tokens], §15.1 [interop.ffi], §15.6 [interop.abi], Annex G.1 [portability.platform]
 
 ---
-
 ### §1.2 Normative References [intro.refs]
 
 [1] The documents listed here contain provisions that, through citation, become requirements of the Cursive specification. Where a document is identified as normative, conforming implementations shall obey the referenced clauses exactly.

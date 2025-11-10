@@ -49,32 +49,33 @@ record Account: Ledgered with Serializable, Display {
 
 [6] Behavior declaration syntax:
 
-```ebnf
-behavior_declaration
-    ::= visibility_modifier? "behavior" identifier generic_params?
-        behavior_extension? behavior_body
+**Behavior declarations** match the pattern:
+```
+[ <visibility_modifier> ] "behavior" <identifier> [ <generic_params> ]
+    [ <behavior_extension> ] <behavior_body>
+```
 
-behavior_extension
-    ::= "with" behavior_reference_list
+**Behavior extension clauses** match the pattern:
+```
+"with" <behavior_reference> [ "," <behavior_reference> ... ]
+```
 
-behavior_reference_list
-    ::= behavior_reference ("," behavior_reference)*
+where each **behavior reference** is a `<type_expression>` that must resolve to a behavior name.
 
-behavior_reference
-    ::= type_expression    // Must resolve to behavior name
+**Behavior bodies** match the pattern:
+```
+"{" [ <behavior_item> ... ] "}"
+```
 
-behavior_body
-    ::= "{" behavior_item* "}"
+where each **behavior item** takes one of the following forms:
+```
+<associated_type_decl>
+<procedure_declaration>
+```
 
-behavior_item
-    ::= associated_type_decl
-     | procedure_declaration
-
-associated_type_decl
-    ::= "type" identifier ("=" type_expression)? bounds?
-
-bounds
-    ::= ":" behavior_bounds
+**Associated type declarations** match the pattern:
+```
+"type" <identifier> [ "=" <type_expression> ] [ ":" <behavior_bounds> ]
 ```
 
 [ Note: See Annex A §A.7 [grammar.declaration] for complete behavior grammar.
