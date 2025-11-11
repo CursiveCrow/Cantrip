@@ -62,4 +62,4 @@
 
 ---
 
-**Previous**: §1.6 Document Conventions (§1.6 [intro.document]) | **Next**: Clause 2 — Lexical Structure and Translation (§2 [lex])
+**Previous**: §1.6 Document Conventions (§1.6 [intro.document]) | **Next**: §1.8 Design Decisions and Absent Features (§1.8 [intro.absent])

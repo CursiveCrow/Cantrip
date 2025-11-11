@@ -21,7 +21,7 @@
 
 [4] **ISO/IEC 10646:2020 — Information technology — Universal Coded Character Set (UCS).** Defines the character repertoire permitted in source text (§2.1 [lex.source]) and informs identifier classifications (§2.3 [lex.tokens]).
 
-[5] **ISO/IEC 60559:2020 (IEEE 754-2019) — Floating-Point Arithmetic.** Governs semantics for binary32 and binary64 arithmetic used throughout the numeric type definitions (§3.2 [basic.type], §7.2 [type.primitive]) and runtime semantics (§8.3 [expr.operator]).
+[5] **ISO/IEC 60559:2020 (IEEE 754-2019) — Floating-Point Arithmetic.** Governs semantics for binary32 and binary64 arithmetic used throughout the numeric type definitions (§7.2 [type.primitive]) and runtime semantics (§8.3 [expr.operator]).
 
 [6] **ISO/IEC 9899:2018 — Programming Languages — C.** The foreign-function interface (§15.1 [interop.ffi]) relies on C definitions of object representation, calling conventions, and variadic semantics.
 

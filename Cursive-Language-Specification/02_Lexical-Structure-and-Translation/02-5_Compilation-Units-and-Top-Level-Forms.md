@@ -102,4 +102,4 @@ value + 1  // error[E02-301]
 
 ---
 
-**Previous**: §2.4 Tokenization and Statement Termination (§2.4 [lex.terminators]) | **Next**: Clause 3 — Basic Concepts (§3.1 [basic.object])
+**Previous**: §2.4 Tokenization and Statement Termination (§2.4 [lex.terminators]) | **Next**: Clause 3 — Modules (§3.1 [module.overview])

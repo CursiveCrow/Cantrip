@@ -21,7 +21,7 @@
 
 - **Description**: While this specification mandates minimum sizes for integer types (Table 7.2.1), implementations may provide larger representations on platforms where doing so improves performance or matches platform conventions.
 - **Permitted Choices**: Implementations may use wider representations provided the value sets remain compatible.
-- **References**: §7.2.2 [type.primitive.int], §3.5 [basic.align]
+- **References**: §7.2.2 [type.primitive.int], §11.6 [memory.layout]
 - **Documentation Required**: Actual sizes for `i128`/`u128` and pointer-width types (`isize`/`usize`) on each target platform.
 
 **B.1.02 — 128-bit Integer Alignment**
@@ -58,7 +58,7 @@
 
 - **Description**: Memory layout for types without `[[repr(C)]]` or other repr attributes.
 - **Permitted Choices**: Implementations may reorder fields, insert padding, or optimize layout.
-- **References**: §11.6 [memory.layout], §3.5 [basic.align]
+- **References**: §11.6 [memory.layout]
 - **Documentation Required**: Whether implementation optimizes layout or preserves declaration order for native types.
 
 **B.1.07 — Maximum Source File Size**
@@ -72,7 +72,7 @@
 
 - **Description**: Size of procedure call stack.
 - **Permitted Choices**: Platform-dependent, typically 1-8 MiB.
-- **References**: §3.4.3 [basic.storage.automatic]
+- **References**: §10.2.3 [memory.object.storage]
 - **Documentation Required**: Stack size limits and whether they are configurable.
 
 #### §B.1.3 Translation Limits
@@ -188,7 +188,7 @@
   - Accessing region-allocated values after the region has exited
   - Reading from uninitialized storage (also covered by B.2.02)
 - **Detection**: Prevented by region escape analysis (§11.3.3), move checking (§11.5), and definite assignment (§5.7) in safe code. May occur in unsafe code or through FFI.
-- **References**: §3.1.5[25], §11.2, §11.5, §11.3, Clause 15
+- **References**: §11.2, §11.5, §11.3, Clause 15
 - **Consequences**: Memory corruption, crashes, security vulnerabilities
 
 **B.2.02 — Read of Uninitialized Memory**
@@ -199,7 +199,7 @@
   - Dereferencing a pointer to uninitialized memory
   - Accessing uninitialized array elements
 - **Detection**: Prevented by definite assignment analysis (§5.7) in safe code. May occur in unsafe code when reading raw pointers.
-- **References**: §3.1.6[29], §5.7
+- **References**: §5.7 [decl.initialization]
 - **Consequences**: Reading indeterminate values, potential security issues if uninitialized memory contains sensitive data
 
 **B.2.03 — Double Free**
@@ -233,7 +233,7 @@
   - Using `[[repr(packed)]]` and accessing fields without unaligned-load intrinsics
   - FFI passing misaligned pointers to functions expecting alignment
 - **Detection**: Platform-dependent. Some platforms (ARM) fault on misalignment; others (x86-64) tolerate with performance penalty.
-- **References**: §3.5.2.2[6], §11.6, §15.2.2.2
+- **References**: §11.6 [memory.layout], §15.2.2.2
 - **Consequences**: Hardware fault, performance degradation, or silent data corruption depending on platform
 
 **B.2.11 — Invalid Type Representation**
@@ -245,7 +245,7 @@
   - Reading invalid enum discriminant
   - Foreign code providing invalid values via FFI
 - **Detection**: Compiler cannot detect; programmer responsibility in unsafe code.
-- **References**: §3.1.2.2[7], §11.8.3.3
+- **References**: §11.2.2 [memory.object.model], §11.8.3.3
 - **Consequences**: Logic errors, potential exploits, type confusion
 
 #### §B.2.3 Type System Violations
@@ -357,7 +357,7 @@
   - Deep recursion exceeding stack size
   - Large automatic storage allocations
 - **Detection**: May be caught by guard pages (stack overflow signal). Not prevented at compile time.
-- **References**: §3.4.3 [basic.storage.automatic], §10.6 (recursive procedures)
+- **References**: §11.2.3 [memory.object.storage], §10.6 (recursive procedures)
 - **Consequences**: Crash, stack corruption
 
 **B.2.62 — Foreign Function Safety Violation**
@@ -389,7 +389,7 @@
 
 - **Description**: The values of padding bytes inserted between fields or at the end of structures to satisfy alignment requirements.
 - **Permitted Outcomes**: Padding bytes may have any value (zero, garbage, deterministic pattern, or implementation-defined initialization).
-- **References**: §3.5.3.3[17], §11.6.3
+- **References**: §11.6.3 [memory.layout.padding]
 - **Constraint**: Reading padding bytes directly is undefined behavior; only accessing via structure fields is defined.
 
 #### §B.3.2 Optimization Ordering

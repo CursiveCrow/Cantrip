@@ -36,7 +36,7 @@
 
 [6] Implementation-defined behavior occurs when this specification allows multiple outcomes but requires that an implementation choose one deterministically and document it. The following categories are implementation-defined:
 
-- Numeric representation widths beyond mandated minima (§3.5 [basic.align]);
+- Numeric representation widths beyond mandated minima (§11.6 [memory.layout]);
 - Pointer and region size, alignment, and layout details (§11.6 [memory.layout]);
 - Resource ceilings such as maximum recursion depth or compilation unit size;
 - Diagnostic formatting and display conventions (§1.5.5 [intro.conformance.diagnostics]);

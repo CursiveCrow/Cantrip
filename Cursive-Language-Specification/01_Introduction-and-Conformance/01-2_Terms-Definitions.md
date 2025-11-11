@@ -6,7 +6,7 @@
 **File**: 01-2_Terms-Definitions.md  
 **Section**: §1.3 Terms and Definitions  
 **Stable label**: [intro.terms]  
-**Forward references**: §2.5 [lex.units], Clause 3 [basic], Clause 5 [decl], Clause 6 [name], Clause 8 [expr], §11.3 [memory.region], §11.4 [memory.permission], Clause 12 [contract], Clause 13 [witness]
+**Forward references**: §2.5 [lex.units], Clause 5 [decl], Clause 6 [name], Clause 8 [expr], §11.3 [memory.region], §11.4 [memory.permission], Clause 12 [contract], Clause 13 [witness]
 
 ---
 
@@ -28,7 +28,7 @@
 
 [7] **diagnostic** — a message issued when a program violates a rule that requires detection (§1.5.5 [intro.conformance.diagnostics]). Diagnostics include errors (rejecting) and warnings (permissive).
 
-[8] **entity** — any value, type, module, predicate, contract, region, or grant that may be named or referenced (§3.6 [basic.binding]).
+[8] **entity** — any value, type, module, predicate, contract, region, or grant that may be named or referenced (Clause 6 [name]).
 
 [9] **expression** — a syntactic form that yields a value or place (§8 [expr]).
 
@@ -46,15 +46,15 @@
 
 [15] **grant set** — the finite set of grants required or produced by an expression, preserved throughout typing (§8.8 [expr.typing]).
 
-[16] **grants clause** — the component of a contractual sequent that enumerates required capabilities, appearing before the turnstile in the form `[[ grants_clause |- must => will ]]`. The grants clause lists zero or more grant identifiers (capability tokens) that must be available for the procedure to execute.
+[16] **sequent** — a formal specification of procedure requirements and guarantees, using the form `[[ grants |- must => will ]]` where `grants` lists capability requirements, `must` lists preconditions, and `will` lists postconditions. Also called "procedure sequent" for clarity (§12.2 [contract.sequent]). The semantic brackets `⟦ ⟧` (Unicode U+27E6, U+27E7) or their ASCII equivalent `[[ ]]` denote formal specification content, consistent with their use for type value sets throughout this specification. The turnstile `⊢` or its ASCII equivalent `|-` separates the grants component from the logical implications.
 
-[17] **contract** — a user-defined interface declaration that specifies required procedure signatures and associated types (§10.4 [generic.contract]). Contracts are distinct from contractual sequents.
+[17] **grant component** — the portion of a sequent before the turnstile (`|-`), listing zero or more grant identifiers (capability tokens) that must be available for the procedure to execute.
 
-[18] **contractual sequent** — a complete specification of procedure requirements and guarantees, attached to a procedure declaration using the form `[[ grants |- must => will ]]` where `grants` is the grants clause (capability requirements), `must` lists preconditions, and `will` lists postconditions (§12.2 [contract.sequent]). The semantic brackets `⟦ ⟧` (Unicode U+27E6, U+27E7) or their ASCII equivalent `[[ ]]` denote formal specification content, consistent with their use for type value sets throughout this specification. The turnstile `⊢` or its ASCII equivalent `|-` separates the grants clause from the logical implications.
+[18] **contract** — a user-defined abstract interface declaration that specifies required procedure signatures and associated types (§12.1 [contract.overview]). Contracts are distinct from sequents: contracts define abstract interfaces, while sequents specify procedure requirements and guarantees.
 
-[19] **behavior** — a collection of callable signatures with concrete implementations that types may attach to gain functionality (§10.4 [generic.behavior]). Behaviors provide reusable code and differ from contracts (which specify abstract requirements) by providing procedure bodies. The term "behavior" is distinct from "predicate expression," which refers to boolean-valued expressions used in contractual sequent clauses.
+[19] **behavior** — a collection of callable signatures with concrete implementations that types may attach to gain functionality (§10.4 [generic.behavior]). Behaviors provide reusable code and differ from contracts (which specify abstract requirements) by providing procedure bodies. The term "behavior" is distinct from "predicate expression," which refers to boolean-valued expressions used in sequent clauses.
 
-[20] **predicate expression** — a boolean-valued expression used in contractual sequent clauses (`must`, `will`, `where`) to express logical constraints and conditions.
+[20] **predicate expression** — a boolean-valued expression used in sequent clauses (`must`, `will`, `where`) to express logical constraints and conditions.
 
 [21] **modal type** — a type whose values transition through named states validated at compile time (§7.6 [type.modal]).
 
@@ -64,7 +64,7 @@
 
 [24] **unsafe block** — an explicit region where the programmer assumes responsibility for safety constraints while interacting with raw operations (§11.8 [memory.unsafe]).
 
-[25] **hole** — a placeholder for an inferred type, permission, or grant inserted by programmers or tools (§3.1.7 [basic.object.holes]).
+[25] **hole** — a placeholder for an inferred type, permission, or grant inserted by programmers or tools. Type inference and hole resolution are specified in §8.8 [expr.typing].
 
 [26] **principal type** — in a type inference context, the most general type that satisfies all constraints. When type inference succeeds, the principal type is unique and is a supertype of all other valid types for the expression. Bidirectional type checking (§8.1.6) produces principal types for expressions at inference sites.
 

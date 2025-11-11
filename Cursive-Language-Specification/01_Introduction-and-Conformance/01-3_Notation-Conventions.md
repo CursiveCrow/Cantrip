@@ -25,7 +25,7 @@
 - `*`, `+`, `?` zero-or-more, one-or-more, and optional;
 - parentheses for grouping; brackets for character classes.
 
-[4] Annex A [grammar] consolidates the authoritative grammar. When a section presents a local excerpt, it shall cite the matching Annex production and the excerpt shall remain textually consistent with the Annex.
+[4] Annex A [grammar] consolidates the authoritative grammar. When a section presents a local excerpt, it shall remain textually consistent with the Annex. Throughout this specification, in-text grammar fragments are informative excerpts provided for convenience; Annex A contains the normative productions that implementations shall follow. Specific Annex A section references are provided where the in-text grammar significantly differs from or extends the Annex.
 
 **Example 1.4.1.1** (EBNF notation):
 
@@ -61,7 +61,27 @@ This example demonstrates the standard EBNF notation used throughout the specifi
 
 [7] Set membership ($\in$, $\notin$), unions ($\cup$), intersections ($\cap$), and subset relations ($\subseteq$) follow standard mathematical meaning. Logical connectives ($\land$, $\lor$, $\lnot$, $\Rightarrow$, $\Leftrightarrow$) and quantifiers ($\forall$, $\exists$) are also used without further embellishment.
 
-[8] Operational relations are written as $\langle e, \sigma \rangle \to \langle e', \sigma' \rangle$ for small-step reductions, $\langle e, \sigma \rangle \Downarrow \langle v, \sigma' \rangle$ for big-step evaluation, and $\to^{*}$ for the reflexive transitive closure.
+[8] **Evaluation judgments** use big-step operational semantics as the primary notation:
+
+$$
+\langle e, \sigma \rangle \Downarrow \langle v, \sigma' \rangle
+$$
+
+This judgment states: "Expression $e$ evaluated in store $\sigma$ reduces to value $v$ with resulting store $\sigma'$."
+
+**Store notation conventions:**
+- $\sigma$ — Current program store (maps locations to values)
+- $\sigma'$ — Resulting store after evaluation (by convention, prime indicates "after")
+- $\sigma_{\text{ct}}$ — Compile-time evaluation store (for comptime contexts)
+- $\sigma_{\text{entry}}$, $\sigma_{\text{exit}}$ — Temporal stores (procedure entry/exit)
+- $\sigma[x \mapsto v]$ — Store $\sigma$ updated with binding $x$ mapped to value $v$
+
+**Evaluation contexts:**
+- $\Downarrow$ — Big-step evaluation (expression to value in one step)
+- $\Downarrow_{\text{comptime}}$ — Compile-time evaluation (for comptime blocks)
+- $\to$ — Small-step reduction (rarely used; expression to expression)
+
+[8.1] **Notation policy**: This specification uses big-step semantics as the primary evaluation model. Small-step is defined for completeness but not used extensively. All evaluation rules should use the big-step form with consistent store threading.
 
 #### §1.4.4 Inference Rules [intro.notation.rules]
 

@@ -71,11 +71,7 @@
 - `E07-300` through `E07-499` for §7.3 (Composite types);
 - and so forth.
 
-[15] Implementations shall report diagnostic codes using this exact format in compiler output, error messages, and diagnostic payloads. The format facilitates:
-
-- **Clause identification**: The two-digit prefix immediately identifies which specification clause defines the error.
-- **Visual parsing**: The hyphen separator aids human readers in distinguishing clause from sequential number.
-- **Machine processing**: The regular pattern `E\d{2}-\d{3}` enables reliable automated parsing and validation.
+[15] Implementations shall report diagnostic codes using this exact format in compiler output, error messages, and diagnostic payloads. Diagnostic payloads shall follow structured schemas defined in Annex E §E.5.3 [implementation.diagnostics.payloads].
 
 [16] Reserved ranges within a clause may be documented to accommodate future expansion of specific subsections without renumbering existing diagnostics. Implementations should not define diagnostic codes outside the ranges specified by this document.
 
@@ -93,6 +89,30 @@
 **NOTE 2**: The three-digit sequential number provides 999 codes per clause. If a clause exhausts its allocation, the specification editors should consider subdividing the clause or consolidating related diagnostics.
 
 **NOTE 3**: Warning and note diagnostics may use prefix `W` or `N` in future versions (e.g., `W02-001`, `N02-001`). Currently, all diagnostics use the `E` prefix.
+
+#### §1.6.7 Example Guidelines [intro.document.examples.guidelines]
+
+[19] All examples in the specification should follow these guidelines:
+
+**Completeness:**
+- Examples should be self-contained (define all referenced types)
+- Include necessary imports and declarations
+- Show expected output or error for invalid examples
+
+**Clarity:**
+- Use descriptive names (`buffer`, `owner`, `viewer`) not single letters (`a`, `b`, `c`)
+- Include inline comments explaining key concepts
+- Mark invalid code with `// error[E##-###]` showing expected diagnostic
+
+**Relevance:**
+- Each example demonstrates exactly one concept (or a deliberate interaction)
+- Examples are minimal - no extraneous code
+- Real-world patterns preferred over contrived examples
+
+**Consistency:**
+- Reuse common type names across specification (Buffer, Point, Data, Resource)
+- Follow language style guide (naming conventions, formatting)
+- Use consistent comment style
 
 ---
 

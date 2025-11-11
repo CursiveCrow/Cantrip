@@ -6,7 +6,7 @@ This document establishes the organizational structure and documentation standar
 
 1. **ISO/IEC Alignment**: Follows ISO/IEC Directives Part 2 for document structure, normative language, and numbered paragraphs
 2. **Clause Structure**: 16 main clauses covering lexical structure through compile-time evaluation, plus 10 annexes
-3. **Basic Concepts Foundation**: Clause 3 establishes foundational concepts before detailed type system
+3. **Module System Foundation**: Clause 3 establishes the module system as the fundamental namespace unit
 4. **Logical Ordering**: Modules → Declarations → Names → Types → Expressions → Statements → Compile-Time → Advanced features
 5. **Constraints/Semantics Separation**: Explicit subheadings distinguish compile-time requirements from runtime behavior
 6. **Consistent Rule Naming**: T-/E-/WF-/P- prefixes for type/evaluation/well-formedness/permission rules
@@ -571,40 +571,29 @@ Each clause specifies what information must be available at that phase and what 
   - 2.4 Tokenization and Statement Termination [lex.terminators]
   - 2.5 Compilation Units and Top-Level Forms [lex.units]
 
-- **3 Basic Concepts** [basic]
+- **3 Modules** [module]
 
-  **Forward references:** Modules (Clause 4), Declarations (Clause 5), Names and Scopes (Clause 6), Types (Clause 7), Memory Model (Clause 12)
+  **Forward references:** Declarations (Clause 4), Names and Scopes (Clause 5), Types (Clause 6), Memory Model (Clause 10)
 
-  - 3.1 Objects and Values [basic.object]
-  - 3.2 Types (overview and classification) [basic.type]
-  - 3.3 Scope and Lifetime (overview) [basic.scope]
-  - 3.4 Storage Duration [basic.storage]
-  - 3.5 Alignment and Layout (overview) [basic.align]
-  - 3.6 Name Binding Categories (value/type/module/predicate/contract/label) [basic.binding]
+  - 3.1 Module Overview and File-Based Organization [module.overview]
+  - 3.2 Module Syntax [module.syntax]
+  - 3.3 Module Scope Formation [module.scope]
+  - 3.4 Export, Import, and Re-export Interactions [module.export]
+  - 3.5 Qualified Names and Resolution [module.qualified]
+  - 3.6 Cycles, Initialization Order, and Diagnostics [module.initialization]
 
-- **4 Modules** [module]
+- **4 Declarations** [decl]
 
-  **Forward references:** None
+  **Forward references:** Names and Scopes (Clause 5), Types (Clause 6), Expressions (Clause 7), Generics (Clause 9), Memory Model (Clause 10)
 
-  - 4.1 Module Overview and File-Based Organization [module.overview]
-  - 4.2 Module Syntax [module.syntax]
-  - 4.3 Module Scope Formation [module.scope]
-  - 4.4 Export/Import and Re-exports [module.export]
-  - 4.5 Qualified Names and Resolution (module paths) [module.qualified]
-  - 4.6 Cycles, Initialization Order, Diagnostics [module.initialization]
-
-- **5 Declarations** [decl]
-
-  **Forward references:** Names and Scopes (Clause 6), Expressions (Clause 8), Generics (Clause 11)
-
-  - 5.1 Declaration Overview [decl.overview]
-  - 5.2 Variable Bindings and Initializers [decl.variable]
-  - 5.3 Binding Patterns (syntax, destructuring, binding categories) [decl.pattern]
-  - 5.4 Procedures (parameters, results, callable bodies) [decl.function]
-  - 5.5 Type Declarations (records, enums, aliases) [decl.type]
-  - 5.6 Visibility Rules (scope-based) [decl.visibility]
-  - 5.7 Initialization and Definite Assignment [decl.initialization]
-  - 5.8 Program Entry Point and Execution Model [decl.entry]
+  - 4.1 Declaration Overview [decl.overview]
+  - 4.2 Variable Bindings and Initializers [decl.variable]
+  - 4.3 Binding Patterns (syntax, destructuring, binding categories) [decl.pattern]
+  - 4.4 Procedures (parameters, results, callable bodies) [decl.function]
+  - 4.5 Type Declarations (records, enums, aliases) [decl.type]
+  - 4.6 Visibility Rules (scope-based) [decl.visibility]
+  - 4.7 Initialization and Definite Assignment [decl.initialization]
+  - 4.8 Program Entry Point and Execution Model [decl.entry]
 
 - **6 Names, Scopes, and Resolution** [name]
 

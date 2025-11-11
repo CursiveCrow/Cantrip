@@ -193,7 +193,7 @@
 **D.1.24 — Stack Size**
 
 - **Minimum**: Implementation-defined (typically 1-8 MiB)
-- **Reference**: §3.4.3 [basic.storage.automatic], B.1.08
+- **Reference**: §11.2.3 [memory.object.storage], B.1.08
 - **Documentation Required**: Implementations shall document stack size and whether configurable
 - **Rationale**: Platform-dependent
 

@@ -674,8 +674,6 @@ expr_hole
     ;
 ```
 
-[ Note: `loop_verif` and `assertion_list` reuse the assertion grammar in Annex A §A.8.
-— end note ]
 
 ## A.5 Statement Grammar
 
@@ -1199,11 +1197,6 @@ Conjunction within antecedents and consequents uses explicit `&&` operator, not 
 The semantic brackets `⟦ ⟧` / `[[ ]]` are consistent with their use for type value sets (e.g., `⟦ bool ⟧ = {true, false}`) throughout this specification, creating a unified notation for formal semantic content.
 — end note ]
 
-[ Note: `assertion` is defined in Annex A §A.8.
-— end note ]
-
-[ Note: `grant_set` is defined in Annex A §A.9 (Grant Grammar).
-— end note ]
 
 ## A.8 Assertion Grammar
 
@@ -1287,8 +1280,7 @@ panic_grant
     ;
 ```
 
-[ Note: Grant Polymorphism: Grant parameters are declared in generic parameter lists (see §A.6) and referenced in grant sets using `grants<G>` syntax.
-— end note ]
+[ Note: Grant parameters are declared in generic parameter lists (§A.6) and referenced in grant sets using `grants<G>` syntax. — end note ]
 
 **Example A.9.1 (Grant polymorphism):**
 
