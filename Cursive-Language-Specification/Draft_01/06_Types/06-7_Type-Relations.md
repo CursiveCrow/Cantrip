@@ -10,7 +10,7 @@
 
 ---
 
-### §7.7 Type Relations [type.relation]
+### §6.7 Type Relations [type.relation]
 
 [1] This subclause defines the core relations on types: type equivalence (`≡`), subtyping (`<:`), and compatibility. These relations govern implicit conversions, variance, and the conditions under which values may be substituted for one another.
 

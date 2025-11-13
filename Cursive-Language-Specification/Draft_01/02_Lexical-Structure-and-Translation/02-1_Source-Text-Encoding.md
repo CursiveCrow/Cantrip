@@ -10,7 +10,9 @@
 
 ---
 
-### §2.1.1 Overview
+### §2.1 Source Text and Encoding [lex.source]
+
+#### §2.1.1 Overview
 
 [1] Cursive source input is a sequence of Unicode scalar values that shall be encoded as UTF-8. All subsequent phases (§2.2 [lex.phases]) assume that the implementation has normalised line endings and removed optional metadata such as byte order marks before tokenisation (§2.3 [lex.tokens]).
 

@@ -5,7 +5,11 @@
       "Bash(find:*)",
       "Bash(echo:*)",
       "Bash(grep:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(python:*)",
+      "Bash(done)",
+      "Bash(cat:*)",
+      "Bash(sed:*)"
     ],
     "deny": [],
     "ask": []

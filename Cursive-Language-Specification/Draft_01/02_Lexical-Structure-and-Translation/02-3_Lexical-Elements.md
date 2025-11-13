@@ -10,7 +10,9 @@
 
 ---
 
-### §2.3.1 Overview
+### §2.3 Lexical Elements [lex.tokens]
+
+#### §2.3.1 Overview
 
 [1] Lexical analysis transforms the normalised character stream (§2.1 [lex.source]) into a sequence of tokens consumed by the parser (§2.2 [lex.phases]). Tokens carry a kind, lexeme, and source location, while whitespace and non-documentation comments are discarded.
 

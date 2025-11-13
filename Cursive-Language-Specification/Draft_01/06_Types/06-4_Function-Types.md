@@ -10,7 +10,7 @@
 
 ---
 
-### §7.4 Function Types [type.function]
+### §6.4 Function Types [type.function]
 
 [1] Function types (also called callable types) describe procedure declarations. They record parameter types, return type, required grants, and contractual sequents. Callable types carry this information wherever they appear (variable bindings, record fields, generic arguments), ensuring that higher-order programming preserves grant and contract obligations.
 

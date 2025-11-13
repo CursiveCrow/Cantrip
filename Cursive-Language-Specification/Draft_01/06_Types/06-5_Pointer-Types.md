@@ -10,7 +10,7 @@
 
 ---
 
-### §7.5 Pointer and Reference Types [type.pointer]
+### §6.5 Pointer and Reference Types [type.pointer]
 
 [1] Cursive provides two pointer families:
 

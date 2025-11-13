@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Cursive-Language-Specification/01_Introduction-and-Conformance/01_Introduction-and-Conformance.md",
+                "file": "Cursive-Language-Specification/Cursive-Language-Specification.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "01_Introduction-and-Conformance"
+              "title": "Cursive-Language-Specification"
             }
           }
         ]
@@ -172,6 +172,18 @@
   },
   "active": "d1f43947c50926a0",
   "lastOpenFiles": [
+    "Cursive-Spec-Part-X-Diagnostics-Conformance-Annexes.md",
+    "Cursive-Language-Specification/Cursive-Language-Specification.md",
+    "Cursive-Spec-Part-IX-Memory-Layout-ABI.md",
+    "Cursive-Spec-Part-VIII-Comptime-and-Reflection.md",
+    "Cursive-Spec-Part-VII-Behaviors-and-Dynamic-Dispatch.md",
+    "Cursive-Spec-Part-VI-Contracts-and-Grants.md",
+    "Cursive-Part-V-Expressions-Statements-ControlFlow.md",
+    "Cursive-Spec-Part-IV-Ownership-Permissions-Regions.md",
+    "Cursive-Spec-Part-III-Declarations-and-TypeSystem.md",
+    "Part-II-Program-Structure-and-Translation.md",
+    "Cursive_Spec_Structure_Proposal.md",
+    "Part-I-About-This-Specification.md",
     "Cursive-Language-Specification/01_Introduction-and-Conformance/01_Introduction-and-Conformance.md.tmp.101224.1762675743747",
     "Cursive-Language-Specification/01_Introduction-and-Conformance/01_Introduction-and-Conformance.md.tmp.101224.1762675659659",
     "Cursive-Language-Specification/02_Lexical-Structure-and-Translation/02-1_Source-Text-Encoding.md",
@@ -190,23 +202,11 @@
     "obsidian-ai-editor-example/node_modules/typescript/SECURITY.md",
     "obsidian-ai-editor-example/node_modules/typescript/README.md",
     "obsidian-ai-editor-example/node_modules/typescript/CODE_OF_CONDUCT.md",
-    "obsidian-ai-editor-example/node_modules/typescript/AUTHORS.md",
     "obsidian-ai-editor-example/node_modules/typescript/loc/lcl/TRK/TypeScriptTasks/TypeScript.Tasks.dll.lcl",
     "obsidian-ai-editor-example/node_modules/typescript/loc/lcl/TRK/TypeScriptLanguageService/Microsoft.CodeAnalysis.TypeScript.EditorFeatures.dll.lcl",
     "obsidian-ai-editor-example/node_modules/typescript/loc/lcl/TRK/TypeScriptDebugEngine/TypeScriptDebugEngine.dll.lcl",
     "obsidian-ai-editor-example/node_modules/typescript/loc/lcl/TRK/Targets/TypeScriptProjectProperties.xaml.lcl",
     "obsidian-ai-editor-example/node_modules/typescript/loc/lcl/TRK/Targets/TypeScriptCompile.xaml.lcl",
-    "obsidian-ai-editor-example/node_modules/typescript/loc/lcl/TRK/Targets/ProjectItemsSchema.xaml.lcl",
-    "obsidian-ai-editor-example/node_modules/typescript/loc/lcl/PTB/TypeScriptTasks/TypeScript.Tasks.dll.lcl",
-    "obsidian-ai-editor-example/node_modules/eslint/README.md",
-    "obsidian-ai-editor-example/node_modules/@typescript-eslint/utils/README.md",
-    "obsidian-ai-editor-example/node_modules/ajv/README.md",
-    "obsidian-ai-editor-example/node_modules/style-mod/src/README.md",
-    "obsidian-ai-editor-example/node_modules/fast-glob/README.md",
-    "obsidian-ai-editor-example/node_modules/@types/codemirror/README.md",
-    "obsidian-ai-editor-example/node_modules/@codemirror/view/README.md",
-    "obsidian-ai-editor-example/node_modules/@codemirror/view/CHANGELOG.md",
-    "obsidian-ai-editor-example/node_modules/@codemirror/state/README.md",
-    "obsidian-ai-editor-example/node_modules/ajv/lib/dotjs/README.md"
+    "obsidian-ai-editor-example/node_modules/typescript/loc/lcl/TRK/Targets/ProjectItemsSchema.xaml.lcl"
   ]
 }

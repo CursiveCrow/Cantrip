@@ -10,7 +10,9 @@
 
 ---
 
-### §2.2.1 Overview
+### §2.2 Translation Phases [lex.phases]
+
+#### §2.2.1 Overview
 
 [1] Cursive compilation proceeds through a deterministic pipeline of translation phases that convert validated UTF-8 source (§2.1 [lex.source]) into executable artifacts. The phases are designed to expose explicit intermediate products so that diagnostics, tooling, and contracts can observe well-defined boundaries.
 

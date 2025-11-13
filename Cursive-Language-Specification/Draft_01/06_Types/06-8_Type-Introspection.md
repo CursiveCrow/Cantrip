@@ -10,7 +10,7 @@
 
 ---
 
-### §7.8 Type Introspection [type.introspection]
+### §6.8 Type Introspection [type.introspection]
 
 [1] Type introspection provides compile-time access to metadata about types. It enables generic algorithms, diagnostics, and metaprogramming to query type properties without runtime overhead. Introspection facilities operate in two modes:
 

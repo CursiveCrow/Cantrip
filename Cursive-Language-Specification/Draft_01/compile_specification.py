@@ -54,25 +54,36 @@ class SpecificationCompiler:
         return bool(re.match(r'^§\d+\.\d+\.\d+', text))
 
     def remove_metadata_header(self, content: str) -> str:
-        """Remove the document metadata header (from first # to first ---)."""
+        """Remove the document metadata header but preserve chapter headings."""
         lines = content.split('\n')
         result = []
         in_header = False
         header_found = False
+        clause_heading_saved = False
 
         for i, line in enumerate(lines):
-            # Detect start of metadata header
+            # Detect start of metadata header (first # line)
             if not header_found and line.strip().startswith('# '):
                 in_header = True
                 header_found = True
+                continue
+
+            # Preserve the chapter heading (## Clause X — ...)
+            if in_header and line.strip().startswith('## Clause '):
+                result.append(line)
+                clause_heading_saved = True
+                # Add a blank line after the chapter heading
+                result.append('')
                 continue
 
             # Detect end of metadata header
             if in_header and line.strip() == '---':
                 in_header = False
                 # Skip any blank lines after the separator
-                while i + 1 < len(lines) and not lines[i + 1].strip():
-                    i += 1
+                j = i + 1
+                while j < len(lines) and not lines[j].strip():
+                    j += 1
+                # Skip to the position after blank lines
                 continue
 
             # Skip lines within header
@@ -99,6 +110,13 @@ class SpecificationCompiler:
 
         return '\n'.join(lines)
 
+    def remove_paragraph_numbers(self, content: str) -> str:
+        """Remove paragraph numbers like [1], [2], [3] from the beginning of paragraphs."""
+        # Pattern matches [number] at the start of a line or after whitespace
+        # but only if it's followed by a space and text
+        content = re.sub(r'^(\s*)\[\d+\]\s+', r'\1', content, flags=re.MULTILINE)
+        return content
+
     def process_file_content(self, content: str) -> Tuple[str, List[Tuple[int, str]]]:
         """
         Process a single file's content.
@@ -107,6 +125,7 @@ class SpecificationCompiler:
         # Remove metadata and navigation
         content = self.remove_metadata_header(content)
         content = self.remove_footer_navigation(content)
+        content = self.remove_paragraph_numbers(content)
 
         lines = content.split('\n')
         result_lines = []
@@ -137,24 +156,23 @@ class SpecificationCompiler:
 
     def get_chapter_files(self, chapter_num: int) -> List[Path]:
         """Get all markdown files from a chapter subdirectory."""
+        # Actual directory names in the specification
         chapter_dirs = [
-            f"{chapter_num:02d}_Introduction-and-Conformance",
-            f"{chapter_num:02d}_Lexical-Structure-and-Translation",
-            f"{chapter_num:02d}_Basic-Concepts",
-            f"{chapter_num:02d}_Modules",
-            f"{chapter_num:02d}_Declarations",
-            f"{chapter_num:02d}_Names-Scopes-and-Resolutions",
-            f"{chapter_num:02d}_Types",
-            f"{chapter_num:02d}_Expressions",
-            f"{chapter_num:02d}_Statements-and-Control-Flow",
-            f"{chapter_num:02d}_Generics-and-Behaviors",
-            f"{chapter_num:02d}_Memory-Model-Regions-and-Permissions",
-            f"{chapter_num:02d}_Contracts",
-            f"{chapter_num:02d}_Witness-System",
-            f"{chapter_num:02d}_Concurrency-and-Memory-Ordering",
-            f"{chapter_num:02d}_Interoperability-and-ABI",
-            f"{chapter_num:02d}_Compile-Time-Evaluation-and-Reflection",
-            f"{chapter_num:02d}_The-Standard-Library",
+            "01_Introduction-and-Conformance",
+            "02_Lexical-Structure-and-Translation",
+            "03_Modules",
+            "04_Declarations",
+            "05_Names-Scopes-and-Resolutions",
+            "06_Types",
+            "07_Expressions",
+            "08_Statements-and-Control-Flow",
+            "09_Generics-and-Behaviors",
+            "10_Memory-Model-Regions-and-Permissions",
+            "11_Contracts",
+            "12_Witness-System",
+            "13_Concurrency-and-Memory-Ordering",
+            "14_Interoperability-and-ABI",
+            "15_Compile-Time-Evaluation-and-Reflection",
         ]
 
         # Map chapter numbers to directory names
@@ -203,8 +221,8 @@ class SpecificationCompiler:
 
         compiled_content = []
 
-        # Process chapters 01-17
-        for chapter_num in range(1, 18):
+        # Process chapters 01-15
+        for chapter_num in range(1, 16):
             files = self.get_chapter_files(chapter_num)
 
             if not files:

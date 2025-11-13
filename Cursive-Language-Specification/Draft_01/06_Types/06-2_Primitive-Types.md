@@ -10,7 +10,7 @@
 
 ---
 
-### §7.2 Primitive Types [type.primitive]
+### §6.2 Primitive Types [type.primitive]
 
 [1] Primitive types are the built-in scalar types whose size, representation, and value sets are fixed by this specification. They form the base cases for well-formed type construction (§7.1.3) and participate directly in the arithmetic, logical, and conversion operators defined in Clause 8.
 

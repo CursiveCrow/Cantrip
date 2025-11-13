@@ -10,7 +10,9 @@
 
 ---
 
-### §2.4.1 Overview
+### §2.4 Tokenization and Statement Termination [lex.terminators]
+
+#### §2.4.1 Overview
 
 [1] This clause refines the behavior of the lexer around newline handling, statement continuation, and the maximal-munch rule used to recognise multi-character operators. It builds on the token categories introduced in §2.3 [lex.tokens] and defines when newline tokens terminate statements implicitly.
 

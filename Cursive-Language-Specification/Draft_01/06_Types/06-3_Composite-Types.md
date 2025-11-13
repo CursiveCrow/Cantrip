@@ -10,7 +10,7 @@
 
 ---
 
-### §7.3 Composite Types [type.composite]
+### §6.3 Composite Types [type.composite]
 
 [1] Composite types combine or select among other types. They cover structural products (tuples), nominal products (records), sequential collections (arrays, slices, strings, ranges), discriminated sums (enums), and safe unions (`τ₁ \/ τ₂`).
 

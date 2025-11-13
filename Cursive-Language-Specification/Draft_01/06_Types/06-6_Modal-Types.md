@@ -10,7 +10,7 @@
 
 ---
 
-### §7.6 Modal Types [type.modal]
+### §6.6 Modal Types [type.modal]
 
 [1] Modal types define compile-time state machines. Each modal value inhabits exactly one named state at a time; state transitions are enforced by the type system, ensuring that operations occur in valid orders without runtime overhead. Modal types integrate with the contract system (Clause 12) and the witness system (Clause 13) to express and verify obligations.
 

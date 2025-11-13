@@ -1,6 +1,6 @@
 # Cursive Language Specification
 
-## Clause 7 — Statements and Control Flow
+## Clause 8 — Statements and Control Flow
 
 **Part**: VIII — Statements and Control Flow
 **File**: 09-3_Control-Flow.md  

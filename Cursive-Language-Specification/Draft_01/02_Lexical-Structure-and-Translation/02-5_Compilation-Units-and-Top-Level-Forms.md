@@ -10,7 +10,9 @@
 
 ---
 
-### §2.5.1 Overview
+### §2.5 Compilation Units and Top-Level Forms [lex.units]
+
+#### §2.5.1 Overview
 
 [1] A compilation unit is the syntactic content of a single source file after preprocessing (§2.1 [lex.source]). Clause 2 governs the translation of those files; Clause 4 derives module paths from the file system layout. This clause enumerates the declarations permitted at module scope and describes module-level initialisation.
 
