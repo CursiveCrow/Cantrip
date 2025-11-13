@@ -45,7 +45,7 @@ This document is the normative specification for the Cursive programming languag
     - [5.5 Conventions, Tooling, and Miscellaneous \[references.conventions\]](#55-conventions-tooling-and-miscellaneous-referencesconventions)
     - [5.6 Research \[references.research\]](#56-research-referencesresearch)
     - [5.7 Reference Availability \[references.availability\]](#57-reference-availability-referencesavailability)
-- [Part I - Conformance and Governance](#part-i---conformance-and-governance)
+- [Part I - Conformance, Diagnostics, and Governance](#part-i---conformance-diagnostics-and-governance)
   - [6. Fundamental Conformance \[conformance\]](#6-fundamental-conformance-conformance)
     - [6.1 Behavior Classifications \[conformance.behavior\]](#61-behavior-classifications-conformancebehavior)
     - [6.2 Conformance Obligations \[conformance.obligations\]](#62-conformance-obligations-conformanceobligations)
@@ -53,61 +53,62 @@ This document is the normative specification for the Cursive programming languag
     - [6.4 Implementation Limits \[conformance.limits\]](#64-implementation-limits-conformancelimits)
     - [6.5 Reserved Identifiers \[conformance.reserved\]](#65-reserved-identifiers-conformancereserved)
     - [6.6 Conformance Verification \[conformance.verification\]](#66-conformance-verification-conformanceverification)
-  - [7. Language Evolution and Governance \[evolution\]](#7-language-evolution-and-governance-evolution)
-    - [7.1 Versioning Model \[evolution.versioning\]](#71-versioning-model-evolutionversioning)
-    - [7.2 Feature Lifecycle \[evolution.lifecycle\]](#72-feature-lifecycle-evolutionlifecycle)
-    - [7.3 Extension System \[evolution.extensions\]](#73-extension-system-evolutionextensions)
-    - [7.4 Specification Maintenance \[evolution.specification\]](#74-specification-maintenance-evolutionspecification)
-- [Part II - Source Text \& Translation](#part-ii---source-text--translation)
-  - [9. Source Text and Encoding \[source\]](#9-source-text-and-encoding-source)
-    - [9.1 Character Encoding \[source.encoding\]](#91-character-encoding-sourceencoding)
-    - [9.2 Source File Structure \[source.structure\]](#92-source-file-structure-sourcestructure)
-    - [9.3 Source Inclusion Model \[source.inclusion\]](#93-source-inclusion-model-sourceinclusion)
-  - [10. Lexical Structure \[lexical\]](#10-lexical-structure-lexical)
-    - [10.1 Lexical Elements \[lexical.elements\]](#101-lexical-elements-lexicalelements)
-    - [10.2 Keywords and Operators \[lexical.keywords\]](#102-keywords-and-operators-lexicalkeywords)
-    - [10.3 Identifiers \[lexical.identifiers\]](#103-identifiers-lexicalidentifiers)
-    - [10.4 Literals \[lexical.literals\]](#104-literals-lexicalliterals)
-  - [11. Syntactic Structure \[syntax\]](#11-syntactic-structure-syntax)
-    - [11.1 Grammar Organization \[syntax.organization\]](#111-grammar-organization-syntaxorganization)
-    - [11.2 Syntactic Nesting Limits \[syntax.limits\]](#112-syntactic-nesting-limits-syntaxlimits)
-    - [11.3 Grammar Notation \[syntax.notation\]](#113-grammar-notation-syntaxnotation)
-  - [12. Translation Phases and Pipeline \[translation\]](#12-translation-phases-and-pipeline-translation)
-    - [12.1 Translation Model \[translation.model\]](#121-translation-model-translationmodel)
-    - [12.2 Phase 1: Source Ingestion \[translation.ingestion\]](#122-phase-1-source-ingestion-translationingestion)
-    - [12.3 Phase 2: Lexical Analysis \[translation.lexical\]](#123-phase-2-lexical-analysis-translationlexical)
-    - [12.4 Phase 3: Syntactic Analysis \[translation.parsing\]](#124-phase-3-syntactic-analysis-translationparsing)
-    - [12.5 Phase 4: Semantic Analysis \[translation.semantic\]](#125-phase-4-semantic-analysis-translationsemantic)
-    - [12.6 Phase 5: Compile-Time Evaluation \[translation.comptime\]](#126-phase-5-compile-time-evaluation-translationcomptime)
-    - [12.7 Phase 6: Code Generation \[translation.codegen\]](#127-phase-6-code-generation-translationcodegen)
-  - [13. Diagnostic System \[diagnostics\]](#13-diagnostic-system-diagnostics)
-    - [13.1 Diagnostic Requirements \[diagnostics.requirements\]](#131-diagnostic-requirements-diagnosticsrequirements)
-    - [13.2 Diagnostic Code System \[diagnostics.codes\]](#132-diagnostic-code-system-diagnosticscodes)
-    - [13.3 Severity Levels \[diagnostics.severity\]](#133-severity-levels-diagnosticsseverity)
-    - [13.4 IFNDR and Diagnostic Limits \[diagnostics.ifndr\]](#134-ifndr-and-diagnostic-limits-diagnosticsifndr)
-    - [13.5 Implementation-Defined Behavior \[diagnostics.idb\]](#135-implementation-defined-behavior-diagnosticsidb)
-    - [13.6 Diagnostic Catalog Reference \[diagnostics.catalog\]](#136-diagnostic-catalog-reference-diagnosticscatalog)
-- [Part III - Module System \& Organization](#part-iii---module-system--organization)
-  - [14. Modules and Assemblies \[modules\]](#14-modules-and-assemblies-modules)
-    - [14.1 Folder-Scoped Modules \[modules.discovery\]](#141-folder-scoped-modules-modulesdiscovery)
-    - [14.2 Assemblies and Projects \[modules.assemblies\]](#142-assemblies-and-projects-modulesassemblies)
-    - [14.3 Manifest Schema \[modules.manifest\]](#143-manifest-schema-modulesmanifest)
-    - [14.4 Module Path Validity \[modules.paths\]](#144-module-path-validity-modulespaths)
-  - [15. Imports and Name Resolution \[names\]](#15-imports-and-name-resolution-names)
-    - [15.1 Import System \[names.imports\]](#151-import-system-namesimports)
-    - [15.2 Scopes \[names.scopes\]](#152-scopes-namesscopes)
-    - [15.3 Bindings \[names.bindings\]](#153-bindings-namesbindings)
-    - [15.4 Name Lookup \[names.lookup\]](#154-name-lookup-nameslookup)
-  - [16. Initialization and Dependencies \[initialization\]](#16-initialization-and-dependencies-initialization)
-    - [16.1 Dependency Graph \[initialization.graph\]](#161-dependency-graph-initializationgraph)
-    - [16.2 Eager Initialization \[initialization.eager\]](#162-eager-initialization-initializationeager)
-    - [16.3 Lazy Initialization \[initialization.lazy\]](#163-lazy-initialization-initializationlazy)
-    - [16.4 Initialization Failure \[initialization.failure\]](#164-initialization-failure-initializationfailure)
-  - [17. Tooling Integration \[tooling\]](#17-tooling-integration-tooling)
-    - [17.1 Compiler APIs \[tooling.apis\]](#171-compiler-apis-toolingapis)
-    - [17.2 Language Server Protocol \[tooling.lsp\]](#172-language-server-protocol-toolinglsp)
-    - [17.3 Metadata Generation \[tooling.metadata\]](#173-metadata-generation-toolingmetadata)
-    - [17.4 IDE Integration Points \[tooling.ide\]](#174-ide-integration-points-toolingide)
+  - [7. Diagnostics \[diagnostics\]](#7-diagnostics-diagnostics)
+    - [7.1 Diagnostic Requirements \[diagnostics.requirements\]](#71-diagnostic-requirements-diagnosticsrequirements)
+    - [7.2 Diagnostic Code System \[diagnostics.codes\]](#72-diagnostic-code-system-diagnosticscodes)
+    - [7.3 Severity Levels \[diagnostics.severity\]](#73-severity-levels-diagnosticsseverity)
+    - [7.4 IFNDR and Diagnostic Limits \[diagnostics.ifndr\]](#74-ifndr-and-diagnostic-limits-diagnosticsifndr)
+    - [7.5 Implementation-Defined Behavior \[diagnostics.idb\]](#75-implementation-defined-behavior-diagnosticsidb)
+    - [7.6 Diagnostic Catalog Reference \[diagnostics.catalog\]](#76-diagnostic-catalog-reference-diagnosticscatalog)
+  - [8. Language Evolution and Governance \[evolution\]](#8-language-evolution-and-governance-evolution)
+    - [8.1 Versioning Model \[evolution.versioning\]](#81-versioning-model-evolutionversioning)
+    - [8.2 Feature Lifecycle \[evolution.lifecycle\]](#82-feature-lifecycle-evolutionlifecycle)
+    - [8.3 Extension System \[evolution.extensions\]](#83-extension-system-evolutionextensions)
+    - [8.4 Specification Maintenance \[evolution.specification\]](#84-specification-maintenance-evolutionspecification)
+- [Part II - Program Structure \& Translation](#part-ii---program-structure--translation)
+  - [8 Source Text \& Translation Pipeline](#8-source-text--translation-pipeline)
+  - [9 Lexical Structure](#9-lexical-structure)
+  - [10 Modules, Assemblies, and Projects](#10-modules-assemblies-and-projects)
+    - [10.1 Folder-scoped modules](#101-folder-scoped-modules)
+    - [10.2 Assemblies and projects](#102-assemblies-and-projects)
+    - [10.3 Imports, aliases, and qualified visibility](#103-imports-aliases-and-qualified-visibility)
+    - [10.4 Dependency graph and initialization](#104-dependency-graph-and-initialization)
+  - [11 Scopes, Bindings, and Lookup](#11-scopes-bindings-and-lookup)
+  - [12 Tooling hooks](#12-tooling-hooks)
+- [Part III - Declarations \& the Type System](#part-iii---declarations--the-type-system)
+  - [10 Declarations](#10-declarations)
+  - [11 Type Foundations](#11-type-foundations)
+  - [12 Primitive Types](#12-primitive-types)
+  - [13 Composite Types](#13-composite-types)
+  - [13. Modal Types](#13-modal-types)
+  - [14. Pointer \& Reference Model](#14-pointer--reference-model)
+  - [15. Generics \& Parametric Polymorphism](#15-generics--parametric-polymorphism)
+- [Part IV - Ownership, Permissions, Regions](#part-iv---ownership-permissions-regions)
+  - [16. Ownership \& Responsibility](#16-ownership--responsibility)
+  - [17. Lexical Permission System (LPS)](#17-lexical-permission-system-lps)
+  - [18. Region-Based Memory \& Arenas](#18-region-based-memory--arenas)
+  - [19. Moves, Assignments, and Destruction](#19-moves-assignments-and-destruction)
+- [Part V - Expressions, Statements, and Control Flow](#part-v---expressions-statements-and-control-flow)
+  - [20. Expressions](#20-expressions)
+  - [21. Statements](#21-statements)
+  - [22. Control Flow and Pattern Matching](#22-control-flow-and-pattern-matching)
+  - [23. Error Handling and Panics](#23-error-handling-and-panics)
+- [Part VI - Contracts, and Grants](#part-vi---contracts-and-grants)
+  - [14. Contract Language](#14-contract-language)
+  - [15. Grants](#15-grants)
+  - [16. Diagnostics for Contracts and Effects](#16-diagnostics-for-contracts-and-effects)
+- [Part VII - Abstraction, Behaviors, and Dynamic Dispatch](#part-vii---abstraction-behaviors-and-dynamic-dispatch)
+  - [17. Behaviors (Interfaces/Traits)](#17-behaviors-interfacestraits)
+  - [18. Witness System (Runtime Polymorphism)](#18-witness-system-runtime-polymorphism)
+  - [19. Generics \& Behaviors Integration](#19-generics--behaviors-integration)
+- [Part VIII - Compile-Time Evaluation \& Reflection (No Macros)](#part-viii---compile-time-evaluation--reflection-no-macros)
+  - [20. Comptime Execution](#20-comptime-execution)
+  - [21. Opt-In Reflection](#21-opt-in-reflection)
+  - [22. Code Generation APIs (Explicit Metaprogramming)](#22-code-generation-apis-explicit-metaprogramming)
+- [Part IX - Memory Model, Layout, and ABI](#part-ix---memory-model-layout-and-abi)
+  - [23. Memory Layout \& Alignment](#23-memory-layout--alignment)
+  - [24. Interoperability \& FFI](#24-interoperability--ffi)
+  - [25. Linkage, ODR, and Binary Compatibility](#25-linkage-odr-and-binary-compatibility)
 - [Appendix A – Formal ANTLR Grammar (Normative)](#appendix-a--formal-antlr-grammar-normative)
 - [Appendix B – Diagnostic Code Taxonomy (Normative)](#appendix-b--diagnostic-code-taxonomy-normative)
 - [Appendix C – Implementation-Defined Behavior Index (Normative)](#appendix-c--implementation-defined-behavior-index-normative)
@@ -596,9 +597,9 @@ Where references are not available freely, they are available for purchase from 
 
 ---
 
-# Part I - Conformance and Governance
+# Part I - Conformance, Diagnostics, and Governance
 
-This part establishes the foundational requirements for conforming Cursive implementations and specifies governance rules for language evolution, extensions, and backward compatibility. It provides the normative framework that all other parts of this specification build upon, including conformance obligations, behavior classification, and version management.
+This part establishes the foundational requirements for conforming Cursive implementations, defines diagnostic reporting standards, and specifies governance rules for extensions and backward compatibility. It provides the normative framework that all other parts of this specification build upon, including conformance obligations, diagnostic taxonomy, and behavior classification.
 
 ## 6. Fundamental Conformance [conformance]
 
@@ -1118,453 +1119,15 @@ This section defines requirements for conformance test suites, certification pro
 
 This chapter defines how the Cursive language evolves over time, including versioning policy, feature lifecycle management, extension mechanisms, and specification maintenance. It establishes the governance framework that ensures stability, predictability, and controlled evolution for implementations and programs.
 
-### 7.1 Versioning Model [evolution.versioning]
-
-This section defines the version numbering scheme, edition system, and version declaration requirements for the Cursive language.
-
-#### 7.1.1 Semantic Versioning Policy [evolution.versioning.policy]
-
-> The Cursive language specification **MUST** follow semantic versioning with the format `MAJOR.MINOR.PATCH` where:
->
-> - **MAJOR** version increments for incompatible changes that break existing conforming programs or change language semantics, including new keywords that were previously valid identifiers, changes to type system rules, or modifications to evaluation order.
-> - **MINOR** version increments for backwards-compatible additions and clarifications that do not change the meaning of existing conforming programs, including new language features with new syntax, clarifications that resolve ambiguity without changing behavior, or additional diagnostic requirements.
-> - **PATCH** version increments for backwards-compatible fixes and editorial corrections, including typo corrections, improved wording, formatting changes, or correction of internal cross-references.
->
-> Implementations **MUST** document which language specification version(s) they support in their conformance dossier (§6.2.4).
-
-#### 7.1.2 Language Editions [evolution.versioning.editions]
-
-> Language editions **MAY** be introduced to manage incompatible changes while allowing programs written for earlier editions to remain compilable.
->
-> When editions are supported, implementations **MUST** allow programs to explicitly declare their target edition. Each edition **MUST** maintain internal consistency and **MUST NOT** mix semantics from different editions within a single compilation unit.
->
-> Implementations supporting multiple editions **MUST** document the semantic differences between editions and provide migration guidance in their conformance dossier.
-
-#### 7.1.3 Version Declaration [evolution.versioning.declaration]
-
-> Programs **MUST** declare their target language version in the project manifest using the `language.version` field as specified in Part II, §14.3.
->
-> The declared version **MUST** use semantic versioning format. Implementations **MUST** reject manifests where the declared MAJOR version does not match the implementation's supported MAJOR version.
->
-> Implementations **MAY** accept programs declaring older MINOR versions within the same MAJOR version, provided backward compatibility is maintained per §7.1.4.
-
-#### 7.1.4 Compatibility Guarantees [evolution.versioning.compatibility]
-
-> Implementations **MUST** maintain source-level backward compatibility for conforming programs across MINOR version increments within the same MAJOR version, subject to deprecation timelines (§7.2.4).
->
-> Implementations **MUST NOT** silently change the semantics of existing conforming programs when processing them under a newer MINOR version. Changes requiring semantic alterations **MUST** trigger MAJOR version increments.
->
-> Implementations **MAY** issue warnings for constructs that will be deprecated in future versions, provided such warnings do not prevent successful compilation.
-
-#### 7.1.5 Version Migration [evolution.versioning.migration]
-
-> When MAJOR version increments introduce breaking changes, implementations **SHOULD** provide automated migration tooling to assist in updating programs from the previous MAJOR version.
->
-> Migration tooling **SHOULD** handle syntactic transformations, deprecated feature replacements, and semantic updates where feasible. Migration tooling **MUST NOT** introduce silent behavioral changes without user confirmation.
->
-> Implementations **MUST** document migration procedures, including cases requiring manual intervention, in release notes and migration guides.
-
-### 7.2 Feature Lifecycle [evolution.lifecycle]
-
-This section defines stability classifications for language features, deprecation policies, and the process for feature removal.
-
-#### 7.2.1 Stability Classes [evolution.lifecycle.stability]
-
-> Every language feature **MUST** be classified into one of three stability classes:
->
-> 1. **Stable**: Features available by default without opt-in. Stable features **MUST NOT** introduce breaking changes except in MAJOR version increments. Stable features **MUST** be documented in this specification.
->
-> 2. **Preview**: Features intended for the next stable release, requiring explicit opt-in via feature flags (§7.3.2). Preview features **MAY** change between MINOR versions. Preview features **MUST** be documented with a `[Preview: target_version]` annotation indicating the version in which they are planned to stabilize.
->
-> 3. **Experimental**: Highly unstable features guarded by feature flags. Experimental features **MAY** change significantly or be removed without following deprecation timelines. Experimental features **MUST NOT** be used in production code without explicit acknowledgment of stability risks.
->
-> The stability class of each feature **MUST** be documented in this specification or in implementation-specific extension documentation.
-
-#### 7.2.2 Feature Stabilization [evolution.lifecycle.stabilization]
-
-> Preview features **MAY** transition to Stable status in a MINOR version increment after the preview period, provided no breaking changes to the preview semantics are required.
->
-> If breaking changes are required during stabilization, the feature **MUST** either undergo another preview cycle or be deferred to the next MAJOR version.
->
-> Experimental features **MUST** transition through Preview status before becoming Stable, except for features introduced in MAJOR version increments where the preview period may be shortened or bypassed.
-
-#### 7.2.3 Deprecation Policy [evolution.lifecycle.deprecation]
-
-> Features **MAY** be deprecated when better alternatives exist, when they introduce maintenance burden, or when they conflict with language design principles.
->
-> Deprecated features **MUST** remain functional and conforming for at least one MINOR version after deprecation is announced. Deprecated features **MUST** be marked with the `[!caution] Deprecated` annotation as specified in §2.2, including the version in which they will be removed.
->
-> Implementations **SHOULD** issue warnings (severity `W`, Part II §13.3.2) when deprecated features are used, referencing the deprecation diagnostic code and replacement guidance.
-
-#### 7.2.4 Deprecation Timeline [evolution.lifecycle.timeline]
-
-> Features deprecated in version `X.Y.0` **MUST NOT** be removed before version `X.(Y+2).0` for MINOR version deprecations, or version `(X+1).0.0` for MAJOR version deprecations.
->
-> The minimum deprecation period **MUST** be at least one full MINOR version release to provide users time to migrate.
->
-> Implementations **MUST** document all deprecated features in release notes, including the deprecation version, planned removal version, rationale, and migration path.
-
-#### 7.2.5 Feature Removal [evolution.lifecycle.removal]
-
-> Features **MAY** be removed only in MAJOR version increments, except for experimental features which **MAY** be removed in any version.
->
-> Removed features **MUST** trigger error diagnostics (severity `E`, Part II §13.3.1) when encountered. The diagnostic code for the removed feature **MUST** be marked as reserved in Appendix D and **MUST NOT** be reused for different violations (Part II §13.2.4).
->
-> Implementations **MAY** provide compatibility modes or feature flags to temporarily restore removed features, provided such modes are clearly documented as non-conforming extensions.
-
-#### 7.2.6 Migration Paths [evolution.lifecycle.migration]
-
-> For every deprecated or removed feature, implementations **MUST** provide documentation describing the recommended replacement or migration strategy.
->
-> Migration documentation **MUST** include code examples demonstrating the deprecated construct and its replacement. Where automated migration is feasible, implementations **SHOULD** provide tooling support.
->
-> Deprecation warnings (§7.2.3) **SHOULD** include brief inline migration guidance or references to detailed migration documentation.
-
-#### 7.2.7 Critical Security Deprecation [evolution.lifecycle.security]
-
-> Features with discovered security vulnerabilities or fundamental safety defects **MAY** follow an expedited deprecation timeline.
->
-> Security deprecations **MAY** be announced and removed within a single MINOR version increment, provided the vulnerability and rationale are publicly documented.
->
-> Implementations **MUST** issue error diagnostics for security-deprecated features unless an explicit opt-out flag is provided. Such opt-out flags **MUST** be documented as enabling potentially unsafe behavior.
-
-### 7.3 Extension System [evolution.extensions]
-
-This section defines how implementations may extend the language beyond the core specification while preserving portability and conformance.
-
-#### 7.3.1 Extension Mechanisms [evolution.extensions.mechanisms]
-
-> Implementations **MAY** provide language extensions through:
->
-> 1. **Attributes**: Syntactic annotations using the `[[attribute_name]]` syntax that modify declarations without altering core language semantics (see Part VIII for reflection and attribute requirements).
-> 2. **Compiler-specific features**: Additional language constructs, built-in types, or intrinsic functions not defined in this specification.
-> 3. **Preview features**: Specification-defined features in preview stability class (§7.2.1) requiring explicit opt-in.
->
-> Extensions **MUST NOT** alter the meaning of conforming programs written without the extension. Extensions **MUST NOT** suppress required diagnostics defined in this specification.
-
-#### 7.3.2 Feature Flags [evolution.extensions.flags]
-
-> Extensions requiring opt-in **MUST** be controlled through feature flags declared in the project manifest or via compiler command-line options.
->
-> Feature flags **MUST** use a hierarchical dotted identifier format (e.g., `"vendor.category.feature"`). Flags for specification-defined preview features **MUST** use identifiers without vendor prefixes.
->
-> The manifest schema **MUST** support a `[features]` table with an `enable` array listing feature flag identifiers. Implementations **MUST** document all available feature flags and their effects in the conformance dossier (§6.2.4).
->
-> Unknown feature flag identifiers **SHOULD** trigger warnings (diagnostic code `W-CNF-0101`) unless overridden by explicit compiler flags.
-
-#### 7.3.3 Extension Namespacing [evolution.extensions.namespacing]
-
-> Vendor-specific extensions **MUST** use namespaced identifiers to prevent conflicts with specification-defined features and other vendors' extensions.
->
-> Vendor namespaces **MUST** follow the format `vendor.domain` where `vendor` is a unique vendor identifier and `domain` is a reverse-domain notation (e.g., `"example.com.advanced_features"`).
->
-> Attribute names for vendor extensions **MUST** include the vendor namespace (e.g., `[[vendor.com.custom_attribute]]`). Feature flag identifiers for vendor extensions **MUST** similarly include the namespace.
->
-> The specification reserves all non-namespaced identifiers and identifiers under the `cursive.*` namespace for specification-defined features. Implementations **MUST NOT** define extensions using reserved namespaces.
-
-#### 7.3.4 Extension Conformance [evolution.extensions.conformance]
-
-> Programs using specification-defined preview or experimental features (§7.2.1) **MAY** be conforming provided:
->
-> 1. The features are explicitly enabled via feature flags (§7.3.2).
-> 2. The program satisfies all requirements for those features as documented.
-> 3. The program does not rely on undocumented behavior.
->
-> Programs using vendor-specific extensions **MAY** be considered conforming within the vendor's ecosystem, provided the vendor documents the extension's behavior in a conformance dossier following the same structure as §6.2.4.
->
-> Conformance claims for programs using extensions **MUST** enumerate all enabled extensions and their versions.
-
-#### 7.3.5 Extension Standardization [evolution.extensions.standardization]
-
-> Successful vendor extensions **MAY** be considered for adoption into the core specification through the change proposal process (§7.4.2).
->
-> Extensions considered for standardization **MUST** demonstrate:
->
-> 1. Proven utility across multiple codebases or domains.
-> 2. Implementation experience from at least one production-quality implementation.
-> 3. Compatibility with language design principles (§cursive-language-design in project documentation).
-> 4. Absence of conflicts with existing or planned specification features.
->
-> Upon adoption, standardized features **MUST** transition through preview stability (§7.2.1) before becoming stable, unless introduced as part of a MAJOR version increment.
-
-### 7.4 Specification Maintenance [evolution.specification]
-
-This section defines processes for maintaining and evolving the specification itself through errata, change proposals, and breaking change management.
-
-#### 7.4.1 Errata Process [evolution.specification.errata]
-
-> Errors in the specification (typos, ambiguities, contradictions, omissions) **SHOULD** be reported through the specification's issue tracking system.
->
-> Confirmed errata **MUST** be corrected in a PATCH version increment (§7.1.1). Errata corrections **MUST NOT** introduce behavioral changes; corrections requiring behavioral changes **MUST** be treated as MINOR or MAJOR changes per semantic versioning policy.
->
-> All errata **MUST** be documented in a normative change log (planned for Appendix H) recording:
->
-> 1. The version in which the error appeared.
-> 2. The version in which it was corrected.
-> 3. Description of the error and correction.
-> 4. Affected section references.
->
-> Implementations **SHOULD** adopt errata promptly. When implementation behavior diverges from corrected specification text, the divergence **MUST** be documented in the conformance dossier as implementation-defined behavior (§6.1.4).
-
-#### 7.4.2 Change Proposal Process [evolution.specification.proposals]
-
-> Substantive changes to the specification (new features, semantic modifications, requirement changes) **MUST** follow a formal proposal process.
->
-> Change proposals **MUST** include:
->
-> 1. **Motivation**: Problem being solved and rationale for the change.
-> 2. **Specification changes**: Precise wording for additions/modifications with section references.
-> 3. **Impact analysis**: Effect on existing conforming programs and implementations.
-> 4. **Migration strategy**: For breaking changes, how existing code should be updated.
-> 5. **Implementation experience**: Evidence from prototype implementations or production use where available.
->
-> Proposals **SHOULD** undergo public review period before acceptance. Accepted proposals **MUST** be integrated into the next appropriate specification version per semantic versioning policy (§7.1.1).
-
-#### 7.4.3 Breaking Change Policy [evolution.specification.breaking]
-
-> Changes that invalidate previously conforming programs **MUST** be classified as breaking changes and **MUST** trigger MAJOR version increments (§7.1.1).
->
-> Breaking changes **MUST** follow the deprecation timeline (§7.2.4) when feasible, giving users at least one MINOR version cycle to prepare.
->
-> Breaking changes **MUST** be thoroughly documented with:
->
-> 1. Rationale justifying the incompatibility.
-> 2. Estimated impact on existing codebases.
-> 3. Detailed migration guidance.
-> 4. Alternatives considered and reasons for rejection.
->
-> Breaking changes **SHOULD** be batched in MAJOR releases to minimize disruption. Gratuitous breaking changes without substantial benefits **SHOULD NOT** be accepted.
-# Part II - Source Text & Translation
-
-This part defines how source text is processed into executable programs, covering character encoding, lexical analysis, syntactic structure, the multi-phase translation pipeline, and the diagnostic system for reporting violations.
-
-## 9. Source Text and Encoding [source]
-
-This chapter defines requirements for source file encoding, structure, and ingestion.
-
-### 9.1 Character Encoding [source.encoding]
-
-#### 9.1.1 UTF-8 Requirements [source.encoding.utf8]
-
-> **[Placeholder for normative requirements]**
-
-#### 9.1.2 BOM Handling [source.encoding.bom]
-
-> **[Placeholder for normative requirements]**
-
-#### 9.1.3 Invalid Sequences [source.encoding.invalid]
-
-> **[Placeholder for normative requirements]**
-
-#### 9.1.4 Normalization [source.encoding.normalization]
-
-> **[Placeholder for normative requirements]**
-
-### 9.2 Source File Structure [source.structure]
-
-#### 9.2.1 Line Endings [source.structure.lines]
-
-> **[Placeholder for normative requirements]**
-
-#### 9.2.2 Maximum File Size [source.structure.size]
-
-> **[Placeholder for normative requirements]**
-
-#### 9.2.3 Physical Structure [source.structure.physical]
-
-> **[Placeholder for normative requirements]**
-
-### 9.3 Source Inclusion Model [source.inclusion]
-
-#### 9.3.1 Compilation Units [source.inclusion.units]
-
-> **[Placeholder for normative requirements]**
-
-#### 9.3.2 No Header/Include Mechanism [source.inclusion.noheaders]
-
-> **[Placeholder for normative requirements]**
-
----
-
-## 10. Lexical Structure [lexical]
-
-This chapter defines tokenization and lexical elements.
-
-### 10.1 Lexical Elements [lexical.elements]
-
-#### 10.1.1 Token Categories [lexical.elements.tokens]
-
-> **[Placeholder for normative requirements]**
-
-#### 10.1.2 Whitespace Handling [lexical.elements.whitespace]
-
-> **[Placeholder for normative requirements]**
-
-#### 10.1.3 Comments [lexical.elements.comments]
-
-> **[Placeholder for normative requirements on line comments, block comments, and documentation comments]**
-
-### 10.2 Keywords and Operators [lexical.keywords]
-
-#### 10.2.1 Reserved Keywords [lexical.keywords.reserved]
-
-> **[Placeholder for normative requirements - reference to §6.5.1]**
-
-#### 10.2.2 Operators and Punctuators [lexical.keywords.operators]
-
-> **[Placeholder for normative requirements]**
-
-### 10.3 Identifiers [lexical.identifiers]
-
-#### 10.3.1 XID_Start and XID_Continue Rules [lexical.identifiers.xid]
-
-> **[Placeholder for normative requirements]**
-
-#### 10.3.2 Length Limits [lexical.identifiers.length]
-
-> **[Placeholder for normative requirements - reference to §6.4.1]**
-
-#### 10.3.3 Unicode Normalization [lexical.identifiers.normalization]
-
-> **[Placeholder for normative requirements]**
-
-### 10.4 Literals [lexical.literals]
-
-#### 10.4.1 Numeric Literals [lexical.literals.numeric]
-
-> **[Placeholder for normative requirements on integer and floating-point literals]**
-
-#### 10.4.2 String Literals [lexical.literals.string]
-
-> **[Placeholder for normative requirements]**
-
-#### 10.4.3 Character Literals [lexical.literals.character]
-
-> **[Placeholder for normative requirements]**
-
-#### 10.4.4 Boolean Literals [lexical.literals.boolean]
-
-> **[Placeholder for normative requirements]**
-
----
-
-## 11. Syntactic Structure [syntax]
-
-This chapter provides high-level grammar organization. Detailed syntax appears in respective parts; the normative grammar appears in Appendix A.
-
-### 11.1 Grammar Organization [syntax.organization]
-
-#### 11.1.1 Declarations [syntax.organization.declarations]
-
-> **[Placeholder for normative requirements - overview, details in Part III]**
-
-#### 11.1.2 Statements [syntax.organization.statements]
-
-> **[Placeholder for normative requirements - overview, details in Part V]**
-
-#### 11.1.3 Expressions [syntax.organization.expressions]
-
-> **[Placeholder for normative requirements - overview, details in Part V]**
-
-#### 11.1.4 Patterns [syntax.organization.patterns]
-
-> **[Placeholder for normative requirements - overview, details in Part V]**
-
-### 11.2 Syntactic Nesting Limits [syntax.limits]
-
-#### 11.2.1 Reference to Implementation Limits [syntax.limits.reference]
-
-> **[Placeholder for normative requirements - reference to §6.4.1]**
-
-#### 11.2.2 Block Nesting [syntax.limits.blocks]
-
-> **[Placeholder for normative requirements]**
-
-#### 11.2.3 Expression Nesting [syntax.limits.expressions]
-
-> **[Placeholder for normative requirements]**
-
-#### 11.2.4 Delimiter Nesting [syntax.limits.delimiters]
-
-> **[Placeholder for normative requirements]**
-
-### 11.3 Grammar Notation [syntax.notation]
-
-#### 11.3.1 Specification Presentation [syntax.notation.presentation]
-
-> **[Placeholder for normative requirements on how this specification presents syntax]**
-
-#### 11.3.2 Template Syntax [syntax.notation.template]
-
-> **[Placeholder for normative requirements - reference to §3.1.1]**
-
-#### 11.3.3 Formal ANTLR Grammar [syntax.notation.antlr]
-
-> **[Placeholder for normative requirements - reference to Appendix A]**
-
----
-
-## 12. Translation Phases and Pipeline [translation]
-
-This chapter defines the compilation process phases and their ordering.
-
-### 12.1 Translation Model [translation.model]
-
-This section provides an overview of translation phases and defines requirements for phase independence versus interleaving.
-
-> **[Placeholder for normative requirements]**
-
-### 12.2 Phase 1: Source Ingestion [translation.ingestion]
-
-This section defines requirements for UTF-8 validation, line ending normalization, and BOM processing.
-
-> **[Placeholder for normative requirements]**
-
-### 12.3 Phase 2: Lexical Analysis [translation.lexical]
-
-This section defines tokenization and comment stripping requirements.
-
-> **[Placeholder for normative requirements]**
-
-### 12.4 Phase 3: Syntactic Analysis [translation.parsing]
-
-This section defines parsing, AST construction, and establishes that forward references are permitted.
-
-> **[Placeholder for normative requirements]**
-
-### 12.5 Phase 4: Semantic Analysis [translation.semantic]
-
-This section defines requirements for module discovery, import resolution, name resolution, type checking, permission checking, and contract verification.
-
-> **[Placeholder for normative requirements]**
-
-### 12.6 Phase 5: Compile-Time Evaluation [translation.comptime]
-
-This section defines comptime block execution, code generation, and dependency ordering requirements.
-
-> **[Placeholder for normative requirements]**
-
-### 12.7 Phase 6: Code Generation [translation.codegen]
-
-This section defines monomorphization, optimization under the as-if rule (§6.2.5), and binary emission requirements.
-
-> **[Placeholder for normative requirements]**
-
----
-
-## 13. Diagnostic System [diagnostics]
-
-This chapter specifies how implementations report violations detected during translation.
-
-### 13.1 Diagnostic Requirements [diagnostics.requirements]
+### 7.1 Diagnostic Requirements [diagnostics.requirements]
 
 This section establishes the fundamental obligations for diagnostic reporting in conforming implementations.
 
-#### 13.1.1 Obligation to Diagnose [diagnostics.requirements.obligation]
+#### 7.1.1 Obligation to Diagnose [diagnostics.requirements.obligation]
 
 > Implementations **MUST** issue at least one diagnostic for every ill-formed program as defined in §6.2.3, except for IFNDR violations (§6.1.3.1).
 >
-> Implementations **MUST NOT** produce executable artifacts for programs that trigger error diagnostics (severity E, see §13.3.1).
+> Implementations **MUST NOT** produce executable artifacts for programs that trigger error diagnostics (severity E, see §7.3.1).
 >
 > Implementations **MAY** produce non-executable artifacts (syntax trees, symbol tables, diagnostic metadata) for tooling purposes regardless of program well-formedness.
 
@@ -1578,12 +1141,12 @@ procedure example() {
 // Implementation MUST issue diagnostic, MUST NOT produce executable
 ```
 
-#### 13.1.2 Minimum Diagnostic Content [diagnostics.requirements.content]
+#### 7.1.2 Minimum Diagnostic Content [diagnostics.requirements.content]
 
 > Every diagnostic **MUST** include:
 >
-> 1. A diagnostic code following the format specified in §13.2.1
-> 2. A severity level as defined in §13.3
+> 1. A diagnostic code following the format specified in §7.2.1
+> 2. A severity level as defined in §7.3
 > 3. Source location information: file path, line number, and column number
 > 4. A description of the violation sufficient to understand the error
 >
@@ -1602,7 +1165,7 @@ Cannot move value: x is not a responsible binding
 // - Description: Cannot move value: x is not a responsible binding
 ```
 
-#### 13.1.3 Diagnostic Timing [diagnostics.requirements.timing]
+#### 7.1.3 Diagnostic Timing [diagnostics.requirements.timing]
 
 > Implementations **MUST** issue diagnostics during translation of each compilation unit, before executing any code that depends on that unit.
 >
@@ -1628,16 +1191,16 @@ procedure example() {
 }
 ```
 
-### 13.2 Diagnostic Code System [diagnostics.codes]
+### 7.2 Diagnostic Code System [diagnostics.codes]
 
 This section defines the canonical format and organization of diagnostic codes that provide stable identifiers for each diagnostic across implementations and specification versions.
 
-#### 13.2.1 Canonical Format [diagnostics.codes.format]
+#### 7.2.1 Canonical Format [diagnostics.codes.format]
 
 > Diagnostic codes **MUST** follow the format `K-CAT-FFNN` where:
 >
 > - `K` is a single character severity indicator: `E` (error), `W` (warning), or `N` (note)
-> - `CAT` is a three-letter category code in uppercase (see §13.2.2)
+> - `CAT` is a three-letter category code in uppercase (see §7.2.2)
 > - `FF` is a two-digit feature bucket in decimal notation (00-99)
 > - `NN` is a two-digit sequence number within the bucket (00-99)
 > - Separators **MUST** be ASCII hyphen-minus (U+002D)
@@ -1660,7 +1223,7 @@ W-CNF-0201: Warning in Conformance category, bucket 02 (modes), sequence 01
 N-TYP-0305: Note in Type category, bucket 03 (generics), sequence 05
 ```
 
-#### 13.2.2 Category Codes [diagnostics.codes.categories]
+#### 7.2.2 Category Codes [diagnostics.codes.categories]
 
 > The following category codes are defined:
 >
@@ -1680,7 +1243,7 @@ N-TYP-0305: Note in Type category, bucket 03 (generics), sequence 05
 **_Explanation:_**
 The prohibition on custom categories prevents conflicts with future specification versions.
 
-#### 13.2.3 Feature Bucket Allocation [diagnostics.codes.buckets]
+#### 7.2.3 Feature Bucket Allocation [diagnostics.codes.buckets]
 
 > Feature buckets within each category **MUST** be allocated according to the taxonomy defined in Appendix B.
 >
@@ -1703,7 +1266,7 @@ SRC category (Part II):
   [See Appendix B for complete taxonomy]
 ```
 
-#### 13.2.4 Diagnostic Code Stability [diagnostics.codes.stability]
+#### 7.2.4 Diagnostic Code Stability [diagnostics.codes.stability]
 
 > Once a diagnostic code is published in a specification version, its meaning **MUST NOT** change in subsequent versions.
 >
@@ -1714,15 +1277,15 @@ SRC category (Part II):
 **_Explanation:_**
 Code stability ensures that error tracking systems, documentation, and automated tools remain reliable across specification updates. Deprecation marking preserves historical context while guiding users toward current diagnostics.
 
-### 13.3 Severity Levels [diagnostics.severity]
+### 7.3 Severity Levels [diagnostics.severity]
 
 This section defines the three severity levels that classify diagnostic importance and determine whether translation may proceed.
 
-#### 13.3.1 Error Diagnostics [diagnostics.severity.error]
+#### 7.3.1 Error Diagnostics [diagnostics.severity.error]
 
 > Error diagnostics (severity indicator `E`) **MUST** be issued when a program violates a normative requirement expressed with **MUST** or **MUST NOT**.
 >
-> Implementations **MUST** reject programs that trigger error diagnostics by not producing executable artifacts (§13.1.1).
+> Implementations **MUST** reject programs that trigger error diagnostics by not producing executable artifacts (§7.1.1).
 >
 > Error diagnostics indicate ill-formed programs that do not conform to this specification (§6.2.2).
 
@@ -1749,7 +1312,7 @@ procedure example() {
 }
 ```
 
-#### 13.3.2 Warning Diagnostics [diagnostics.severity.warning]
+#### 7.3.2 Warning Diagnostics [diagnostics.severity.warning]
 
 > Warning diagnostics (severity indicator `W`) **MAY** be issued for constructs that are well-formed according to this specification but potentially problematic.
 >
@@ -1771,7 +1334,7 @@ procedure example() {
 }
 ```
 
-#### 13.3.3 Note Diagnostics [diagnostics.severity.note]
+#### 7.3.3 Note Diagnostics [diagnostics.severity.note]
 
 > Note diagnostics (severity indicator `N`) provide supplementary context for errors or warnings.
 >
@@ -1796,11 +1359,11 @@ procedure example() {
 }
 ```
 
-### 13.4 IFNDR and Diagnostic Limits [diagnostics.ifndr]
+### 7.4 IFNDR and Diagnostic Limits [diagnostics.ifndr]
 
 This section addresses cases where diagnostic requirements are relaxed due to computational infeasibility.
 
-#### 13.4.1 Ill-Formed, No Diagnostic Required [diagnostics.ifndr.definition]
+#### 7.4.1 Ill-Formed, No Diagnostic Required [diagnostics.ifndr.definition]
 
 > When detecting a violation requires solving computationally infeasible problems as defined in §6.1.3.1, implementations are not required to issue diagnostics.
 >
@@ -1829,7 +1392,7 @@ procedure example(x: i64) {
 }
 ```
 
-#### 13.4.2 IFNDR Diagnostic Encouragement [diagnostics.ifndr.encouragement]
+#### 7.4.2 IFNDR Diagnostic Encouragement [diagnostics.ifndr.encouragement]
 
 > Implementations **SHOULD** diagnose IFNDR violations when detection is feasible within reasonable resource limits.
 >
@@ -1852,18 +1415,18 @@ procedure unclear_termination(n: i32) {
 }
 ```
 
-### 13.5 Implementation-Defined Behavior [diagnostics.idb]
+### 7.5 Implementation-Defined Behavior [diagnostics.idb]
 
 This section specifies aspects of diagnostic reporting where implementations have discretion within conformance constraints.
 
-#### 13.5.1 Diagnostic Presentation [diagnostics.idb.presentation]
+#### 7.5.1 Diagnostic Presentation [diagnostics.idb.presentation]
 
 > The presentation format of diagnostics is implementation-defined. Implementations **MAY** choose:
 >
 > 1. Text formatting (color, Unicode characters, ASCII fallback)
 > 2. Source context window size (lines before and after error location)
 > 3. Message wording (provided the description remains accurate and clear)
-> 4. Additional information beyond minimum requirements (§13.1.2)
+> 4. Additional information beyond minimum requirements (§7.1.2)
 >
 > Implementations that support machine-readable diagnostic output **MUST** document the output format in their conformance dossier (§6.2.4).
 
@@ -1889,7 +1452,7 @@ E-TYP-0201 [error] src/main.cursive:10:18
 // Both conforming: contain required elements (code, severity, location, description)
 ```
 
-#### 13.5.2 Additional Diagnostics [diagnostics.idb.additional]
+#### 7.5.2 Additional Diagnostics [diagnostics.idb.additional]
 
 > Implementations **MAY** issue diagnostics beyond those required by this specification, including:
 >
@@ -1921,11 +1484,11 @@ procedure long_function() {  // impl-warn[style-042]: function exceeds 200 lines
 }
 ```
 
-### 13.6 Diagnostic Catalog Reference [diagnostics.catalog]
+### 7.6 Diagnostic Catalog Reference [diagnostics.catalog]
 
 This section provides references to the comprehensive diagnostic catalog and related appendices.
 
-#### 13.6.1 Complete Diagnostic Catalog [diagnostics.catalog.reference]
+#### 7.6.1 Complete Diagnostic Catalog [diagnostics.catalog.reference]
 
 > The complete catalog of specification-defined diagnostic codes appears in Appendix D. The catalog includes:
 >
@@ -1937,9 +1500,9 @@ This section provides references to the comprehensive diagnostic catalog and rel
 > The catalog is normative: implementations **MUST** use the specified codes for the specified violations.
 
 **_Explanation:_**
-Appendix D serves as the authoritative reference for all diagnostic codes, enabling implementers to ensure coverage and users to look up diagnostic meanings. The normative status ensures consistency across implementations.
+Appendix B serves as the authoritative reference for all diagnostic codes, enabling implementers to ensure coverage and users to look up diagnostic meanings. The normative status ensures consistency across implementations.
 
-#### 13.6.2 Diagnostic Taxonomy [diagnostics.catalog.taxonomy]
+#### 7.6.2 Diagnostic Taxonomy [diagnostics.catalog.taxonomy]
 
 > The feature bucket taxonomy organizing diagnostics within categories appears in Appendix B. The taxonomy specifies:
 >
@@ -1952,32 +1515,253 @@ Appendix D serves as the authoritative reference for all diagnostic codes, enabl
 **_Explanation:_**
 Appendix B provides the organizational structure that keeps diagnostic codes stable and predictable as the language evolves. Following the allocation strategy prevents conflicts and maintains the hierarchical organization.
 
-#### 13.6.3 Implementation-Defined Behavior Index [diagnostics.catalog.idb]
+#### 7.6.3 Implementation-Defined Behavior Index [diagnostics.catalog.idb]
 
-> Implementation-defined aspects of diagnostic reporting are indexed in Appendix C. The index references:
+> Implementation-defined aspects of diagnostic reporting are indexed in Appendix B. The index references:
 >
-> 1. Diagnostic presentation format choices (§13.5.1)
+> 1. Diagnostic presentation format choices (§7.5.1)
 > 2. Machine-readable output format documentation requirements
 > 3. Additional diagnostic policies
 >
-> Implementations **MUST** document their choices for items listed in Appendix C as part of their conformance dossier (§6.2.4).
+> Implementations **MUST** document their choices for items listed in Appendix B as part of their conformance dossier (§6.2.4).
 
 **_Explanation:_**
 Appendix C identifies which aspects of diagnostic reporting are implementation-defined, guiding implementers on what must be documented and helping users understand variation across implementations.
 
+## 8. Language Evolution and Governance [evolution]
+
+This chapter defines how the Cursive language evolves over time, including versioning policy, feature lifecycle management, extension mechanisms, conformance verification, and specification maintenance. It establishes the governance framework that ensures stability, predictability, and controlled evolution for implementations and programs.
+
+### 8.1 Versioning Model [evolution.versioning]
+
+This section defines the version numbering scheme, edition system, and version declaration requirements for the Cursive language.
+
+#### 8.1.1 Semantic Versioning Policy [evolution.versioning.policy]
+
+> The Cursive language specification **MUST** follow semantic versioning with the format `MAJOR.MINOR.PATCH` where:
+>
+> - **MAJOR** version increments for incompatible changes that break existing conforming programs or change language semantics, including new keywords that were previously valid identifiers, changes to type system rules, or modifications to evaluation order.
+> - **MINOR** version increments for backwards-compatible additions and clarifications that do not change the meaning of existing conforming programs, including new language features with new syntax, clarifications that resolve ambiguity without changing behavior, or additional diagnostic requirements.
+> - **PATCH** version increments for backwards-compatible fixes and editorial corrections, including typo corrections, improved wording, formatting changes, or correction of internal cross-references.
+>
+> Implementations **MUST** document which language specification version(s) they support in their conformance dossier (§6.2.4).
+
+#### 8.1.2 Language Editions [evolution.versioning.editions]
+
+> Language editions **MAY** be introduced to manage incompatible changes while allowing programs written for earlier editions to remain compilable.
+>
+> When editions are supported, implementations **MUST** allow programs to explicitly declare their target edition. Each edition **MUST** maintain internal consistency and **MUST NOT** mix semantics from different editions within a single compilation unit.
+>
+> Implementations supporting multiple editions **MUST** document the semantic differences between editions and provide migration guidance in their conformance dossier.
+
+#### 8.1.3 Version Declaration [evolution.versioning.declaration]
+
+> Programs **MUST** declare their target language version in the project manifest using the `language.version` field as specified in Part II, §10.1.5.
+>
+> The declared version **MUST** use semantic versioning format. Implementations **MUST** reject manifests where the declared MAJOR version does not match the implementation's supported MAJOR version.
+>
+> Implementations **MAY** accept programs declaring older MINOR versions within the same MAJOR version, provided backward compatibility is maintained per §8.1.4.
+
+#### 8.1.4 Compatibility Guarantees [evolution.versioning.compatibility]
+
+> Implementations **MUST** maintain source-level backward compatibility for conforming programs across MINOR version increments within the same MAJOR version, subject to deprecation timelines (§8.2.4).
+>
+> Implementations **MUST NOT** silently change the semantics of existing conforming programs when processing them under a newer MINOR version. Changes requiring semantic alterations **MUST** trigger MAJOR version increments.
+>
+> Implementations **MAY** issue warnings for constructs that will be deprecated in future versions, provided such warnings do not prevent successful compilation.
+
+#### 8.1.5 Version Migration [evolution.versioning.migration]
+
+> When MAJOR version increments introduce breaking changes, implementations **SHOULD** provide automated migration tooling to assist in updating programs from the previous MAJOR version.
+>
+> Migration tooling **SHOULD** handle syntactic transformations, deprecated feature replacements, and semantic updates where feasible. Migration tooling **MUST NOT** introduce silent behavioral changes without user confirmation.
+>
+> Implementations **MUST** document migration procedures, including cases requiring manual intervention, in release notes and migration guides.
+
+### 8.2 Feature Lifecycle [evolution.lifecycle]
+
+This section defines stability classifications for language features, deprecation policies, and the process for feature removal.
+
+#### 8.2.1 Stability Classes [evolution.lifecycle.stability]
+
+> Every language feature **MUST** be classified into one of three stability classes:
+>
+> 1. **Stable**: Features available by default without opt-in. Stable features **MUST NOT** introduce breaking changes except in MAJOR version increments. Stable features **MUST** be documented in this specification.
+>
+> 2. **Preview**: Features intended for the next stable release, requiring explicit opt-in via feature flags (§8.3.2). Preview features **MAY** change between MINOR versions. Preview features **MUST** be documented with a `[Preview: target_version]` annotation indicating the version in which they are planned to stabilize.
+>
+> 3. **Experimental**: Highly unstable features guarded by feature flags. Experimental features **MAY** change significantly or be removed without following deprecation timelines. Experimental features **MUST NOT** be used in production code without explicit acknowledgment of stability risks.
+>
+> The stability class of each feature **MUST** be documented in this specification or in implementation-specific extension documentation.
+
+#### 8.2.2 Feature Stabilization [evolution.lifecycle.stabilization]
+
+> Preview features **MAY** transition to Stable status in a MINOR version increment after the preview period, provided no breaking changes to the preview semantics are required.
+>
+> If breaking changes are required during stabilization, the feature **MUST** either undergo another preview cycle or be deferred to the next MAJOR version.
+>
+> Experimental features **MUST** transition through Preview status before becoming Stable, except for features introduced in MAJOR version increments where the preview period may be shortened or bypassed.
+
+#### 8.2.3 Deprecation Policy [evolution.lifecycle.deprecation]
+
+> Features **MAY** be deprecated when better alternatives exist, when they introduce maintenance burden, or when they conflict with language design principles.
+>
+> Deprecated features **MUST** remain functional and conforming for at least one MINOR version after deprecation is announced. Deprecated features **MUST** be marked with the `[!caution] Deprecated` annotation as specified in §2.2, including the version in which they will be removed.
+>
+> Implementations **SHOULD** issue warnings (severity `W`, §7.3.2) when deprecated features are used, referencing the deprecation diagnostic code and replacement guidance.
+
+#### 8.2.4 Deprecation Timeline [evolution.lifecycle.timeline]
+
+> Features deprecated in version `X.Y.0` **MUST NOT** be removed before version `X.(Y+2).0` for MINOR version deprecations, or version `(X+1).0.0` for MAJOR version deprecations.
+>
+> The minimum deprecation period **MUST** be at least one full MINOR version release to provide users time to migrate.
+>
+> Implementations **MUST** document all deprecated features in release notes, including the deprecation version, planned removal version, rationale, and migration path.
+
+#### 8.2.5 Feature Removal [evolution.lifecycle.removal]
+
+> Features **MAY** be removed only in MAJOR version increments, except for experimental features which **MAY** be removed in any version.
+>
+> Removed features **MUST** trigger error diagnostics (severity `E`, §7.3.1) when encountered. The diagnostic code for the removed feature **MUST** be marked as reserved in Appendix D and **MUST NOT** be reused for different violations (§7.2.4).
+>
+> Implementations **MAY** provide compatibility modes or feature flags to temporarily restore removed features, provided such modes are clearly documented as non-conforming extensions.
+
+#### 8.2.6 Migration Paths [evolution.lifecycle.migration]
+
+> For every deprecated or removed feature, implementations **MUST** provide documentation describing the recommended replacement or migration strategy.
+>
+> Migration documentation **MUST** include code examples demonstrating the deprecated construct and its replacement. Where automated migration is feasible, implementations **SHOULD** provide tooling support.
+>
+> Deprecation warnings (§8.2.3) **SHOULD** include brief inline migration guidance or references to detailed migration documentation.
+
+#### 8.2.7 Critical Security Deprecation [evolution.lifecycle.security]
+
+> Features with discovered security vulnerabilities or fundamental safety defects **MAY** follow an expedited deprecation timeline.
+>
+> Security deprecations **MAY** be announced and removed within a single MINOR version increment, provided the vulnerability and rationale are publicly documented.
+>
+> Implementations **MUST** issue error diagnostics for security-deprecated features unless an explicit opt-out flag is provided. Such opt-out flags **MUST** be documented as enabling potentially unsafe behavior.
+
+### 8.3 Extension System [evolution.extensions]
+
+This section defines how implementations may extend the language beyond the core specification while preserving portability and conformance.
+
+#### 8.3.1 Extension Mechanisms [evolution.extensions.mechanisms]
+
+> Implementations **MAY** provide language extensions through:
+>
+> 1. **Attributes**: Syntactic annotations using the `[[attribute_name]]` syntax that modify declarations without altering core language semantics (see Part VIII for reflection and attribute requirements).
+> 2. **Compiler-specific features**: Additional language constructs, built-in types, or intrinsic functions not defined in this specification.
+> 3. **Preview features**: Specification-defined features in preview stability class (§8.2.1) requiring explicit opt-in.
+>
+> Extensions **MUST NOT** alter the meaning of conforming programs written without the extension. Extensions **MUST NOT** suppress required diagnostics defined in this specification.
+
+#### 8.3.2 Feature Flags [evolution.extensions.flags]
+
+> Extensions requiring opt-in **MUST** be controlled through feature flags declared in the project manifest or via compiler command-line options.
+>
+> Feature flags **MUST** use a hierarchical dotted identifier format (e.g., `"vendor.category.feature"`). Flags for specification-defined preview features **MUST** use identifiers without vendor prefixes.
+>
+> The manifest schema **MUST** support a `[features]` table with an `enable` array listing feature flag identifiers. Implementations **MUST** document all available feature flags and their effects in the conformance dossier (§6.2.4).
+>
+> Unknown feature flag identifiers **SHOULD** trigger warnings (diagnostic code `W-CNF-0101`) unless overridden by explicit compiler flags.
+
+#### 8.3.3 Extension Namespacing [evolution.extensions.namespacing]
+
+> Vendor-specific extensions **MUST** use namespaced identifiers to prevent conflicts with specification-defined features and other vendors' extensions.
+>
+> Vendor namespaces **MUST** follow the format `vendor.domain` where `vendor` is a unique vendor identifier and `domain` is a reverse-domain notation (e.g., `"example.com.advanced_features"`).
+>
+> Attribute names for vendor extensions **MUST** include the vendor namespace (e.g., `[[vendor.com.custom_attribute]]`). Feature flag identifiers for vendor extensions **MUST** similarly include the namespace.
+>
+> The specification reserves all non-namespaced identifiers and identifiers under the `cursive.*` namespace for specification-defined features. Implementations **MUST NOT** define extensions using reserved namespaces.
+
+#### 8.3.4 Extension Conformance [evolution.extensions.conformance]
+
+> Programs using specification-defined preview or experimental features (§8.2.1) **MAY** be conforming provided:
+>
+> 1. The features are explicitly enabled via feature flags (§8.3.2).
+> 2. The program satisfies all requirements for those features as documented.
+> 3. The program does not rely on undocumented behavior.
+>
+> Programs using vendor-specific extensions **MAY** be considered conforming within the vendor's ecosystem, provided the vendor documents the extension's behavior in a conformance dossier following the same structure as §6.2.4.
+>
+> Conformance claims for programs using extensions **MUST** enumerate all enabled extensions and their versions.
+
+#### 8.3.5 Extension Standardization [evolution.extensions.standardization]
+
+> Successful vendor extensions **MAY** be considered for adoption into the core specification through the change proposal process (§8.4.2).
+>
+> Extensions considered for standardization **MUST** demonstrate:
+>
+> 1. Proven utility across multiple codebases or domains.
+> 2. Implementation experience from at least one production-quality implementation.
+> 3. Compatibility with language design principles (§cursive-language-design in project documentation).
+> 4. Absence of conflicts with existing or planned specification features.
+>
+> Upon adoption, standardized features **MUST** transition through preview stability (§8.2.1) before becoming stable, unless introduced as part of a MAJOR version increment.
+
+### 8.4 Specification Maintenance [evolution.specification]
+
+This section defines processes for maintaining and evolving the specification itself through errata, change proposals, and breaking change management.
+
+#### 8.4.1 Errata Process [evolution.specification.errata]
+
+> Errors in the specification (typos, ambiguities, contradictions, omissions) **SHOULD** be reported through the specification's issue tracking system.
+>
+> Confirmed errata **MUST** be corrected in a PATCH version increment (§8.1.1). Errata corrections **MUST NOT** introduce behavioral changes; corrections requiring behavioral changes **MUST** be treated as MINOR or MAJOR changes per semantic versioning policy.
+>
+> All errata **MUST** be documented in a normative change log (planned for Appendix H) recording:
+>
+> 1. The version in which the error appeared.
+> 2. The version in which it was corrected.
+> 3. Description of the error and correction.
+> 4. Affected section references.
+>
+> Implementations **SHOULD** adopt errata promptly. When implementation behavior diverges from corrected specification text, the divergence **MUST** be documented in the conformance dossier as implementation-defined behavior (§6.1.4).
+
+#### 8.4.2 Change Proposal Process [evolution.specification.proposals]
+
+> Substantive changes to the specification (new features, semantic modifications, requirement changes) **MUST** follow a formal proposal process.
+>
+> Change proposals **MUST** include:
+>
+> 1. **Motivation**: Problem being solved and rationale for the change.
+> 2. **Specification changes**: Precise wording for additions/modifications with section references.
+> 3. **Impact analysis**: Effect on existing conforming programs and implementations.
+> 4. **Migration strategy**: For breaking changes, how existing code should be updated.
+> 5. **Implementation experience**: Evidence from prototype implementations or production use where available.
+>
+> Proposals **SHOULD** undergo public review period before acceptance. Accepted proposals **MUST** be integrated into the next appropriate specification version per semantic versioning policy (§8.1.1).
+
+#### 8.4.3 Breaking Change Policy [evolution.specification.breaking]
+
+> Changes that invalidate previously conforming programs **MUST** be classified as breaking changes and **MUST** trigger MAJOR version increments (§8.1.1).
+>
+> Breaking changes **MUST** follow the deprecation timeline (§8.2.4) when feasible, giving users at least one MINOR version cycle to prepare.
+>
+> Breaking changes **MUST** be thoroughly documented with:
+>
+> 1. Rationale justifying the incompatibility.
+> 2. Estimated impact on existing codebases.
+> 3. Detailed migration guidance.
+> 4. Alternatives considered and reasons for rejection.
+>
+> Breaking changes **SHOULD** be batched in MAJOR releases to minimize disruption. Gratuitous breaking changes without substantial benefits **SHOULD NOT** be accepted.
+
 ---
 
-# Part III - Module System & Organization
+# Part II - Program Structure & Translation
 
-This part defines how Cursive programs are organized into modules and assemblies, how names are imported and resolved, how modules are initialized, and how development tools integrate with the language.
+## 8 Source Text & Translation Pipeline
 
-## 14. Modules and Assemblies [modules]
+## 9 Lexical Structure
 
-This chapter defines module organization, discovery, and assembly structure.
+## 10 Modules, Assemblies, and Projects
 
-### 14.1 Folder-Scoped Modules [modules.discovery]
+### 10.1 Folder-scoped modules
 
-#### 14.1.1 Module Discovery [modules.discovery.rules]
+#### 10.1.1 Module discovery
 
 Any folder containing at least one `.cursive` source file **MUST** be treated as a module, all files directly within it **MUST** belong to that module, and subfolders **MUST** be treated as child modules with `::`-separated names.
 
@@ -1987,41 +1771,25 @@ $$
 \tag{WF-Module}
 $$
 
-#### 14.1.2 Compilation Unit Uniqueness [modules.discovery.uniqueness]
+#### 10.1.2 Compilation unit uniqueness
 
 Each module **MUST** contain exactly one compilation unit per source file, and a source file **MUST NOT** contribute to multiple modules.
 
-#### 14.1.3 Module Path Formation [modules.discovery.paths]
-
-Module path components **MUST** be valid identifiers and **MUST NOT** collide by case on case-insensitive platforms; violations raise E-SRC-1103/E-SRC-1104, and implementations **SHOULD** warn (W-SRC-1105) about potential collisions.
-
-### 14.2 Assemblies and Projects [modules.assemblies]
-
-#### 14.2.1 Assembly Definition [modules.assemblies.definition]
-
-An assembly **MUST** be treated as a named collection of modules discovered under a manifest entry. Assemblies may reference each other but remain separately buildable units.
-
-#### 14.2.2 Project Definition [modules.assemblies.projects]
-
-A project **MUST** consist of one or more assemblies linked, packaged, or distributed together, **MUST** declare which assemblies it includes, and **MUST** expose a target language version consistent with Part I.
-
-#### 14.2.3 Discovery Linkage [modules.assemblies.linkage]
-
-Module discovery within an assembly **MUST** follow the folder rules in §14.1.1; assemblies merely group discovered modules for distribution/import control.
-
-### 14.3 Manifest Schema [modules.manifest]
-
-#### 14.3.1 Manifest Requirements [modules.manifest.requirements]
+#### 10.1.3 Manifest requirements
 
 Manifests **MUST** enumerate every source root with unique normalized paths. Missing manifests, undefined roots, or duplicates **MUST** be diagnosed (E-SRC-1101…E-SRC-1102).
 
-#### 14.3.2 Manifest Format and Schema [modules.manifest.format]
+#### 10.1.4 Path validity
 
-Every project **MUST** include a UTF‑8 manifest file named `Cursive.toml` at the project root. The manifest **MUST** follow TOML 1.0 syntax with the schema below; unknown keys **MUST** raise W-SRC-1106 while malformed structures **MUST** raise E-SRC-1106.
+Module path components **MUST** be valid identifiers and **MUST NOT** collide by case on case-insensitive platforms; violations raise E-SRC-1103/E-SRC-1104, and implementations **SHOULD** warn (W-SRC-1105) about potential collisions.
+
+#### 10.1.5 Manifest format and schema
+
+Every project **MUST** include a UTF‑8 manifest file named `Cursive.toml` at the project root. The manifest **MUST** follow TOML 1.0 syntax with the schema below; unknown keys **MUST** raise W-SRC-1106 while malformed structures **MUST** raise E-SRC-1106.
 
 ```toml
 [language]
-version = "1.0.0"            # REQUIRED. Matches the Part I version triplet.
+version = "1.0.0"            # REQUIRED. Matches the Part I version triplet.
 
 [roots]                        # REQUIRED. Maps logical root names to relative paths.
 app = "src"
@@ -2036,7 +1804,7 @@ deps = ["runtime"]           # OPTIONAL. Names of other assemblies in the same m
 conformance = "strict"       # OPTIONAL. Overrides default per [NDF_REF].
 
 [features]
-enable = ["net.socket.experimental"]   # OPTIONAL. Feature flags (§7.3.2).
+enable = ["net.socket.experimental"]   # OPTIONAL. Matches [NDF_REF] identifiers.
 ```
 
 Semantic requirements (failures raise the listed diagnostics):
@@ -2065,49 +1833,32 @@ Semantic requirements (failures raise the listed diagnostics):
    \tag{WF-Assembly}
    $$
 
-4. The optional `[features].enable` array **MUST** contain only feature identifiers defined in this specification or by the implementation; unknown identifiers raise W-CNF-0101 unless overridden by `--enable-feature`.
+4. The optional `[features].enable` array **MUST** contain only feature identifiers defined in [NDF_REF]; unknown identifiers raise W-CNF-0101 unless overridden by `--enable-feature`.
 5. Additional manifest sections **MUST** be ignored only when they appear in a vendor namespace of the form `vendor."domain"` to preserve forward compatibility.
 
-Failing any premise **MUST** trigger the diagnostics enumerated in §13.2 (E/W-SRC-1101…1108).
+Failing any premise **MUST** trigger the diagnostics enumerated in [NDF_REF] (E/W-SRC-1101…1108).
 
-### 14.4 Module Path Validity [modules.paths]
+### 10.2 Assemblies and projects
 
-#### 14.4.1 Path Grammar [modules.paths.grammar]
+#### 10.2.1 Assembly definition
 
-The grammar for `module_path` **MUST** be:
+An assembly **MUST** be treated as a named collection of modules discovered under a manifest entry. Assemblies may reference each other but remain separately buildable units.
 
-```ebnf
-module_path ::= identifier ("::" identifier)*
-identifier  ::= lexical identifier defined in §10.3
-```
+#### 10.2.2 Project definition
 
-Leading `::` tokens, empty components, and trailing separators **MUST** be rejected with E-SRC-1204.
+A project **MUST** consist of one or more assemblies linked, packaged, or distributed together, **MUST** declare which assemblies it includes, and **MUST** expose a target language version consistent with Part I.
 
-#### 14.4.2 Path Component Limits [modules.paths.limits]
+#### 10.2.3 Discovery linkage
 
-Module paths **MUST NOT** exceed 32 components (matching §6.4.1); longer paths raise E-SRC-1205.
+Module discovery within an assembly **MUST** follow the folder rules in [NDF_REF]; assemblies merely group discovered modules for distribution/import control.
 
-#### 14.4.3 Path Normalization [modules.paths.normalization]
+### 10.3 Imports, aliases, and qualified visibility
 
-Implementations **MUST** normalize each component using the same Unicode normalization as §10.3 before comparing paths so manifests, imports, and on-disk layouts stay consistent.
-
-#### 14.4.4 Reserved Components [modules.paths.reserved]
-
-Module path components **MUST NOT** use reserved identifiers as defined in §6.5.
-
----
-
-## 15. Imports and Name Resolution [names]
-
-This chapter defines how names are imported, resolved, and looked up.
-
-### 15.1 Import System [names.imports]
-
-#### 15.1.1 Qualified Access [names.imports.qualified]
+#### 10.3.1 Qualified access
 
 Implementations **MUST** make every declaration inside a module available via qualified names derived from folder structure, so intra-assembly access **MUST NOT** require extra keywords.
 
-#### 15.1.2 Import Forms [names.imports.forms]
+#### 10.3.2 Import forms
 
 `import module_path` **MUST** precede references to modules in other assemblies or projects, while `import module_path as alias` **MAY** be used for any module to introduce a local alias for qualified access.
 
@@ -2117,11 +1868,11 @@ $$
 \tag{WF-Import}
 $$
 
-#### 15.1.3 Binding Constraints [names.imports.constraints]
+#### 10.3.3 Binding constraints
 
 Imports **MUST NOT** introduce unqualified bindings; qualified references **MUST** be `module::item` or `alias::item`.
 
-#### 15.1.4 Alias Rules [names.imports.aliases]
+#### 10.3.4 Alias rules
 
 Alias names **MUST** be unique within a module and **MUST NOT** be rebound (E-SRC-1201). Referencing undefined module paths **MUST** raise E-SRC-1202.
 
@@ -2131,159 +1882,155 @@ $$
 \tag{WF-Import-Alias}
 $$
 
-#### 15.1.5 Import Availability [names.imports.availability]
+#### 10.3.5 Import availability
 
 Imports **MUST** appear somewhere in the module before dependent references, though textual order **MAY** vary because parsing inventories all imports up front.
 
-#### 15.1.6 Re-Export Policy [names.imports.reexport]
+#### 10.3.6 Re-export policy
 
 Public declarations **MUST** enter the export set automatically, and re-exporting **MUST** occur explicitly via public declarations since `use`/`public use` are unavailable.
 
-#### 15.1.7 Assembly Policies [names.imports.policies]
+#### 10.3.7 Assembly policies
 
-Assemblies **MAY** impose additional import policies, and violations **MUST** be diagnosed with E-SRC-1203 so policy enforcement remains within the imports bucket and tooling can surface a stable, specific error.
+Assemblies **MAY** impose additional import policies, and violations **MUST** be diagnosed with `E-SRC-1203` so policy enforcement remains within the imports bucket and tooling can surface a stable, specific error.
 
-### 15.2 Scopes [names.scopes]
+#### 10.3.8 Module-path grammar
 
-This section defines scope kinds, nesting rules, and scope-related limits.
+The grammar for `module_path` referenced in [NDF_REF]–[NDF_REF] **MUST** be:
 
-> **[Placeholder for normative requirements on scope kinds (module, block, function, type), scope nesting, and scope depth limits (reference to §6.4.1)]**
+```ebnf
+module_path ::= identifier ("::" identifier)*
+identifier  ::= lexical identifier defined in [NDF_REF]
+```
 
-### 15.3 Bindings [names.bindings]
+Leading `::` tokens, empty components, and trailing separators **MUST** be rejected with E-SRC-1204. Module paths **MUST NOT** exceed 32 components (matching [NDF_REF]); longer paths raise E-SRC-1205. Implementations **MUST** normalize each component using the same Unicode normalization as [NDF_REF] before comparing paths so manifests, imports, and on-disk layouts stay consistent.
 
-This section defines binding introduction mechanisms, shadowing rules, and visibility.
+##### 10.3.8.1 Import inference rules
 
-> **[Placeholder for normative requirements on binding introduction (let, var, procedure, type, etc.), binding shadowing, and binding visibility]**
+$$
+\frac{Γ ⊢ module(p) ⇒ Γ' \quad module\_path(p)}
+{Γ' ⊢ import\ module(p) ⇒ Γ'}
+\tag{WF-Import}
+$$
 
-### 15.4 Name Lookup [names.lookup]
+$$
+\frac{Γ' ⊢ import\ module(p) ⇒ Γ' \quad alias \notin dom(aliases)}
+{Γ' ⊢ import\ module(p)\ as\ alias ⇒ Γ', alias ↦ p}
+\tag{WF-Import-Alias}
+$$
 
-This section defines name lookup mechanisms, ordering, and ambiguity resolution.
+Premise failures (unknown module, malformed path, duplicate alias) **MUST** raise the diagnostics listed in [NDF_REF] and [NDF_REF].
 
-> **[Placeholder for normative requirements on unqualified lookup, qualified lookup (module::item), lookup ordering and precedence, and ambiguity resolution]**
+### 10.4 Dependency graph and initialization
 
----
+#### 10.4.1 Graph construction
 
-## 16. Initialization and Dependencies [initialization]
+Implementations **MUST** build a module dependency graph with vertices as modules and edges arising from imports and module-scope initializers/comptime blocks referencing other modules’ exports.
 
-This chapter defines module initialization ordering and dependency management.
-
-### 16.1 Dependency Graph [initialization.graph]
-
-#### 16.1.1 Graph Construction [initialization.graph.construction]
-
-Implementations **MUST** build a module dependency graph with vertices as modules and edges arising from imports and module-scope initializers/comptime blocks referencing other modules' exports.
-
-#### 16.1.2 Eager vs. Lazy Edges [initialization.graph.edges]
+#### 10.4.2 Eager vs. lazy edges
 
 Edges **MUST** be marked eager when initialization reads bindings from the target; otherwise they are lazy.
 
-#### 16.1.3 Cycle Detection [initialization.graph.cycles]
+#### 10.4.3 Eager subgraph constraints
 
-The eager subgraph **MUST** be acyclic (E-SRC-1301).
+The eager subgraph **MUST** be acyclic (E-SRC-1301), and initialization **MUST** run in topological order; consuming an uninitialized eager dependency **MUST** raise E-SRC-1302.
 
-### 16.2 Eager Initialization [initialization.eager]
+#### 10.4.4 Lazy semantics
 
-#### 16.2.1 Eager Dependency Definition [initialization.eager.definition]
+Lazy edges **MAY** form cycles, and implementations **MAY** evaluate initializers lazily provided they execute at most once, preserve observable behavior, and maintain ordering.
 
-Eager dependencies arise when a module's initialization code directly reads bindings from another module.
+#### 10.4.5 Failure propagation
 
-#### 16.2.2 Topological Ordering [initialization.eager.ordering]
+If a module’s initialization fails, every module reachable via eager edges **MUST** be reported as blocked (E-SRC-1303). Safe retries **MAY** occur only if failed effects can be rolled back.
 
-Initialization **MUST** run in topological order for eager dependencies.
+## 11 Scopes, Bindings, and Lookup
 
-#### 16.2.3 Initialization Timing [initialization.eager.timing]
-
-Consuming an uninitialized eager dependency **MUST** raise E-SRC-1302.
-
-### 16.3 Lazy Initialization [initialization.lazy]
-
-#### 16.3.1 Lazy Semantics [initialization.lazy.semantics]
-
-Lazy edges **MAY** form cycles, and implementations **MAY** evaluate initializers lazily provided they execute at most once, preserve observable behavior (§6.2.5), and maintain ordering.
-
-#### 16.3.2 Cycle Handling [initialization.lazy.cycles]
-
-Lazy edges **MAY** form cycles without raising diagnostics.
-
-#### 16.3.3 Execution Guarantees [initialization.lazy.guarantees]
-
-Lazy initializers **MUST** execute at most once.
-
-### 16.4 Initialization Failure [initialization.failure]
-
-#### 16.4.1 Failure Propagation [initialization.failure.propagation]
-
-If a module's initialization fails, every module reachable via eager edges **MUST** be reported as blocked (E-SRC-1303).
-
-#### 16.4.2 Blocked Modules [initialization.failure.blocked]
-
-Blocked modules **MUST NOT** execute their initialization code.
-
-#### 16.4.3 Retry Semantics [initialization.failure.retry]
-
-Safe retries **MAY** occur only if failed effects can be rolled back.
+## 12 Tooling hooks
 
 ---
 
-## 17. Tooling Integration [tooling]
+# Part III - Declarations & the Type System
 
-This chapter defines hooks and interfaces for development tools.
+## 10 Declarations
 
-### 17.1 Compiler APIs [tooling.apis]
+## 11 Type Foundations
 
-#### 17.1.1 Programmatic Compilation [tooling.apis.programmatic]
+## 12 Primitive Types
 
-> **[Placeholder for normative requirements]**
+## 13 Composite Types
 
-#### 17.1.2 Incremental Compilation Support [tooling.apis.incremental]
+## 13. Modal Types
 
-> **[Placeholder for normative requirements]**
+## 14. Pointer & Reference Model
 
-#### 17.1.3 Query-Based Compilation [tooling.apis.query]
+## 15. Generics & Parametric Polymorphism
 
-> **[Placeholder for normative requirements]**
+---
 
-### 17.2 Language Server Protocol [tooling.lsp]
+# Part IV - Ownership, Permissions, Regions
 
-#### 17.2.1 LSP Conformance Requirements [tooling.lsp.conformance]
+## 16. Ownership & Responsibility
 
-> **[Placeholder for normative requirements]**
+## 17. Lexical Permission System (LPS)
 
-#### 17.2.2 Semantic Tokens [tooling.lsp.tokens]
+## 18. Region-Based Memory & Arenas
 
-> **[Placeholder for normative requirements]**
+## 19. Moves, Assignments, and Destruction
 
-#### 17.2.3 Code Actions [tooling.lsp.actions]
+---
 
-> **[Placeholder for normative requirements]**
+# Part V - Expressions, Statements, and Control Flow
 
-### 17.3 Metadata Generation [tooling.metadata]
+## 20. Expressions
 
-#### 17.3.1 Symbol Metadata [tooling.metadata.symbols]
+## 21. Statements
 
-> **[Placeholder for normative requirements]**
+## 22. Control Flow and Pattern Matching
 
-#### 17.3.2 Documentation Comments [tooling.metadata.docs]
+## 23. Error Handling and Panics
 
-> **[Placeholder for normative requirements]**
+---
 
-#### 17.3.3 Cross-References [tooling.metadata.xref]
+# Part VI - Contracts, and Grants
 
-> **[Placeholder for normative requirements]**
+## 14. Contract Language
 
-### 17.4 IDE Integration Points [tooling.ide]
+## 15. Grants
 
-#### 17.4.1 Syntax Highlighting [tooling.ide.highlighting]
+## 16. Diagnostics for Contracts and Effects
 
-> **[Placeholder for normative requirements]**
+---
 
-#### 17.4.2 Code Completion [tooling.ide.completion]
+# Part VII - Abstraction, Behaviors, and Dynamic Dispatch
 
-> **[Placeholder for normative requirements]**
+## 17. Behaviors (Interfaces/Traits)
 
-#### 17.4.3 Refactoring Support [tooling.ide.refactoring]
+## 18. Witness System (Runtime Polymorphism)
 
-> **[Placeholder for normative requirements]**
+## 19. Generics & Behaviors Integration
+
+---
+
+# Part VIII - Compile-Time Evaluation & Reflection (No Macros)
+
+## 20. Comptime Execution
+
+## 21. Opt-In Reflection
+
+## 22. Code Generation APIs (Explicit Metaprogramming)
+
+---
+
+# Part IX - Memory Model, Layout, and ABI
+
+## 23. Memory Layout & Alignment
+
+## 24. Interoperability & FFI
+
+## 25. Linkage, ODR, and Binary Compatibility
+
+---
+
 # Appendix A – Formal ANTLR Grammar (Normative)
 
 **[Placeholder]**
@@ -2296,7 +2043,7 @@ This appendix will contain the complete ANTLR grammar for Cursive, providing a m
 
 **See [Appendix-B-Diagnostic-Code-Taxonomy.md](./Appendix-B-Diagnostic-Code-Taxonomy.md)**
 
-The code schema `K-CAT-FFNN` is defined in Part II [§13.2.1](#1321-canonical-format-diagnosticscodesformat), and the external appendix provides the detailed feature bucket assignments for each category (SRC, TYP, MEM, EXP, GRN, FFI, DIA, CNF).
+The code schema `K-CAT-FFNN` is defined in [§7.4.1](#74-diagnostic-code-system-diagnosticscodes), and the external appendix provides the detailed feature bucket assignments for each category (SRC, TYP, MEM, EXP, GRN, FFI, DIA, CNF).
 
 ---
 
