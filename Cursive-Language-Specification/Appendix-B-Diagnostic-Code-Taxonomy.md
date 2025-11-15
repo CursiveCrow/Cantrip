@@ -1,6 +1,6 @@
-# Appendix B – Diagnostic Code Taxonomy (Normative)
+# Appendix B – Diagnostic Code Taxonomy (Normative) [appendix.b.taxonomy]
 
-This appendix defines the complete taxonomy of diagnostic codes used throughout the specification. The code schema `K-CAT-FFNN` is defined in §7.2.1 of the main specification, and this appendix provides the detailed feature bucket assignments for each category and the complete diagnostic catalog.
+This appendix defines the complete taxonomy of diagnostic codes used throughout the specification. The code schema `K-CAT-FFNN` is defined in Part II, §12.2.1 of the main specification, and this appendix provides the detailed feature bucket assignments for each category and selected diagnostic catalog entries. The complete diagnostic catalog appears in Appendix D of the main specification.
 
 ## B.1 Feature Bucket Reference
 
@@ -11,7 +11,7 @@ This appendix defines the complete taxonomy of diagnostic codes used throughout 
 | `01`   | Source ingestion and normalization (UTF-8, BOM, control characters, size limits) | `E-SRC-0101`                    |
 | `02`   | Translation pipeline and comptime resource enforcement                           | `E-SRC-0201…0208`               |
 | `03`   | Lexical tokens, literals, comments                                               | `E-SRC-0301…0307`               |
-| `04`   | Statement termination, delimiter handling, EOF conditions                        | `E-SRC-0401…0402`               |
+| `04`   | Statement termination, syntactic nesting limits, delimiter handling, EOF conditions | `E-SRC-0401…0402`           |
 | `05`   | Module-scope form restrictions                                                   | `E-SRC-0501`                    |
 | `11`   | Module discovery, manifests, and case collisions                                 | `E-SRC-1101…1104`, `W-SRC-1105` |
 | `12`   | Imports and alias formation                                                      | `E-SRC-1201…1203`               |
@@ -83,7 +83,7 @@ This appendix defines the complete taxonomy of diagnostic codes used throughout 
 | Bucket | Scope (CNF)                              | Examples                        |
 | ------ | ---------------------------------------- | ------------------------------- |
 | `01`   | Feature enablement/disablement controls  | `E-CNF-0101…0103`, `W-CNF-0101` |
-| `02`   | Conformance-mode selection conflicts     | `E-CNF-0201…0203`, `W-CNF-0201` |
+| `02`   | Conformance-mode selection conflicts and dossier/UVB attestation conformance failures | `E-CNF-0201…0205`, `W-CNF-0201` |
 | `03`   | Versioning/deprecation policy violations | `E-CNF-0301…0303`               |
 
 ---
@@ -98,35 +98,49 @@ This section provides the complete catalog of all specification-defined diagnost
 
 **E-SRC-0101: Invalid UTF-8 sequence in source input**
 - **Severity**: Error
-- **Reference**: Part II, §8 (Source Text & Translation Pipeline)
+- **Reference**: Part II, §8.1.1 ([source.encoding.utf8])
 - **Description**: The source file contains byte sequences that are not valid UTF-8. All Cursive source files MUST be encoded in UTF-8.
 - **Triggering Condition**: Byte sequence fails UTF-8 validation
 - **Example**: Binary file passed as source, file with Latin-1 encoding containing characters >U+007F
 
 **E-SRC-0102: Source file exceeds documented size limit**
 - **Severity**: Error
-- **Reference**: Part II, §8
+- **Reference**: Part II, §8.2.2 ([source.structure.size])
 - **Description**: The source file size exceeds the implementation's documented maximum file size limit.
 - **Triggering Condition**: File size > implementation-defined limit (must be at least 1MB per conformance requirements)
 - **Example**: Attempting to compile a 100MB source file when implementation limit is 10MB
 
 **E-SRC-0103: Embedded BOM found after the first scalar value**
 - **Severity**: Error
-- **Reference**: Part II, §8
+- **Reference**: Part II, §8.1.2 ([source.encoding.bom])
 - **Description**: A Byte Order Mark (U+FEFF) appears after the beginning of the file. BOMs are only permitted at the start of the file.
 - **Triggering Condition**: U+FEFF appears at any position other than file offset 0
 - **Example**: File with BOM inserted mid-content after a previous edit
 
-**E-SRC-0104: Forbidden control character outside literals**
+**E-SRC-0104: Forbidden control character or null byte encountered**
 - **Severity**: Error
-- **Reference**: Part II, §9 (Lexical Structure)
-- **Description**: A control character (U+0000–U+001F excluding tab, newline, carriage return) appears outside a string or character literal where it is not permitted.
-- **Triggering Condition**: Control character in non-literal context
-- **Example**: NULL byte (U+0000) in identifier or between tokens
+- **Reference**: Part II, §8.1.3 ([source.encoding.invalid])
+- **Description**: A prohibited code point appears in the normalized source file, as defined by §8.1.3. This includes the null character (U+0000) in any context (including inside literals) and any other forbidden control character that appears outside string or character literals.
+- **Triggering Condition**: First occurrence of a prohibited code point per §8.1.3
+- **Example**: U+0000 embedded in a string literal, or a disallowed control character between tokens
+
+**E-SRC-0105: Maximum logical line count exceeded**
+- **Severity**: Error
+- **Reference**: Part II, §8.2.2 ([source.structure.size]); Part II, §8.1.5 ([source.encoding.locations])
+- **Description**: The normalized source file contains more logical lines than the implementation’s documented maximum logical line count.
+- **Triggering Condition**: `line_count(normalized_source) > max_lines` as documented in the implementation’s conformance dossier
+- **Example**: Generated source file with millions of lines exceeding the documented maximum logical line count
+
+**E-SRC-0106: Maximum line length exceeded**
+- **Severity**: Error
+- **Reference**: Part II, §8.2.2 ([source.structure.size]); Part II, §8.1.5 ([source.encoding.locations])
+- **Description**: At least one logical line in the normalized source file contains more Unicode scalar values than the implementation’s documented maximum line length.
+- **Triggering Condition**: `max_line_length(normalized_source) > max_columns` as documented in the implementation’s conformance dossier
+- **Example**: A single line containing an entire generated program or very long literal that exceeds the documented maximum line length
 
 **W-SRC-0101: UTF-8 BOM present**
 - **Severity**: Warning
-- **Reference**: Part II, §8
+- **Reference**: Part II, §8.1.2 ([source.encoding.bom])
 - **Description**: The source file begins with a UTF-8 Byte Order Mark. While permitted, BOMs are unnecessary for UTF-8 and may cause issues with some tools.
 - **Triggering Condition**: File begins with bytes EF BB BF
 - **Example**: File saved with "UTF-8 with BOM" encoding
@@ -135,56 +149,56 @@ This section provides the complete catalog of all specification-defined diagnost
 
 **E-SRC-0201: Comptime recursion depth exceeds guaranteed minimum**
 - **Severity**: Error
-- **Reference**: Part VIII, §20 (Comptime Execution)
-- **Description**: Compile-time function recursion exceeded the implementation's guaranteed minimum recursion depth (must be at least 128 levels).
-- **Triggering Condition**: Comptime call stack depth > guaranteed minimum
-- **Example**: Deeply recursive comptime factorial computation exceeding limits
+- **Reference**: Part II, §11.6 ([translation.comptime])
+- **Description**: Compile-time function recursion exceeded the implementation's guaranteed minimum recursion depth as required by §6.4.1 (at least the specified number of stack frames).
+- **Triggering Condition**: Comptime call stack depth > implementation's documented recursion limit (which MUST meet or exceed §6.4.1)
+- **Example**: Deeply recursive comptime computation whose call stack exceeds the implementation's documented recursion limit
 
 **E-SRC-0202: Comptime evaluation step budget exceeded**
 - **Severity**: Error
-- **Reference**: Part VIII, §20
+- **Reference**: Part II, §11.6 ([translation.comptime])
 - **Description**: Compile-time evaluation consumed more execution steps than the implementation's guaranteed minimum budget.
 - **Triggering Condition**: Comptime instruction count > guaranteed minimum
 - **Example**: Infinite loop in comptime code, or excessively expensive computation
 
 **E-SRC-0203: Comptime heap limit exceeded**
 - **Severity**: Error
-- **Reference**: Part VIII, §20
+- **Reference**: Part II, §11.6 ([translation.comptime])
 - **Description**: Compile-time evaluation attempted to allocate more memory than the implementation's guaranteed minimum heap size for comptime execution.
 - **Triggering Condition**: Comptime heap allocation > guaranteed minimum
 - **Example**: Building very large arrays or data structures at compile time
 
 **E-SRC-0204: String literal exceeds guaranteed size during comptime**
 - **Severity**: Error
-- **Reference**: Part VIII, §20; Part II, §9
+- **Reference**: Part II, §11.6 ([translation.comptime]); Part II, §9 ([lexical.literals])
 - **Description**: A string literal generated or manipulated during compile-time execution exceeds the implementation's guaranteed maximum string length for comptime values.
 - **Triggering Condition**: Comptime string length > guaranteed minimum limit
 - **Example**: Generating megabyte-sized strings through comptime concatenation
 
 **E-SRC-0205: Collection cardinality exceeds comptime minimum**
 - **Severity**: Error
-- **Reference**: Part VIII, §20
+- **Reference**: Part II, §11.6 ([translation.comptime])
 - **Description**: A compile-time collection (array, map, set) exceeded the implementation's guaranteed minimum size limit.
 - **Triggering Condition**: Comptime collection size > guaranteed minimum
 - **Example**: Building arrays with millions of elements at compile time
 
 **E-SRC-0206: Comptime body requested undeclared or disallowed grants**
 - **Severity**: Error
-- **Reference**: Part VI, §15 (Grants); Part VIII, §20
+- **Reference**: Part VIII, §38 ([contracts.grants]); Part II, §11.6 ([translation.comptime])
 - **Description**: A comptime block attempted to use a grant (capability) that was not declared or is not permitted in compile-time contexts.
 - **Triggering Condition**: Comptime code requires grant not in declared grant set
 - **Example**: Attempting file I/O in comptime without declaring `grant:io.file` capability
 
 **E-SRC-0207: Generated identifier collided with an existing declaration**
 - **Severity**: Error
-- **Reference**: Part VIII, §22 (Code Generation APIs)
+- **Reference**: Part II, §11.6 ([translation.comptime]); Part X, §49 ([comptime.codegen])
 - **Description**: Code generation or metaprogramming produced an identifier that conflicts with an existing declaration in the same scope.
 - **Triggering Condition**: Generated name ∈ existing names in scope
 - **Example**: Macro generating function `foo` when `foo` already exists
 
 **E-SRC-0208: Cycle detected in comptime dependency graph**
 - **Severity**: Error
-- **Reference**: Part VIII, §20
+- **Reference**: Part II, §11.6 ([translation.comptime])
 - **Description**: Compile-time evaluation dependencies form a cycle, making it impossible to determine evaluation order.
 - **Triggering Condition**: Circular dependency in comptime constant/function evaluation
 - **Example**: `comptime X = Y + 1; comptime Y = X + 1;`
@@ -247,27 +261,41 @@ This section provides the complete catalog of all specification-defined diagnost
 - **Triggering Condition**: Decimal literal begins with `0` followed by more digits
 - **Example**: `let x = 0123;` (might be intended as 123 or confused with octal 0o123)
 
+**W-SRC-0308: Lexically sensitive Unicode character in identifier or token boundary**
+- **Severity**: Warning
+- **Reference**: Part II, §9.1.4 ([lexical.elements.security])
+- **Description**: A lexically sensitive Unicode character (such as bidirectional formatting characters or zero-width joiners) appears unescaped in an identifier, operator or punctuator lexeme, or immediately adjacent to token boundaries in non-comment, non-literal context.
+- **Triggering Condition**: First occurrence of a lexically sensitive character in the contexts described by §9.1.4
+- **Example**: Identifier containing U+202E RIGHT-TO-LEFT OVERRIDE, or zero-width joiner inserted between two tokens to alter their visual appearance
+
+**E-SRC-0308: Lexically sensitive Unicode character treated as error in strict mode**
+- **Severity**: Error
+- **Reference**: Part II, §9.1.4 ([lexical.elements.security]); Part I, §6.2.7 ([conformance.obligations.modes])
+- **Description**: A lexically sensitive Unicode character is present in a context that would trigger `W-SRC-0308`, but the compilation is running in a strict conformance mode that upgrades this condition to an error.
+- **Triggering Condition**: `W-SRC-0308` condition occurs while a strict conformance mode is in effect
+- **Example**: Strict-mode build of code that contains a bidirectional formatting character inside an identifier
+
 #### Bucket 04: Statement Termination, Delimiter Handling, EOF Conditions
 
 **E-SRC-0401: Unexpected EOF during unterminated statement or continuation**
 - **Severity**: Error
-- **Reference**: Part II, §9
+- **Reference**: Part II, §10.1.2 ([syntax.organization.statements]); Part II, §11.4 ([translation.parsing])
 - **Description**: The file ended while a statement or expression was incomplete.
 - **Triggering Condition**: EOF while parser expects continuation
 - **Example**: `procedure foo() {` (no closing brace), `let x = (1 + 2` (unclosed parenthesis)
 
 **E-SRC-0402: Delimiter nesting depth exceeded supported bound**
 - **Severity**: Error
-- **Reference**: Part II, §9
-- **Description**: Nested delimiters (parentheses, brackets, braces) exceeded the implementation's guaranteed minimum nesting depth (must be at least 64 levels).
-- **Triggering Condition**: Nesting depth > guaranteed minimum
-- **Example**: Extremely deeply nested array literals or function calls
+- **Reference**: Part II, §10.2.4 ([syntax.limits.delimiters]); Part II, §11.4 ([translation.parsing])
+- **Description**: Nested delimiters (parentheses, brackets, braces) exceeded the implementation's guaranteed minimum delimiter nesting depth as required by §6.4.1.
+- **Triggering Condition**: Delimiter nesting depth > implementation's documented delimiter limit (which MUST meet or exceed §6.4.1)
+- **Example**: Extremely deeply nested array literals or function calls that push delimiter nesting beyond the documented limit
 
 #### Bucket 05: Module-Scope Form Restrictions
 
 **E-SRC-0501: Statement not permitted at module scope**
 - **Severity**: Error
-- **Reference**: Part II, §10 (Modules)
+- **Reference**: Part II, §10.1.1 ([syntax.organization.declarations])
 - **Description**: A statement form that is only permitted inside function/procedure bodies appeared at module scope.
 - **Triggering Condition**: Module-level syntax contains non-declaration statement
 - **Example**: `return 5;` at module scope, `while true { }` outside procedure
@@ -276,63 +304,63 @@ This section provides the complete catalog of all specification-defined diagnost
 
 **E-SRC-1101: Manifest file not found or unreadable**
 - **Severity**: Error
-- **Reference**: Part II, §10.1.5 (Manifest format and schema)
+- **Reference**: Part III, §13.3 ([modules.manifest])
 - **Description**: The required `Cursive.toml` manifest file could not be found in the project root or could not be read.
 - **Triggering Condition**: Missing or inaccessible Cursive.toml
 - **Example**: Project directory without manifest file, manifest with incorrect permissions
 
 **E-SRC-1102: Source root path in manifest is not unique**
 - **Severity**: Error
-- **Reference**: Part II, §10.1.3 (Manifest requirements)
+- **Reference**: Part III, §13.3.1 ([modules.manifest.requirements])
 - **Description**: The manifest declares multiple source roots that resolve to the same normalized path.
 - **Triggering Condition**: Duplicate normalized paths in `[roots]` section
 - **Example**: `[roots]` containing both `src = "source"` and `src2 = "./source"` pointing to same directory
 
 **E-SRC-1103: Module path component is not a valid identifier**
 - **Severity**: Error
-- **Reference**: Part II, §10.1.4 (Path validity)
+- **Reference**: Part III, §13.4.1 ([modules.paths.grammar])
 - **Description**: A folder name in the module path is not a valid Cursive identifier.
 - **Triggering Condition**: Directory name violates identifier rules
 - **Example**: Directory named `my-module` (hyphens not allowed), `2ndmodule` (starts with digit)
 
 **E-SRC-1104: Module path case collision on case-insensitive filesystem**
 - **Severity**: Error
-- **Reference**: Part II, §10.1.4
+- **Reference**: Part III, §13.4.1 ([modules.paths.grammar])
 - **Description**: On a case-insensitive filesystem, two module paths differ only in case, creating ambiguity.
 - **Triggering Condition**: Paths collide when case-normalized on Windows/macOS
 - **Example**: Directories `myModule` and `mymodule` in same parent on Windows
 
 **W-SRC-1105: Potential module path case collision**
 - **Severity**: Warning
-- **Reference**: Part II, §10.1.4
+- **Reference**: Part III, §13.4.1 ([modules.paths.grammar])
 - **Description**: Module paths differ only in case, which may cause issues on case-insensitive filesystems even though the current system is case-sensitive.
 - **Triggering Condition**: Multiple paths with same case-normalized form
 - **Example**: `MyModule` and `mymodule` directories on Linux (warning for cross-platform portability)
 
 **E-SRC-1106: Malformed manifest structure**
 - **Severity**: Error
-- **Reference**: Part II, §10.1.5
+- **Reference**: Part III, §13.3.2 ([modules.manifest.format])
 - **Description**: The manifest file contains TOML syntax errors or violates the required schema structure.
 - **Triggering Condition**: Invalid TOML or missing required fields
 - **Example**: Missing `[language]` section, `language.version` field not a string, malformed TOML syntax
 
 **W-SRC-1106: Unknown manifest key**
 - **Severity**: Warning
-- **Reference**: Part II, §10.1.5
+- **Reference**: Part III, §13.3.2 ([modules.manifest.format])
 - **Description**: The manifest contains keys that are not recognized by this implementation.
 - **Triggering Condition**: Key not in recognized set and not in vendor namespace
 - **Example**: Typo in key name, future specification feature used with older compiler
 
 **E-SRC-1107: Manifest language version incompatible with compiler**
 - **Severity**: Error
-- **Reference**: Part II, §10.1.5
+- **Reference**: Part III, §13.3.1 ([modules.manifest.requirements]); Part I, §7.1.3 ([evolution.versioning.declaration])
 - **Description**: The `language.version` in the manifest has a MAJOR version that doesn't match the compiler's MAJOR version.
 - **Triggering Condition**: MAJOR(manifest.version) ≠ MAJOR(compiler.version)
 - **Example**: Manifest specifies `version = "2.0.0"` but compiler is version 1.x
 
 **E-SRC-1108: Assembly dependency cycle detected**
 - **Severity**: Error
-- **Reference**: Part II, §10.1.5
+- **Reference**: Part III, §13.3.3 ([modules.assemblies.linkage])
 - **Description**: Assembly dependency declarations form a cycle, making it impossible to determine build order.
 - **Triggering Condition**: Cycle in assembly dependency graph
 - **Example**: Assembly A depends on B, B depends on C, C depends on A
@@ -341,35 +369,35 @@ This section provides the complete catalog of all specification-defined diagnost
 
 **E-SRC-1201: Import alias name already bound**
 - **Severity**: Error
-- **Reference**: Part II, §10.3.4 (Alias rules)
+- **Reference**: Part III, §14.1.4 ([names.imports.aliases])
 - **Description**: An import alias conflicts with an existing alias or declaration in the current scope.
 - **Triggering Condition**: Alias name ∈ existing names in module scope
 - **Example**: `import foo as bar; import baz as bar;` (duplicate alias)
 
 **E-SRC-1202: Undefined module path in import**
 - **Severity**: Error
-- **Reference**: Part II, §10.3.4
+- **Reference**: Part III, §14.1.2 ([names.imports.forms])
 - **Description**: An import statement references a module path that cannot be resolved.
 - **Triggering Condition**: Module path not found in project or dependencies
 - **Example**: `import nonexistent::module;` when module doesn't exist
 
 **E-SRC-1203: Assembly import policy violation**
 - **Severity**: Error
-- **Reference**: Part II, §10.3.7 (Assembly policies)
+- **Reference**: Part III, §14.1.7 ([names.imports.policies])
 - **Description**: An import violates assembly-level import restrictions or policies.
 - **Triggering Condition**: Import violates assembly configuration rules
 - **Example**: Attempting to import from restricted assembly, circular assembly reference
 
 **E-SRC-1204: Malformed module path syntax**
 - **Severity**: Error
-- **Reference**: Part II, §10.3.8 (Module-path grammar)
+- **Reference**: Part III, §13.4.1 ([modules.paths.grammar])
 - **Description**: The module path has invalid syntax (leading/trailing `::`, empty components).
 - **Triggering Condition**: Module path fails grammar validation
 - **Example**: `import ::foo;` (leading ::), `import foo::;` (trailing ::), `import foo::::bar;` (empty component)
 
 **E-SRC-1205: Module path exceeds maximum component count**
 - **Severity**: Error
-- **Reference**: Part II, §10.3.8
+- **Reference**: Part III, §13.4.2 ([modules.paths.limits])
 - **Description**: The module path contains more than the maximum allowed 32 components.
 - **Triggering Condition**: Path component count > 32
 - **Example**: `import a::b::c::...::deeply::nested::module;` with 33+ components
@@ -378,21 +406,21 @@ This section provides the complete catalog of all specification-defined diagnost
 
 **E-SRC-1301: Eager dependency cycle detected**
 - **Severity**: Error
-- **Reference**: Part II, §10.4.3 (Eager subgraph constraints)
+- **Reference**: Part III, §15.1.3 ([initialization.graph.cycles])
 - **Description**: Module initialization dependencies form a cycle that cannot be resolved.
 - **Triggering Condition**: Cycle in eager dependency edges
 - **Example**: Module A's initializer reads constant from B, B's initializer reads constant from A
 
 **E-SRC-1302: Access to uninitialized eager dependency**
 - **Severity**: Error
-- **Reference**: Part II, §10.4.3
+- **Reference**: Part III, §15.2.3 ([initialization.eager.timing])
 - **Description**: Code attempted to access a module-level value from a module that has not yet been initialized.
 - **Triggering Condition**: Eager dependency consumed before initialization
 - **Example**: Module A initializer uses value from B before B is initialized in topological order
 
 **E-SRC-1303: Module initialization failure propagation**
 - **Severity**: Error
-- **Reference**: Part II, §10.4.5 (Failure propagation)
+- **Reference**: Part III, §15.4.1 ([initialization.failure.propagation])
 - **Description**: Module initialization failed, blocking all modules that depend on it via eager dependencies.
 - **Triggering Condition**: Module init panic/error with dependent modules
 - **Example**: Module A panics during initialization, modules B and C that depend on A are blocked
@@ -401,37 +429,37 @@ This section provides the complete catalog of all specification-defined diagnost
 
 **E-SRC-1401: Scope nesting exceeds implementation limit**
 - **Severity**: Error
-- **Reference**: Part II, §11 (Scopes, Bindings, and Lookup)
-- **Description**: Nested scopes exceeded the implementation's guaranteed minimum depth (must be at least 64 levels).
-- **Triggering Condition**: Scope depth > guaranteed minimum
-- **Example**: Extremely deeply nested blocks or function definitions
+- **Reference**: Part II, §10.2.2 ([syntax.limits.blocks]); Part III, §14.2.3 ([names.scopes])
+- **Description**: Nested scopes (corresponding to blocks and other scope-forming constructs) exceeded the implementation's guaranteed minimum scope depth as required by §6.4.1.
+- **Triggering Condition**: Scope nesting depth > implementation's documented scope limit (which MUST meet or exceed §6.4.1)
+- **Example**: Extremely deeply nested blocks or function definitions that exceed the documented maximum scope depth
 
 #### Bucket 15: Shadowing and Binding Metadata
 
 **E-SRC-1501: Redeclaration of binding in same scope**
 - **Severity**: Error
-- **Reference**: Part II, §11
+- **Reference**: Part III, §14.3.1 ([names.bindings])
 - **Description**: A name is declared multiple times in the same scope.
 - **Triggering Condition**: Duplicate name in single scope
 - **Example**: `let x = 1; let x = 2;` in same block
 
 **E-SRC-1502: Invalid shadowing of universe-protected binding**
 - **Severity**: Error
-- **Reference**: Part II, §11
+- **Reference**: Part III, §14.3.4 ([names.bindings])
 - **Description**: Attempted to shadow a compiler-intrinsic or universe-level protected name.
 - **Triggering Condition**: Shadowing of protected name
 - **Example**: `let i32 = "string";` (shadowing built-in type)
 
 **W-SRC-1501: Variable shadows outer binding**
 - **Severity**: Warning
-- **Reference**: Part II, §11
+- **Reference**: Part III, §14.3.3 ([names.bindings])
 - **Description**: A binding shadows another binding from an outer scope, which may be unintentional.
 - **Triggering Condition**: Inner scope binding has same name as outer scope binding
 - **Example**: `let x = 1; { let x = 2; }` (inner x shadows outer x)
 
 **W-SRC-1502: Unused binding**
 - **Severity**: Warning
-- **Reference**: Part II, §11
+- **Reference**: Part III, §14.3 ([names.bindings])
 - **Description**: A binding is declared but never used.
 - **Triggering Condition**: Binding not referenced after declaration
 - **Example**: `let x = compute_value();` where x is never read
@@ -440,35 +468,35 @@ This section provides the complete catalog of all specification-defined diagnost
 
 **E-SRC-1601: Undefined name in unqualified lookup**
 - **Severity**: Error
-- **Reference**: Part II, §11
+- **Reference**: Part III, §14.4.2 ([names.lookup])
 - **Description**: An unqualified name could not be resolved in any visible scope.
 - **Triggering Condition**: Name ∉ accessible scopes
 - **Example**: `let y = undefined_variable;`
 
 **E-SRC-1602: Ambiguous unqualified name lookup**
 - **Severity**: Error
-- **Reference**: Part II, §11
+- **Reference**: Part III, §14.4.3 ([names.lookup])
 - **Description**: An unqualified name resolves to multiple candidates with equal priority.
 - **Triggering Condition**: Multiple matching names in lookup
 - **Example**: Using name imported from two different modules without qualification
 
 **E-SRC-1603: Undefined qualified name**
 - **Severity**: Error
-- **Reference**: Part II, §11
+- **Reference**: Part III, §14.4.1 ([names.lookup])
 - **Description**: A qualified name `module::item` references a non-existent item in the module.
 - **Triggering Condition**: Item not found in specified module
 - **Example**: `foo::nonexistent` when module foo exists but item doesn't
 
 **E-SRC-1604: Item not visible in qualified access**
 - **Severity**: Error
-- **Reference**: Part II, §11
+- **Reference**: Part III, §14.4.1 ([names.lookup])
 - **Description**: The qualified name references an item that exists but is not publicly exported.
 - **Triggering Condition**: Item is private/not exported
 - **Example**: Accessing `other_module::private_function` from outside the module
 
 **E-SRC-1605: Qualified name uses undefined alias**
 - **Severity**: Error
-- **Reference**: Part II, §11
+- **Reference**: Part III, §14.4.1 ([names.lookup])
 - **Description**: A qualified name uses an alias that was not declared.
 - **Triggering Condition**: Alias ∉ declared imports
 - **Example**: `undefined_alias::item` when alias was never imported
@@ -1549,35 +1577,50 @@ This section provides the complete catalog of all specification-defined diagnost
 - **Triggering Condition**: Deprecated feature used
 - **Example**: Using language feature marked for removal in next major version
 
-#### Bucket 02: Conformance-Mode Selection Conflicts
+#### Bucket 02: Conformance-Mode Selection Conflicts and Conformance Dossier/UVB Attestation Errors
 
 **E-CNF-0201: Invalid conformance mode**
 - **Severity**: Error
-- **Reference**: Part I, §8; Part I, §6
-- **Description**: The specified conformance mode is not recognized or supported.
-- **Triggering Condition**: Conformance mode ∉ {strict, permissive, ...}
+- **Reference**: Part I, §6.2.7 ([conformance.obligations.modes]); Part III, §13.3.2 ([modules.manifest.format])
+- **Description**: The selected conformance mode (for example via `[build].conformance` or an equivalent configuration option) is not one of the strict, permissive, or documented non-conforming compatibility modes recognized by the implementation.
+- **Triggering Condition**: Conformance mode name ∉ implementation’s recognized mode set
 - **Example**: `conformance = "invalid"` in manifest
 
 **E-CNF-0202: Conflicting conformance settings**
 - **Severity**: Error
-- **Reference**: Part I, §8
-- **Description**: Multiple conflicting conformance mode settings are specified.
-- **Triggering Condition**: Manifest and command-line specify different modes
-- **Example**: Manifest says strict, command line says `--conformance=permissive`
+- **Reference**: Part I, §6.2.7 ([conformance.obligations.modes]); Part III, §13.3.2 ([modules.manifest.format])
+- **Description**: Multiple configuration sources select conflicting conformance modes for the same build (for example, manifest vs command-line).
+- **Triggering Condition**: Manifest and command-line (or other configuration sources) specify different modes after normalization
+- **Example**: Manifest says `strict`, command line says `--conformance=permissive`
 
 **E-CNF-0203: Conformance mode unsupported for target**
 - **Severity**: Error
-- **Reference**: Part I, §8
-- **Description**: The requested conformance mode is not supported for the target platform.
-- **Triggering Condition**: Mode not available on target
-- **Example**: Requesting strict verification on embedded target without sufficient resources
+- **Reference**: Part I, §6.2.7 ([conformance.obligations.modes])
+- **Description**: The requested strict or permissive conformance mode, or a documented non-conforming compatibility mode, is not supported for the current target platform.
+- **Triggering Condition**: Requested mode not available for selected target
+- **Example**: Requesting strict verification on an embedded target without sufficient resources
+
+**E-CNF-0204: Missing or invalid conformance dossier**
+- **Severity**: Error
+- **Reference**: Part I, §6.2.4 ([conformance.obligations.dossier]); Appendix C
+- **Description**: A conformance dossier required for the selected target triple or build configuration is missing or fails the normative schema.
+- **Triggering Condition**: Required dossier absent, malformed, or missing required implementation-defined behavior or limit entries
+- **Example**: Strict conformance build for `x86_64-unknown-linux-gnu` without a matching dossier file
+
+**E-CNF-0205: Missing UVB attestation for UVB site**
+- **Severity**: Error
+- **Reference**: Part I, §6.2.2–§6.2.4 ([conformance.obligations.programs], [conformance.obligations.dossier]); Appendix C
+- **Description**: A UVB site present in the program or its linked artifacts lacks a corresponding attestation entry in the conformance dossier used for this build.
+- **Triggering Condition**: UVB operation identified by tooling has no matching dossier entry
+- **Example**: Unsafe FFI pointer dereference without an attestation record in the project’s dossier
+
 
 **W-CNF-0201: Permissive conformance mode in production**
 - **Severity**: Warning
-- **Reference**: Part I, §8
-- **Description**: Permissive conformance mode is being used in a production build.
-- **Triggering Condition**: Permissive mode + release profile
-- **Example**: Release build with relaxed conformance checking
+- **Reference**: Part I, §6.2.7 ([conformance.obligations.modes]); Part III, §13.3.2 ([modules.manifest.format])
+- **Description**: A permissive (yet conforming) conformance mode, or a documented non-conforming compatibility mode, is being used for a production or release build instead of the strict conformance mode.
+- **Triggering Condition**: Selected mode is permissive or a compatibility mode, and the build profile is release/production
+- **Example**: Release build with relaxed conformance checking enabled via `[build].conformance = "permissive"` or an equivalent compatibility mode
 
 #### Bucket 03: Versioning/Deprecation Policy Violations
 

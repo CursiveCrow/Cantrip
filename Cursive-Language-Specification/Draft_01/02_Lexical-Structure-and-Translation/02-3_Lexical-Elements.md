@@ -20,7 +20,9 @@
 
 ### §2.3.2 Syntax
 
-[1] Token categories are defined by Annex A §A.2 [grammar.lexical] and are summarised below:
+[1]
+
+> The lexical analysis phase **MUST** classify each non-whitespace, non-comment span of the normalised character stream into exactly one of the following token kinds: `identifier`, `keyword`, `literal`, `operator`, `punctuator`, or `newline`. Whitespace and comments **MUST NOT** be emitted as tokens. Each line feed (U+000A) code point that is not part of a string or character literal **MUST** be represented by a `NEWLINE` token in the token stream.
 
 ```ebnf
 token
@@ -35,7 +37,9 @@ token
 [ Note: See Annex A §A.2 [grammar.lexical] for complete lexical grammar.
 — end note ]
 
-[2] Identifiers follow Unicode Standard Annex #31 (XID_Start followed by zero or more XID_Continue code points) and shall not collide with reserved keywords.
+[2]
+
+> An identifier **MUST** begin with a Unicode scalar value whose Unicode property `XID_Start` is `Yes` or with U+005F LOW LINE (`'_'`), and **MUST** be followed by zero or more Unicode scalar values whose Unicode property `XID_Continue` is `Yes` or that are U+005F LOW LINE (`'_'`). Any lexeme used where an identifier is expected that does not satisfy this shape **MUST NOT** be treated as an identifier. Identifiers **MUST NOT** be equal in spelling to any reserved keyword listed in constraint [4].
 
 ### §2.3.3 Constraints
 
@@ -44,7 +48,9 @@ token
 [2] _Comments._
 
 - (2.1) Line comments starting with `//` consume characters to the next line terminator and are discarded.
-- (2.2) Block comments delimited by `/*` and `*/` shall nest; unclosed block comments raise diagnostic E02-209.
+- (2.2) Block comments delimited by `/*` and `*/` shall nest; unclosed block comments raise diagnostic E-SRC-0306.
+
+> A comment whose first three characters are `///` or `//!` **MUST** be classified as a documentation comment governed by constraint [3] and **MUST NOT** be processed as an ordinary line comment under (2.1).
 
 [3] _Documentation comments._ Comments beginning with `///` or `//!` shall be preserved and attached to the following item or module, respectively. They participate in documentation tooling but do not appear in the token stream.
 
@@ -52,13 +58,15 @@ token
 
 [5] _Literals._ Numeric literals support decimal, hexadecimal (`0x`), octal (`0o`), and binary (`0b`) prefixes. Underscores `_` may separate digits but shall not appear at the start or end of the literal, immediately after a base prefix, or before a type suffix. Integer literals without a suffix default to type `i32`. Violations raise diagnostic E02-206. Floating-point literals consist of an integer part, optional fractional part, optional exponent, and optional suffix (`f32` or `f64`).
 
-[6] _String and character literals._ Strings are delimited by double quotes and support escape sequences `\n`, `\r`, `\t`, `\\`, `\"`, `\'`, `\0`, `\xNN`, and `\u{...}`. Invalid escapes raise diagnostic E02-201. Character literals use single quotes and must correspond to a single Unicode scalar value; empty or multi-character literals raise diagnostic E02-203.
+[6] _String and character literals._ Strings are delimited by double quotes and support escape sequences `\n`, `\r`, `\t`, `\\`, `\"`, `\'`, `\0`, `\xNN`, and `\u{...}`. Invalid escapes raise diagnostic E-SRC-0302. Character literals use single quotes and must correspond to a single Unicode scalar value; empty or multi-character literals raise diagnostic E-SRC-0303.
 
-(6.1) _String literal line boundaries._ String literals may not span multiple lines unless escaped newlines (`\n`) are used. An unclosed string literal that reaches end-of-file or encounters a newline without being closed emits diagnostic E02-200 (unterminated string literal). The lexer shall not attempt to recover by inserting a closing quote; the compilation unit is ill-formed.
+(6.1) _String literal line boundaries._ String literals may not span multiple lines unless escaped newlines (`\n`) are used. An unclosed string literal that reaches end-of-file or encounters a newline without being closed emits diagnostic E-SRC-0301 (unterminated string literal). The lexer shall not attempt to recover by inserting a closing quote; the compilation unit is ill-formed.
 
-(6.2) _Nested block comments._ Block comments nest arbitrarily: `/* outer /* inner */ still outer */` is valid and consumes all characters between the outermost `/*` and `*/`. Unclosed nested comments emit diagnostic E02-209. Implementations shall track nesting depth and report the nesting level at the point of failure to aid debugging.
+(6.2) _Nested block comments._ Block comments nest arbitrarily: `/* outer /* inner */ still outer */` is valid and consumes all characters between the outermost `/*` and `*/`. Unclosed nested comments emit diagnostic E-SRC-0306. Implementations shall track nesting depth and report the nesting level at the point of failure to aid debugging.
 
-(6.3) _Invalid Unicode in identifiers._ Identifiers must consist of valid Unicode XID_Start and XID_Continue code points. If an identifier contains invalid Unicode sequences (e.g., unpaired surrogates, invalid UTF-8), diagnostic E02-210 (invalid Unicode in identifier) is emitted. The lexer shall not attempt to repair invalid sequences; the identifier is rejected.
+(6.3) _Invalid Unicode in identifiers._
+
+> Identifiers **MUST** consist only of Unicode scalar values permitted by §2.3.2[2]. If an identifier contains a scalar value that does not satisfy those rules, the implementation **MUST** emit diagnostic `E-SRC-0307` (invalid Unicode in identifier). The lexer **MUST NOT** attempt to repair such identifiers; they are rejected and produce no tokens.
 
 [7] _Operators and punctuators._ Multi-character operators (e.g., `==`, `!=`, `=>`, `..=`, `<-`) are recognised using maximal munch (§2.4 [lex.terminators]). The reference-binding operator `<-` participates in the same precedence and continuation rules as `=` so that Clause 5 bindings parse unambiguously. Implementations shall disambiguate closing angle brackets in generic type contexts by treating `>>` as two tokens when syntactically required. The glyph `~` is reserved for procedure receiver shorthand (§5.4 [decl.function]) and is tokenised as an operator so that combinations such as `~%` and `~!` are available.
 
@@ -66,9 +74,13 @@ token
 
 [1] Tokens retain source-span metadata (file, line, column) so that later phases can provide precise diagnostics and tooling hooks.
 
-[2] Documentation comments preserved by constraint [3] are associated with the immediately following declaration unless separated by a blank line.
+[2]
 
-[3] Invalid lexical constructs shall emit the diagnostics listed in Table 2.3.4 and shall not produce tokens; compilation continues so that additional diagnostics can be reported.
+> A documentation comment preserved by constraint [3] **MUST** be associated with the immediately following declaration or module in the same compilation unit if there is no intervening blank line containing non-comment characters. If no such declaration or module exists—because the comment appears at end of file or is separated from the next declaration by one or more blank lines—the documentation comment **MUST** be ignored for semantic purposes while remaining available to tooling; it **MUST NOT** affect the token stream or program well-formedness.
+
+[3]
+
+> Lexical analysis under this subclause **MUST** be applied only to compilation units that have passed the source-ingestion checks of §2.1. Violations of UTF-8 validity, file-size limits, BOM placement, or forbidden control characters **MUST** be diagnosed using `E-SRC-0101`–`E-SRC-0104` (with `W-SRC-0101` permitted for an initial BOM) and **MUST** prevent further translation of the affected compilation unit. Any compilation unit that contains a violation of the lexical rules in §2.3—including identifier, keyword, literal, or comment constraints—**MUST** be classified as ill-formed (§4.2). Implementations **MUST** emit at least one `E-SRC-03xx` diagnostic for such units and **MUST NOT** produce translation artifacts for them, although they **MAY** continue analysis to report additional diagnostics.
 
 ### §2.3.5 Examples
 
@@ -84,7 +96,7 @@ let answer = 42
 **Example 2.3.5.2 - invalid (Keyword misuse):**
 
 ```cursive
-let let = 5  // error[E02-208]
+let let = 5  // error[E-SRC-0305]
 ```
 
 [2] The second `let` is rejected because keywords cannot serve as identifiers (constraint [4]).
@@ -102,13 +114,15 @@ let size = 1_024
 
 | Code    | Condition                                            | Constraint |
 | ------- | ---------------------------------------------------- | ---------- |
-| E02-208 | Reserved keyword used as identifier                  | [4]        |
-| E02-200 | Unterminated string literal                          | [6]        |
-| E02-209 | Unterminated block comment                           | [2]        |
-| E02-206 | Numeric literal out of range or malformed separators | [5]        |
-| E02-201 | Invalid escape sequence                              | [6]        |
-| E02-203 | Invalid character literal                            | [6]        |
-| E02-210 | Invalid Unicode in identifier                        | [6.3]      |
+| E-SRC-0305 | Reserved keyword used as identifier                  | [4]        |
+| E-SRC-0301 | Unterminated string literal                          | [6]        |
+| E-SRC-0306 | Unterminated block comment                           | [2], (6.2) |
+| E-SRC-0304 | Malformed numeric literal                            | [5]        |
+| E-SRC-0302 | Invalid escape sequence                              | [6]        |
+| E-SRC-0303 | Invalid character literal                            | [6]        |
+| E-SRC-0307 | Invalid Unicode in identifier                        | [6.3]      |
+
+> The conditions in §2.3.3 **MUST** be reported using the `SRC-03` diagnostics defined in this table. Implementations **MUST NOT** repurpose these codes for any other conditions.
 
 ### §2.3.7 Conformance Requirements
 
