@@ -53,12 +53,13 @@ CRITICAL NOTE: These instructions only apply if you are NOT ACTING AS A REVIEWER
 Cursive is a systems programming language specifically designed and optimized for AI-assisted development. The language adheres to the following core design principles and goals:
 
 **Primary Design Principles:**
+1. **Language for LLM Codegen**: Cursive is designed to be amenable to AI code generation. The language's design principles and features are explicitly chosen to facilitate reliable AI code generation and comprehension.
 1. **One Correct Way**: Wherever possible, there should be one obviously correct way to perform any given task, eliminating ambiguity and reducing cognitive load
-2. **Const-by-Default**: All bindings and data structures are immutable by default; mutability must be explicitly opted into
+2. **Static-by-Default**: All behavior is static by default. Mutabiltiy and side-effects are exclusively opt-in.
 3. **Self-Documenting/Self-Safeguarding Language**: Language systems and features are designed to write systems whose correct use is evident, and incorrect use naturally generates errors.
-4. **Memory Safety Without Complexity**: Achieve memory safety without garbage collection or complex borrow checking through the Lexical Permission System (LPS) and explicit region-based memory management
+4. **Memory Safety Without Complexity**: Achieve memory safety without garbage collection or complex borrow checking using intelligent, elegant safety mechanisms.
 5. **Deterministic Performance**: Provide predictable, deterministic performance characteristics through explicit resource management and zero-overhead abstractions
-6. **Local Reasoning**: Enable developers to understand any code fragment with minimal global context; all effects, permissions, and lifetimes should be locally visible
+6. **Local Reasoning**: Enable developers to understand any code fragment with minimal global context.
 7. **LLM-Friendly Syntax**: Use predictable, consistent patterns that facilitate reliable AI code generation and comprehension
 8. **Zero-Cost Abstractions**: Provide compile-time safety guarantees without runtime overhead
 

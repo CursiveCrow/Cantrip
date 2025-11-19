@@ -53,7 +53,7 @@ This document is the normative specification for the Cursive programming languag
     - [6.4 Implementation Limits \[conformance.limits\]](#64-implementation-limits-conformancelimits)
     - [6.5 Reserved Identifiers \[conformance.reserved\]](#65-reserved-identifiers-conformancereserved)
     - [6.6 Conformance Verification \[conformance.verification\]](#66-conformance-verification-conformanceverification)
-  - [7. Diagnostics \[diagnostics\]](#7-diagnostics-diagnostics)
+  - [7. Language Evolution and Governance \[evolution\]](#7-language-evolution-and-governance-evolution)
     - [7.1 Diagnostic Requirements \[diagnostics.requirements\]](#71-diagnostic-requirements-diagnosticsrequirements)
     - [7.2 Diagnostic Code System \[diagnostics.codes\]](#72-diagnostic-code-system-diagnosticscodes)
     - [7.3 Severity Levels \[diagnostics.severity\]](#73-severity-levels-diagnosticsseverity)
