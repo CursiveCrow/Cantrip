@@ -45,7 +45,7 @@ The CAM consists of:
 <u>**Concurrency & Safety**</u>
 *   **Execution Model:** The CAM supports concurrent execution via two mutually exclusive paths:
     1.  **Data Parallelism (CREW):** Deterministic parallel execution with Concurrent Read, Exclusive Write enforcement.
-    2.  **System Threading (O-Cap):** Stateful, non-deterministic concurrency managed via `System` capabilities and synchronization primitives.
+    2.  **System Threading (Capability):** Stateful, non-deterministic concurrency managed via `System` capabilities and synchronization primitives.
 *   **Memory Consistency:** The CAM enforces a memory consistency model where data races are prevented statically via the Permission System (`const`, `unique`, `partitioned`).
 
 ## 1.3 Exclusions
@@ -201,10 +201,10 @@ A discrete region of storage.
 A type qualifier $\pi \in \{ \text{const}, \text{unique}, \text{partitioned} \}$ determining the aliasing and mutation capabilities of a reference to an object (see §7.2).
 
 **Capability**
-A first-class object $\kappa$ representing the authority to perform an observable external effect (e.g., I/O, memory allocation).
+A first-class value $\kappa$ representing the authority to perform an observable external effect (e.g., I/O, memory allocation).
 
 **Context**
-The root capability object $\Gamma_{root}$ (of type `Context`) injected into the program entry point, holding all ambient authority granted by the host environment.
+The root capability record $\Gamma_{root}$ (of type `Context`) injected into the program entry point, holding all ambient authority granted by the host environment.
 
 **Contract**
 A set of logical predicates (Preconditions $P$, Postconditions $Q$, Invariants $I$) bound to a procedure or type.
@@ -251,7 +251,7 @@ This specification uses the following metavariables to denote syntactic and sema
   * $\sigma$: Program stores (Memory state).
   * $\pi$: Permissions where $\pi \in \{ \text{const}, \text{unique}, \text{partitioned} \}$.
   * $Tr$: Traits.
-  * $\kappa$: Capability objects.
+  * $\kappa$: Capabilities.
   * $P, Q$: Predicates.
   * $\ell$: Memory locations.
   * $v$: Values.
@@ -386,7 +386,7 @@ Permissive mode is the default for development and prototyping.
 * **Safety Gate:** Missing attestations on `unsafe` blocks **MUST** generate a `Warning`, not an Error. The compiler **MUST** record these unattested blocks in the "unattested\_violations" section of the Conformance Dossier.
 * **Shadowing:** Implicit variable shadowing **MUST** generate a `Warning` (`W-NAM-1303`).
 
-&lt;u&gt;**Examples**&lt;/u&gt;
+<u>**Examples**</u>
 **Non-Code Example: Compiler CLI Session**
 
 ```bash
@@ -406,7 +406,7 @@ failure: Compilation aborted
 
 ## 4.2 Program Conformance
 
-&lt;u&gt;**Definition**&lt;/u&gt;
+<u>**Definition**</u>
 A **Conforming Program** is a set of compilation units that, when linked, forms a complete executable or library that relies exclusively on **Defined Behavior**.
 
 A program $P$ is conforming if:
@@ -416,7 +416,7 @@ A program $P$ is conforming if:
 3.  Any usage of `unsafe` code is encapsulated and valid according to the rules of the Abstract Machine (§29.6).
 4.  It does not depend on **Implementation-Defined Behavior (IDB)** unless that dependency is documented (e.g., via `[[repr(C)]]` or specific `comptime` checks).
 
-&lt;u&gt;**Static Semantics**&lt;/u&gt;
+<u>**Static Semantics**</u>
 The compiler **MUST** synthesize the conformance status of the program by analyzing the reachability graph starting from the entry point (`main`).
 
 Let $U$ be the set of all `unsafe` blocks in program $P$.
@@ -425,15 +425,15 @@ Let $A(u)$ be the presence of an attestation on block $u$.
 $$\\text{Conforming}(P, \\text{Strict}) \\iff \\text{WellFormed}(P) \\land \\forall u \\in U, A(u)
 $$If $\exists u \in U : \neg A(u)$, the program is **Non-Conforming** in Strict Mode, though it may still be executable if compiled in Permissive Mode.
 
-\<u\>**Dynamic Semantics**\</u\>
+<u>**Dynamic Semantics**</u>
 A conforming program **MUST NOT** exhibit **Undefined Behavior** during execution. If the abstract machine enters a state not defined by this specification (e.g., due to incorrect `unsafe` pointer arithmetic), the semantics of the entire program execution become undefined.
 
 ## 4.3 The Conformance Dossier
 
-\<u\>**Definition**\</u\>
+<u>**Definition**</u>
 The **Conformance Dossier** is a machine-readable artifact (JSON) produced by the implementation that documents the safety properties, build configuration, and implementation-defined choices of a compiled artifact.
 
-\<u\>**Constraints & Legality**\</u\>
+<u>**Constraints & Legality**</u>
 
   * **Generation:** The implementation **MUST** generate the dossier when requested (e.g., via `--emit=dossier`).
   * **Schema Validity:** The output **MUST** validate against the normative JSON Schema defined in **Annex C**.
@@ -442,7 +442,7 @@ The **Conformance Dossier** is a machine-readable artifact (JSON) produced by th
     2.  **IDB Documentation:** Explicit values for implementation-defined properties used during compilation (e.g., `pointer_width`, `endianness`, `type_layout`).
     3.  **Limits:** The specific resource limits enforced (e.g., max recursion depth).
 
-\<u\>**Static Semantics**\</u\>
+<u>**Static Semantics**</u>
 The compiler acts as an aggregator. During the **Parsing** and **Semantic Analysis** phases, it **MUST** collect:
 
 1.  All instances of `unsafe` expressions or blocks.
@@ -451,7 +451,7 @@ The compiler acts as an aggregator. During the **Parsing** and **Semantic Analys
 
 This data is serialized into the `safety_report` section of the dossier.
 
-\<u\>**Examples**\</u\>
+<u>**Examples**</u>
 **Non-Code Example: Dossier Fragment (JSON)**
 
 ```json
@@ -481,14 +481,14 @@ This data is serialized into the `safety_report` section of the dossier.
 
 ## 4.4 Language Evolution and Stability
 
-\<u\>**Definition**\</u\>
+<u>**Definition**</u>
 Cursive adheres to a **Semantic Versioning** model to manage language evolution. The language version is identified by a triplet `MAJOR.MINOR.PATCH`.
 
   * **MAJOR**: Incompatible changes (breaking grammar or semantics).
   * **MINOR**: Backwards-compatible feature additions.
   * **PATCH**: Backwards-compatible bug fixes and clarifications.
 
-\<u\>**Constraints & Legality**\</u\>
+<u>**Constraints & Legality**</u>
 
   * **Manifest Declaration:** Every project **MUST** declare its target language version in the `Cursive.toml` manifest.
   * **Compiler Compatibility:** An implementation $I$ with version $V_{impl}$ **MUST** accept a program $P$ declaring version $V_{prog}$ if and only if:
@@ -502,7 +502,7 @@ Cursive adheres to a **Semantic Versioning** model to manage language evolution.
 | `E-CFG-4402` | Error | Usage of unstable feature without feature flag. |
 | `W-CFG-4401` | Warning | Usage of deprecated feature. |
 
-\<u\>**Static Semantics**\</u\>
+<u>**Static Semantics**</u>
 
 **4.4.1 Feature Stability Classes**
 Every syntactic construct and library entity is assigned a stability class:
@@ -522,12 +522,12 @@ Implementations **MAY** provide extensions (new attributes, intrinsics).
 
 ## 4.5 The Attestation System
 
-\<u\>**Definition**\</u\>
+<u>**Definition**</u>
 The **Attestation System** is a formal mechanism to document and audit the usage of `unsafe` code. It couples a human-provided justification with the machine-checked code, ensuring that deviations from the safety model are intentional, audited, and recorded.
 
 ### 4.5.1 The `[[attestation]]` Attribute
 
-\<u\>**Syntax**\</u\>
+<u>**Syntax**</u>
 
 ```ebnf
 attestation_attribute ::= "[[" "attestation" "(" attestation_args ")" "]]"
@@ -536,7 +536,7 @@ arg_pair ::= key ":" literal
 key ::= "method" | "auditor" | "date" | "proof" | "comment"
 ```
 
-\<u\>**Constraints & Legality**\</u\>
+<u>**Constraints & Legality**</u>
 
   * **Target:** The `[[attestation]]` attribute **MUST** only be applied to `unsafe` blocks or `unsafe` functions. Application to other constructs **SHOULD** trigger a warning (`W-ATT-4501`).
   * **Required Keys:** The attribute **MUST** contain at least the `method` and `auditor` keys.
@@ -549,13 +549,13 @@ key ::= "method" | "auditor" | "date" | "proof" | "comment"
 | `E-ATT-4501` | Error | Malformed attestation: missing required keys. |
 | `W-ATT-4501` | Warning | Attestation applied to safe code (redundant). |
 
-\<u\>**Static Semantics**\</u\>
+<u>**Static Semantics**</u>
 
 1.  **Association:** The compiler associates the attestation metadata with the immediately following `unsafe` scope.
 2.  **Dossier Emission:** During the dossier generation phase, the values of the attestation arguments are extracted and serialized into the `safety_report`.
 3.  **Strict Mode Check:** If the compiler is in Strict Mode and encounters an `unsafe` block *without* an associated `[[attestation]]`, it **MUST** emit `E-SAF-0001` (or equivalent) and abort compilation.
 
-\<u\>**Examples**\</u\>
+<u>**Examples**</u>
 **Valid Attested Unsafe Block**
 
 ```cursive
@@ -567,7 +567,1139 @@ key ::= "method" | "auditor" | "date" | "proof" | "comment"
 )]]
 unsafe {
     legacy_c_api(raw_ptr, length);
+**4.1.1 Strict Mode Requirements (`strict`)**
+Strict mode is the target for production systems and formal verification.
+
+* **Safety Gate:** The compilation **MUST** fail with an error if any `unsafe` block in the program reachable from the entry point lacks a valid `[[attestation]]` attribute (§4.5).
+* **Warning Elevation:** All diagnostics classified as `Warning` in the standard **MUST** be elevated to `Error` severity, unless explicitly suppressed by a scoped diagnostic directive.
+* **Shadowing:** Implicit variable shadowing **MUST** be diagnosed as an error (`E-NAM-1303`).
+
+**4.1.2 Permissive Mode Requirements (`permissive`)**
+Permissive mode is the default for development and prototyping.
+
+* **Safety Gate:** Missing attestations on `unsafe` blocks **MUST** generate a `Warning`, not an Error. The compiler **MUST** record these unattested blocks in the "unattested\_violations" section of the Conformance Dossier.
+* **Shadowing:** Implicit variable shadowing **MUST** generate a `Warning` (`W-NAM-1303`).
+
+<u>**Examples**</u>
+**Non-Code Example: Compiler CLI Session**
+
+```bash
+# Permissive Mode (Default)
+$ cursive build main.cur
+warning[W-SAF-001]: Unsafe block missing attestation at main.cur:14:5
+success: Binary generated at ./bin/main
+
+# Strict Mode
+$ cursive build --mode=strict main.cur
+error[E-SAF-001]: Unsafe block missing attestation at main.cur:14:5
+|
+14|     unsafe {
+|     ^^^^^^ strict mode requires [[attestation]] for all unsafe blocks
+failure: Compilation aborted
+```
+
+## 4.2 Program Conformance
+
+<u>**Definition**</u>
+A **Conforming Program** is a set of compilation units that, when linked, forms a complete executable or library that relies exclusively on **Defined Behavior**.
+
+A program $P$ is conforming if:
+
+1.  It is **Well-Formed** according to the syntax and type system rules of this specification.
+2.  It is free of **Unverifiable Behavior (UVB)** in `safe` code.
+3.  Any usage of `unsafe` code is encapsulated and valid according to the rules of the Abstract Machine (§29.6).
+4.  It does not depend on **Implementation-Defined Behavior (IDB)** unless that dependency is documented (e.g., via `[[repr(C)]]` or specific `comptime` checks).
+
+<u>**Static Semantics**</u>
+The compiler **MUST** synthesize the conformance status of the program by analyzing the reachability graph starting from the entry point (`main`).
+
+Let $U$ be the set of all `unsafe` blocks in program $P$.
+Let $A(u)$ be the presence of an attestation on block $u$.
+
+$$\\text{Conforming}(P, \\text{Strict}) \\iff \\text{WellFormed}(P) \\land \\forall u \\in U, A(u)
+$$If $\exists u \in U : \neg A(u)$, the program is **Non-Conforming** in Strict Mode, though it may still be executable if compiled in Permissive Mode.
+
+<u>**Dynamic Semantics**</u>
+A conforming program **MUST NOT** exhibit **Undefined Behavior** during execution. If the abstract machine enters a state not defined by this specification (e.g., due to incorrect `unsafe` pointer arithmetic), the semantics of the entire program execution become undefined.
+
+## 4.3 The Conformance Dossier
+
+<u>**Definition**</u>
+The **Conformance Dossier** is a machine-readable artifact (JSON) produced by the implementation that documents the safety properties, build configuration, and implementation-defined choices of a compiled artifact.
+
+<u>**Constraints & Legality**</u>
+
+  * **Generation:** The implementation **MUST** generate the dossier when requested (e.g., via `--emit=dossier`).
+  * **Schema Validity:** The output **MUST** validate against the normative JSON Schema defined in **Annex C**.
+  * **Completeness:** The dossier **MUST** include:
+    1.  **Safety Report:** A complete inventory of every `unsafe` block and its corresponding attestation (or lack thereof).
+    2.  **IDB Documentation:** Explicit values for implementation-defined properties used during compilation (e.g., `pointer_width`, `endianness`, `type_layout`).
+    3.  **Limits:** The specific resource limits enforced (e.g., max recursion depth).
+
+<u>**Static Semantics**</u>
+The compiler acts as an aggregator. During the **Parsing** and **Semantic Analysis** phases, it **MUST** collect:
+
+1.  All instances of `unsafe` expressions or blocks.
+2.  All `[[attestation]]` attributes associated with those blocks.
+3.  The source location (file, line, column) of each instance.
+
+This data is serialized into the `safety_report` section of the dossier.
+
+<u>**Examples**</u>
+**Non-Code Example: Dossier Fragment (JSON)**
+
+```json
+{
+  "metadata": {
+    "compiler_id": "cursivec-llvm",
+    "version": "1.0.0",
+    "target": "x86_64-unknown-linux-gnu"
+  },
+  "configuration": {
+    "mode": "permissive"
+  },
+  "safety_report": {
+    "unsafe_blocks_count": 1,
+    "attestations": [
+      {
+        "location": { "file": "src/hal.cur", "line": 42 },
+        "mechanism": "Manual Audit",
+        "auditor": "SecurityTeam",
+        "justification": "MMIO read requires raw pointer access."
+      }
+    ],
+    "unattested_violations": []
+  }
+}
+```
+
+## 4.4 Language Evolution and Stability
+
+<u>**Definition**</u>
+Cursive adheres to a **Semantic Versioning** model to manage language evolution. The language version is identified by a triplet `MAJOR.MINOR.PATCH`.
+
+  * **MAJOR**: Incompatible changes (breaking grammar or semantics).
+  * **MINOR**: Backwards-compatible feature additions.
+  * **PATCH**: Backwards-compatible bug fixes and clarifications.
+
+<u>**Constraints & Legality**</u>
+
+  * **Manifest Declaration:** Every project **MUST** declare its target language version in the `Cursive.toml` manifest.
+  * **Compiler Compatibility:** An implementation $I$ with version $V_{impl}$ **MUST** accept a program $P$ declaring version $V_{prog}$ if and only if:
+    $$V_{prog}.\text{MAJOR} = V_{impl}.\text{MAJOR} \land V_{prog}.\text{MINOR} \le V_{impl}.\text{MINOR}$$
+
+**Diagnostic Codes:**
+
+| Code | Severity | Description |
+| :--- | :--- | :--- |
+| `E-CFG-4401` | Error | Incompatible language version declared in manifest. |
+| `E-CFG-4402` | Error | Usage of unstable feature without feature flag. |
+| `W-CFG-4401` | Warning | Usage of deprecated feature. |
+
+<u>**Static Semantics**</u>
+
+**4.4.1 Feature Stability Classes**
+Every syntactic construct and library entity is assigned a stability class:
+
+1.  **Stable:** Available by default. Changes strictly follow SemVer.
+2.  **Preview:** Available only if explicitly opted-in via the `[project.features]` manifest key. Subject to change in MINOR releases.
+3.  **Experimental:** Available only via specific compiler flags. No stability guarantees.
+
+**4.4.2 Deprecation**
+Features marked as **Deprecated** remain functional for at least one MINOR release cycle. Use of such features **MUST** trigger a warning (`W-CFG-4401`). Removal occurs only in MAJOR releases.
+
+**4.4.3 Extension Handling**
+Implementations **MAY** provide extensions (new attributes, intrinsics).
+
+  * **Naming:** Extensions **MUST** be namespaced using a reverse-domain vendor prefix (e.g., `[[com.vendor.feature]]`).
+  * **Reserved Namespace:** The `cursive` namespace and the top-level namespace are reserved for the standard.
+
+## 4.5 The Attestation System
+
+<u>**Definition**</u>
+The **Attestation System** is a formal mechanism to document and audit the usage of `unsafe` code. It couples a human-provided justification with the machine-checked code, ensuring that deviations from the safety model are intentional, audited, and recorded.
+
+### 4.5.1 The `[[attestation]]` Attribute
+
+<u>**Syntax**</u>
+
+```ebnf
+attestation_attribute ::= "[[" "attestation" "(" attestation_args ")" "]]"
+attestation_args ::= arg_pair ("," arg_pair)*
+arg_pair ::= key ":" literal
+key ::= "method" | "auditor" | "date" | "proof" | "comment"
+```
+
+<u>**Constraints & Legality**</u>
+
+  * **Target:** The `[[attestation]]` attribute **MUST** only be applied to `unsafe` blocks or `unsafe` functions. Application to other constructs **SHOULD** trigger a warning (`W-ATT-4501`).
+  * **Required Keys:** The attribute **MUST** contain at least the `method` and `auditor` keys.
+  * **Value Types:** All values **MUST** be string literals.
+
+**Diagnostic Codes:**
+
+| Code | Severity | Description |
+| :--- | :--- | :--- |
+| `E-ATT-4501` | Error | Malformed attestation: missing required keys. |
+| `W-ATT-4501` | Warning | Attestation applied to safe code (redundant). |
+
+<u>**Static Semantics**</u>
+
+1.  **Association:** The compiler associates the attestation metadata with the immediately following `unsafe` scope.
+2.  **Dossier Emission:** During the dossier generation phase, the values of the attestation arguments are extracted and serialized into the `safety_report`.
+3.  **Strict Mode Check:** If the compiler is in Strict Mode and encounters an `unsafe` block *without* an associated `[[attestation]]`, it **MUST** emit `E-SAF-0001` (or equivalent) and abort compilation.
+
+<u>**Examples**</u>
+**Valid Attested Unsafe Block**
+
+```cursive
+[[attestation(
+    method: "Manual Audit",
+    auditor: "J. Doe",
+    date: "2025-11-19",
+    comment: "FFI call to legacy system; buffer bounds checked above."
+)]]
+unsafe {
+    legacy_c_api(raw_ptr, length);
+legacy_c_api(raw_ptr, length);
 }
 ```
 
 ---
+
+# Clause 5: Lexical Structure
+
+## 5.1 Character Sets
+
+<u>**Definition**</u>
+The **Cursive Character Set** $\Sigma_{cur}$ is defined as the set of Unicode scalar values encoded in UTF-8.
+*   **Source Encoding:** Cursive source files **MUST** be encoded in UTF-8 (RFC 3629).
+*   **Scalar Values:** The atomic unit of processing is the Unicode Scalar Value $u \in U_{scalar}$, where $U_{scalar} = [0, \text{D7FF}_{16}] \cup [\text{E000}_{16}, \text{10FFFF}_{16}]$.
+*   **Normalization:** Source text is processed in Normalized Form C (NFC) for identifiers.
+
+<u>**Invariants**</u>
+The source ingestion pipeline $P_{ingest}$ must satisfy the following invariants for any input byte stream $B$:
+
+1.  **Valid UTF-8:** $\forall b \in B, \text{IsValidUTF8}(b)$. Overlong encodings and surrogate code points **MUST** be rejected.
+2.  **No Byte Order Mark (BOM):** The output stream $S$ **MUST NOT** contain U+FEFF.
+    $$S = P_{ingest}(B) \implies \text{U+FEFF} \notin S$$
+3.  **Prohibited Characters:** The source **MUST NOT** contain control characters (Cc category) except for Horizontal Tab (U+0009), Line Feed (U+000A), Form Feed (U+000C), and Carriage Return (U+000D).
+
+<u>**Semantics**</u>
+The **Source Ingestion Pipeline** transforms a raw byte stream into a sequence of normalized Unicode scalar values. This process **MUST** occur in the following deterministic order:
+
+1.  **Size Validation:** The implementation **MUST** verify that $|B| \le \text{MAX\_FILE\_SIZE}$ (Minimum limit: 1 MiB).
+2.  **Decoding:** The byte stream is decoded into Unicode scalar values. Invalid sequences trigger `E-SRC-0101`.
+3.  **BOM Stripping:** If $S[0] = \text{U+FEFF}$, it is discarded.
+4.  **Line Ending Normalization:** All line ending sequences (CR, LF, CRLF) are normalized to a single Line Feed (LF, U+000A).
+5.  **Prohibited Character Check:** The stream is scanned for prohibited control characters.
+
+<u>**Hazards**</u>
+Failure to adhere to the encoding rules results in immediate rejection of the compilation unit.
+
+| Code | Severity | Description |
+| :--- | :--- | :--- |
+| `E-SRC-0101` | Error | Invalid UTF-8 byte sequence. |
+| `E-SRC-0102` | Error | Source file exceeds implementation-defined maximum size. |
+| `E-SRC-0103` | Error | Embedded BOM found after the first position. |
+| `E-SRC-0104` | Error | Forbidden control character or null byte. |
+| `W-SRC-0101` | Warning | UTF-8 BOM present (stripped). |
+
+## 5.2 Translation Phases
+
+<u>**Definition**</u>
+The translation of a Cursive program is a deterministic function $T: \text{Source} \to \text{Artifacts}$ composed of four distinct phases.
+
+<u>**Invariants**</u>
+*   **Determinism:** For a given input $I$ and configuration $C$, the output $O$ is invariant.
+    $$\forall t_1, t_2 : T(I, C)_{t_1} \equiv T(I, C)_{t_2}$$
+*   **Phase Ordering:** The phases **MUST** execute in the strict order defined below.
+
+<u>**Semantics**</u>
+The **Translation Pipeline** consists of:
+
+1.  **Phase 1: Parsing ($\Phi_1$)**
+    *   Input: Normalized Source Text.
+    *   Output: Abstract Syntax Tree (AST).
+    *   Action: Tokenization, parsing, and symbol table population. Handles "Two-Phase Compilation" for forward references.
+
+2.  **Phase 2: Compile-Time Execution ($\Phi_2$)**
+    *   Input: AST.
+    *   Output: Expanded AST.
+    *   Action: Execution of `comptime` blocks, metaprogramming expansion (`quote`/`splice`).
+
+3.  **Phase 3: Semantic Analysis ($\Phi_3$)**
+    *   Input: Expanded AST.
+    *   Output: Validated AST + Type/Effect Table.
+    *   Action: Type checking, permission checking (LPS), Capability analysis.
+
+4.  **Phase 4: Code Generation ($\Phi_4$)**
+    *   Input: Validated AST.
+    *   Output: Machine Code + Conformance Dossier.
+    *   Action: IR lowering, optimization, artifact emission.
+
+$$T(Source) = \Phi_4(\Phi_3(\Phi_2(\Phi_1(Source))))$$
+
+<u>**Hazards**</u>
+*   **Circular Dependencies:** Circular dependencies in `comptime` execution or variable initialization **MUST** be detected and reported as errors (`E-CMP-0201`).
+
+| Code | Severity | Description |
+| :--- | :--- | :--- |
+| `E-CMP-0201` | Error | Circular dependency detected in compile-time execution. |
+
+## 5.3 Lexical Elements
+
+<u>**Definition**</u>
+Lexical analysis converts the normalized sequence of scalar values into a stream of tokens, comments, and whitespace.
+
+### 5.3.1 Comments
+
+<u>**Definition**</u>
+Comments are lexical elements used for documentation and annotation. They do not contribute to the syntactic structure of the program but may be preserved for tooling.
+
+<u>**Syntax**</u>
+```ebnf
+comment ::= line_comment | block_comment
+line_comment ::= "//" [^\n]*
+block_comment ::= "/*" ( [^*] | "*" [^/] | block_comment )* "*/"
+```
+*Note: The EBNF for `block_comment` is an approximation. Block comments support arbitrary nesting.*
+
+<u>**Constraints & Legality**</u>
+*   **Nesting:** Block comments `/* ... */` **MUST** nest correctly.
+*   **Termination:** An unterminated block comment at EOF **MUST** trigger `E-LEX-0301`.
+*   **Content:** Comments **MAY** contain any Unicode scalar value.
+
+<u>**Static Semantics**</u>
+*   **Erasure:** Comments are effectively replaced by whitespace during tokenization, except for Documentation Comments (`///` and `//!`) which are attached to the AST.
+*   **No Tokens:** Comments **MUST NOT** produce tokens in the output stream.
+
+### 5.3.2 Whitespace
+
+<u>**Definition**</u>
+Whitespace serves as a delimiter between tokens and drives the layout-sensitive statement termination logic.
+
+<u>**Syntax**</u>
+```ebnf
+whitespace ::= " " | "\t" | "\f" | "\n"
+```
+
+<u>**Static Semantics**</u>
+*   **Separation:** Whitespace separates tokens (e.g., `let x` vs `letx`).
+*   **Newlines:** The Line Feed (U+000A) is tokenized as `<newline>` and is semantically significant for statement termination (see Clause 10.3). All other whitespace is discarded.
+
+### 5.3.3 Tokens
+
+<u>**Definition**</u>
+A token is the fundamental syntactic unit of the language.
+
+<u>**Syntax**</u>
+```ebnf
+token ::= identifier | keyword | literal | operator | punctuator | newline
+```
+
+<u>**Constraints & Legality**</u>
+*   **Maximal Munch:** The lexer **MUST** consume the longest possible valid token at each step.
+*   **Unclassifiable Sequences:** Any sequence that cannot be classified as a valid token or whitespace **MUST** trigger a diagnostic.
+
+**Diagnostic Codes:**
+
+| Code | Severity | Description |
+| :--- | :--- | :--- |
+| `E-LEX-0301` | Error | Unterminated block comment. |
+| `E-LEX-0302` | Error | Invalid character in source input. |
+
+## 5.4 Identifiers
+
+<u>**Definition**</u>
+Identifiers are names used to bind entities (variables, types, procedures).
+
+<u>**Syntax**</u>
+```ebnf
+identifier ::= xid_start xid_continue*
+```
+*   `xid_start`: Unicode `XID_Start` property + `_`
+*   `xid_continue`: Unicode `XID_Continue` property
+
+<u>**Constraints & Legality**</u>
+*   **Reserved Words:** Identifiers **MUST NOT** match any reserved keyword (Clause 5.4.2). Violation triggers `E-LEX-0401`.
+*   **Length:** Identifiers **MUST NOT** exceed implementation-defined limits (Minimum: 1,023 scalar values). Violation triggers `E-LEX-0402`.
+*   **Prohibited:** Identifiers **MUST NOT** contain prohibited characters or non-characters.
+
+<u>**Static Semantics**</u>
+*   **Normalization:** Identifiers are normalized to NFC before comparison.
+*   **Equivalence:** Two identifiers $id_1, id_2$ are equivalent iff $\text{NFC}(id_1) = \text{NFC}(id_2)$.
+
+<u>**Examples**</u>
+```cursive
+// Valid
+let my_var = 10
+let _unused = 0
+let αβγ = 3.14
+
+// Invalid
+let 1var = 0      // Starts with digit
+let break = 0     // Reserved keyword
+let my-var = 0    // Hyphen not allowed (parsed as subtraction)
+```
+
+### 5.4.2 Keywords
+
+<u>**Definition**</u>
+Keywords are reserved lexical forms that have special meaning in the language.
+
+<u>**Constraints**</u>
+The following identifiers are **RESERVED** and **MUST NOT** be used as user-defined identifiers:
+`abstract`, `as`, `break`, `char`, `comptime`, `const`, `continue`, `double`, `else`, `enum`, `extern`, `false`, `float`, `fork`, `if`, `half`, `imm`, `import`, `int`, `internal`, `let`, `loop`, `match`, `modal`, `module`, `move`, `mut`, `override`, `parallel`, `partitioned`, `private`, `procedure`, `protected`, `public`, `quote`, `record`, `region`, `result`, `return`, `self`, `Self`, `shadow`, `static`, `true`, `trait`, `type`, `uint`, `unique`, `unsafe`, `use`, `var`, `witness`, `where`.
+
+### 5.4.3 Reserved Identifiers
+
+<u>**Definition**</u>
+Certain identifier patterns are reserved for implementation or specification use.
+
+<u>**Constraints**</u>
+*   **Cursive Namespace:** The `cursive.*` namespace is reserved.
+*   **Implementation:** Identifiers starting with `__` (double underscore) are reserved for implementation artifacts.
+
+**Diagnostic Codes:**
+
+| Code | Severity | Description |
+| :--- | :--- | :--- |
+| `E-LEX-0401` | Error | Usage of reserved keyword as identifier. |
+| `E-LEX-0402` | Error | Identifier exceeds maximum length limit. |
+| `E-LEX-0403` | Error | Usage of reserved namespace or prefix. |
+
+## 5.5 Literals
+
+<u>**Definition**</u>
+Literals are source code representations of fixed values.
+
+### 5.5.1 Integer Literals
+
+<u>**Syntax**</u>
+```ebnf
+integer_literal ::= (decimal | hex | octal | binary) suffix?
+decimal ::= [0-9] ("_"? [0-9])*
+hex     ::= "0x" [0-9a-fA-F] ("_"? [0-9a-fA-F])*
+octal   ::= "0o" [0-7] ("_"? [0-7])*
+binary  ::= "0b" [0-1] ("_"? [0-1])*
+suffix  ::= "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64"
+```
+
+<u>**Constraints & Legality**</u>
+*   **Value Range:** The literal value **MUST** fit within the range of the specified (or inferred) type. Violation triggers `E-LEX-0501`.
+*   **Underscores:** Underscores **MUST NOT** appear at the start, end, or immediately after the prefix.
+
+<u>**Static Semantics**</u>
+*   **Type Inference:** If no suffix is present, the type is inferred from context, defaulting to `i32` if unconstrained.
+
+### 5.5.2 Floating-Point Literals
+
+<u>**Syntax**</u>
+```ebnf
+float_literal ::= digit_seq "." digit_seq exponent? suffix?
+                | digit_seq exponent suffix?
+digit_seq     ::= [0-9] ("_"? [0-9])*
+exponent      ::= ("e" | "E") ("+" | "-")? digit_seq
+suffix        ::= "f16" | "f32" | "f64"
+```
+
+<u>**Constraints & Legality**</u>
+*   **Format:** A floating-point literal **MUST** contain either a decimal point or an exponent (or both) to distinguish it from an integer.
+
+### 5.5.3 Character Literals
+
+<u>**Syntax**</u>
+```ebnf
+char_literal ::= "'" (char_content | escape_seq) "'"
+char_content ::= [^'\\\n\r]
+escape_seq   ::= "\\" ("n" | "r" | "t" | "\\" | "'" | '"' | "0" | "x" hex_digit{2} | "u{" hex_digit+ "}")
+hex_digit    ::= [0-9a-fA-F]
+```
+
+<u>**Constraints & Legality**</u>
+*   **Length:** **MUST** represent exactly one Unicode scalar value. Violation triggers `E-LEX-0502`.
+*   **Escapes:** Invalid escape sequences trigger `E-LEX-0503`.
+
+### 5.5.4 String Literals
+
+<u>**Syntax**</u>
+```ebnf
+string_literal ::= '"' (string_content | escape_seq)* '"'
+string_content ::= [^"\\\n\r]
+```
+
+<u>**Constraints & Legality**</u>
+*   **No Newlines:** Unescaped line feeds (U+000A) **MUST NOT** appear in a string literal.
+*   **Encoding:** The string value is the UTF-8 encoding of the sequence of scalar values.
+
+### 5.5.5 Boolean Literals
+
+<u>**Syntax**</u>
+```ebnf
+bool_literal ::= "true" | "false"
+```
+
+<u>**Static Semantics**</u>
+*   **Type:** The type of a boolean literal is `bool`.
+
+<u>**Examples**</u>
+```cursive
+// Integers
+let a = 42
+let b = 0xDEAD_BEEF_u32
+let c = 0b1010_1010
+
+// Floats
+let d = 3.14159
+let e = 1.0e-10_f64
+
+// Characters
+let f = 'x'
+let g = '\n'
+let h = '\u{1F4A9}'
+
+// Strings
+let i = "Hello, World!"
+let j = "Line 1\nLine 2"
+```
+
+**Diagnostic Codes:**
+
+| Code | Severity | Description |
+| :--- | :--- | :--- |
+| `E-LEX-0501` | Error | Literal value out of range for type. |
+| `E-LEX-0502` | Error | Character literal must contain exactly one scalar value. |
+| `E-LEX-0503` | Error | Invalid escape sequence in literal. |
+| `E-LEX-0504` | Error | Invalid suffix for literal type. |
+
+# Clause 6: Basic Concepts (The Abstract Machine)
+
+## 6.1 Declarations and Scopes
+
+<u>**Definition**</u>
+A **Declaration** is a syntactic form that introduces a name (identifier) into the program and binds it to a static entity (such as a variable, type, module, or procedure).
+
+A **Scope** is the lexical region of source text where a specific set of name bindings is valid. Cursive employs strict lexical scoping, where scopes are nested hierarchically corresponding to the block structure of the program.
+
+**Unified Namespace:**
+Cursive **MUST** be implemented with a single, unified namespace per scope. An identifier's meaning is determined solely by its spelling and the scope resolution, independent of the syntactic context of its use (e.g., a type name and a variable name cannot collide).
+
+<u>**Static Semantics**</u>
+*   **Name Introduction:** A declaration $D$ introducing name $x$ into scope $S$ is well-formed if and only if $x$ is not already bound in $S$.
+    $$ \forall x, S: \text{Declare}(x, S) \implies x \notin \text{dom}(S) $$
+*   **Shadowing:** A declaration in an inner scope $S_{inner}$ **MAY** bind a name $x$ that is already bound in an outer scope $S_{outer}$.
+    *   **Explicit Shadowing:** The declaration **MUST** use the `shadow` keyword.
+    *   **Implicit Shadowing:** Shadowing without the `shadow` keyword is **discouraged** and subject to conformance mode checks (see §4.1).
+
+**Diagnostic Codes:**
+
+| Code | Severity | Description |
+| :--- | :--- | :--- |
+| `E-NAM-1302` | Error | Duplicate name: the identifier is already declared in this scope. |
+| `E-NAM-1303` | Error | Shadowing existing binding without `shadow` keyword (Strict Mode). |
+| `W-NAM-1303` | Warning | Shadowing existing binding without `shadow` keyword (Permissive Mode). |
+| `E-NAM-1306` | Error | Unnecessary use of `shadow` keyword (no outer binding exists). |
+
+### 6.1.1 Scope Nesting
+
+<u>**Definition**</u>
+The **Scope Context** $\Gamma$ represents the stack of active scopes at any point in the program. It is an ordered list $\Gamma = [S_{local}, S_{proc}, S_{module}, S_{universe}]$, where $S_{local}$ is the innermost (active) scope.
+
+<u>**Static Semantics**</u>
+*   **Scope Creation:** Entering a block expression (`{ ... }`), loop, or function body pushes a new empty scope $S_{new}$ onto $\Gamma$.
+*   **Scope Destruction:** Exiting a block pops the innermost scope.
+*   **Visibility:** Bindings in $S_{local}$ are immediately visible. Bindings in outer scopes are visible unless shadowed.
+
+### 6.1.2 Name Resolution Algorithm
+
+<u>**Objective**</u>
+To determine the unique entity $E$ denoted by an identifier $x$ or a qualified path $p$ within a specific scope context $\Gamma$.
+
+<u>**Abstract Domain**</u>
+*   **Input:** Identifier $x$ or Path $p$, Context $\Gamma$.
+*   **Output:** Entity $E$ or Error $\bot$.
+
+<u>**Execution Steps**</u>
+
+**1. Unqualified Lookup ($x$):**
+The implementation **MUST** search the scope stack $\Gamma$ from innermost ($S_0$) to outermost ($S_n$).
+
+$$
+\frac{x \in \text{dom}(S_0)}{\Gamma \vdash x \Rightarrow S_0(x)}
+\tag{Step-Local}
+$$
+
+$$
+\frac{x \notin \text{dom}(S_0) \quad [S_1, \dots, S_n] \vdash x \Rightarrow E}{\Gamma \vdash x \Rightarrow E}
+\tag{Step-Recurse}
+$$
+
+If the stack is exhausted and $x$ is not found, the algorithm terminates with `E-NAM-1301`.
+
+**2. Qualified Lookup ($p::i$):**
+To resolve a path $p::i$:
+1.  Resolve the prefix $p$ to a module or type $M$ using this algorithm recursively.
+2.  Search for $i$ within the export set of $M$.
+3.  Verify accessibility (see §6.1.3).
+
+$$
+\frac{\Gamma \vdash p \Rightarrow M \quad M \vdash i \Rightarrow E \quad \Gamma \vdash \text{can\_access}(E)}{\Gamma \vdash p::i \Rightarrow E}
+\tag{Step-Qualified}
+$$
+
+<u>**Determinism**</u>
+The name resolution algorithm is deterministic. Given a well-formed program and a specific location, an identifier always resolves to the same entity.
+
+**Diagnostic Codes:**
+
+| Code | Severity | Description |
+| :--- | :--- | :--- |
+| `E-NAM-1301` | Error | Unresolved name: cannot find identifier in any accessible scope. |
+| `E-NAM-1304` | Error | Unresolved module: a path prefix did not resolve to a module. |
+| `E-NAM-1305` | Error | Unresolved or private item in path. |
+
+### 6.1.3 Visibility and Access
+
+<u>**Definition**</u>
+**Visibility** controls the accessibility of declarations across module boundaries. Every top-level declaration has an assigned visibility level.
+
+*   **`public`**: Visible to all modules.
+*   **`internal`** (Default): Visible only within the defining assembly.
+*   **`private`**: Visible only within the defining module.
+*   **`protected`**: Visible within the defining type and its trait implementations (intra-assembly only).
+
+<u>**Constraints & Legality**</u>
+*   **Access Check:** A usage of entity $E$ at location $L$ is legal if and only if $E$ is visible at $L$.
+*   **Protected Constraint:** The `protected` modifier **MUST NOT** be used on top-level declarations.
+
+<u>**Static Semantics**</u>
+The judgment $\Gamma \vdash \text{can\_access}(E)$ is defined as:
+
+1.  **Public:** Always true.
+2.  **Internal:** True iff $Assembly(\Gamma) = Assembly(E)$.
+3.  **Private:** True iff $Module(\Gamma) = Module(E)$.
+4.  **Protected:** True iff $\Gamma$ is within $Type(E)$ OR ($\Gamma$ is within `impl` of $Type(E)$ AND $Assembly(\Gamma) = Assembly(E)$).
+
+**Diagnostic Codes:**
+
+| Code | Severity | Description |
+| :--- | :--- | :--- |
+| `E-MOD-1207` | Error | Cannot access a `protected` item from this scope. |
+| `E-MOD-1205` | Error | Attempt to `public use` a non-public item. |
+
+Migrating content from **Part 6, Chapter 29 (The Cursive Memory Model)** to **Clause 6.2 (The Object Model)** using the **System Definition** template.
+
+-----
+
+## 6.2 The Object Model
+
+\<u\>**Definition**\</u\>
+
+The Cursive Object Model defines the abstract entities that exist during program execution. An **Object** is a discrete entity within the abstract machine, formally defined by the tuple:
+
+$$O = (S, T, L, V)$$
+
+Where:
+
+  * $S$ (**Storage**): A contiguous sequence of bytes in the virtual address space, characterized by a start address $addr(S)$ and a size in bytes $size(S)$.
+  * $T$ (**Type**): A static classification determining the interpretation of the bits in $S$, the alignment requirements $align(T)$, and the set of valid operations.
+  * $L$ (**Lifetime**): The temporal interval $[t_{start}, t_{end})$ during execution for which $S$ is valid, reserved, and strictly associated with $O$.
+  * $V$ (**Value**): The specific bit-pattern contained within $S$ at a given time $t \in L$, which **MUST** constitute a valid representation for type $T$.
+
+The memory model enforces safety through two orthogonal axes:
+
+1.  **Liveness**: The guarantee that an access to $O$ occurs only when $t \in L$.
+2.  **Aliasing**: The management of multiple paths (bindings or pointers) to $S$, ensuring data race freedom via the Permission System (Clause 7.2).
+
+\<u\>**Constraints & Legality**\</u\>
+
+The compiler **MUST** enforce the following constraints on all objects:
+
+1.  **Zero Runtime Overhead:** With the exception of dynamic bounds checking for arrays/slices and user-opt-in runtime contracts, all memory safety checks defined in this clause **MUST** be resolved at compile time. The implementation **MUST NOT** insert implicit reference counting or garbage collection barriers.
+2.  **Explicit Management:** Operations affecting ownership, allocation, or synchronization **MUST** be syntactically explicit (e.g., `^` for region allocation, `move` for ownership transfer).
+
+\<u\>**Static Semantics**\</u\>
+
+The compiler **MUST** model the state of every object to enforce the **Liveness Invariant**:
+
+$$\forall \text{access}(O) \text{ at } t, \quad \text{start}(L) \le t < \text{end}(L)$$
+
+To support this, objects are categorized by their **Storage Duration**, which determines how $L$ is derived.
+
+### 6.2.1 Objects and Storage
+
+Objects are classified into four storage duration categories. The implementation **MUST** manage the lifetime of objects according to their category:
+
+| Duration Category | Allocation Event | Deallocation Event | Provenance Tag |
+| :--- | :--- | :--- | :--- |
+| **Static** | Program Load | Program Exit | `Global` |
+| **Automatic (Stack)** | Scope Entry | Scope Exit (LIFO) | `Stack` |
+| **Region (Arena)** | `^` Expression | Region Scope Exit | `Region(ID)` |
+| **Dynamic (Heap)** | Explicit `alloc` | Explicit `free` / RAII | `Heap` |
+
+**Validation Logic:**
+
+  * **Static Duration:** Objects declared at module level or marked `static`. The lifetime is the entire program execution.
+  * **Automatic Duration:** Local bindings (`let`/`var`). The lifetime corresponds strictly to the lexical scope.
+  * **Region Duration:** Objects allocated via the region operator `^`. The lifetime is bound to the `Arena` backing the enclosing `region` block.
+  * **Dynamic Duration:** Objects allocated via `HeapAllocator`. The lifetime is managed manually or via responsible types (e.g., `Box`, `Vec`).
+
+**Provenance Invariant:**
+The compiler **MUST** track the provenance $\pi$ of every pointer. A pointer with provenance $\pi_{source}$ **MUST NOT** be stored in a location with lifetime $L_{target}$ if the source lifetime is shorter than the target lifetime.
+
+$$\text{valid\_store}(ptr, target) \iff \text{lifetime}(\pi_{ptr}) \supseteq \text{lifetime}(target)$$
+
+**Diagnostic Codes:**
+
+| Code | Severity | Description |
+| :--- | :--- | :--- |
+| `E-MEM-3020` | Error | Region pointer escape: Attempt to assign a pointer with `Region` provenance to a location that outlives the region. |
+| `E-MEM-3021` | Error | Region allocation `^` used outside of a valid `region` scope. |
+
+\<u\>**Dynamic Semantics**\</u\>
+
+The runtime lifecycle of an object $O$ proceeds through three phases:
+
+1.  **Allocation & Initialization ($t_{start}$):**
+
+      * Storage $S$ is reserved.
+      * If $S$ cannot be reserved (OOM), the thread **MUST** panic (for Automatic/Region/Dynamic duration).
+      * A valid initial value $V_{init}$ is written to $S$.
+      * **Invariant:** $V_{init} \in \text{ValidValues}(T)$.
+
+2.  **Usage ($t \in L$):**
+
+      * The value $V$ is read or modified.
+      * **Access Hazard:** Accessing $S$ via a raw pointer when $t \notin L$ constitutes **Unverifiable Behavior (UVB)**.
+
+3.  **Destruction & Deallocation ($t_{end}$):**
+
+      * The object's cleanup logic (`Drop::drop`) is executed.
+      * $S$ is released.
+      * **Invariant:** After $t_{end}$, any pointer to $S$ possesses the `@Expired` state (in the modal model) or is a dangling raw pointer.
+
+\<u\>**Memory & Layout**\</u\>
+
+### 6.2.2 Alignment and Padding
+
+Every type $T$ has a statically determined size and alignment.
+
+**Definitions:**
+
+  * **Size (`sizeof(T)`):** The number of bytes of storage required to hold an instance of $T$, including any internal or trailing padding.
+  * **Alignment (`alignof(T)`):** An integer $N = 2^k$ ($k \ge 0$). The address of any object of type $T$ **MUST** be a multiple of $N$.
+
+**Constraints:**
+
+  * $\text{sizeof}(T) \pmod{\text{alignof}(T)} \equiv 0$.
+  * Zero-sized types (`()`, `!`) have $\text{sizeof} = 0$ and $\text{alignof} = 1$.
+
+**Primitive Layouts:**
+
+| Type Family | Type(s) | Size (Bytes) | Alignment (Bytes) |
+| :--- | :--- | :--- | :--- |
+| **Byte** | `i8`, `u8`, `bool` | 1 | 1 |
+| **Short** | `i16`, `u16`, `f16` | 2 | 2 |
+| **Word** | `i32`, `u32`, `f32`, `char` | 4 | 4 |
+| **Double** | `i64`, `u64`, `f64` | 8 | 8 |
+| **Quad** | `i128`, `u128` | 16 | Platform (8 or 16) |
+| **Pointer** | `usize`, `isize`, `*T`, `Ptr<T>` | Platform (4 or 8) | Platform (4 or 8) |
+
+**Composite Layouts:**
+
+1.  **Default Layout:** For `record` and `enum` types without attributes, the layout (field ordering and padding) is **Implementation-Defined Behavior (IDB)**. The implementation **MAY** reorder fields to minimize padding.
+2.  **C Layout (`[[repr(C)]]`):**
+      * Fields **MUST** be stored in declaration order.
+      * Padding **MUST** be inserted only to satisfy alignment requirements of subsequent fields and the total type size.
+      * This layout **MUST** be compatible with the system C ABI.
+3.  **Arrays (`[T; N]`):**
+      * $\text{sizeof}([T; N]) = \text{sizeof}(T) \times N$.
+      * $\text{alignof}([T; N]) = \text{alignof}(T)$.
+      * There is **NO** padding between elements.
+
+**Dense Pointer Layout:**
+Certain types are represented as "dense pointers" (fat pointers), occupying two machine words ($2 \times \text{sizeof}(usize)$):
+
+  * **Slice (`[T]`):** `(ptr: *T, len: usize)`
+  * **Witness (`witness T`):** `(data: *void, vtable: *VTable)`
+
+<u>**Examples**</u>
+
+**Example 1: Object Lifecycle and Liveness**
+
+```cursive
+region r {
+    // Allocation: 'x' is allocated in arena 'r'.
+    // Lifecycle: Starts here. Provenance: Region('r').
+    let x = ^ 42;
+
+    // Usage: Valid because we are inside 'r'.
+    print(x);
+
+    // Escape Error:
+    // The provenance of 'x' is Region('r').
+    // 'global_ptr' has Static lifetime.
+    // Static > Region('r'), so this assignment is rejected.
+    // global_ptr = &x; // Error E-MEM-3020
+}
+// Destruction: 'r' exits. 'x' is deallocated.
+// Liveness: 'x' is no longer live.
+```
+
+**Example 2: Memory Layout (Visual)**
+Consider a `[[repr(C)]]` record on a 64-bit system:
+
+```cursive
+[[repr(C)]]
+record Mixed {
+    a: u8,
+    b: u32,
+    c: u64
+}
+```
+
+**Memory Map:**
+
+```text
+Offset | Size | Content     | Reason
+-------|------|-------------|------------------------------
+0x00   | 1    | field 'a'   | u8 requires align 1
+0x01   | 3    | [PADDING]   | field 'b' requires align 4, next offset must be 0x04
+0x04   | 4    | field 'b'   | u32
+0x08   | 8    | field 'c'   | u64 requires align 8
+-------|------|-------------|------------------------------
+Total  | 16   | Mixed       | sizeof must be multiple of align (8)
+```
+
+Correction required: **Data Loss detected.** The source text (§29.2.5.3 "Panic Semantics") regarding destructor behavior during unwinding was omitted from the *Dynamic Semantics* section.
+
+Regenerating section `6.3 The Responsibility Model` to include missing normative requirements...
+
+## 6.3 The Responsibility Model
+
+<u>**Definition**</u>
+
+The **Responsibility Model** is the Cursive mechanism for enforcing Resource Acquisition Is Initialization (RAII) and ensuring deterministic resource cleanup. It is a static ownership system that assigns the duty of deallocation to exactly one named binding at any point in the program's execution.
+
+This model operates on the principle of **Responsible Bindings**. A binding $b$ is responsible if it holds the exclusive right and duty to manage the lifetime of an object $O$.
+
+**Formal Definition:**
+
+Let $\mathcal{B}$ be the set of all variable bindings in a scope.
+
+Let $\mathcal{S}$ be the set of binding states: $\{ \text{Uninitialized}, \text{Live}, \text{Moved}, \text{PartiallyMoved} \}$.
+
+The Responsibility Model is defined by a state-tracking function $\sigma: \mathcal{B} \to \mathcal{S}$ that evolves as the implementation traverses the Control Flow Graph (CFG).
+
+**Core Axioms:**
+
+1.  **Single Responsibility:** For every object $O$ with a non-static lifetime, there exists exactly one responsible binding $b \in \mathcal{B}$ such that $\sigma(b) = \text{Live}$
+
+2.  **Conservation of Responsibility:** Responsibility is never duplicated; it is either created (allocation), transferred (`move`), or destroyed (`drop`).
+
+3.  **Deterministic Destruction:** When a binding $b$ goes out of scope, if $\sigma(b) = \text{Live}$, the destructor for the bound object **MUST** be invoked.
+
+<u>**Constraints & Legality**</u>
+
+The implementation **MUST** enforce the following constraints on responsible bindings:
+
+1.  **Initialization Requirement:** A responsible binding **MUST** be initialized before use.
+2.  **Explicit Transfer:** Responsibility **MUST** be transferred explicitly using the `move` operator. Implicit copying of responsible resources is forbidden.
+      * *Exception:* Types implementing the `Copy` trait (§D.1.2) are not subject to move semantics; they are duplicated bitwise.
+3.  **Destruction Prohibition:** User code **MUST NOT** explicitly invoke the destructor (defined by the `Drop` trait) of a responsible binding. Destruction is the exclusive province of the compiler.
+
+**Diagnostic Codes:**
+
+| Code | Severity | Description |
+| :--- | :--- | :--- |
+| `E-MEM-3005` | Error | Explicit call to destructor (`Drop::drop`). |
+| `E-MEM-3001` | Error | Use of moved value (accessing a binding in `Moved` or `PartiallyMoved` state). |
+
+<u>**Static Semantics**</u>
+
+The implementation **MUST** track the state of every binding $b$ through the program's control flow.
+
+**Binding States:**
+
+  * **Uninitialized:** The binding is declared but holds no value.
+  * **Live:** The binding holds a value and is responsible for it.
+  * **Moved:** The value and responsibility have been transferred to another context. The binding is statically invalidated.
+  * **PartiallyMoved:** One or more fields of the composite value bound to $b$ have been moved. The binding itself is invalid, but remaining `Live` fields **MAY** be accessed.
+
+**6.3.1 Responsibility Creation and Scope**
+Responsibility is established when a binding is initialized via the assignment operator (`=`) or when a parameter declared with `move` enters scope.
+
+**6.3.2 Move Semantics**
+The `move` operator transfers responsibility from a source binding $b_{src}$ to a target $b_{dst}$ (or temporary).
+
+**State Transition Rule:**
+
+$$
+\frac{
+\Gamma \vdash b_{src} : T \quad \sigma(b_{src}) = \text{Live}
+}{
+\Gamma \vdash \text{move } b_{src} \Rightarrow \Gamma[b_{src} \mapsto \text{Moved}]
+}
+$$
+
+**Partial Move Semantics:**
+For a composite binding $b$ (Record or Tuple):
+
+1.  Moving a field $b.f$ transitions $b$ to $\text{PartiallyMoved}$ and $b.f$ (tracked individually) to $\text{Moved}$.
+2.  A binding in the $\text{PartiallyMoved}$ state **MUST NOT** be used as an operand to a full `move` or passed to a procedure.
+3.  Remaining fields $b.g$ where $\sigma(b.g) = \text{Live}$ **MAY** be accessed or moved individually.
+4.  Partial moves are permitted **ONLY** if $b$ is mutable (`var`) or has `unique` permission. Partial moves from `const` or `partitioned` bindings are **forbidden** to preserve reference integrity.
+
+<u>**Dynamic Semantics**</u>
+
+**Runtime Representation:**
+
+* **Allocation:** Creating a responsible binding allocates storage for the type $T$ on the stack (or register).
+* **Move Operation:** At runtime, a `move` operation **MUST** perform a bitwise copy (`memcpy`) of the object's immediate representation (e.g., the pointer, struct fields) from the source location to the destination. It **MUST NOT** perform a deep copy.
+* **No Runtime Overhead:** The tracking of binding states ($\sigma$) is purely compile-time. No state flags are emitted into the executable.
+
+**Destruction (Drop):**
+When a scope $S$ exits (via normal completion, `return`, `break`, or `result`):
+
+1.  The implementation **MUST** identify all bindings declared in $S$.
+2.  Destruction proceeds in strict **Last-In, First-Out (LIFO)** order based on declaration.
+3.  For each binding $b$:
+* If $\sigma(b) = \text{Live}$, the implementation **MUST** invoke `Drop::drop(b)`.
+* If $\sigma(b) = \text{Moved}$, no code is generated.
+* If $\sigma(b) = \text{PartiallyMoved}$, the implementation **MUST** invoke `Drop::drop` (or recursive destruction) **ONLY** for the fields of $b$ that are still `Live`.
+
+**Panic Semantics:**
+If the program terminates abnormally via a panic (stack unwinding):
+
+1.  The runtime **MUST** attempt to execute destructors for all live responsible bindings in the current stack frame before unwinding to the caller.
+2.  **Double Panic:** If a destructor invoked during unwinding itself panics, the runtime **MUST** immediately abort the process (fail-fast) to prevent undefined behavior.
+
+<u>**Memory & Layout**</u>
+
+* **Storage Duration:** Responsible bindings typically have **Automatic** (Stack) storage duration.
+* **Backing Store:** A binding in the `Moved` state still occupies stack space until the function returns, but this space is considered logically uninitialized by the language semantics.
+
+<u>**Concurrency & Safety**</u>
+
+* **Transfer Safety:** The `move` operator is the primary mechanism for safe concurrency. Moving a `unique` resource into a closure destined for another thread ($T_{new}$) guarantees that the original thread ($T_{old}$) can no longer access it, preventing data races.
+* **Drop Safety:** Destructors triggered by the Responsibility Model **MUST** adhere to the `unique` receiver requirement (`~!`) of the `Drop` trait (§D.1.1). This ensures that when `drop` is called, the object is not aliased by any other thread or reference.
+
+<u>**Verification & Invariants**</u>
+
+The implementation **MUST** enforce the **Dominator Requirement for Moves**:
+A binding $b$ is `Live` at a usage point $P$ if and only if:
+
+1.  It was initialized at some point $I$ dominating $P$.
+2.  There is no `move` operation on $b$ on any control flow path between $I$ and $P$.
+
+If a `move` occurs on some but not all paths reaching $P$, $b$ is considered **MaybeMoved** and **MUST** be treated as `Moved` (invalid) for safety, unless re-initialized on all paths.
+
+<u>**Examples**</u>
+
+**Example 1: Basic Responsibility Transfer**
+
+```cursive
+record Buffer { ptr: Ptr<u8>@Valid, len: usize }
+
+procedure process(move b: Buffer) {
+// 'b' is owned by 'process'. It will be dropped at end of scope.
+}
+
+procedure main(ctx: Context) {
+// 1. Creation: 'buf' becomes the responsible binding.
+let buf = Buffer { ... }; 
+
+// 2. Transfer: Responsibility moves to 'process'.
+//    At runtime, this is a memcpy of the Buffer record.
+process(move buf);
+
+// 3. Invalidation: Usage after move is a compile-time error.
+// let size = buf.len; // Error: E-MEM-3001
+} 
+// 'buf' is in 'Moved' state here; no destructor is called for 'buf'.
+```
+
+**Example 2: Partial Moves and Partial Drop**
+
+```cursive
+record Player {
+name: string@Managed,
+stats: Stats, // Assume Copy
+inventory: Vec<Item>
+}
+
+procedure disassemble(move p: Player) {
+// 'p' is Live.
+
+let name = move p.name; 
+// 'p' is now PartiallyMoved. 
+// 'p.name' is Moved. 'p.inventory' is Live.
+
+// let p2 = move p; // Error: Cannot move partially moved binding.
+
+// At scope exit:
+// 1. 'name' is Live -> Drop::drop(name) called.
+// 2. 'p.inventory' is Live (inside p) -> Drop::drop(p.inventory) called.
+// 3. 'p.name' is Moved -> No drop.
+// 4. 'p' itself -> No top-level Drop::drop(p) called because it is broken.
+}
+```
+
+## 6.4 The Partitioning System
+
+<u>**Definition**</u>
+
+The **Partitioning System** is a static analysis component of the Cursive Abstract Machine responsible for verifying the safety of **aliased mutability**. It governs access to data whose type is qualified by the `partitioned` permission (see 7.2).
+
+The system's primary objective is to guarantee data-race freedom and memory safety when multiple access paths exist to mutable data. Unlike the `unique` permission, which forbids aliasing during mutation, the Partitioning System permits aliasing, provided that it can statically prove that simultaneous mutable accesses target **disjoint** regions of memory.
+
+<u>**Static Semantics**</u>
+
+The Partitioning System activates whenever the type system identifies an access path $P$ derived from a root binding qualified with the `partitioned` permission.
+
+1.  **Default Assumption:** By default, the compiler **MUST** assume that any two access paths derived from the same `partitioned` root may overlap unless proven otherwise.
+2.  **Safety Requirement:** The fundamental legality rule enforced is the **Disjoint Access Requirement** (defined below in 6.4.1).
+
+<u>**Dynamic Semantics**</u>
+
+The Partitioning System is purely static. It **MUST NOT** generate runtime checks or impose runtime overhead. The safety of the generated code relies entirely on the static verification performed at compile time.
+
+<u>**Concurrency & Safety**</u>
+
+1.  **Data-Race Freedom:** By enforcing disjointness for all simultaneous mutable accesses, the system guarantees that no two execution contexts (e.g., threads in a `parallel` block) can simultaneously access the same memory location if at least one access is a write, provided the access occurs through safe `partitioned` paths.
+2.  **Memory Integrity:** The system ensures that overlapping writes do not corrupt the internal structure or invariants of the data.
+
+### 6.4.1 Disjointness Principles
+
+<u>**Definition**</u>
+
+**Disjointness** is the property that two access paths refer to non-overlapping regions of memory.
+
+Let $Region(P)$ be the set of memory locations accessible through access path $P$. Two access paths $P_1$ and $P_2$ are disjoint if and only if:
+$$ Region(P_1) \cap Region(P_2) = \emptyset $$
+
+<u>**Constraints & Legality**</u>
+
+**The Disjoint Access Requirement:**
+Given two simultaneously live access paths, $P_1$ and $P_2$, derived from the same `partitioned` root object $O$. The implementation **MUST** verify the safety of their simultaneous use according to the following rules:
+
+1.  **Read/Read Safety:** If both $P_1$ and $P_2$ are used only for reading (i.e., they are coerced to `const`), the access is always safe, regardless of overlap.
+2.  **Write Safety (Disjointness Proof):** If at least one path ($P_1$ or $P_2$) is used for writing (i.e., it retains `partitioned` or is upgraded to `unique`), the implementation **MUST** statically prove that $P_1$ and $P_2$ are disjoint.
+
+**Violation:** If the implementation cannot prove disjointness when required by the Write Safety rule, the program is ill-formed.
+
+| Code         | Severity | Description                                                                                                 |
+| :----------- | :------- | :---------------------------------------------------------------------------------------------------------- |
+| `E-MEM-2931` | Error    | Potential overlapping mutable access detected. The Partitioning System cannot prove disjointness. |
+
+<u>**Static Semantics**</u>
+
+The compiler employs the **Disjointness Judgment**, $\Gamma \vdash Disjoint(P_1, P_2)$, to determine if two paths can be proven disjoint under the current context $\Gamma$. This judgment relies on structural and indexed properties.
+
+**1. Structural Disjointness (Records/Tuples):**
+Distinct fields of the same product type instance are inherently disjoint.
+
+**Inference Rule (Structural Disjointness):**
+
+$$
+\frac{
+\Gamma \vdash R : \text{Record}(T) \quad F_1, F_2 \in \text{fields}(T) \quad F_1 \neq F_2
+}{
+\Gamma \vdash Disjoint(R.F_1, R.F_2)
+}
+\tag{P-Disjoint-Struct}
+$$  
+
+**Semantics:** 
+Accessing `my_record.field_a` and `my_record.field_b` simultaneously is automatically permitted, even if mutable, due to this rule.
+
+**2. Indexed Disjointness (Arrays/Slices):**
+Elements of the same sequence are disjoint if and only if their indices are proven to be unequal.
+
+***Inference Rule (Constant Index Disjointness):***
+
+$$
+\frac{
+\Gamma \vdash A : \text{Sequence}(T) \quad C_1, C_2 : \text{const usize} \quad C_1 \neq C_2
+}{
+\Gamma \vdash Disjoint(A[C_1], A[C_2])
+}
+\tag{P-Disjoint-Index-Const}
+$$**Inference Rule (Symbolic Index Disjointness):**
+
+$$
+\frac{
+\Gamma \vdash A : \text{Sequence}(T) \quad i, j : \text{usize} \quad (\Gamma \implies i \neq j)
+}{
+\Gamma \vdash Disjoint(A[i], A[j])
+}
+\tag{P-Disjoint-Index-Symbolic}
+$$  
+
+<u>**Semantics:**</u> 
+The judgment relies on the implication $(\Gamma \implies i \neq j)$. If the indices are runtime variables, the compiler generally cannot derive this implication automatically.
+
+**3. Proof Injection (The `partition` statement):**
+The `partition` statement (Syntax defined in 10.6) is the mechanism by which the programmer explicitly injects the required proof of disjointness when automatic derivation fails. The validity of this proof is checked by the Partition Proof Verifier (6.4.2).
+
+<u>**Verification & Invariants**</u>
+
+The core invariant maintained by the system guarantees the safety of aliased mutation across the entire program.
+
+**Formal Invariant (Safety of Partitioned Access):**
+
+Let $\mathcal{P}(O)$ be the set of all live access paths derived from a `partitioned` object $O$. Let $Mutable(P)$ be true if access path $P$ is used for writing.
+
+$$\forall O, \forall P_1, P_2 \in \mathcal{P}(O), (P_1 \neq P_2 \land (Mutable(P_1) \lor Mutable(P_2))) \implies (Region(P_1) \cap Region(P_2) = \emptyset)
+$$This invariant **MUST** hold true at all points during program execution for safe code.
+
+### 6.4.2 The Partition Proof Verifier
+
+<u>**Definition**</u>
+
+The **Partition Proof Verifier** (PPV) is the specialized subsystem of the compiler responsible for validating the logical predicates asserted in the `where` clause of `partition` statements. It is a constraint solver operating over a restricted, decidable abstract domain.
+
+<u>**Static Semantics**</u>
+
+The PPV operates during the static analysis phase.
+
+1.  **Objective:** The objective of the PPV is to determine the validity of the predicate $P$ provided in the `where` clause, given the current compilation context $\Gamma$. Validity means $P$ is a tautology (always true) within that context.
+    $$ Verify(\Gamma, P) \iff (\Gamma \implies P) $$
+2.  **Properties:**
+      * **Soundness (Mandatory):** The PPV **MUST** be sound. It must not accept invalid proofs.
+      * **Decidability (Mandatory):** The logic implemented by the PPV **MUST** be decidable. This ensures compilation always terminates.
+      * **Incompleteness (Permitted):** The PPV is not required to be complete. It may fail to prove a true statement.
+
+**The Verifiable Expression Subset (Abstract Domain):**
+To ensure decidability and soundness, the expressions allowed within a `partition` statement's `where` clause are strictly restricted to the **Verifiable Expression Subset**.
+
+The predicate $P$ **MUST** be composed exclusively of expressions within this subset:
+
+1.  **Supported Operations:**
+
+      * Arithmetic comparison (`!=`, `<`, `<=`, `>`, `>=`) on primitive integer types (specifically `isize`, `usize`).
+      * Logical conjunction (`&&`).
+      * Parentheses for grouping.
+
+2.  **Supported Operands:**
+
+      * The index variables introduced by the `partition` statement's `by` clause.
+      * Integer literals.
+      * References to `const` bindings visible in the scope, provided their values are compile-time constants.
+      * Simple arithmetic (`+`, `-`) involving only the above operands, provided the result remains within the domain of Linear Integer Arithmetic.
+
+3.  **Exclusions:**
+    The following constructs **MUST NOT** appear in a verifiable expression: Procedure calls, mutation, side effects, loops, recursion, floating-point arithmetic, logical disjunction (`||`), or negation (`!`).
+
+<u>**Constraints & Legality**</u>
+
+If the PPV cannot establish the validity of the predicate $P$, or if $P$ contains constructs outside the Verifiable Expression Subset, the implementation **MUST** reject the `partition` statement.
+
+| Code         | Severity | Description                                                                                           |
+| :----------- | :------- | :---------------------------------------------------------------------------------------------------- |
+| `E-MEM-2941` | Error    | Partition proof failed. The Partition Proof Verifier cannot validate the `where` clause predicate. |
+| `E-MEM-2942` | Error    | Expression in `partition where` clause is outside the Verifiable Expression Subset.                |
+
+> [!NOTE] Implementation Guidance
+> Conforming implementations are encouraged to implement the PPV using techniques such as Abstract Interpretation or by leveraging an SMT solver configured for the Theory of Linear Integer Arithmetic (LIA), which aligns with the defined Verifiable Expression Subset.

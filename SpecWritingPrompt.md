@@ -8,9 +8,9 @@ You are replacing a previous editor who was fired for "summarizing" instead of "
 
 **Input Data:**
 
-1.  **Target Section:** `Clause 5: Lexical Structure`
-2.  **New Draft Document:** `Cursive-Language-Specification-Draft3.md`
-3.  **Draft 3 Architecture:** `Draft3Outline.md` (Use the "Content Archetypes" defined here)
+1.  **Target Section:** `6.4 The Partitioning System`
+2.  **New Draft Document:** @Cursive-Language-Specification-Draft3.md 
+3.  **Draft 3 Architecture:** @Draft3Outline.md 
    
 ```markdown
 This is the definitive architectural blueprint for the Cursive Language Specification.
@@ -190,7 +190,7 @@ Every section in the new specification is tagged with a specific **Content Arche
     *   *{Source: 29.1 Principles and Object Model}*
     *   **6.2.1 Objects and Storage** `` *{Source: 29.1.4 Object Lifecycle}*
     *   **6.2.2 Alignment and Padding** `` *{Source: 29.1.6 Layout}*
-*   **6.3 The Ownership Model** ``
+*   **6.3 The Responsibility Model** ``
     *   *{Source: 29.2 Responsibility and Cleanup}*
     *   **6.3.1 Responsibility** `` *{Source: 29.2.1 Responsible Bindings}*
     *   **6.3.2 Move Semantics** `` *{Source: 29.2.2 Move Semantics}*
@@ -365,7 +365,7 @@ Every section in the new specification is tagged with a specific **Content Arche
 
 ```
 
-4.  **Original Draft Content:** `Cursive-Language-Specification.md`
+4.  **Original Draft Content:** @Cursive-Language-Specification.md 
 
 ---
 

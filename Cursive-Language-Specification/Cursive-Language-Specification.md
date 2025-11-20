@@ -143,7 +143,7 @@
     - [22.2 Syntax and Formation \[type.function.syntax\]](#222-syntax-and-formation-typefunctionsyntax)
     - [22.3 Semantics and Properties \[type.function.semantics\]](#223-semantics-and-properties-typefunctionsemantics)
     - [22.4 Function Types vs. Procedure Declarations \[type.function.distinction\]](#224-function-types-vs-procedure-declarations-typefunctiondistinction)
-    - [22.5 Function Pointers vs. Closure Objects \[type.function.objects\]](#225-function-pointers-vs-closure-objects-typefunctionobjects)
+    - [22.5 Function Pointers vs. Witness Closures \[type.function.objects\]](#225-function-pointers-vs-witness-closures-typefunctionobjects)
     - [22.6 Diagnostics Summary \[type.function.diagnostics\]](#226-diagnostics-summary-typefunctiondiagnostics)
 - [Part 5 - Language Syntax and Semantics \[part-5---language-syntax-and-semantics\]](#part-5---language-syntax-and-semantics-part-5---language-syntax-and-semantics)
   - [23. Declarations \[decl\]](#23-declarations-decl)
@@ -193,7 +193,7 @@
     - [28.1 Trait Declarations \[traits.declaration\]](#281-trait-declarations-traitsdeclaration)
     - [28.2 Trait Implementation \[traits.implementation\]](#282-trait-implementation-traitsimplementation)
     - [28.3 Path 1: Static Polymorphism (Generics) \[traits.static\]](#283-path-1-static-polymorphism-generics-traitsstatic)
-    - [28.4 Path 2: Dynamic Polymorphism (Trait Objects) \[traits.dynamic\]](#284-path-2-dynamic-polymorphism-trait-objects-traitsdynamic)
+    - [28.4 Path 2: Dynamic Polymorphism (Witnesses) \[traits.dynamic\]](#284-path-2-dynamic-polymorphism-witnesses-traitsdynamic)
     - [28.5 Path 3: Opaque Polymorphism (Opaque Types) \[traits.opaque\]](#285-path-3-opaque-polymorphism-opaque-types-traitsopaque)
     - [28.6 Fundamental Traits \[traits.fundamental\]](#286-fundamental-traits-traitsfundamental)
   - [29. The Cursive Memory Model \[memory\]](#29-the-cursive-memory-model-memory)
@@ -204,7 +204,7 @@
     - [29.5 Regions and Arenas \[memory.region\]](#295-regions-and-arenas-memoryregion)
     - [29.6 Unsafe Memory \[memory.unsafe\]](#296-unsafe-memory-memoryunsafe)
     - [29.7 Diagnostics Summary \[memory.diagnostics\]](#297-diagnostics-summary-memorydiagnostics)
-  - [30. The Object-Capability (O-Cap) System \[ocap\]](#30-the-object-capability-o-cap-system-ocap)
+  - [30. The Capability System \[ocap\]](#30-the-capability-system-ocap)
     - [30.1 Principles \[ocap.principles\]](#301-principles-ocapprinciples)
     - [30.2 The Root of Capability \[ocap.root\]](#302-the-root-of-capability-ocaproot)
     - [30.3 System Capability Traits \[ocap.traits\]](#303-system-capability-traits-ocaptraits)
@@ -447,7 +447,7 @@ Formal notation throughout this specification uses the following metavariables t
 - $\sigma$ - _program stores_
 - $\pi_{const}, \pi_{unique}, \pi_{partitioned}$ - _permissions_ (to represent const, unique, or partitioned)
 - $Tr$ - _traits_
-- $\kappa$ - _capability objects_
+- $\kappa$ - _capabilities_
 - $P$ and $Q$ _predicates_ (representing precondition and postcondition clauses in contracts: $\text{\{P\} c \{Q\}}$).
 - $@S$ - _modal states_
 - $\ell$ - _memory locations_
@@ -626,10 +626,10 @@ _Source that violates lexical, syntactic, or static‑semantic rules. Implementa
 _The association between an identifier and an entity. A binding's re-assignability (**binding mutability**) is determined by its declaration: `let` creates an immutable binding, while `var` creates a mutable (re-assignable) binding._
 
 **Capability**
-_A first-class object representing the authority to perform an observable external effect (e.g., I/O, networking, heap allocation). See Part 6, §31 [ocap]._
+_A first-class value representing the authority to perform an observable external effect (e.g., I/O, networking, heap allocation). See Part 6, §31 [ocap]._
 
 **Context**
-_The root capability object moved to the `main` procedure, which holds all available system capabilities for the program. See Part 6, §31.2 [ocap]._
+_The root capability moved to the `main` procedure, which holds all available system capabilities for the program. See Part 6, §31.2 [ocap]._
 
 **Contract**
 _A set of formal requirements and guarantees attached to a procedure signature using `[[ must => will ]]` syntax. It specifies preconditions the caller must satisfy and postconditions the procedure will satisfy upon completion. See Part 6, §28 [contracts]._
@@ -2343,7 +2343,7 @@ This chapter defines the formal rules for the initialization of modules and modu
 >
 > 1. Static Initialization: Initializers that are compile-time constants (e.g., literals, comptime values) MUST be evaluated at compile time and stored in the program's data section.
 >
-> 2. Dynamic Initialization: Initializers requiring runtime execution (e.g., procedure calls or values requiring capabilities like HeapAllocator) MUST be executed after program startup and after the Context capability object has been provided, but before the main procedure body executes.
+> 2. Dynamic Initialization: Initializers requiring runtime execution (e.g., procedure calls or values requiring capabilities like HeapAllocator) MUST be executed after program startup and after the Context capability has been provided, but before the main procedure body executes.
 
 The order of dynamic initialization is determined by the eager dependency graph specified in §14.3.
 
@@ -2574,7 +2574,7 @@ The primary subtyping relationships in Cursive are:
     \frac{}{\Gamma \vdash \text{unique } T <: \text{const } T} \quad \frac{}{\Gamma \vdash \text{partitioned } T <: \text{const } T}
     \tag{T-Subtype-Perm}
     $$
-2.  **Trait Implementation:** A concrete type `T` that implements a trait `Tr` is a subtype of that trait. This allows a value of type `T` to be coerced to a trait object of type `Tr`.
+2.  **Trait Implementation:** A concrete type `T` that implements a trait `Tr` is a subtype of that trait. This allows a value of type `T` to be coerced to a **witness** of type `Tr`.
     $$
     \frac{
         \Gamma \vdash T \text{ implements } Tr
@@ -3448,13 +3448,13 @@ The `string@Managed` type is an owned, mutable, heap-allocated string buffer. It
 > **Mutation Requirements**
 >
 > The string@Managed type provides methods for mutation, such as .push(char). These operations **REQUIRE** unique permission.
-> Any operation that may need to allocate or reallocate the buffer **MUST** be passed a HeapAllocator capability object.
+> Any operation that may need to allocate or reallocate the buffer **MUST** be passed a HeapAllocator capability.
 
 ```cursive
 // 'ctx: Context' is passed by the runtime and contains 'ctx.heap'
 procedure build_string(ctx: Context): string@Managed {
     
-    // The HeapAllocator object must be passed explicitly to the constructor
+    // The HeapAllocator capability must be passed explicitly to the constructor
     let mut_str: unique string@Managed = string::from("Data: ", ctx.heap)
 
     // The allocator must also be passed for mutation operations that reallocate
@@ -3464,11 +3464,11 @@ procedure build_string(ctx: Context): string@Managed {
 }
 ```
 
-#### 20.2.3 Cloning (O-Cap Pattern) [type.string.the-stringmanaged-state-type.string.managed.cloning-o-cap-pattern]
+#### 20.2.3 Cloning (Capability Pattern) [type.string.the-stringmanaged-state-type.string.managed.cloning-capability-pattern]
 > **Cloning Restriction**
 >
 > A string@Managed **MUST NOT** implement the Clone trait, as it requires heap allocation to be duplicated.
-> Instead, it **MUST** provide an explicit O-Cap-safe clone_with method that accepts an allocator.
+> Instead, it **MUST** provide an explicit Capability-safe clone_with method that accepts an allocator.
 
 ```cursive
 // Conceptual implementation on string@Managed
@@ -3751,17 +3751,17 @@ This chapter defines the syntax, formation rules, and semantics for function typ
 
 ### 22.1 Overview [type.function.overview]
 
-A function type is a **structural type** that represents a callable signature. It is defined by its parameter types—including any capability objects and `move` responsibility modifiers—and its return type.
+A function type is a **structural type** that represents a callable signature. It is defined by its parameter types—including any capabilities and `move` responsibility modifiers—and its return type.
 
 Function types are the cornerstone of higher-order programming in Cursive. They are distinct from `procedure` declarations (§24.2), which are named, top-level items. A `procedure` declaration *has* a function type that is a direct representation of its full signature.
 
-This distinction is critical for ensuring type safety in the Object-Capability (O-Cap) system and the ownership model:
+This distinction is critical for ensuring type safety in the Capability system and the ownership model:
 
 > **Function Type Definition**
 >
 > A function type **MUST** be defined by its complete parameter signature and its return type. This **MUST** include:
 >
-> 1.  All parameter types, including any capability objects (e.g., `FileSystem`, `HeapAllocator`).
+> 1.  All parameter types, including any capabilities (e.g., `FileSystem`, `HeapAllocator`).
 > 2.  All parameter responsibility modifiers (the `move` keyword).
 > 3.  The return type.
 >
@@ -3770,7 +3770,7 @@ This distinction is critical for ensuring type safety in the Object-Capability (
 > 1.  Parameter names.
 > 2.  The procedure's contract (the `[[...]]` sequent clause), which is considered metadata about the procedure, not part of its type.
 
-This design ensures that a function's type fully describes its interface, making the O-Cap system and ownership semantics type-safe and composable, especially for higher-order functions.
+This design ensures that a function's type fully describes its interface, making the Capability system and ownership semantics type-safe and composable, especially for higher-order functions.
 
 ### 22.2 Syntax and Formation [type.function.syntax]
 
@@ -3785,7 +3785,7 @@ This design ensures that a function's type fully describes its interface, making
 > ```
 >
 > 1.  The `<param_type_list>` is a comma-separated list of zero or more parameter types. Each parameter type may optionally be prefixed with the `move` keyword.
-> 2.  This list includes **all** parameters, including any capability objects required by the procedure.
+> 2.  This list includes **all** parameters, including any capabilities required by the procedure.
 > 3.  The `->` operator (hyphen, greater-than) separates the parameters from the return type.
 > 4.  The `<type>` following the `->` is the single return type. If a procedure returns no value, this type **MUST** be the **unit type** (`()`).
 
@@ -3890,16 +3890,16 @@ The `move` keyword is a parameter responsibility modifier that is an integral pa
 
 A `procedure` declaration is a named, top-level item that *has* a corresponding function type. The function type is a direct and complete representation of the procedure's signature.
 
-| Construct             | `procedure` (Declaration) | `(T) -> U` (Type)                       | `object (T) -> U` (Type)                    |
+| Construct             | `procedure` (Declaration) | `(T) -> U` (Type)                       | `witness (T) -> U` (Type)                    |
 | :-------------------- | :------------------------ | :-------------------------------------- | :------------------------------------------ |
 | **Is a...**           | Named, top-level item     | Structural, anonymous type              | Structural, anonymous type                  |
-| **Represents**        | Named procedure           | Sparse function pointer (FFI-safe)      | Dense pointer closure object (not FFI-safe) |
+| **Represents**        | Named procedure           | Sparse function pointer (FFI-safe)      | Dense pointer witness closure (not FFI-safe) |
 | **Carries Name?**     | **Yes** (e.g., `my_proc`) | No                                      | No                                          |
 | **Carries Contract?** | **Yes** (as metadata)     | **No**                                  | **No**                                      |
-| **Carries O-Caps?**   | **Yes** (in parameters)   | **Yes** (as parameter types)            | **Yes** (as parameter types)                |
+| **Carries Capabilities?**   | **Yes** (in parameters)   | **Yes** (as parameter types)            | **Yes** (as parameter types)                |
 | **Carries `move`?**   | **Yes** (on parameters)   | **Yes** (as part of the parameter type) | **Yes** (as part of the parameter type)     |
 
-When a procedure is used as a value, it is treated as a value of its corresponding function type. The compiler **MUST** enforce full type compatibility, including all capability parameters and `move` modifiers. A non-capturing procedure has a sparse function pointer type, while a closure that captures its environment has a dense `object` function pointer type.
+When a procedure is used as a value, it is treated as a value of its corresponding function type. The compiler **MUST** enforce full type compatibility, including all capability parameters and `move` modifiers. A non-capturing procedure has a sparse function pointer type, while a closure that captures its environment has a dense `witness` function pointer type.
 
 ```cursive
 // This procedure has the type: (move Buffer) -> ()
@@ -3928,9 +3928,9 @@ do_consuming_work(consume, move my_buffer);
 // Found:    `(Buffer) -> ()`
 do_consuming_work(inspect, move my_buffer);
 ```
-### 22.5 Function Pointers vs. Closure Objects [type.function.objects]
+### 22.5 Function Pointers vs. Witness Closures [type.function.objects]
 
-Cursive's type system makes an explicit distinction between simple, non-capturing function pointers and stateful, capturing closures. This distinction is represented at the type level using the `object` keyword, making the cost and capabilities of each form clear.
+Cursive's type system makes an explicit distinction between simple, non-capturing function pointers and stateful, capturing closures. This distinction is represented at the type level using the `witness` keyword, making the cost and capabilities of each form clear.
 
 #### 22.5.1 Sparse Function Pointers [type.function.objects.sparse-function-pointers]
 
@@ -3945,13 +3945,13 @@ Cursive's type system makes an explicit distinction between simple, non-capturin
 > *   **FFI-Safe:** Can be passed to C code that expects a function pointer.
 > *   **Creation:** A non-capturing, top-level `procedure` or a non-capturing closure literal will have this type.
 
-#### 22.5.2 Dense Closure Objects [type.function.objects.dense-closure-objects]
+#### 22.5.2 Dense Witness Closures [type.function.objects.dense-closure-objects]
 
-> **Dense Closure Object Definition**
+> **Witness Closure Definition**
 >
-> A **dense closure object** represents a stateful, callable entity. It is a "dense pointer" containing both a pointer to the function's machine code and a pointer to its captured environment (the closure's state).
+> A **witness closure** represents a stateful, callable entity. It is a "dense pointer" containing both a pointer to the function's machine code and a pointer to its captured environment (the closure's state).
 >
-> The type of a dense closure object is written as `object (T) -> U`.
+> The type of a witness closure is written as `witness (T) -> U`.
 >
 > **Properties:**
 > *   **Size:** Two pointers.
@@ -3970,8 +3970,8 @@ procedure run_simple_task(task: (i32) -> bool) {
     let success = task(10);
 }
 
-// A procedure that can accept a stateful closure object.
-procedure run_complex_task(task: object (i32) -> bool) {
+// A procedure that can accept a stateful witness closure.
+procedure run_complex_task(task: witness (i32) -> bool) {
     let success = task(10);
 }
 
@@ -3980,13 +3980,13 @@ procedure run_complex_task(task: object (i32) -> bool) {
 run_simple_task(is_even); // OK
 
 let divisor = 3;
-// This closure captures `divisor`, so its type is `object (i32) -> bool`.
+// This closure captures `divisor`, so its type is `witness (i32) -> bool`.
 let is_divisible = |n: i32|: bool { result n % divisor == 0; };
 
 run_complex_task(is_divisible); // OK
 
 // COMPILE-TIME ERROR (E-TYP-2302): Type mismatch.
-// The stateful closure object cannot be passed where a simple function pointer is expected.
+// The stateful witness closure cannot be passed where a simple function pointer is expected.
 // run_simple_task(is_divisible);
 ```
 
@@ -3994,9 +3994,9 @@ run_complex_task(is_divisible); // OK
 
 > **Function Pointer Subtyping**
 >
-> A sparse function pointer is a subtype of a dense closure object. A non-capturing function can be used where a stateful closure is expected.
+> A sparse function pointer is a subtype of a dense witness closure. A non-capturing function can be used where a stateful closure is expected.
 >
-> `(T) -> U` is a subtype of `object (T) -> U`.
+> `(T) -> U` is a subtype of `witness (T) -> U`.
 
 
 ### 22.6 Diagnostics Summary [type.function.diagnostics]
@@ -4006,7 +4006,7 @@ This chapter introduces the following diagnostics in the `TYP` (Type System) cat
 | Code       | Severity | Description                                                                                                                                        |
 | :--------- | :------- | :------------------------------------------------------------------------------------------------------------------------------------------------- |
 | E-TYP-2301 | Error    | Mismatched parameter count: expected `N` arguments, but `M` were provided.                                                                         |
-| E-TYP-2302 | Error    | Type mismatch in function call or assignment. This includes mismatches in parameter types, return types, capability objects, and `move` modifiers. |
+| E-TYP-2302 | Error    | Type mismatch in function call or assignment. This includes mismatches in parameter types, return types, capabilities, and `move` modifiers. |
 | E-TYP-2304 | Error    | A non-`()` return type is required, but no `result` was provided on a control-flow path.                                                           |
 
 ---
@@ -4263,9 +4263,9 @@ procedure draw(self: const, ctx: Context) {
 
 ### 23.4 Program Entry (`main`) [decl.main]
 
-A Cursive executable is defined by a program entry point. The entry point's signature is strictly defined by the Object-Capability system.
+A Cursive executable is defined by a program entry point. The entry point's signature is strictly defined by the Capability system.
 
-#### 23.4.1 Required O-Cap Signature [decl.main.signature]
+#### 23.4.1 Required Capability Signature [decl.main.signature]
 
 > **Main Procedure Requirement**
 >
@@ -4296,9 +4296,9 @@ A Cursive executable is defined by a program entry point. The entry point's sign
 
 > **Context Parameter**
 >
-> The `ctx: Context` parameter is the **root of capability** for the program. The Cursive runtime **MUST** construct and pass this object to the `main` procedure upon startup.
+> The `ctx: Context` parameter is the **root of capability** for the program. The Cursive runtime **MUST** construct and pass this record to the `main` procedure upon startup.
 >
-> The `Context` object is a `record` that provides all system-level capabilities (e.g., `ctx.fs` for filesystem, `ctx.heap` for memory, `ctx.net` for network) to the program. The `Context` record and the O-Cap system are fully defined in §31 [ocap].
+> The `Context` record provides all system-level capabilities (e.g., `ctx.fs` for filesystem, `ctx.heap` for memory, `ctx.net` for network) to the program. The `Context` record and the Capability system are fully defined in §31 [ocap].
 
 **_Diagnostic:_**
 
@@ -4791,7 +4791,7 @@ This section defines special block constructs that, in addition to controlling s
 > comptime_expr ::= "comptime" <block>
 > ```
 >
-> 1. **Evaluation:** The block is evaluated by the compiler. It MUST not perform runtime effects (e.g., I/O, heap allocation) unless authorized by specific capability objects available in the compile-time context (e.g., capabilities derived from the compiler root object).
+> 1. **Evaluation:** The block is evaluated by the compiler. It MUST not perform runtime effects (e.g., I/O, heap allocation) unless authorized by specific capabilities available in the compile-time context (e.g., capabilities derived from the compiler root capability).
 > 2.  **Result:** The result of the block **MUST** be a constant value. This value is substituted into the AST in place of the `comptime` expression.
 > 3.  **Scope:** Bindings declared within the `comptime` block are not visible to the surrounding runtime code.
 > 4.  **Type:** The type of a `comptime` expression is the type of the value produced by the block.
@@ -5249,7 +5249,7 @@ This chapter defines the formal semantics, syntax, and verification rules for Co
 
 ### 27.1 Contract Fundamentals [contracts.fundamental]
 
-A **Contract** is a specification attached to a procedure or type that asserts logical predicates over the program state. Contracts are distinct from the Object-Capability system (Part 6, §31); capabilities control *authority* to perform effects, while contracts control the *logical validity* of data.
+A **Contract** is a specification attached to a procedure or type that asserts logical predicates over the program state. Contracts are distinct from the Capability system (Part 6, §31); capabilities control *authority* to perform effects, while contracts control the *logical validity* of data.
 
 #### 27.1.1 Syntax [contracts.fundamental.syntax]
 
@@ -5451,7 +5451,7 @@ The enforcement mechanism for contracts is controlled by the `[[verify(mode)]]` 
 
 ### 27.7 Verification Facts (Virtual Control-Flow Facts) [contracts.facts]
 
-In the context of contract verification, a **Verification Fact** (formerly "Witness") is a **virtual, compile-time concept** used to track the satisfaction of logical predicates. Unlike Trait Objects (§28.4), Verification Facts have **zero runtime size** and **no runtime representation** as values. They represent the state of the verification analysis.
+In the context of contract verification, a **Verification Fact** (formerly "Witness") is a **virtual, compile-time concept** used to track the satisfaction of logical predicates. Unlike Witnesses (§28.4), Verification Facts have **zero runtime size** and **no runtime representation** as values. They represent the state of the verification analysis.
 
 ##### 27.7.1 Fact Semantics [contracts.facts.semantics]
 
@@ -5504,7 +5504,7 @@ This chapter defines the Cursive **trait system**, the unified mechanism for def
 Traits provide the foundation for three distinct paths of polymorphism:
 
 1.  **Static Polymorphism (Generics):** Zero-cost, compile-time dispatch using constrained generic parameters (`<T <: Trait>`).
-2.  **Dynamic Polymorphism (Trait Objects):** Opt-in, runtime dispatch using trait-as-type dense pointers (`item: Trait`).
+2.  **Dynamic Polymorphism (Witnesses):** Opt-in, runtime dispatch using trait-as-type dense pointers (`item: Trait`).
 3.  **Opaque Polymorphism (Opaque Types):** Zero-cost, compile-time encapsulation of return types (`-> ... <: Trait`).
 
 ### 28.1 Trait Declarations [traits.declaration]
@@ -5709,41 +5709,41 @@ procedure render_item<T <: Drawable>(item: T, ctx: Context) {
 >
 > This mechanism **MUST** incur zero runtime overhead compared to a non-generic call.
 
-### 28.4 Path 2: Dynamic Polymorphism (Trait Objects) [traits.dynamic]
+### 28.4 Path 2: Dynamic Polymorphism (Witnesses) [traits.dynamic]
 
-This is the opt-in mechanism for runtime polymorphism, used for *inputs* and *storage* (e.g., heterogeneous collections). It uses the `object` keyword to create a "trait object" type from an object-safe trait. A trait object is a concrete, sized type that enables dynamic dispatch.
+This is the opt-in mechanism for runtime polymorphism, used for *inputs* and *storage* (e.g., heterogeneous collections). It uses the `witness` keyword to create a "witness" type from a witness-safe trait. A witness is a concrete, sized type that enables dynamic dispatch.
 
-#### 28.4.1 Syntax (Trait Objects with `object`) [traits.dynamic.syntax]
+#### 28.4.1 Syntax (Witnesses with `witness`) [traits.dynamic.syntax]
 
-> **Trait Objects**
+> **Witnesses**
 >
-> Dynamic polymorphism is invoked by using the name of an object-safe `trait` prefixed with the `object` keyword in any position where a `type` is expected (e.g., `item: object Drawable`).
+> Dynamic polymorphism is invoked by using the name of a witness-safe `trait` prefixed with the `witness` keyword in any position where a `type` is expected (e.g., `item: witness Drawable`).
 >
-> The `object` keyword serves as an explicit marker that a concrete, dynamically-dispatched type is being created from an abstract trait. It signals that the value is a "dense pointer" with an associated vtable, making the runtime cost explicit.
+> The `witness` keyword serves as an explicit marker that a concrete, dynamically-dispatched type is being created from an abstract trait. It signals that the value is a "dense pointer" with an associated vtable, making the runtime cost explicit.
 
 ```cursive
-// 'item: object Drawable' declares a parameter of type 'Trait Object (Drawable)'.
-procedure render_dynamic(item: object Drawable, ctx: Context) {
+// 'item: witness Drawable' declares a parameter of type 'Witness (Drawable)'.
+procedure render_dynamic(item: witness Drawable, ctx: Context) {
     // ...
 }
 ```
 
-#### 28.4.2 Object Safety [traits.dynamic.safety]
+#### 28.4.2 Witness Safety [traits.dynamic.safety]
 
-> **Object Safety**
+> **Witness Safety**
 >
-> To be used as a trait object (`object MyTrait`), a trait **MUST** be **object-safe**.
+> To be used as a witness (`witness MyTrait`), a trait **MUST** be **witness-safe**.
 >
-> A trait is object-safe if, for every procedure defined in the trait (including inherited ones), one of the following is true:
+> A trait is witness-safe if, for every procedure defined in the trait (including inherited ones), one of the following is true:
 > 1.  The procedure is **explicitly excluded** from dynamic dispatch via a `where Self: Sized` clause.
 > 2.  The procedure is **vtable-eligible**.
 >
 > A procedure is **vtable-eligible** if it meets **all** of the following criteria:
 > 1.  The procedure **MUST** have a receiver (e.g., `self`, `~`). Static procedures are not vtable-eligible.
 > 2.  The procedure **MUST NOT** have any generic parameters.
-> 3.  The procedure **MUST NOT** return `Self` or use `Self` in any argument position other than the receiver, unless `Self` is wrapped in a pointer type (e.g., `box Self`, `object Self`).
+> 3.  The procedure **MUST NOT** return `Self` or use `Self` in any argument position other than the receiver, unless `Self` is wrapped in a pointer type (e.g., `box Self`, `witness Self`).
 >
-> An attempt to create a trait object from a trait that contains procedures that are neither excluded nor vtable-eligible **MUST** result in a compile-time error.
+> An attempt to create a witness from a trait that contains procedures that are neither excluded nor vtable-eligible **MUST** result in a compile-time error.
 
 #### 28.4.3 The `where Self: Sized` Exclusion [traits.dynamic.the-where-self-sized-exclusion]
 
@@ -5752,20 +5752,20 @@ procedure render_dynamic(item: object Drawable, ctx: Context) {
 > The `where Self: Sized` clause acts as a compile-time filter.
 >
 > 1.  **Static Dispatch:** When the trait is used on a concrete type (Path 1 Polymorphism), the procedure is available and callable.
-> 2.  **Dynamic Dispatch:** When the trait is used as an `object Trait` (Path 2 Polymorphism), the procedure is **excluded** from the vtable.
+> 2.  **Dynamic Dispatch:** When the trait is used as a `witness Trait` (Path 2 Polymorphism), the procedure is **excluded** from the vtable.
 >
 > **_Diagnostic:_**
 >
 > | Code | Severity | Description |
 > | :--- | :--- | :--- |
-> | `E-TRS-2940` | Error | Procedure 'name' requires 'Self: Sized' and cannot be called on a trait object. |
+> | `E-TRS-2940` | Error | Procedure 'name' requires 'Self: Sized' and cannot be called on a witness. |
 >
 > This mechanism allows a single trait to provide high-performance, complex methods for static code (e.g., `clone() -> Self`) while still offering a subset of its functionality for dynamic code.
-#### 28.4.4 Representation (Trait Object) [traits.dynamic.representation]
+#### 28.4.4 Representation (Witness) [traits.dynamic.representation]
 
-> **Trait Object Layout**
+> **Witness Layout**
 >
-> A value of a trait object type (e.g., `object Drawable`) **MUST** be implemented as a "dense pointer" (16 bytes on 64-bit platforms) containing two components:
+> A value of a witness type (e.g., `witness Drawable`) **MUST** be implemented as a "dense pointer" (16 bytes on 64-bit platforms) containing two components:
 >
 > 1.  A **data pointer** (`*mut ()`) to the instance of the concrete type (e.g., a `Point` or `Circle`).
 > 2.  A **metadata pointer** to a static witness table.
@@ -5774,39 +5774,39 @@ procedure render_dynamic(item: object Drawable, ctx: Context) {
 >
 > *   **Size and Alignment:** The size and alignment of the concrete type `T`.
 > *   **Destructor:** A function pointer to `Drop::drop` for `T` (or a no-op if `T` does not implement `Drop`).
-> *   **VTable:** Function pointers for each object-safe procedure defined in the trait.
+> *   **VTable:** Function pointers for each witness-safe procedure defined in the trait.
 >
-> When a trait object binding goes out of scope, the compiler **MUST** invoke the destructor pointed to by the metadata table.
+> When a witness binding goes out of scope, the compiler **MUST** invoke the destructor pointed to by the metadata table.
 
-#### 28.4.5 Coercion (Concrete-to-Trait-Object) [traits.dynamic.coercion]
+#### 28.4.5 Coercion (Concrete-to-Witness) [traits.dynamic.coercion]
 
-> **Trait Object Coercion**
+> **Witness Coercion**
 >
-> A value of a concrete type `T` that implements an object-safe trait `Tr` **MAY** be coerced to a trait object of type `object Tr`. This coercion **MUST** construct the dense pointer (data + vtable) for that `T`/`Tr` pair.
+> A value of a concrete type `T` that implements a witness-safe trait `Tr` **MAY** be coerced to a witness of type `witness Tr`. This coercion **MUST** construct the dense pointer (data + vtable) for that `T`/`Tr` pair.
 
 ```cursive
 let p: Point = Point { ... }
 let c: Circle = Circle { ... }
 
-// Coercion from a concrete type to a trait object:
-let d1: object Drawable = p 
-let d2: object Drawable = c
+// Coercion from a concrete type to a witness:
+let d1: witness Drawable = p 
+let d2: witness Drawable = c
 
 // This enables heterogeneous collections.
-let drawables: [object Drawable] = [d1, d2]
+let drawables: [witness Drawable] = [d1, d2]
 ```
 
 #### 28.4.6 Dispatch (VTable Lookup) [traits.dynamic.dispatch]
 
 > **Dynamic Dispatch**
 >
-> A call to a trait procedure on a trait object (e.g., `item.draw(ctx)`) **MUST** be compiled as a dynamic dispatch.
+> A call to a trait procedure on a witness (e.g., `item.draw(ctx)`) **MUST** be compiled as a dynamic dispatch.
 >
 > The implementation **MUST** perform the following sequence:
 >
-> 1.  Load the vtable pointer from the trait object.
+> 1.  Load the vtable pointer from the witness.
 > 2.  Load the function pointer for the `draw` procedure from the vtable.
-> 3.  Call that function pointer, passing it the data pointer from the trait object as the `self` argument.
+> 3.  Call that function pointer, passing it the data pointer from the witness as the `self` argument.
 >
 > This mechanism **MUST** incur the runtime cost of one vtable lookup and one indirect function call.
 
@@ -6004,7 +6004,7 @@ Every type $T$ has a statically determined size, denoted `sizeof(T)`, and a non-
 **Dense Pointer Layout (Witnesses and Slices)**
 Certain types are represented as "dense pointers" (also known as fat pointers), consisting of two machine words.
 *   **Slices (`[T]`):** Represented as `record { ptr: *imm T, len: usize }`.
-*   **Trait Objects** (object Trait): Represented as `record { data: *imm T, vtable: *imm VTable }`.
+*   **Witnesses** (witness Trait): Represented as `record { data: *imm T, vtable: *imm VTable }`.
 *   **Size:** `2 * sizeof(usize)`.
 *   **Alignment:** `alignof(usize)`.
 
@@ -6471,7 +6471,7 @@ $$
 $$
 
 1.  **Stack:** Addresses of local variables declared with `let` or `var`.
-2.  **Heap:** Addresses of objects managed by the O-Cap heap allocator (global lifetime or manually managed).
+2.  **Heap:** Addresses of objects managed by the HeapAllocator capability (global lifetime or manually managed).
 3.  **Region(id):** Addresses of objects allocated via `^` within the region named `id`.
 
 **The Escape Rule:**
@@ -6583,17 +6583,17 @@ This section lists the diagnostic codes associated with the Memory Model. Confor
 
 ---
 
-## 30. The Object-Capability (O-Cap) System [ocap]
+## 30. The Capability System [ocap]
 
-This chapter defines the Cursive Object-Capability (O-Cap) system. This system governs all procedures that produce observable **external effects** (e.g., I/O, networking, threading, heap allocation) and enforces the security principle of **No Ambient Authority**.
+This chapter defines the Cursive Capability system. This system governs all procedures that produce observable **external effects** (e.g., I/O, networking, threading, heap allocation) and enforces the security principle of **No Ambient Authority**.
 
 ### 30.1 Principles [ocap.principles]
 
 > **Global State Prohibition**
 >
 > 1.  **No Global State:** A conforming implementation **MUST NOT** provide mutable global variables or global procedures that perform side effects (e.g., no `open()`, `print()`, or `malloc()` in the global namespace).
-> 2.  **Capability Objects:** Authority to perform a sensitive operation **MUST** be represented by a first-class object (a **Capability**).
-> 3.  **Parameter Injection:** To perform an effect, a procedure **MUST** require the corresponding capability object as an explicit parameter.
+> 2.  **Capabilities:** Authority to perform a sensitive operation **MUST** be represented by a first-class value (a **Capability**).
+> 3.  **Parameter Injection:** To perform an effect, a procedure **MUST** require the corresponding capability as an explicit parameter.
 > 4.  **Unforgeability:** Capabilities cannot be constructed arbitrarily by user code. They **MUST** originate from the runtime root or be derived (attenuated) from an existing capability.
 
 ### 30.2 The Root of Capability [ocap.root]
@@ -6610,7 +6610,7 @@ All system-level capabilities originate from the Cursive runtime and are injecte
 > public procedure main(ctx: Context): i32
 > ```
 >
-> The runtime **MUST** guarantee that `ctx` is a valid, initialized `Context` object containing the root capabilities for the process.
+> The runtime **MUST** guarantee that `ctx` is a valid, initialized `Context` record containing the root capabilities for the process.
 >
 > Any other signature for `main` (e.g., no parameters, incorrect return type) **MUST** be diagnosed as error `E-DEC-2431`.
 >
@@ -6622,7 +6622,7 @@ All system-level capabilities originate from the Cursive runtime and are injecte
 
 #### 30.2.2 The `Context` Record [ocap.root.context]
 
-> **Context Object**
+> **Context Record**
 >
 > The `Context` is a built-in `public record` type. It serves as the root of authority for the application, bundling the implementations of all available system-level capabilities.
 >
@@ -6630,21 +6630,21 @@ All system-level capabilities originate from the Cursive runtime and are injecte
 >
 > ```cursive
 > public record Context {
->     // Filesystem capability (Dynamic Trait Object)
->     public fs: object FileSystem,
+>     // Filesystem capability (Witness)
+>     public fs: witness FileSystem,
 >
->     // Network capability (Dynamic Trait Object)
->     public net: object Network,
+>     // Network capability (Witness)
+>     public net: witness Network,
 >
 >     // System capability (Public Concrete Record)
 >     public sys: System,
 >
->     // Heap Allocator capability (Dynamic Trait Object)
->     public heap: object HeapAllocator,
+>     // Heap Allocator capability (Witness)
+>     public heap: witness HeapAllocator,
 > }
 > ```
 >
-> **Note:** By using `object Trait` types, the `Context` exposes capabilities via their public interfaces (`FileSystem`, `Network`) while keeping the concrete root implementations (e.g., `internal record RootFileSystem`) hidden from the public API.
+> **Note:** By using `witness` types, the `Context` exposes capabilities via their public interfaces (`FileSystem`, `Network`) while keeping the concrete root implementations (e.g., `internal record RootFileSystem`) hidden from the public API.
 
 ### 30.3 System Capability Traits [ocap.traits]
 
@@ -6657,7 +6657,7 @@ System capabilities are defined by **Traits** (interfaces). This allows for **At
 > The `FileSystem` trait governs access to the host filesystem.
 >
 > *   **Operations:** It **MUST** provide methods for reading, writing, and opening files (returning `FileHandle`).
-> *   **Attenuation:** It **MUST** provide a `restrict(path)` method that returns a new `object FileSystem` capability limited to a specific directory subtree.
+> *   **Attenuation:** It **MUST** provide a `restrict(path)` method that returns a new `witness FileSystem` capability limited to a specific directory subtree.
 
 #### 30.3.2 Network Trait [ocap.traits.net]
 
@@ -6666,7 +6666,7 @@ System capabilities are defined by **Traits** (interfaces). This allows for **At
 > The `Network` trait governs access to network sockets.
 >
 > *   **Operations:** It **MUST** provide methods for connecting to remote hosts (`connect`) and binding listeners.
-> *   **Attenuation:** It **MUST** provide a `restrict_to_host(addr)` method that returns a new `object Network` capability limited to specific domains or IP ranges.
+> *   **Attenuation:** It **MUST** provide a `restrict_to_host(addr)` method that returns a new `witness Network` capability limited to specific domains or IP ranges.
 
 #### 30.3.3 System Record [ocap.traits.system]
 
@@ -6699,7 +6699,7 @@ System capabilities are defined by **Traits** (interfaces). This allows for **At
 >
 > *   **Operations:** It **MUST** provide `alloc` and `free` methods.
 > *   **Safety:** Explicit use of `HeapAllocator` is required for types like `string@Managed` and `Vec<T>`.
-> *   **Attenuation:** It **MUST** provide a `with_quota(bytes)` method that returns a new `object HeapAllocator` that fails if the allocation limit is exceeded.
+> *   **Attenuation:** It **MUST** provide a `with_quota(bytes)` method that returns a new `witness HeapAllocator` that fails if the allocation limit is exceeded.
 
 ### 30.4 Capability Attenuation [ocap.attenuation]
 
@@ -6707,9 +6707,9 @@ Attenuation is the process of creating a new capability with strictly less autho
 
 > **Capability Authority**
 >
-> A procedure that accepts a capability trait (e.g., `fs: object FileSystem`) **SHOULD NOT** assume it holds root authority. It acts only on the authority granted by the object it receives.
+> A procedure that accepts a capability trait (e.g., `fs: witness FileSystem`) **SHOULD NOT** assume it holds root authority. It acts only on the authority granted by the capability it receives.
 >
-> Attenuation methods (e.g., `restrict`) **MUST** return an object that:
+> Attenuation methods (e.g., `restrict`) **MUST** return a capability that:
 > 1.  Implements the same capability trait.
 > 2.  Enforces the new restrictions (e.g., path validation).
 > 3.  Delegates authorized operations to the parent capability.
@@ -6726,7 +6726,7 @@ Capabilities travel through the call graph as explicit parameters.
 >
 > ```cursive
 > // Good: Accepts any implementation of FileSystem
-> procedure read_config(fs: object FileSystem, path: string@View) { ... }
+> procedure read_config(fs: witness FileSystem, path: string@View) { ... }
 > ```
 
 #### 30.5.2 Capability Bundle Pattern [ocap.propagation.bundle]
@@ -6737,8 +6737,8 @@ Capabilities travel through the call graph as explicit parameters.
 >
 > ```cursive
 > record AppContext {
->     fs: object FileSystem,
->     net: object Network
+>     fs: witness FileSystem,
+>     net: witness Network
 > }
 >
 > procedure run_server(ctx: AppContext) { ... }
@@ -6752,7 +6752,7 @@ Users **MAY** define their own capability types to represent application-level a
 >
 > A user-defined capability is typically implemented as a `record` that:
 > 1.  Implements a specific domain trait.
-> 2.  Holds system capabilities (e.g., `object Network`) internally as `private` or `protected` fields.
+> 2.  Holds system capabilities (e.g., `witness Network`) internally as `private` or `protected` fields.
 >
 > By wrapping the system capability, the user-defined capability restricts access to the raw system resource, allowing only the application-specific logic defined on its methods.
 ---
@@ -6921,7 +6921,7 @@ parallel(buffer) {
 
 ### 31.3 Path 2: Mutex Capability [concurrency.ocap]
 
-Path 2 handles concurrency that requires stateful coordination or mutable aliasing using the Object-Capability system.
+Path 2 handles concurrency that requires stateful coordination or mutable aliasing using the Capability system.
 
 #### 31.3.1 The `Thread<T>` Modal Type [concurrency.ocap.thread]
 
@@ -7148,17 +7148,6 @@ Only a strict subset of Cursive types are permitted to cross the FFI boundary.
 > | :--- | :--- | :--- |
 > | `E-FFI-3301` | Error | Non-FFI-Safe type in `extern` signature. |
 >
-> 1.  **Boolean:** `bool`. (Must be manually marshaled to `u8` or `i32` due to platform ABI ambiguity regarding the size of C `bool`/`BOOL`).
-> 2.  **Modal Pointers:** `Ptr<T>@State`.
-> 3.  **Slices:** `[T]`.
-> 4.  **Strings:** `string`, `string@View`, `string@Managed`. (Must be marshaled to `*imm u8` and length).
-> 5.  **Trait Objects:** `object Trait`.
-> 6.  **Closures:** `object (Args) -> Ret`. (Dense pointers with environments are incompatible with C function pointers).
-
-### 32.5 ABI and Calling Conventions [ffi.abi]
-
-#### 32.5.1 Supported Conventions [ffi.abi.conventions]
-
 > **ABI Strings**
 >
 > Implementations **MUST** support the following ABI string literals:
@@ -7210,7 +7199,7 @@ Compile-time execution allows arbitrary Cursive logic to run during the compilat
 The `comptime` environment $\Gamma_{ct}$ is initialized with the standard library and any modules imported via `import`. It does **not** share mutable state with the runtime environment $\Gamma_{rt}$.
 
 Constraints on the `comptime` context:
-1.  **Isolation:** `comptime` code **MUST NOT** access runtime memory, file handles, sockets, or foreign function interfaces (FFI), except via explicitly provided compiler capability objects.
+1.  **Isolation:** `comptime` code **MUST NOT** access runtime memory, file handles, sockets, or foreign function interfaces (FFI), except via explicitly provided compiler capabilities.
 2.  **Determinism:** `comptime` code **MUST** be deterministic. Given the same source input and compiler configuration, it **MUST** produce the same output.
 3.  **Termination:** Implementations **MUST** enforce resource limits (§34.6) to ensure compilation terminates.
 
@@ -7302,7 +7291,7 @@ let definition = quote {
 ```
 
 1.  **Validation:** The content of a `quote` expression **MUST** be syntactically valid Cursive code. Implementations **MUST** parse the quoted code at definition time.
-2.  **Type:** The `quote` expression evaluates to an opaque object of type `QuotedBlock` (for blocks) or `QuotedExpr` (for single expressions).
+2.  **Type:** The `quote` expression evaluates to an opaque value of type `QuotedBlock` (for blocks) or `QuotedExpr` (for single expressions).
 3.  **Deferred Typing:** The code within `quote` is **not type-checked** at the point of definition. Type checking occurs only after the code is emitted into a valid scope (§34.5).
 
 #### 33.3.2 Lexical Scoping and Hygiene [meta.quote.hygiene]
@@ -7382,7 +7371,7 @@ The `emit` intrinsic is the bridge between the compile-time metaprogram and the 
 
 > **Code Emission**
 >
-> Code emission is a side effect on the compilation unit. It **MUST** require the `ComptimeCodegen` capability object. This capability is provided by the compiler environment to `comptime` entry points (e.g., via the `Context` or a compiler intrinsic).
+> Code emission is a side effect on the compilation unit. It **MUST** require the `ComptimeCodegen` capability. This capability is provided by the compiler environment to `comptime` entry points (e.g., via the `Context` or a compiler intrinsic).
 
 #### 33.5.2 The `emit` Method [meta.emit.method]
 
@@ -7736,7 +7725,7 @@ baseType
     | funcType
     | pointerType
     | modalStateType
-    | traitObjectType
+    | witnessType
     | neverType
     | groupingType
     ;
@@ -7771,7 +7760,7 @@ sliceType
     ;
 
 funcType
-    : 'object'? '(' funcParamList? ')' '->' type
+    : 'witness'? '(' funcParamList? ')' '->' type
     ;
 
 funcParamList
@@ -7791,8 +7780,8 @@ modalStateType
     : nominalType '@' IDENTIFIER // e.g., File@Open
     ;
 
-traitObjectType
-    : 'object' nominalType // e.g., object Drawable
+witnessType
+    : 'witness' nominalType // e.g., witness Drawable
     ;
 
 neverType
@@ -8066,7 +8055,7 @@ KW_MATCH : 'match';
 KW_MODAL : 'modal';
 KW_MOVE : 'move';
 KW_MUT : 'mut';
-KW_OBJECT : 'object';
+KW_WITNESS : 'witness';
 KW_OVERRIDE : 'override';
 KW_PARALLEL : 'parallel';
 KW_PARTITION : 'partition';
@@ -8389,7 +8378,7 @@ The following tables list all diagnostic codes required by this specification, o
 | `E-TRS-2920` | Error    | Explicit call to `Drop::drop`.                         |
 | `E-TRS-2921` | Error    | Type implements both `Copy` and `Drop`.                |
 | `E-TRS-2922` | Error    | `Copy` implementation on type with non-Copy fields.    |
-| `E-TRS-2940` | Error    | Calling `where Self: Sized` procedure on trait object. |
+| `E-TRS-2940` | Error    | Calling `where Self: Sized` procedure on witness. |
 
 #### B.3.9 MEM (Memory & Safety) [appendix.diagnostic-code-taxonomy.normative-diagnostic-catalog.mem-memory-safety]
 
@@ -8652,66 +8641,7 @@ The `Clone` trait provides a standardized, explicit mechanism for duplicating an
 > 2.  **`Copy` Types:** Any type that implements `Copy` **SHOULD** also implement `Clone`, where the `clone` method's implementation is a simple bitwise copy.
 > Owned Types: Types that manage owned resources (e.g., string@Managed, heap-allocated collections) SHOULD implement Clone to provide explicit deep-copy functionality.
 >
->   - Because the Clone::clone procedure signature does not take a HeapAllocator capability object, it MUST NOT perform new heap allocations. Types requiring allocation for a deep copy SHOULD provide a separate, explicit method (e.g., clone_with(self: const, heap: HeapAllocator): Self).
-
-
-### D.2 System Capability Traits [appendix.standard-trait-catalog.system-capability-traits]
-
-These traits define the interfaces for the Object-Capability (O-Cap) system. A procedure must receive a parameter object implementing one of these traits to perform the corresponding external effects.
-
-#### D.2.1 The `FileSystem` Trait [appendix.standard-trait-catalog.system-capability-traits.the-filesystem-trait]
-
-The `FileSystem` trait defines the interface for all filesystem I/O operations.
-
-***Definition***
-
-> **FileSystem Trait**
->
-> The `FileSystem` trait **MUST** be defined as:
->
-> ```cursive
-> public trait FileSystem {
->     procedure read_to_string(self: const, path: string@View): string
->         [[ ... ]]; // Contract omitted for brevity
->
->     procedure open(self: const, path: string@View): FileHandle@Open
->         [[ ... ]]; // Contract omitted for brevity
->
->     // Attenuation method
->     // Returns a new capability object restricted to the sub-path.
->     procedure restrict(self: const, sub_path: string@View): object FileSystem
->         [[ ... ]];
-> }
-> ```
-
-***Semantics:***
-> **Restrict Method**
->
-> *   The `restrict` method returns a new capability object that also implements `FileSystem` but is restricted to operating only within the specified `sub_path`.
-> *   The return type `object FileSystem` indicates that the specific implementation type is erased; the caller receives a dynamically dispatched capability object.
-
-
-#### D.2.2 The `Network` Trait [appendix.standard-trait-catalog.system-capability-traits.the-network-trait]
-
-The `Network` trait defines the interface for all networking operations.
-
-***Definition***
-
-> **Network Trait**
->
-> The `Network` trait **MUST** be defined as:
->
-> ```cursive
-> public trait Network {
->     procedure connect(self: const, addr: string@View): Socket@Connected;
->     procedure restrict_to_host(self: const, host: string@View): RestrictedNetwork <: Network;
-> }
-> ```
-
-
-#### D.2.3 The `HeapAllocator` Trait [appendix.standard-trait-catalog.system-capability-traits.the-heapallocator-trait]
-
-The `HeapAllocator` trait defines the interface for explicit dynamic memory allocation. This trait replaces the `alloc::heap` grant from previous designs.
+>   - Because the Clone::clone procedure signature does not take a HeapAllocator capability, it MUST NOT perform new heap allocations. Types requiring allocation for a deep copy SHOULD provide a separate, explicit method (e.g., clone_with(self: const, heap: HeapAllocator): Self).
 
 ***Definition***
 
@@ -8730,7 +8660,7 @@ The `HeapAllocator` trait defines the interface for explicit dynamic memory allo
 >     procedure free<T>(self: const, ptr: Ptr<T>@Valid);
 >
 >     // Returns an attenuated allocator limited to 'bytes'.
->     procedure with_quota(self: const, bytes: usize): object HeapAllocator;
+>     procedure with_quota(self: const, bytes: usize): witness HeapAllocator;
 > }
 > ```
 
@@ -8740,14 +8670,14 @@ The `HeapAllocator` trait defines the interface for explicit dynamic memory allo
 > 1.  **Allocation Failure:** The `alloc` procedure **MUST** succeed and return a `@Valid` pointer or terminate the thread (panic). It **MUST NOT** return a null pointer.
 > 2.  **Alignment:** The returned pointer **MUST** be aligned to `alignof(T)`.
 > 3.  **Zero-Initialization:** The memory returned by `alloc` is uninitialized. The caller is responsible for initialization.
-> 4.  **O-Cap Integration:** Procedures that perform dynamic allocation (e.g., `string::from`, `Vec::push`) **MUST** accept a parameter implementing `HeapAllocator`.
+> 4.  **Capability Integration:** Procedures that perform dynamic allocation (e.g., `string::from`, `Vec::push`) **MUST** accept a parameter implementing `HeapAllocator`.
 
 #### D.2.4 The `Time` Trait [appendix.standard-trait-catalog.system-capability-traits.the-time-trait]
 
 > **Time Trait**
 >
 > 1.  **Monotonicity:** The `now` procedure **MUST** return a monotonically increasing value.
-> 2.  **O-Cap Integration:** The `Time` trait **MUST** be implemented by the `System` record.
+> 2.  **Capability Integration:** The `Time` trait **MUST** be implemented by the `System` record.
 > 3.  **Attenuation:** The `Time` trait **MUST** be attenuatable.
 > 4.  **Implementation:** The `System` record **MUST** implement the `Time` trait.
 > 

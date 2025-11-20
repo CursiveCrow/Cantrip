@@ -49,7 +49,7 @@ For every target section, you must output this block. For each field, ask the **
     *   *Does it affect the Heap/Stack/Region?* (Allocation rules).
 
 <u>**Concurrency & Safety**</u>
-*(Mandatory for Shared State, O-Caps, and FFI)*
+*(Mandatory for Shared State, Capabilities, and FFI)*
 *   **Selection Logic:**
     *   *Is it Thread-Safe?*
     *   *Is there an interaction with the Permission System?* (Unique/Shared rules).
@@ -88,7 +88,7 @@ Every section in the new specification is tagged with a specific **Content Arche
 | `` | **System Definition** | Abstract models (Memory, Execution, Scoping) | Definitions, Invariants, Semantics, Hazards |
 | `[Construct]` | **Language Construct** | Syntax (Stmt, Expr, Decls) | Syntax (EBNF), Constraints (Compiler Checks), Static Semantics (Type/Scope), Dynamic Semantics (Runtime), Examples |
 | `` | **Library Entity** | Types, Globals, Intrinsics | Synopsis, Layout/Representation, Modal States, Operations (Pre/Post/Panic) |
-| `` | **Trait Definition** | Interfaces, O-Cap Authorities | Definition, Role, Interface, Liskov Laws, Object Safety |
+| `` | **Trait Definition** | Interfaces, Capability Authorities | Definition, Role, Interface, Liskov Laws, Witness Safety |
 | `` | **Algorithm** | Deterministic Compiler Processes | Objective, Abstract Domain, Execution Steps (Reduction Rules), Determinism |
 | `[Attribute]` | **Attribute** | Metadata (`[[...]]`) | Syntax, Valid Targets, Normative Semantics |
 | `` | **Diagnostic** | Error Codes | Code, Message Format, Triggering Condition |
@@ -175,7 +175,7 @@ Every section in the new specification is tagged with a specific **Content Arche
     *   *{Source: 29.1 Principles and Object Model}*
     *   **6.2.1 Objects and Storage** `` *{Source: 29.1.4 Object Lifecycle}*
     *   **6.2.2 Alignment and Padding** `` *{Source: 29.1.6 Layout}*
-*   **6.3 The Ownership Model** ``
+*   **6.3 The Responsibility Model** ``
     *   *{Source: 29.2 Responsibility and Cleanup}*
     *   **6.3.1 Responsibility** `` *{Source: 29.2.1 Responsible Bindings}*
     *   **6.3.2 Move Semantics** `` *{Source: 29.2.2 Move Semantics}*
@@ -279,8 +279,8 @@ Every section in the new specification is tagged with a specific **Content Arche
 *   **11.4 Program Initialization** ``
     *   *{Source: 14. Initialization (DAG logic)}*
 
-## **Clause 12: The Object-Capability System**
-*   **12.1 O-Cap Principles** ``
+## **Clause 12: The Capability System**
+*   **12.1 Capability Principles** ``
     *   *{Source: 30.1 Principles}*
 *   **12.2 The Root Context** ``
     *   *{Source: 30.2 Root of Capability}*
@@ -311,7 +311,7 @@ Every section in the new specification is tagged with a specific **Content Arche
     *   **14.2.1 The `parallel` Statement** `[Construct]` *{Source: 31.2.1}*
     *   **14.2.2 Permission Tightening** `` *{Source: 31.2.2}*
     *   **14.2.3 The `fork`/`join` API** `[Construct]` *{Source: 31.2.3}*
-*   **14.3 Path 2: O-Cap Threading**
+*   **14.3 Path 2: Capability Threading**
     *   **14.3.1 The `Thread` Type** `` *{Source: 31.3.1}*
     *   **14.3.2 The `Mutex` Type** `` *{Source: 31.3.2}*
 
