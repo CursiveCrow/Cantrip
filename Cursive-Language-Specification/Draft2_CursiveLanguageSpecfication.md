@@ -1,748 +1,5 @@
 # The Cursive Language Specification [the-cursive-language-specification]
 
-- [The Cursive Language Specification \[the-cursive-language-specification\]](#the-cursive-language-specification-the-cursive-language-specification)
-- [Part 0 - Document Orientation \[part-0---document-orientation\]](#part-0---document-orientation-part-0---document-orientation)
-  - [1. Purpose, Scope, and Audience \[intro\]](#1-purpose-scope-and-audience-intro)
-    - [1.1 Purpose \[intro.purpose\]](#11-purpose-intropurpose)
-    - [1.2 Scope \[intro.scope\]](#12-scope-introscope)
-    - [1.3 Audience \[intro.audience\]](#13-audience-introaudience)
-  - [2. Document Primer \[primer\]](#2-document-primer-primer)
-    - [2.1 Structure and Reference \[primer.structure\]](#21-structure-and-reference-primerstructure)
-    - [2.2 Annotations \[primer.annotations\]](#22-annotations-primerannotations)
-    - [2.3 Versioning \[primer.versioning\]](#23-versioning-primerversioning)
-    - [2.4 Normative Requirement Organization \[primer.requirements\]](#24-normative-requirement-organization-primerrequirements)
-  - [3. Notation \[notation\]](#3-notation-notation)
-    - [3.1 Mathematical metavariables \[notation.metavariables\]](#31-mathematical-metavariables-notationmetavariables)
-    - [3.2 Inference Rules and Formal Semantics \[notation.inference\]](#32-inference-rules-and-formal-semantics-notationinference)
-    - [3.3 Syntactic Stability Rules \[notation.stability\]](#33-syntactic-stability-rules-notationstability)
-  - [4. Terminology \[terminology\]](#4-terminology-terminology)
-    - [4.1 General Terms \[terminology.general\]](#41-general-terms-terminologygeneral)
-    - [4.2 Conformance Terms \[terminology.conformance\]](#42-conformance-terms-terminologyconformance)
-    - [4.3 Programming Terms \[terminology.programming\]](#43-programming-terms-terminologyprogramming)
-    - [4.4 Symbols and Abbreviations \[terminology.symbols\]](#44-symbols-and-abbreviations-terminologysymbols)
-  - [5. References and Citations \[references\]](#5-references-and-citations-references)
-    - [5.1 ISO/IEC and International Standards \[references.iso\]](#51-isoiec-and-international-standards-referencesiso)
-    - [5.2 Unicode Standards \[references.unicode\]](#52-unicode-standards-referencesunicode)
-    - [5.3 Platform and ABI Standards \[references.platform\]](#53-platform-and-abi-standards-referencesplatform)
-    - [5.4 IETF Standards \[references.ietf\]](#54-ietf-standards-referencesietf)
-    - [5.5 Conventions, Tooling, and Miscellaneous \[references.conventions\]](#55-conventions-tooling-and-miscellaneous-referencesconventions)
-    - [5.6 Research \[references.research\]](#56-research-referencesresearch)
-    - [5.7 Reference Availability \[references.availability\]](#57-reference-availability-referencesavailability)
-- [Part 1 - Conformance and Governance \[part-1---conformance-and-governance\]](#part-1---conformance-and-governance-part-1---conformance-and-governance)
-  - [6. Fundamental Conformance \[conformance\]](#6-fundamental-conformance-conformance)
-    - [6.1 Behavior Classifications \[conformance.behavior\]](#61-behavior-classifications-conformancebehavior)
-    - [6.2 Conformance Obligations \[conformance.obligations\]](#62-conformance-obligations-conformanceobligations)
-    - [6.3 Conformance Modes \[conformance.modes\]](#63-conformance-modes-conformancemodes)
-    - [6.4 The Conformance Dossier \[conformance.dossier\]](#64-the-conformance-dossier-conformancedossier)
-    - [6.5 Implementation Limits \[conformance.limits\]](#65-implementation-limits-conformancelimits)
-    - [6.6 Reserved Identifiers \[conformance.reserved\]](#66-reserved-identifiers-conformancereserved)
-    - [6.7 The Attestation System \[conformance.attestation\]](#67-the-attestation-system-conformanceattestation)
-  - [7. Language Evolution and Governance \[evolution\]](#7-language-evolution-and-governance-evolution)
-    - [7.1 Versioning Model \[evolution.versioning\]](#71-versioning-model-evolutionversioning)
-    - [7.2 Feature Lifecycle \[evolution.lifecycle\]](#72-feature-lifecycle-evolutionlifecycle)
-    - [7.3 Extension System \[evolution.extensions\]](#73-extension-system-evolutionextensions)
-- [Part 2 - Lexical Structure and Translation \[part-2---lexical-structure-and-translation\]](#part-2---lexical-structure-and-translation-part-2---lexical-structure-and-translation)
-  - [8. Source Text and Encoding \[source\]](#8-source-text-and-encoding-source)
-    - [8.1 Character Encoding \[source.encoding\]](#81-character-encoding-sourceencoding)
-    - [8.2 Source File Structure \[source.structure\]](#82-source-file-structure-sourcestructure)
-    - [8.3 Source Inclusion Model \[source.inclusion\]](#83-source-inclusion-model-sourceinclusion)
-    - [8.4 Translation Phases \[source.phases\]](#84-translation-phases-sourcephases)
-    - [8.5 Diagnostics Summary \[source.diagnostics\]](#85-diagnostics-summary-sourcediagnostics)
-  - [9. Lexical Structure \[lexical\]](#9-lexical-structure-lexical)
-    - [9.1 Lexical Elements \[lexical.elements\]](#91-lexical-elements-lexicalelements)
-    - [9.2 Keywords and Operators \[lexical.keywords\]](#92-keywords-and-operators-lexicalkeywords)
-    - [9.3 Identifiers \[lexical.identifiers\]](#93-identifiers-lexicalidentifiers)
-    - [9.4 Literals \[lexical.literals\]](#94-literals-lexicalliterals)
-    - [9.5 Diagnostics Summary \[lexical.diagnostics\]](#95-diagnostics-summary-lexicaldiagnostics)
-  - [10. Syntactic Structure \[syntax\]](#10-syntactic-structure-syntax)
-    - [10.1 Compilation Units and Top-Level Items \[syntax.toplevel\]](#101-compilation-units-and-top-level-items-syntaxtoplevel)
-    - [10.2 Syntactic Nesting Limits \[syntax.limits\]](#102-syntactic-nesting-limits-syntaxlimits)
-    - [10.3 Statement Termination \[syntax.termination\]](#103-statement-termination-syntaxtermination)
-    - [10.4 Diagnostics Summary \[syntax.diagnostics\]](#104-diagnostics-summary-syntaxdiagnostics)
-- [Part 3 - Module System and Name Resolution \[part-3---module-system-and-name-resolution\]](#part-3---module-system-and-name-resolution-part-3---module-system-and-name-resolution)
-  - [11. Modules, Assemblies, and Projects \[module.overview\]](#11-modules-assemblies-and-projects-moduleoverview)
-    - [11.1 Core Definitions \[module.definitions\]](#111-core-definitions-moduledefinitions)
-    - [11.2 Module Discovery and Paths \[module.discovery\]](#112-module-discovery-and-paths-modulediscovery)
-    - [11.3 Project Manifest (`Cursive.toml`) \[module.manifest\]](#113-project-manifest-cursivetoml-modulemanifest)
-    - [11.4 Module Path Validity \[module.paths\]](#114-module-path-validity-modulepaths)
-    - [11.5 Diagnostics Summary \[module.diagnostics\]](#115-diagnostics-summary-modulediagnostics)
-  - [12. Visibility and Access Control \[module.access\]](#12-visibility-and-access-control-moduleaccess)
-    - [12.1 Visibility Modifiers \[module.visibility\]](#121-visibility-modifiers-modulevisibility)
-    - [12.2 Intra-Assembly Access \[module.access.intra\]](#122-intra-assembly-access-moduleaccessintra)
-    - [12.3 Inter-Assembly Imports (The `import` Declaration) \[module.import.declaration\]](#123-inter-assembly-imports-the-import-declaration-moduleimportdeclaration)
-    - [12.4 Item Scoping (The `use` Declaration) \[module.use.declaration\]](#124-item-scoping-the-use-declaration-moduleusedeclaration)
-    - [12.5 Re-exporting with `public use` \[module.reexport\]](#125-re-exporting-with-public-use-modulereexport)
-    - [12.6 Diagnostics Summary \[module.diagnostics\]](#126-diagnostics-summary-modulediagnostics)
-  - [13. Names, Scopes, and Resolution \[names\]](#13-names-scopes-and-resolution-names)
-    - [13.1 Namespaces \[names.namespaces\]](#131-namespaces-namesnamespaces)
-    - [13.2 Scope Context \[names.scopes\]](#132-scope-context-namesscopes)
-    - [13.3 Name Introduction and Shadowing \[names.shadowing\]](#133-name-introduction-and-shadowing-namesshadowing)
-    - [13.4 Name Lookup (Resolution) \[names.lookup\]](#134-name-lookup-resolution-nameslookup)
-    - [13.5 Diagnostics Summary \[names.diagnostics\]](#135-diagnostics-summary-namesdiagnostics)
-  - [14. Initialization \[initialization\]](#14-initialization-initialization)
-    - [14.1 Module Initialization \[initialization.overview\]](#141-module-initialization-initializationoverview)
-    - [14.2 The Module Dependency Graph \[initialization.graph\]](#142-the-module-dependency-graph-initializationgraph)
-    - [14.3 Dependency Classification and Cycles \[initialization.order\]](#143-dependency-classification-and-cycles-initializationorder)
-    - [14.4 Initialization Semantics \[initialization.semantics\]](#144-initialization-semantics-initializationsemantics)
-    - [14.5 Initialization Failure \[initialization.failure\]](#145-initialization-failure-initializationfailure)
-    - [14.6 Diagnostics Summary \[initialization.diagnostics\]](#146-diagnostics-summary-initializationdiagnostics)
-- [Part 4 - The Type System \[part-4---the-type-system\]](#part-4---the-type-system-part-4---the-type-system)
-  - [15. Type System Foundations \[type.foundations\]](#15-type-system-foundations-typefoundations)
-    - [15.1 Static, Nominal, and Structural Typing \[type.foundations.classification\]](#151-static-nominal-and-structural-typing-typefoundationsclassification)
-    - [15.2 Type Equivalence \[type.foundations.equivalence\]](#152-type-equivalence-typefoundationsequivalence)
-    - [15.3 Subtyping and Coercion \[type.foundations.subtyping\]](#153-subtyping-and-coercion-typefoundationssubtyping)
-    - [15.4 Type Layout \[type.foundations.layout\]](#154-type-layout-typefoundationslayout)
-    - [15.5 Bidirectional Type Inference \[type.foundations.inference\]](#155-bidirectional-type-inference-typefoundationsinference)
-    - [15.6 Variance and Polarity \[type.foundations.variance\]](#156-variance-and-polarity-typefoundationsvariance)
-    - [15.7 Diagnostics Summary \[type.foundations.diagnostics\]](#157-diagnostics-summary-typefoundationsdiagnostics)
-  - [16. Permission Types \[type.permissions\]](#16-permission-types-typepermissions)
-    - [16.1 The Permission Lattice \[type.permissions.lattice\]](#161-the-permission-lattice-typepermissionslattice)
-    - [16.2 The `const` Permission (Default) \[type.permissions.const\]](#162-the-const-permission-default-typepermissionsconst)
-    - [16.3 The `unique` Permission (Static Exclusion) \[type.permissions.unique\]](#163-the-unique-permission-static-exclusion-typepermissionsunique)
-    - [16.4 The `partitioned` Permission (Aliased Mutability) \[type.permissions.partitioned\]](#164-the-partitioned-permission-aliased-mutability-typepermissionspartitioned)
-    - [16.5 Diagnostics Summary \[type.permissions.diagnostics\]](#165-diagnostics-summary-typepermissionsdiagnostics)
-  - [17. Primitive Types \[type.primitive\]](#17-primitive-types-typeprimitive)
-    - [17.1 Integer Types \[type.primitive.integer\]](#171-integer-types-typeprimitiveinteger)
-    - [17.2 Floating-Point Types \[type.primitive.float\]](#172-floating-point-types-typeprimitivefloat)
-    - [17.3 Boolean Type \[type.primitive.boolean\]](#173-boolean-type-typeprimitiveboolean)
-    - [17.4 Character Type \[type.primitive.char\]](#174-character-type-typeprimitivechar)
-    - [17.5 Unit Type \[type.primitive.unit\]](#175-unit-type-typeprimitiveunit)
-    - [17.6 Never Type \[type.primitive.never\]](#176-never-type-typeprimitivenever)
-    - [17.7 Diagnostics Summary \[type.primitive.diagnostics\]](#177-diagnostics-summary-typeprimitivediagnostics)
-  - [18. Composite Types \[type.composite\]](#18-composite-types-typecomposite)
-    - [18.1 Tuples (Anonymous Products) \[type.composite.tuple\]](#181-tuples-anonymous-products-typecompositetuple)
-    - [18.2 Records (Nominal Products) \[type.composite.record\]](#182-records-nominal-products-typecompositerecord)
-    - [18.3 Enums (Nominal Sums) \[type.composite.enum\]](#183-enums-nominal-sums-typecompositeenum)
-    - [18.4 Union Types (Anonymous Sums) \[type.composite.union\]](#184-union-types-anonymous-sums-typecompositeunion)
-    - [18.5 Array Types \[type.composite.array\]](#185-array-types-typecompositearray)
-    - [18.6 Slice Types \[type.composite.slice\]](#186-slice-types-typecompositeslice)
-    - [18.7 Range Types \[type.composite.range\]](#187-range-types-typecompositerange)
-    - [18.8 Diagnostics Summary \[type.composite.diagnostics\]](#188-diagnostics-summary-typecompositediagnostics)
-  - [19. Modal Types \[type.modal\]](#19-modal-types-typemodal)
-    - [19.1 Overview \[type.modal.overview\]](#191-overview-typemodaloverview)
-    - [19.2 The `modal` Declaration \[type.modal.declaration\]](#192-the-modal-declaration-typemodaldeclaration)
-    - [19.3 State Specifiers (`@State`) \[type.modal.state\]](#193-state-specifiers-state-typemodalstate)
-    - [19.4 State Transitions \[type.modal.transition\]](#194-state-transitions-typemodaltransition)
-    - [19.5 State-Specific Typing and Coercion \[type.modal.typing\]](#195-state-specific-typing-and-coercion-typemodaltyping)
-    - [19.6 Pattern Matching \[type.modal.match\]](#196-pattern-matching-typemodalmatch)
-    - [19.7 Built-in Modal Types \[type.modal.built-in\]](#197-built-in-modal-types-typemodalbuilt-in)
-    - [19.8 Diagnostics Summary \[type.modal.diagnostics\]](#198-diagnostics-summary-typemodaldiagnostics)
-  - [20. String Types \[type.string\]](#20-string-types-typestring)
-    - [20.1 The `string` Modal Type \[type.string.the-string-modal-type\]](#201-the-string-modal-type-typestringthe-string-modal-type)
-    - [20.2 The `string@Managed` State \[type.string.managed\] \[type.string.the-stringmanaged-state-type.string.managed\]](#202-the-stringmanaged-state-typestringmanaged-typestringthe-stringmanaged-state-typestringmanaged)
-    - [20.3 The `string@View` State \[type.string.view\] \[type.string.the-stringview-state-type.string.view\]](#203-the-stringview-state-typestringview-typestringthe-stringview-state-typestringview)
-    - [20.4 Subtyping and Coercion \[type.string.coercion\] \[type.string.subtyping-and-coercion-type.string.coercion\]](#204-subtyping-and-coercion-typestringcoercion-typestringsubtyping-and-coercion-typestringcoercion)
-    - [20.5 Indexing and Slicing \[type.string.slicing\] \[type.string.indexing-and-slicing-type.string.slicing\]](#205-indexing-and-slicing-typestringslicing-typestringindexing-and-slicing-typestringslicing)
-    - [20.6 Diagnostics Summary \[type.string.diagnostics\] \[type.string.diagnostics-summary-type.string.diagnostics\]](#206-diagnostics-summary-typestringdiagnostics-typestringdiagnostics-summary-typestringdiagnostics)
-  - [21. Pointer Types \[type.pointer\]](#21-pointer-types-typepointer)
-    - [21.1 The Safe Pointer Type (Ptr@State) \[type.pointer.the-safe-pointer-type-ptrtstate\]](#211-the-safe-pointer-type-ptrstate-typepointerthe-safe-pointer-type-ptrtstate)
-    - [21.2 Raw Pointer Types (`*imm T`, `*mut T`) \[type.pointer.raw-pointer-types-imm-t-mut-t\]](#212-raw-pointer-types-imm-t-mut-t-typepointerraw-pointer-types-imm-t-mut-t)
-    - [21.3 Diagnostics Summary \[type.pointer.diagnostics\] \[type.pointer.diagnostics-summary-type.pointer.diagnostics\]](#213-diagnostics-summary-typepointerdiagnostics-typepointerdiagnostics-summary-typepointerdiagnostics)
-  - [22. Function Types \[type.function\]](#22-function-types-typefunction)
-    - [22.1 Overview \[type.function.overview\]](#221-overview-typefunctionoverview)
-    - [22.2 Syntax and Formation \[type.function.syntax\]](#222-syntax-and-formation-typefunctionsyntax)
-    - [22.3 Semantics and Properties \[type.function.semantics\]](#223-semantics-and-properties-typefunctionsemantics)
-    - [22.4 Function Types vs. Procedure Declarations \[type.function.distinction\]](#224-function-types-vs-procedure-declarations-typefunctiondistinction)
-    - [22.5 Function Pointers vs. Witness Closures \[type.function.objects\]](#225-function-pointers-vs-witness-closures-typefunctionobjects)
-    - [22.6 Diagnostics Summary \[type.function.diagnostics\]](#226-diagnostics-summary-typefunctiondiagnostics)
-- [Part 5 - Language Syntax and Semantics \[part-5---language-syntax-and-semantics\]](#part-5---language-syntax-and-semantics-part-5---language-syntax-and-semantics)
-  - [23. Declarations \[decl\]](#23-declarations-decl)
-    - [23.1 Variable Bindings \[decl.variable-bindings\]](#231-variable-bindings-declvariable-bindings)
-    - [23.2 Procedure Declarations (procedure) \[decl.procedure\]](#232-procedure-declarations-procedure-declprocedure)
-    - [23.3 Type Declarations (`record`, `enum`, `modal`, `type`) \[decl.type\]](#233-type-declarations-record-enum-modal-type-decltype)
-    - [23.4 Program Entry (`main`) \[decl.main\]](#234-program-entry-main-declmain)
-    - [23.5 Attributes \[decl.attribute\]](#235-attributes-declattribute)
-  - [24. Expressions \[expr\]](#24-expressions-expr)
-    - [24.1 Expression Fundamentals \[expr.fundamental\]](#241-expression-fundamentals-exprfundamental)
-    - [24.2 Operator Precedence and Associativity \[expr.precedence\]](#242-operator-precedence-and-associativity-exprprecedence)
-    - [24.3 Primary and Postfix Expressions \[expr.primary\]](#243-primary-and-postfix-expressions-exprprimary)
-    - [24.4 Unary and Binary Operators \[expr.operators\]](#244-unary-and-binary-operators-exproperators)
-    - [24.5 `move` Expression \[expr.move\]](#245-move-expression-exprmove)
-    - [24.6 `if` Expressions \[expr.if\]](#246-if-expressions-exprif)
-    - [24.7 `match` Expressions \[expr.match\]](#247-match-expressions-exprmatch)
-    - [24.8 `loop` Expressions \[expr.loop\]](#248-loop-expressions-exprloop)
-    - [24.9 Structured Block Expressions \[expr.structured\]](#249-structured-block-expressions-exprstructured)
-    - [24.10 Diagnostics Summary \[expr.diagnostics\]](#2410-diagnostics-summary-exprdiagnostics)
-  - [25. Statements \[stmt\]](#25-statements-stmt)
-    - [25.1 Statement Fundamentals \[stmt.fundamental\]](#251-statement-fundamentals-stmtfundamental)
-    - [25.2 Declaration Statements \[stmt.decl\]](#252-declaration-statements-stmtdecl)
-    - [25.3 Assignment Statements \[stmt.assign\]](#253-assignment-statements-stmtassign)
-    - [25.4 Expression Statements \[stmt.expr\]](#254-expression-statements-stmtexpr)
-    - [25.5 `defer` Statements \[stmt.defer\]](#255-defer-statements-stmtdefer)
-    - [25.6 Control Flow Statements \[stmt.control\]](#256-control-flow-statements-stmtcontrol)
-    - [25.7 Special Contract Statements \[stmt.contract\]](#257-special-contract-statements-stmtcontract)
-    - [25.8 Diagnostics Summary \[stmt.diagnostics\]](#258-diagnostics-summary-stmtdiagnostics)
-  - [26. Pattern Matching \[patterns\]](#26-pattern-matching-patterns)
-    - [26.1 Pattern Fundamentals \[patterns.fundamental\]](#261-pattern-fundamentals-patternsfundamental)
-    - [26.2 Pattern Syntax \[patterns.syntax\]](#262-pattern-syntax-patternssyntax)
-    - [26.3 Binding Semantics \[patterns.binding\]](#263-binding-semantics-patternsbinding)
-    - [26.4 Exhaustiveness \[patterns.exhaustiveness\]](#264-exhaustiveness-patternsexhaustiveness)
-    - [26.5 Unreachability \[patterns.unreachability\]](#265-unreachability-patternsunreachability)
-    - [26.6 Diagnostics Summary \[patterns.diagnostics\]](#266-diagnostics-summary-patternsdiagnostics)
-- [Part 6 - Core Language Systems \[part-6---core-language-systems\]](#part-6---core-language-systems-part-6---core-language-systems)
-  - [27. Contracts and Constraints \[contracts\]](#27-contracts-and-constraints-contracts)
-    - [27.1 Contract Fundamentals \[contracts.fundamental\]](#271-contract-fundamentals-contractsfundamental)
-    - [27.2 Preconditions (must) \[contracts.preconditions\]](#272-preconditions-must-contractspreconditions)
-    - [27.3 Postconditions (will) \[contracts.postconditions\]](#273-postconditions-will-contractspostconditions)
-    - [27.4 Invariants (where) \[contracts.invariants\]](#274-invariants-where-contractsinvariants)
-    - [27.5 Liskov Substitution and Trait Implementation \[contracts.liskov\]](#275-liskov-substitution-and-trait-implementation-contractsliskov)
-    - [27.6 Verification Modes \[contracts.modes\]](#276-verification-modes-contractsmodes)
-    - [27.7 Verification Facts (Virtual Control-Flow Facts) \[contracts.facts\]](#277-verification-facts-virtual-control-flow-facts-contractsfacts)
-    - [27.8 Diagnostics Summary \[contracts.diagnostics\]](#278-diagnostics-summary-contractsdiagnostics)
-  - [28. Traits and Polymorphism \[traits\]](#28-traits-and-polymorphism-traits)
-    - [28.1 Trait Declarations \[traits.declaration\]](#281-trait-declarations-traitsdeclaration)
-    - [28.2 Trait Implementation \[traits.implementation\]](#282-trait-implementation-traitsimplementation)
-    - [28.3 Path 1: Static Polymorphism (Generics) \[traits.static\]](#283-path-1-static-polymorphism-generics-traitsstatic)
-    - [28.4 Path 2: Dynamic Polymorphism (Witnesses) \[traits.dynamic\]](#284-path-2-dynamic-polymorphism-witnesses-traitsdynamic)
-    - [28.5 Path 3: Opaque Polymorphism (Opaque Types) \[traits.opaque\]](#285-path-3-opaque-polymorphism-opaque-types-traitsopaque)
-    - [28.6 Fundamental Traits \[traits.fundamental\]](#286-fundamental-traits-traitsfundamental)
-  - [29. The Cursive Memory Model \[memory\]](#29-the-cursive-memory-model-memory)
-    - [29.1 Principles and Object Model \[memory.principles\]](#291-principles-and-object-model-memoryprinciples)
-    - [29.2 Responsibility and Cleanup \[memory.ownership\]](#292-responsibility-and-cleanup-memoryownership)
-    - [29.3 The Partitioning System \[memory.partitioning\]](#293-the-partitioning-system-memorypartitioning)
-    - [29.4 The Partition Proof Verifier \[memory.verifier\]](#294-the-partition-proof-verifier-memoryverifier)
-    - [29.5 Regions and Arenas \[memory.region\]](#295-regions-and-arenas-memoryregion)
-    - [29.6 Unsafe Memory \[memory.unsafe\]](#296-unsafe-memory-memoryunsafe)
-    - [29.7 Diagnostics Summary \[memory.diagnostics\]](#297-diagnostics-summary-memorydiagnostics)
-  - [30. The Capability System \[ocap\]](#30-the-capability-system-ocap)
-    - [30.1 Principles \[ocap.principles\]](#301-principles-ocapprinciples)
-    - [30.2 The Root of Capability \[ocap.root\]](#302-the-root-of-capability-ocaproot)
-    - [30.3 System Capability Traits \[ocap.traits\]](#303-system-capability-traits-ocaptraits)
-    - [30.4 Capability Attenuation \[ocap.attenuation\]](#304-capability-attenuation-ocapattenuation)
-    - [30.5 Capability Propagation \[ocap.propagation\]](#305-capability-propagation-ocappropagation)
-    - [30.6 User-Defined Capabilities \[ocap.user\]](#306-user-defined-capabilities-ocapuser)
-  - [31. Concurrency \[concurrency\]](#31-concurrency-concurrency)
-    - [31.1 The Two-Path Concurrency Model \[concurrency.model\]](#311-the-two-path-concurrency-model-concurrencymodel)
-    - [31.2 Path 1: The `parallel` Epoch (CREW) \[concurrency.parallel\]](#312-path-1-the-parallel-epoch-crew-concurrencyparallel)
-    - [31.3 Path 2: Mutex Capability \[concurrency.ocap\]](#313-path-2-mutex-capability-concurrencyocap)
-    - [31.4 Diagnostics Summary \[concurrency.diagnostics\]](#314-diagnostics-summary-concurrencydiagnostics)
-  - [32. Interoperability (FFI) \[ffi\]](#32-interoperability-ffi-ffi)
-    - [32.1 Extern Declarations \[ffi.extern\]](#321-extern-declarations-ffiextern)
-    - [32.2 Unsafe Interaction \[ffi.unsafe\]](#322-unsafe-interaction-ffiunsafe)
-    - [32.3 Type Representation \[ffi.repr\]](#323-type-representation-ffirepr)
-    - [32.4 FFI-Safe Types \[ffi.types\]](#324-ffi-safe-types-ffitypes)
-    - [32.5 ABI and Calling Conventions \[ffi.abi\]](#325-abi-and-calling-conventions-ffiabi)
-    - [32.6 Diagnostics Summary \[ffi.diagnostics\]](#326-diagnostics-summary-ffidiagnostics)
-  - [33. Metaprogramming (Codegen) \[meta\]](#33-metaprogramming-codegen-meta)
-    - [33.1 Compile-Time Execution \[meta.comptime\]](#331-compile-time-execution-metacomptime)
-    - [33.2 Type Introspection \[meta.introspection\]](#332-type-introspection-metaintrospection)
-    - [33.3 Quote Expressions \[meta.quote\]](#333-quote-expressions-metaquote)
-    - [33.4 Interpolation (Splicing) \[meta.interpolation\]](#334-interpolation-splicing-metainterpolation)
-    - [33.5 Code Emission \[meta.emit\]](#335-code-emission-metaemit)
-    - [33.6 Implementation Limits \[meta.limits\]](#336-implementation-limits-metalimits)
-    - [33.7 Diagnostics Summary \[meta.diagnostics\]](#337-diagnostics-summary-metadiagnostics)
-- [Part 7 - Appendices (Normative) \[part-7---appendices-normative\]](#part-7---appendices-normative-part-7---appendices-normative)
-  - [Appendix A: Formal Grammar (ANTLR) \[appendix.formal-grammar-antlr\]](#appendix-a-formal-grammar-antlr-appendixformal-grammar-antlr)
-  - [Appendix B: Diagnostic Code Taxonomy \[appendix.diagnostic-code-taxonomy\]](#appendix-b-diagnostic-code-taxonomy-appendixdiagnostic-code-taxonomy)
-    - [B.1 Diagnostic Code Format \[appendix.diagnostic-code-taxonomy.diagnostic-code-format\]](#b1-diagnostic-code-format-appendixdiagnostic-code-taxonomydiagnostic-code-format)
-    - [B.2 Feature Buckets (FF Values) \[appendix.diagnostic-code-taxonomy.feature-buckets-ff-values\]](#b2-feature-buckets-ff-values-appendixdiagnostic-code-taxonomyfeature-buckets-ff-values)
-    - [B.3 Normative Diagnostic Catalog \[appendix.diagnostic-code-taxonomy.normative-diagnostic-catalog\]](#b3-normative-diagnostic-catalog-appendixdiagnostic-code-taxonomynormative-diagnostic-catalog)
-  - [Appendix C: Conformance Dossier Schema \[appendix.conformance-dossier-schema\]](#appendix-c-conformance-dossier-schema-appendixconformance-dossier-schema)
-    - [C.1 File Format \[appendix.conformance-dossier-schema.file-format\]](#c1-file-format-appendixconformance-dossier-schemafile-format)
-    - [C.2 Schema Definition \[appendix.conformance-dossier-schema.schema-definition\]](#c2-schema-definition-appendixconformance-dossier-schemaschema-definition)
-  - [Appendix D: Standard Trait Catalog \[appendix.standard-trait-catalog\]](#appendix-d-standard-trait-catalog-appendixstandard-trait-catalog)
-    - [D.1 Foundational Traits \[appendix.standard-trait-catalog.foundational-traits\]](#d1-foundational-traits-appendixstandard-trait-catalogfoundational-traits)
-    - [D.2 System Capability Traits \[appendix.standard-trait-catalog.system-capability-traits\]](#d2-system-capability-traits-appendixstandard-trait-catalogsystem-capability-traits)
-  - [Appendix E: Core Library Specification \[appendix.core-library-specification\]](#appendix-e-core-library-specification-appendixcore-library-specification)
-  - [Appendix F: Implementation Limits \[appendix.implementation-limits\]](#appendix-f-implementation-limits-appendiximplementation-limits)
-  - [Appendix G: Implementation Guide (Informative) \[appendix.implementation-guide-informative\]](#appendix-g-implementation-guide-informative-appendiximplementation-guide-informative)
-    - [G.1 Control Flow Graph (CFG) for Verification \[appendix.implementation-guide-informative.g.1-control-flow-graph-cfg-for-verification\]](#g1-control-flow-graph-cfg-for-verification-appendiximplementation-guide-informativeg1-control-flow-graph-cfg-for-verification)
-    - [G.2 Niche Optimization for Modal Types \[appendix.implementation-guide-informative.g.2-niche-optimization-for-modal-types\]](#g2-niche-optimization-for-modal-types-appendiximplementation-guide-informativeg2-niche-optimization-for-modal-types)
-    - [G.3 Canonical Formatting \[appendix.implementation-guide-informative.canonical-formatting\]](#g3-canonical-formatting-appendiximplementation-guide-informativecanonical-formatting)
-  - [Appendix H: Behavior Classification Index (Normative) \[appendix.behavior-classification-index-normative\]](#appendix-h-behavior-classification-index-normative-appendixbehavior-classification-index-normative)
-    - [H.1 Unverifiable Behavior (UVB) \[appendix.behavior-classification-index-normative.unverifiable-behavior-uvb\]](#h1-unverifiable-behavior-uvb-appendixbehavior-classification-index-normativeunverifiable-behavior-uvb)
-    - [H.2 Implementation-Defined Behavior (IDB) \[appendix.behavior-classification-index-normative.implementation-defined-behavior-idb\]](#h2-implementation-defined-behavior-idb-appendixbehavior-classification-index-normativeimplementation-defined-behavior-idb)
-    - [H.3 Unspecified Behavior (USB) \[appendix.behavior-classification-index-normative.unspecified-behavior-usb\]](#h3-unspecified-behavior-usb-appendixbehavior-classification-index-normativeunspecified-behavior-usb)
-  - [Appendix I: Formal Core Semantics (Normative) \[appendix.formal-core-semantics-normative\]](#appendix-i-formal-core-semantics-normative-appendixformal-core-semantics-normative)
-    - [I.1 Syntax of the Core \[appendix.formal-core-semantics-normative.syntax-of-the-core\]](#i1-syntax-of-the-core-appendixformal-core-semantics-normativesyntax-of-the-core)
-    - [I.2 Operational Semantics (Small-Step) \[appendix.formal-core-semantics-normative.operational-semantics-small-step\]](#i2-operational-semantics-small-step-appendixformal-core-semantics-normativeoperational-semantics-small-step)
-    - [I.3 Safety Theorems \[appendix.formal-core-semantics-normative.safety-theorems\]](#i3-safety-theorems-appendixformal-core-semantics-normativesafety-theorems)
-
-
-# Part 0 - Document Orientation [part-0---document-orientation]
-
-## 1. Purpose, Scope, and Audience [intro]
-
-### 1.1 Purpose [intro.purpose]
-
-This specification **defines the Cursive programming language**: its source text, static semantics (typing and name resolution), dynamic semantics (runtime behavior), concurrency and memory model, and the required behavior of conforming implementations. This specification defines requirements for conforming implementations and establishes the normative behavior that programs may rely upon.
-
-This specification is the sole normative reference for the Cursive programming language. All implementations must conform to the requirements stated herein.
-
-### 1.2 Scope [intro.scope]
-
-The specification covers:
-
-- The **lexical grammar**, **concrete syntax**, and **abstract syntax** of Cursive source files.
-- The **type system**, including generics and variance, nominal types, and contracts (preconditions, postconditions).
-- The **module, assembly, and package system** as well as cross-compilation units.
-- The **execution semantics**, including evaluation order, error conditions, and observable program behavior.
-- The **concurrency and memory model**, including happens-before relations and data-race freedom conditions where applicable.
-- The definition of **unverifiable behavior (UVB)**, **implementation-defined behavior**, and **unspecified behavior**.
-- The **Foreign Function Interface (FFI)** surface, insofar as the behavior of Cursive programs depends on it.
-- Minimal **core library** requirements necessary for program execution where the language mandates them.
-
-Out of scope (informative only): performance guidance, style advice, tutorial material, and non-normative rationale.
-
-### 1.3 Audience [intro.audience]
-
-The primary audiences of this document are: (a) **implementation authors** who must conform to these rules and (b) **users writing systems software** who require predictable, portable, and safe behavior. Secondary audiences include tool authors (linters, formatters, analyzers) and educators.
-
----
-
-## 2. Document Primer [primer]
-
-### 2.1 Structure and Reference [primer.structure]
-
-This specification uses hierarchical decimal numbering (ISO 2145) with semantic anchors for stable cross-references.
-
-**Document Structure**
-
-This specification is organized into **Parts** (high-level groupings) and **Chapters** (the primary numbering unit).
-
-```
-# Document Title                              (H1)
-# Part X - Part Name                          (H1 - Organizational Grouping)
-## N. Chapter Name [chapter.id]               (H2 - Primary numbering unit)
-### N.M Section [chapter.section]             (H3)
-#### N.M.K Subsection/Detail                  (H4)
-```
-
-#### 2.1.1 Cross-References [primer.structure.references]
-
-In-text cross-references use section numbers accompanied by semantic anchors, e.g. (1.2 [intro.scope]).
-
-#### 2.1.2 Semantic Anchors [primer.structure.anchors]
-
-Major sections include semantic anchors in square brackets `[category.subcategory]` or `[category.subcategory.detail]` providing stable links across document versions. Examples:
-
-- `[intro.scope]` - Introduction and scope
-- `[decl.bindings]` - Declaration of bindings
-- `[types.composite.modal]` - Composite types, modal subsection
-
-These anchors remain constant even if section numbers change between specification versions.
-
-#### 2.1.3 Typographic Conventions [primer.structure.typography]
-
-- Source code and tokens appear in `monospace`.
-- Metavariables and definitions use _italics_.
-- Keywords appear in **bold** when called out in prose.
-- **_Bold italics_** denote intra-sectional divisions, such as **_Formal rule_**, **_Example_**, and **_Explanation_**.
-
-The keywords **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, **REQUIRED**, **RECOMMENDED**, and **MAY** are to be interpreted as described in RFC 2119 and RFC 8174 when, and only when, they appear in all capitals.
-
-#### 2.1.4 Code Examples [primer.structure.examples]
-
-Code examples in this document use fenced blocks with the `cursive` info string. All code examples in this specification are **informative** unless explicitly marked as normative with the annotation `[Normative Example]`. A trailing comment like `// error[E-CAT-FFNN]: …` marks the diagnostic the example is expected to trigger.
-
-> **Normative Examples**
->
-> Any example explicitly annotated `[Normative Example]` **MUST** be executable (or rejected with the stated diagnostics), **MUST** be covered by the normative conformance test suite described in Appendix E, and **MUST** be versioned together with the specification’s MINOR and PATCH releases. Changes to a normative example that alter its observable behavior or expected diagnostics **MUST** be treated as normative specification changes and reflected in the conformance artifacts.
-
-#### 2.1.5 Diagnostic Code Format [primer.structure.diagnostics]
-
-The canonical diagnostic code format is defined in §12.2.1.
-
-### 2.2 Annotations [primer.annotations]
-
-The specification uses Markdown callout syntax for non-normative annotations:
-
-> [!note]
-> Non-normative clarifications, additional context, or explanatory remarks.
-
-> [!tip] Rationale
-> Design decisions and justifications (used sparingly, only for non-obvious choices).
-
-> [!caution] Deprecated
-> This feature is scheduled for removal in version <MAJOR.MINOR.PATCH>.
->
-> This marker indicates a feature that:
->
-> - The feature remains part of the current specification
-> - The feature may be removed in the indicated version.
-> - Implementations are encouraged to provide warnings when deprecated features are used (see §7.6 for implementation requirements)
-
-> [!warning] Experimental
-> This feature is experimental and subject to change.
->
-> This annotation indicates a feature that:
->
-> - Is not required for conformance
-> - May change significantly in future versions
-> - Require explicit opt-in at the implementation level
-
-### 2.3 Versioning [primer.versioning]
-
-This specification uses semantic versioning with the format `MAJOR.MINOR.PATCH`:
-
-- **MAJOR** - incremented for incompatible changes that break existing conforming programs or change language semantics. Examples: new keywords that were previously valid identifiers, changes to type system rules, modifications to evaluation order.
-- **MINOR** - incremented for backwards-compatible additions and clarifications that do not change the meaning of existing conforming programs. Examples: new language features with new syntax, clarifications that resolve ambiguity without changing behavior, additional diagnostic requirements.
-- **PATCH** - incremented for backwards-compatible fixes and editorial corrections. Examples: typo corrections, improved wording, formatting changes, correction of internal cross-references.
-
-The version identifier appears in the document header. This versioning scheme follows standard semantic versioning principles as defined in [SemVer 2.0.0](https://semver.org/).
-
-### 2.4 Normative Requirement Organization [primer.requirements]
-
-This specification is organized into **Parts** and **Chapters**. Normative requirements are presented as distinct content blocks within these chapters, rather than being tied to a specific heading level.
-
-**Document Structure**
-
-This specification uses hierarchical decimal numbering (ISO 2145) with semantic anchors.
-
-```text
-# Document Title                              (H1)
-# Part X - Part Name                          (H1 - Organizational Grouping)
-## N. Chapter Name [chapter.id]               (H2 - Primary numbering unit)
-### N.M Section [chapter.section]             (H3)
-#### N.M.K Subsection/Detail                  (H4)
-```
-
-**Normative Requirement Presentation**
-
-Individual requirements are presented as distinct blocks within a section. A section may contain multiple normative requirements.
-
-> **Normative Requirement Title**
->
-> The requirement text, enclosed in a blockquote. This text uses the normative keywords **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, **MAY**, and **OPTIONAL** (RFC 2119).
->
-> When grammar patterns are included, they appear within the blockquote as part of the normative statement using Template-Style W3C EBNF.
-
-**_Formal rule:_**
-$$ \text{A inference rule or judgment (when the requirement involves typing, evaluation, or well-formedness)} $$
-
-**_Explanation:_**
-If the normative rule needs additional context, it is provided via prose, tables, or diagrams clarifying the requirement's meaning, rationale, or scope.
-
-**_Diagnostic:_**
-Any diagnostics triggered by the requirement are documented in a table with the following columns:
-
-| Code           | Severity                 | Description      |
-| :------------- | :----------------------- | :--------------- |
-| `[S]-CAT-FFNN` | Error \| Warning \| Note | Diagnostic text. |
-
-The format `[S]-CAT-FFNN` is defined as:
-*   `[S]`: Severity prefix (`E` for Error, `W` for Warning).
-*   `CAT`: Three-letter category code (e.g., `TYP`, `MEM`).
-*   `FF`: Two-digit feature bucket.
-*   `NN`: Two-digit unique number.
-
-**Hierarchical Requirements**
-
-Some requirements contain subordinate clauses that refine or constrain the parent requirement. These are presented as nested blockquotes or bulleted lists within the main normative block.
-
----
-
-## 3. Notation [notation]
-
-### 3.1 Mathematical metavariables [notation.metavariables]
-
-Formal notation throughout this specification uses the following metavariables to denote syntactic and semantic entities:
-
-- $x, y, z$ - _variables and identifiers_
-- $T, U, V$ _(or $\tau$) - types_
-- $e, f, g$ - _expressions_
-- $p$ - _patterns_
-- $s$ - _statements_
-- $\Gamma, \Delta, \Sigma$ - _contexts_
-- $\sigma$ - _program stores_
-- $\pi_{const}, \pi_{unique}, \pi_{partitioned}$ - _permissions_ (to represent const, unique, or partitioned)
-- $Tr$ - _traits_
-- $\kappa$ - _capabilities_
-- $P$ and $Q$ _predicates_ (representing precondition and postcondition clauses in contracts: $\text{\{P\} c \{Q\}}$).
-- $@S$ - _modal states_
-- $\ell$ - _memory locations_
-- $v$ - _values_
-
-**_Metavariable conventions:_**
-
-- $'$ (prime) denotes resulting or "after" states (e.g., $\Gamma'$, $\sigma'$)
-- Subscripts denote variants or specialized forms (e.g., $\Gamma_{\text{terms}}$, $\sigma_{\text{ct}}$)
-- $\cdot$ denotes the empty context
-
-These symbols serve as placeholders in inference rules, judgments, and formal definitions.
-
-#### 3.1.1 Grammar Notation [notation.grammar]
-
-Inline grammar productions follow a **Template-Style W3C EBNF**. This notation is designed to be read as a visual pattern for constructing valid code, distinct from Cursive syntax itself.
-
-**1. Definitions (`::=`)**
-The symbol `::=` separates the name of a construct from its definition.
-
-**2. Literals (`"..."`)**
-Fixed lexical elements (keywords, operators, punctuation) appear in double quotes.
-*   `"procedure"`, `"+"`, `"{"`
-
-**3. Placeholders (`<...>`)**
-Non-terminal categories (parts that must be substituted with specific constructs) appear in angle brackets.
-*   `<identifier>`: Any valid identifier (Part II, §9).
-*   `<expression>`: Any expression (Part 5, §25).
-*   `<type>`: Any type expression (Part 4).
-*   `<block>`: A brace-enclosed block of statements `{ ... }`.
-
-**4. Quantifiers (`?`, `*`, `+`)**
-Suffix operators determine how many times an element may appear:
-*   `element?` — **Optional** (Zero or one).
-*   `element*` — **Repetition** (Zero or more).
-*   `element+` — **Required Repetition** (One or more).
-
-**5. Grouping and Choice (`(...)`, `|`)**
-Parentheses group elements together, and the pipe `|` separates mutually exclusive alternatives.
-*   `("let" | "var")` — Choose exactly one.
-
-**6. The Comma-Separated List Pattern**
-For concise readability, comma-separated lists are often represented using the expansion pattern:
-*   `<item> ("," <item>)* ","?` — A list of items, separated by commas, with an optional trailing comma.
-
-The complete formal grammar (ANTLR) appears in Appendix A; inline grammar fragments use this template notation for readability and immediate reference.
-
-#### 3.1.2 Mathematical Notation [notation.mathematical]
-
-Formal definitions and inference rules use standard mathematical notation:
-
-**_Set operations:_**
-
-- $\in$, $\notin$ - set membership and non-membership
-- $\cup$ - union
-- $\cap$ - intersection
-- $\subseteq$ - subset relation
-
-**_Logical connectives:_**
-
-- $\land$ - logical and
-- $\lor$ - logical or
-- $\lnot$ - logical negation
-- $\implies$ - implication
-- $\iff$ - if and only if (bidirectional implication)
-
-**_Quantifiers:_**
-
-- $\forall$ - universal quantification ("for all")
-- $\exists$ - existential quantification ("there exists")
-
-**_Functions and mappings:_**
-
-- $f: A \to B$ - (total) function from type $A$ to type $B$
-- $f: A \rightharpoonup B$ - partial function (may be undefined for some inputs)
-- $(a, b, c)$ - tuple or sequence of elements
-
-These symbols follow their standard mathematical meanings without additional specification-specific interpretation.
-
-### 3.2 Inference Rules and Formal Semantics [notation.inference]
-
-Inference rules use standard fraction notation:
-
-$$
-\frac{\text{premise}_1 \quad \cdots \quad \text{premise}_n}{\text{conclusion}}
-\tag{Rule-Name}
-$$
-
-Rules without premises are axioms. Side conditions appear to the right of the line when additional constraints apply.
-
-**_Judgment grammar_:**
-
-- $\vdash$ - turnstile; $\Gamma \vdash J$ means judgment $J$ holds under context $\Gamma$
-- $\Rightarrow$ - transformation; $\Gamma \vdash X \Rightarrow \Gamma'$ means processing $X$ transforms $\Gamma$ to $\Gamma'$
-- $\Downarrow$ - big-step evaluation; $\sigma \vdash e \Downarrow v, \sigma'$ means $e$ evaluates to $v$ in store $\sigma$ producing store $\sigma'$
-- $[\text{cat}]$ - categorization; indicates expression category in typing judgments
-- $,$ (comma) - sequencing; separates input/output components (e.g., $v, \sigma'$)
-- $\Gamma, x : B$ - context extension (adds binding of $x$ to $B$)
-- $\Gamma[x \mapsto \tau]$ - context update (replaces binding for $x$)
-
-**_Rule naming prefixes_:**
-
-- **T**-_Feature_-_Case_ - Type formation and typing rules
-- **E**-_Feature_-_Case_ - Evaluation and operational semantics
-- **WF**-_Feature_-_Case_ - Well-formedness and static checking
-- **P**-_Feature_-_Case_ - Permission and memory safety
-- **Prop**-_Feature_-_Case_ - Behavior satisfaction and property proofs
-- **Coerce**-_Feature_-_Case_ - Type coercion rules
-- **Prov**-_Feature_-_Case_ - Provenance and aliasing
-- **Ptr**-_Feature_-_Case_ - Pointer-specific properties
-- **QR**-_Feature_-_Case_ - Qualified name resolution
-
----
-
-### 3.3 Syntactic Stability Rules [notation.stability]
-
-To support robust tooling, deterministic parsing, and reliable automated code generation, Cursive’s concrete syntax and formatting conventions **MUST** follow a set of stability rules:
-
-> **Syntactic Stability**
->
-> 1. **Stable keyword order** – Syntactic forms that combine multiple keywords (for example, visibility + `procedure` + `async`) **MUST** use a single, specified keyword order; implementations **MUST NOT** accept permutations of that order.  
-> 3. **No context-sensitive keywords** – Tokens classified as keywords in §9.2.1 **MUST NOT** be usable as identifiers in any syntactic context; new keywords **MUST NOT** be introduced in a way that depends on surrounding syntactic form.  
-> 4. **Formatting stability** – Implementations **SHOULD** provide a canonical formatter whose output depends only on the token sequence and configuration, and formatting **MUST NOT** change program meaning.
-
-These rules ensure that the surface syntax remains unambiguous and predictable for all consumers, including compilers, IDEs, and code generators.
-
----
-
-## 4. Terminology [terminology]
-
-The vocabulary below defines terms as used throughout this specification. Terms defined in this section carry the same meaning in all later sections.
-
-### 4.1 General Terms [terminology.general]
-
-**Implementation**
-_Any compiler, interpreter, JIT, transpiler, or runtime system that accepts Cursive source code and produces program behavior. Unless stated otherwise, every requirement labeled "implementation" applies to all of these tool categories (cf. §7.1)._
-
-**Program**
-_A complete, standalone unit comprising one or more Cursive translation units intended for execution. Programs may link against or embed libraries. For conformance evaluation, the entire program (including all linked code) must be well-formed, and execution must not trigger unverifiable behavior. A conforming program, together with its dependencies, exhibits only defined behavior (cf. §6.2.2)._
-
-**Library**
-_A reusable collection of declarations intended for use by programs or other libraries. Libraries are evaluated for conformance independently. A conforming library must not rely on unverifiable behavior and must document all implementation-defined behavior choices (cf. §6.2.2)._
-
-**Translation**
-_The process of converting source code into executable artifacts._
-
-**Execution**
-_The runtime evaluation of translated code._
-
-### 4.2 Conformance Terms [terminology.conformance]
-
-**Conforming Implementation**
-_An implementation is conforming iff it satisfies all MUST requirements of this specification and, for any accepted program, produces observable behavior that matches the dynamic semantics, except where implementation‑defined or unspecified behavior permits variation. See §6.2.1._
-
-**Conforming Program**
-_A program is conforming iff it is well‑formed, relies only on documented IDB, uses extensions only when explicitly enabled, and does not trigger UVB during execution unless every UVB site that is reachable in the link‑closed program image is attested by an external proof artifact recorded in the conformance dossier (see §6.2.4). The presence of any reachable UVB site that lacks an attestation entry compatible with the dossier used for the build makes a program non‑conforming._
-
-**Unverifiable Behavior (UVB)**
-_Behavior arising from operations whose correctness the implementation cannot verify statically or dynamically. Implementations are not required to detect or prevent UVB and may terminate the process outside normal control flow if it occurs; external contracts (e.g., FFI) govern soundness at such sites. See §6.1.1 and §6.1.2._
-
-**Unspecified Behavior (USB)**
-_A set of outcomes permitted by this specification for a construct where the implementation need not document which outcome it chooses; the set of permitted outcomes is constrained by this specification. See §6.1.3._
-
-**Implementation-Defined Behavior (IDB)**
-_A choice among multiple outcomes permitted by this specification that the implementation MUST document (e.g., in a conformance dossier or target notes). Programs MUST NOT rely on undocumented choices. See §6.1.4 and §6.1.4.1._
-
-**Well-formed Program**
-_Source that satisfies all lexical, syntactic, and static‑semantic rules. Implementations MUST accept well‑formed programs. See §6.2.3._
-
-**Ill-formed Program**
-_Source that violates lexical, syntactic, or static‑semantic rules. Implementations MUST diagnose and reject such programs; no artifacts may be produced. Certain violations may be classified IFNDR when detection is computationally infeasible (§6.1.3.1); otherwise, at least one error MUST be issued. See §6.2.3._
-
-### 4.3 Programming Terms [terminology.programming]
-
-**Binding**
-_The association between an identifier and an entity. A binding's re-assignability (**binding mutability**) is determined by its declaration: `let` creates an immutable binding, while `var` creates a mutable (re-assignable) binding._
-
-**Capability**
-_A first-class value representing the authority to perform an observable external effect (e.g., I/O, networking, heap allocation). See Part 6, §31 [ocap]._
-
-**Context**
-_The root capability moved to the `main` procedure, which holds all available system capabilities for the program. See Part 6, §31.2 [ocap]._
-
-**Contract**
-_A set of formal requirements and guarantees attached to a procedure signature using `[[ must => will ]]` syntax. It specifies preconditions the caller must satisfy and postconditions the procedure will satisfy upon completion. See Part 6, §28 [contracts]._
-
-**Declaration**
-_A syntactic form that introduces a name and determines its category._
-
-**Diagnostic**
-_A message issued when a program violates a rule requiring detection._
-
-**Entity**
-_Any value, type, or module that may be named or referenced._
-
-**Expression**
-_A syntactic form that yields a value or a place._
-
-**Modal Type**
-_A type whose values transition through a compile-time-validated state machine. Each state is denoted by an `@State` specifier, and operations can be restricted to specific states. See Part 4, §19 [type.modal]._
-
-**Object**
-_A region of storage with a type, lifetime, and a unique responsible owner._
-
-**Permission**
-_A type qualifier (`const`, `unique`, `partitioned`) that governs how the data referenced by a binding may be accessed. This determines the data's mutability (**type mutability**) and aliasing rules. See Part 6, §30.3 [memory]._
-
-**Place**
-_A memory location that can be the target of an assignment or other operation._
-
-**Scope**
-_The syntactic region of source text where a binding is visible._
-
-**Statement**
-_A syntactic form that executes for its side effects and does not yield a value._
-
-**Static Invalidation**
-_The compile-time process that renders a binding and its aliases unusable after its responsibility has been transferred via a `move` operation or at the end of its responsible scope. See Part 6, §30.2 [memory]._
-
-**Trait**
-_A unified declaration that defines an abstract interface (a set of required signatures) and/or provides shared implementation (concrete procedures). See Part 6, §29 [traits]._
-
-**Value**
-_A temporary result produced by an expression._
-
-**Verification Fact**
-_A virtual compile-time artifact that provides evidence for the satisfaction of a dynamically-validated `contract`. See Part 6, §27.7 [contracts]._
-
-### 4.4 Symbols and Abbreviations [terminology.symbols]
-
-- **ABI** - Application Binary Interface
-- **AST** - Abstract Syntax Tree
-- **EBNF** - Extended Backus-Naur Form
-- **FFI** - Foreign Function Interface
-- **IFNDR** - Ill-Formed, No Diagnostic Required
-- **LPS** - Lexical Permission System
-- **RAII** - Resource Acquired on Initialization
-- **UVB** - Unverifiable Behavior
-- **UTF-8** - Unicode Transformation Format, 8-bit
-
----
-
-## 5. References and Citations [references]
-
-The documents listed below contain provisions that, through citation, form requirements of this specification. Documents identified as normative define requirements for conforming implementations.
-
-### 5.1 ISO/IEC and International Standards [references.iso]
-
-- **[ISO10646]** ISO/IEC 10646:2020 - _Information technology - Universal Coded Character Set (UCS)_. Defines the character repertoire permitted in source text and informs identifier classifications.
-
-- **[IEEE754]** ISO/IEC 60559:2020 (IEEE 754-2019) - _Floating-Point Arithmetic_. Governs semantics for binary32 (`f32`) and binary64 (`f64`) arithmetic used throughout numeric type definitions and runtime semantics.
-
-- **[C18]** ISO/IEC 9899:2018 - _Programming Languages - C_. The Foreign Function Interface (FFI) relies on C definitions of object representation, calling conventions, and interoperability semantics.
-
-### 5.2 Unicode Standards [references.unicode]
-
-- **[Unicode]** The Unicode Standard, Version 14.0.0 or later. Supplies derived properties, normalization forms, and identifier recommendations leveraged by the lexical grammar.
-
-- **[UAX31]** Unicode Standard Annex #31 - _Unicode Identifier and Pattern Syntax_. Specifies identifier composition rules (`XID_Start`, `XID_Continue`) adopted in lexical tokenization.
-
-### 5.3 Platform and ABI Standards [references.platform]
-
-- **[SysV-ABI]** System V Application Binary Interface (AMD64 Architecture Processor Supplement, ARM Architecture Procedure Call Standard). Guides interoperability obligations for POSIX-compliant platforms.
-
-- **[MS-x64]** Microsoft x64 Calling Convention - Calling convention documentation for Windows x64 platforms. Required for conforming implementations targeting Windows.
-
-### 5.4 IETF Standards [references.ietf]
-
-- **[RFC2119]** RFC 2119 - _Key words for use in RFCs to Indicate Requirement Levels_. Defines normative vocabulary (**MUST**, **SHOULD**, **MAY**).
-
-- **[RFC8174]** RFC 8174 - _Ambiguity of Uppercase vs Lowercase in RFC 2119 Key Words_. Clarifies that requirement keywords apply only when in ALL CAPS.
-
-- **[RFC3629]** RFC 3629 - _UTF-8, a transformation format of ISO/IEC 10646_. Defines the UTF-8 encoding scheme used for Cursive source text (§8.1.1).
-
-### 5.5 Conventions, Tooling, and Miscellaneous [references.conventions]
-
-- **[SemVer2]** Tom Preston‑Werner, “Semantic Versioning 2.0.0.” Defines versioning rules for artifacts and tools referenced by this specification.
-
-- **[ANTLR4]** Terence Parr and Sam Harwell, “ANTLR 4 Grammar Syntax and Toolchain.” Cited for grammar notation and tooling guidance used in the formal grammar appendix.
-
-### 5.6 Research [references.research]
-
-- **[C18-Spec]** ISO/IEC 9899:2018 — Programming Languages — C. Informative comparison point for FFI object representation and linkage models.
-- **[CXX23]** ISO/IEC 14882:2023 — Programming Languages — C++. Referenced for comparative discussion of templates, layout, and ABI interactions.
-- **[Rust-Ref]** The Rust Reference — The Rust Project Developers. Informative background on contracts, ownership models, and diagnostics organization.
-- **[Go-Spec]** The Go Programming Language Specification — The Go Authors. Informative background on packages, interfaces, and memory model choices.
-- **[ECMA-334]** ECMA‑334 — C# Language Specification (latest edition). Informative background on attributes, metadata, and generics.
-- **[PLP5]** Michael L. Scott, "Programming Language Pragmatics," Fifth Edition. ISBN‑13: 978‑0323999663. General reference for language design trade‑offs and formalism.
-
-### 5.7 Reference Availability [references.availability]
-
-Where references are not available freely, they are available for purchase from their respective publishers.
-
----
-
 # Part 1 - Conformance and Governance [part-1---conformance-and-governance]
 
 ## 6. Fundamental Conformance [conformance]
@@ -1022,9 +279,9 @@ For the purposes of this part:
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-SRC-0101` | Error | Invalid UTF-8 byte sequence. |
+| Code         | Severity | Description                  |
+| :----------- | :------- | :--------------------------- |
+| `E-SRC-0101` | Error    | Invalid UTF-8 byte sequence. |
 
 #### 8.1.2 BOM Handling [source.encoding.bom]
 
@@ -1036,10 +293,10 @@ For the purposes of this part:
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-SRC-0103` | Error | Embedded BOM found after the first position. |
-| `W-SRC-0101` | Warning | UTF-8 BOM present. |
+| Code         | Severity | Description                                  |
+| :----------- | :------- | :------------------------------------------- |
+| `E-SRC-0103` | Error    | Embedded BOM found after the first position. |
+| `W-SRC-0101` | Warning  | UTF-8 BOM present.                           |
 
 #### 8.1.3 Invalid Sequences [source.encoding.invalid]
 
@@ -1062,9 +319,9 @@ For the purposes of this part:
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-SRC-0104` | Error | Forbidden control character or null byte. |
+| Code         | Severity | Description                               |
+| :----------- | :------- | :---------------------------------------- |
+| `E-SRC-0104` | Error    | Forbidden control character or null byte. |
 
 #### 8.1.4 Normalization [source.encoding.normalization]
 
@@ -1134,11 +391,11 @@ For the purposes of this part:
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-SRC-0102` | Error | Source file exceeds implementation-defined maximum size. |
-| `E-SRC-0105` | Error | Maximum logical line count exceeded. |
-| `E-SRC-0106` | Error | Maximum line length exceeded. |
+| Code         | Severity | Description                                              |
+| :----------- | :------- | :------------------------------------------------------- |
+| `E-SRC-0102` | Error    | Source file exceeds implementation-defined maximum size. |
+| `E-SRC-0105` | Error    | Maximum logical line count exceeded.                     |
+| `E-SRC-0106` | Error    | Maximum line length exceeded.                            |
 
 > [!tip] Rationale
 > Explicit limits on line count and line length provide deterministic worst-case bounds for lexing and tooling while setting generous minima to preserve expressiveness for large or generated sources. Treating violations as `SRC-01` errors keeps these constraints consistent with other source-ingestion rules and ensures that resource-limit failures are diagnosed, not left to implementation-specific crashes or undefined behavior.
@@ -1235,15 +492,15 @@ procedure helper(ctx: Context) {
 
 This chapter introduces the following diagnostics in the `SRC` (Source) category.
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-SRC-0101` | Error | Invalid UTF-8 byte sequence. |
-| `E-SRC-0102` | Error | Source file exceeds implementation-defined maximum size. |
-| `E-SRC-0103` | Error | Embedded BOM found after the first position. |
-| `E-SRC-0104` | Error | Forbidden control character or null byte. |
-| `E-SRC-0105` | Error | Maximum logical line count exceeded. |
-| `E-SRC-0106` | Error | Maximum line length exceeded. |
-| `W-SRC-0101` | Warning | UTF-8 BOM present. |
+| Code         | Severity | Description                                              |
+| :----------- | :------- | :------------------------------------------------------- |
+| `E-SRC-0101` | Error    | Invalid UTF-8 byte sequence.                             |
+| `E-SRC-0102` | Error    | Source file exceeds implementation-defined maximum size. |
+| `E-SRC-0103` | Error    | Embedded BOM found after the first position.             |
+| `E-SRC-0104` | Error    | Forbidden control character or null byte.                |
+| `E-SRC-0105` | Error    | Maximum logical line count exceeded.                     |
+| `E-SRC-0106` | Error    | Maximum line length exceeded.                            |
+| `W-SRC-0101` | Warning  | UTF-8 BOM present.                                       |
 
 ---
 
@@ -1316,9 +573,9 @@ This chapter defines tokenization and lexical elements.
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-SRC-0306` | Error | Unterminated block comment. |
+| Code         | Severity | Description                 |
+| :----------- | :------- | :-------------------------- |
+| `E-SRC-0306` | Error    | Unterminated block comment. |
 
 ```ebnf
 <line_comment>
@@ -1350,10 +607,10 @@ This chapter defines tokenization and lexical elements.
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `W-SRC-0308` | Warning | Lexically sensitive Unicode character in identifier or token boundary. |
-| `E-SRC-0308` | Error | Lexically sensitive Unicode character (Strict Mode). |
+| Code         | Severity | Description                                                            |
+| :----------- | :------- | :--------------------------------------------------------------------- |
+| `W-SRC-0308` | Warning  | Lexically sensitive Unicode character in identifier or token boundary. |
+| `E-SRC-0308` | Error    | Lexically sensitive Unicode character (Strict Mode).                   |
 >
 > **Literal Exemption**
 >
@@ -1373,9 +630,9 @@ This chapter defines tokenization and lexical elements.
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-SRC-0305` | Error | Reserved keyword used as identifier. |
+| Code         | Severity | Description                          |
+| :----------- | :------- | :----------------------------------- |
+| `E-SRC-0305` | Error    | Reserved keyword used as identifier. |
 >
 > **Keyword Uniformity**
 >
@@ -1416,10 +673,10 @@ This chapter defines tokenization and lexical elements.
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-SRC-0307` | Error | Invalid Unicode in identifier. |
-| `E-SRC-0305` | Error | Reserved keyword used as identifier. |
+| Code         | Severity | Description                          |
+| :----------- | :------- | :----------------------------------- |
+| `E-SRC-0307` | Error    | Invalid Unicode in identifier.       |
+| `E-SRC-0305` | Error    | Reserved keyword used as identifier. |
 
 ```ebnf
 <identifier>
@@ -1484,10 +741,10 @@ This chapter defines tokenization and lexical elements.
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-SRC-0304` | Error | Malformed numeric literal. |
-| `W-SRC-0301` | Warning | Leading zeros in decimal literal. |
+| Code         | Severity | Description                       |
+| :----------- | :------- | :-------------------------------- |
+| `E-SRC-0304` | Error    | Malformed numeric literal.        |
+| `W-SRC-0301` | Warning  | Leading zeros in decimal literal. |
 
 ```ebnf
 <decimal_integer>
@@ -1535,11 +792,11 @@ This chapter defines tokenization and lexical elements.
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-SRC-0302` | Error | Invalid escape sequence. |
-| `E-SRC-0301` | Error | Unterminated string literal. |
-| `E-SRC-0204` | Error | String literal exceeds limit (compile-time). |
+| Code         | Severity | Description                                  |
+| :----------- | :------- | :------------------------------------------- |
+| `E-SRC-0302` | Error    | Invalid escape sequence.                     |
+| `E-SRC-0301` | Error    | Unterminated string literal.                 |
+| `E-SRC-0204` | Error    | String literal exceeds limit (compile-time). |
 
 #### 9.4.3 Character Literals [lexical.literals.character]
 
@@ -1557,10 +814,10 @@ This chapter defines tokenization and lexical elements.
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-SRC-0302` | Error | Invalid escape sequence. |
-| `E-SRC-0303` | Error | Invalid character literal. |
+| Code         | Severity | Description                |
+| :----------- | :------- | :------------------------- |
+| `E-SRC-0302` | Error    | Invalid escape sequence.   |
+| `E-SRC-0303` | Error    | Invalid character literal. |
 
 #### 9.4.4 Boolean Literals [lexical.literals.boolean]
 
@@ -1574,27 +831,27 @@ This chapter defines tokenization and lexical elements.
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-SRC-0305` | Error | Reserved keyword used as identifier. |
+| Code         | Severity | Description                          |
+| :----------- | :------- | :----------------------------------- |
+| `E-SRC-0305` | Error    | Reserved keyword used as identifier. |
 
 ### 9.5 Diagnostics Summary [lexical.diagnostics]
 
 This chapter introduces the following diagnostics in the `SRC` (Source) category.
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-SRC-0204` | Error | String literal exceeds limit (compile-time). |
-| `E-SRC-0301` | Error | Unterminated string literal. |
-| `E-SRC-0302` | Error | Invalid escape sequence. |
-| `E-SRC-0303` | Error | Invalid character literal. |
-| `E-SRC-0304` | Error | Malformed numeric literal. |
-| `E-SRC-0305` | Error | Reserved keyword used as identifier. |
-| `E-SRC-0306` | Error | Unterminated block comment. |
-| `E-SRC-0307` | Error | Invalid Unicode in identifier. |
-| `E-SRC-0308` | Error | Lexically sensitive Unicode character (Strict Mode). |
-| `W-SRC-0301` | Warning | Leading zeros in decimal literal. |
-| `W-SRC-0308` | Warning | Lexically sensitive Unicode character in identifier or token boundary. |
+| Code         | Severity | Description                                                            |
+| :----------- | :------- | :--------------------------------------------------------------------- |
+| `E-SRC-0204` | Error    | String literal exceeds limit (compile-time).                           |
+| `E-SRC-0301` | Error    | Unterminated string literal.                                           |
+| `E-SRC-0302` | Error    | Invalid escape sequence.                                               |
+| `E-SRC-0303` | Error    | Invalid character literal.                                             |
+| `E-SRC-0304` | Error    | Malformed numeric literal.                                             |
+| `E-SRC-0305` | Error    | Reserved keyword used as identifier.                                   |
+| `E-SRC-0306` | Error    | Unterminated block comment.                                            |
+| `E-SRC-0307` | Error    | Invalid Unicode in identifier.                                         |
+| `E-SRC-0308` | Error    | Lexically sensitive Unicode character (Strict Mode).                   |
+| `W-SRC-0301` | Warning  | Leading zeros in decimal literal.                                      |
+| `W-SRC-0308` | Warning  | Lexically sensitive Unicode character in identifier or token boundary. |
 
 ---
 
@@ -1669,9 +926,9 @@ Implementations must enforce limits on the nesting depth of various syntactic co
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-SYN-0101` | Error | Block nesting depth exceeded. |
+| Code         | Severity | Description                   |
+| :----------- | :------- | :---------------------------- |
+| `E-SYN-0101` | Error    | Block nesting depth exceeded. |
 
 #### 10.2.2 Expression Nesting [syntax.limits.expressions]
 
@@ -1685,9 +942,9 @@ Implementations must enforce limits on the nesting depth of various syntactic co
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-SYN-0102` | Error | Expression nesting depth exceeded. |
+| Code         | Severity | Description                        |
+| :----------- | :------- | :--------------------------------- |
+| `E-SYN-0102` | Error    | Expression nesting depth exceeded. |
 
 ### 10.3 Statement Termination [syntax.termination]
 
@@ -1715,10 +972,10 @@ Cursive uses a grammar that allows for implicit statement termination via newlin
 
 This chapter introduces the following diagnostics in the `SYN` (Syntax) category.
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-SYN-0101` | Error | Block nesting depth exceeded. |
-| `E-SYN-0102` | Error | Expression nesting depth exceeded. |
+| Code         | Severity | Description                        |
+| :----------- | :------- | :--------------------------------- |
+| `E-SYN-0101` | Error    | Block nesting depth exceeded.      |
+| `E-SYN-0102` | Error    | Expression nesting depth exceeded. |
 
 # Part 3 - Module System and Name Resolution [part-3---module-system-and-name-resolution]
 
@@ -1814,9 +1071,9 @@ $$
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-MOD-1107` | Error | `[project]` table or its required keys (`name`, `version`) are missing. |
+| Code         | Severity | Description                                                             |
+| :----------- | :------- | :---------------------------------------------------------------------- |
+| `E-MOD-1107` | Error    | `[project]` table or its required keys (`name`, `version`) are missing. |
 
 #### 11.3.3 `[language]` Table [module.manifest.language-table]
 
@@ -1836,9 +1093,9 @@ $$
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-MOD-1109` | Error | `[language]` table is missing, or its `version` is incompatible. |
+| Code         | Severity | Description                                                      |
+| :----------- | :------- | :--------------------------------------------------------------- |
+| `E-MOD-1109` | Error    | `[language]` table is missing, or its `version` is incompatible. |
 
 #### 11.3.4 `[paths]` Table [module.manifest.paths-table]
 
@@ -1858,9 +1115,9 @@ $$
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-MOD-1102` | Error | `[paths]` table in manifest is missing, empty, or invalid. |
+| Code         | Severity | Description                                                |
+| :----------- | :------- | :--------------------------------------------------------- |
+| `E-MOD-1102` | Error    | `[paths]` table in manifest is missing, empty, or invalid. |
 
 #### 11.3.5 `[[assembly]]` Table [module.manifest.assembly-table]
 
@@ -1880,10 +1137,10 @@ $$
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-MOD-1103` | Error | Assembly references a `root` that is not defined in the `[paths]` table. |
-| `E-MOD-1108` | Error | Duplicate assembly name found in `Cursive.toml`. |
+| Code         | Severity | Description                                                              |
+| :----------- | :------- | :----------------------------------------------------------------------- |
+| `E-MOD-1103` | Error    | Assembly references a `root` that is not defined in the `[paths]` table. |
+| `E-MOD-1108` | Error    | Duplicate assembly name found in `Cursive.toml`.                         |
 
 ### 11.4 Module Path Validity [module.paths]
 
@@ -1905,10 +1162,10 @@ A module path is well-formed if and only if every component `c` of the path is a
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-MOD-1106` | Error | Module path component is not a valid Cursive identifier. |
-| `E-MOD-1105` | Error | Module path component is a reserved keyword. |
+| Code         | Severity | Description                                              |
+| :----------- | :------- | :------------------------------------------------------- |
+| `E-MOD-1106` | Error    | Module path component is not a valid Cursive identifier. |
+| `E-MOD-1105` | Error    | Module path component is a reserved keyword.             |
 
 #### 11.4.1 Case-Sensitivity and Collisions [module.paths.case-sensitivity-and-collisions]
 
@@ -1928,10 +1185,10 @@ $$
 $$
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-MOD-1104` | Error | Module path collision detected on a case-insensitive filesystem. |
-| `W-MOD-1101` | Warning | Potential module path collision on case-insensitive filesystems. |
+| Code         | Severity | Description                                                      |
+| :----------- | :------- | :--------------------------------------------------------------- |
+| `E-MOD-1104` | Error    | Module path collision detected on a case-insensitive filesystem. |
+| `W-MOD-1101` | Warning  | Potential module path collision on case-insensitive filesystems. |
 
 ### 11.5 Diagnostics Summary [module.diagnostics]
 
@@ -2066,10 +1323,10 @@ $$
 $$
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-MOD-1201` | Error | `import` path does not resolve to a known external module. |
-| `E-MOD-1203` | Error | Name introduced by `use` or `import as` conflicts with an existing item. |
+| Code         | Severity | Description                                                              |
+| :----------- | :------- | :----------------------------------------------------------------------- |
+| `E-MOD-1201` | Error    | `import` path does not resolve to a known external module.               |
+| `E-MOD-1203` | Error    | Name introduced by `use` or `import as` conflicts with an existing item. |
 
 ### 12.4 Item Scoping (The `use` Declaration) [module.use.declaration]
 
@@ -2117,11 +1374,11 @@ $$
 $$
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-MOD-1202` | Error | `use` path does not resolve to an accessible module. |
-| `E-MOD-1204` | Error | Item specified in `use` path is not found or is not visible. |
-| `E-MOD-1203` | Error | Name introduced by `use` or `import as` conflicts with an existing item. |
+| Code         | Severity | Description                                                              |
+| :----------- | :------- | :----------------------------------------------------------------------- |
+| `E-MOD-1202` | Error    | `use` path does not resolve to an accessible module.                     |
+| `E-MOD-1204` | Error    | Item specified in `use` path is not found or is not visible.             |
+| `E-MOD-1203` | Error    | Name introduced by `use` or `import as` conflicts with an existing item. |
 
 ### 12.5 Re-exporting with `public use` [module.reexport]
 
@@ -2145,9 +1402,9 @@ $$
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-MOD-1205` | Error | Attempt to `public use` a non-public item from another module. |
+| Code         | Severity | Description                                                    |
+| :----------- | :------- | :------------------------------------------------------------- |
+| `E-MOD-1205` | Error    | Attempt to `public use` a non-public item from another module. |
 
 ### 12.6 Diagnostics Summary [module.diagnostics]
 
@@ -2206,9 +1463,9 @@ $$
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-NAM-1302` | Error | Duplicate name: the identifier is already declared in this scope. |
+| Code         | Severity | Description                                                       |
+| :----------- | :------- | :---------------------------------------------------------------- |
+| `E-NAM-1302` | Error    | Duplicate name: the identifier is already declared in this scope. |
 
 #### 13.3.2 Explicit Shadowing (Redeclaration in Nested Scope) [names.shadowing.explicit-shadowing-redeclaration-in-nested-scope]
 
@@ -2246,11 +1503,11 @@ $$
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `W-NAM-1303` | Warning | Shadowing existing binding without `shadow` keyword (Permissive Mode). |
-| `E-NAM-1303` | Error | Shadowing existing binding without `shadow` keyword (Strict Mode). |
-| `E-NAM-1306` | Error | Unnecessary use of `shadow` keyword. |
+| Code         | Severity | Description                                                            |
+| :----------- | :------- | :--------------------------------------------------------------------- |
+| `W-NAM-1303` | Warning  | Shadowing existing binding without `shadow` keyword (Permissive Mode). |
+| `E-NAM-1303` | Error    | Shadowing existing binding without `shadow` keyword (Strict Mode).     |
+| `E-NAM-1306` | Error    | Unnecessary use of `shadow` keyword.                                   |
 
 ***Example:***
 
@@ -2295,9 +1552,9 @@ The first rule states that if the name $x$ is found in the innermost scope ($S_0
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-NAM-1301` | Error | Unresolved name: cannot find identifier in any accessible scope. |
+| Code         | Severity | Description                                                      |
+| :----------- | :------- | :--------------------------------------------------------------- |
+| `E-NAM-1301` | Error    | Unresolved name: cannot find identifier in any accessible scope. |
 
 #### 13.4.2 Qualified Name Lookup [names.lookup.qualified-name-lookup]
 
@@ -2316,10 +1573,10 @@ To resolve a path `p::i`, the prefix `p` must first resolve to a module `m`. The
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-NAM-1304` | Error | Unresolved module: a path prefix did not resolve to a module. |
-| `E-NAM-1305` | Error | Unresolved or private item in path: an item in a qualified path is not found or is not public. |
+| Code         | Severity | Description                                                                                    |
+| :----------- | :------- | :--------------------------------------------------------------------------------------------- |
+| `E-NAM-1304` | Error    | Unresolved module: a path prefix did not resolve to a module.                                  |
+| `E-NAM-1305` | Error    | Unresolved or private item in path: an item in a qualified path is not found or is not public. |
 
 ### 13.5 Diagnostics Summary [names.diagnostics]
 
@@ -2419,9 +1676,9 @@ Where $\text{is\_reachable}(u, v, E_e)$ is true if there is a path of one or mor
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-MOD-1401` | Error | Cyclic module dependency detected in **eager** initializers. |
+| Code         | Severity | Description                                                  |
+| :----------- | :------- | :----------------------------------------------------------- |
+| `E-MOD-1401` | Error    | Cyclic module dependency detected in **eager** initializers. |
 
 ### 14.4 Initialization Semantics [initialization.semantics]
 
@@ -2474,9 +1731,9 @@ This chapter establishes the foundational principles of the Cursive type system.
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-TYP-1501` | Error | Type mismatch or other type checking failure. |
+| Code         | Severity | Description                                   |
+| :----------- | :------- | :-------------------------------------------- |
+| `E-TYP-1501` | Error    | Type mismatch or other type checking failure. |
 
 The type system is primarily **nominal**. Types defined with `record`, `enum`, and `modal` declarations are distinct based on their declared name and origin. Two types with different names are never equivalent, even if their structure is identical.
 
@@ -2659,9 +1916,9 @@ $$\frac{A \not\equiv B}{\Gamma \nvdash \text{unique } List<A> <: \text{unique } 
 
 This chapter introduces the following diagnostics in the `TYP` (Type System) category.
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-TYP-1501` | Error | Type mismatch or other type checking failure. |
+| Code         | Severity | Description                                   |
+| :----------- | :------- | :-------------------------------------------- |
+| `E-TYP-1501` | Error    | Type mismatch or other type checking failure. |
 
 ## 16. Permission Types [type.permissions]
 
@@ -2699,9 +1956,9 @@ The `const` permission grants **Read-Only** access to the subject and allows **U
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-TYP-1601` | Error | Attempt to mutate data via a `const` reference. |
+| Code         | Severity | Description                                     |
+| :----------- | :------- | :---------------------------------------------- |
+| `E-TYP-1601` | Error    | Attempt to mutate data via a `const` reference. |
 
 **_Explanation:_**
 `const` provides aliased, read-only access to data. It is the foundation for sharing data without data races. A `let` binding (immutable binding) can refer to `unique` data (mutable data), and a `var` binding (mutable binding) can refer to `const` data (immutable data).
@@ -2718,9 +1975,9 @@ The `unique` permission qualifies a type to grant exclusive, mutable access to d
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-TYP-1602` | Error | Violation of `unique` exclusion (aliasing detected). |
+| Code         | Severity | Description                                          |
+| :----------- | :------- | :--------------------------------------------------- |
+| `E-TYP-1602` | Error    | Violation of `unique` exclusion (aliasing detected). |
 
 **_Explanation:_**
 The `unique` permission guarantees a single writer, preventing data races at compile time. While it holds the exclusive right to mutate, it can temporarily lend out read-only `const` views of the data.
@@ -2737,9 +1994,9 @@ The `partitioned` permission qualifies a type to explicitly allow aliased mutabi
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-TYP-1603` | Error | Partitioning system violation. |
+| Code         | Severity | Description                    |
+| :----------- | :------- | :----------------------------- |
+| `E-TYP-1603` | Error    | Partitioning system violation. |
 
 **_Explanation:_**
 `partitioned` signals to the compiler that this data requires special static analysis to ensure safety. It is used for complex data structures where different parts of the structure need to be mutated independently.
@@ -2748,11 +2005,11 @@ The `partitioned` permission qualifies a type to explicitly allow aliased mutabi
 
 This chapter introduces the following diagnostics in the `TYP` (Type System) category.
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-TYP-1601` | Error | Attempt to mutate data via a `const` reference. |
-| `E-TYP-1602` | Error | Violation of `unique` exclusion (aliasing detected). |
-| `E-TYP-1603` | Error | Partitioning system violation. |
+| Code         | Severity | Description                                          |
+| :----------- | :------- | :--------------------------------------------------- |
+| `E-TYP-1601` | Error    | Attempt to mutate data via a `const` reference.      |
+| `E-TYP-1602` | Error    | Violation of `unique` exclusion (aliasing detected). |
+| `E-TYP-1603` | Error    | Partitioning system violation.                       |
 
 ## 17. Primitive Types [type.primitive]
 
@@ -2804,9 +2061,9 @@ Cursive provides three floating-point types.
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `W-TYP-1701` | Warning | `f16` arithmetic may be emulated and slow. |
+| Code         | Severity | Description                                |
+| :----------- | :------- | :----------------------------------------- |
+| `W-TYP-1701` | Warning  | `f16` arithmetic may be emulated and slow. |
 
 **_Explanation:_**
 This conformance implies that all special values (`NaN`, `+inf`, `-inf`) and behaviors, such as the result of division by zero, follow the rules specified by the IEEE 754 standard. The `f16` type has very limited precision and is intended primarily for data storage, graphics, and specialized computation on hardware that provides native support, such as GPUs. Its use for general-purpose computation on CPUs is discouraged due to poor performance and potential for numerical instability.
@@ -2872,9 +2129,9 @@ let x: i32 = if condition {
 
 This chapter introduces the following diagnostics in the `TYP` (Type System) category.
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `W-TYP-1701` | Warning | `f16` arithmetic may be emulated and slow. |
+| Code         | Severity | Description                                |
+| :----------- | :------- | :----------------------------------------- |
+| `W-TYP-1701` | Warning  | `f16` arithmetic may be emulated and slow. |
 
 ## 18. Composite Types [type.composite]
 
@@ -2894,9 +2151,9 @@ A tuple is an ordered, fixed-size, heterogeneous collection of values. Tuples ar
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-TYP-1801` | Error | Tuple index out of bounds. |
+| Code         | Severity | Description                |
+| :----------- | :------- | :------------------------- |
+| `E-TYP-1801` | Error    | Tuple index out of bounds. |
 
 **_Explanation:_**
 Tuples are a lightweight way to group multiple values together without the ceremony of defining a named `record`. The unit type `()` is the empty tuple.
@@ -3053,9 +2310,9 @@ A slice is a dynamically-sized, mutable or immutable view into a contiguous sequ
 
 This chapter introduces the following diagnostics in the `TYP` (Type System) category.
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-TYP-1801` | Error | Tuple index out of bounds. |
+| Code         | Severity | Description                |
+| :----------- | :------- | :------------------------- |
+| `E-TYP-1801` | Error    | Tuple index out of bounds. |
 
 ---
 
@@ -3090,17 +2347,17 @@ Modal types are defined using the `modal` keyword, followed by a body containing
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-TYP-1910` | Error | Modal type must declare at least one `@State`. |
+| Code         | Severity | Description                                    |
+| :----------- | :------- | :--------------------------------------------- |
+| `E-TYP-1910` | Error    | Modal type must declare at least one `@State`. |
 >
 > All state names within a `modal` declaration **MUST** be unique.
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-TYP-1911` | Error | Duplicate state '@State' in modal type. |
+| Code         | Severity | Description                             |
+| :----------- | :------- | :-------------------------------------- |
+| `E-TYP-1911` | Error    | Duplicate state '@State' in modal type. |
 
 ### 19.3 State Specifiers (`@State`) [type.modal.state]
 
@@ -3129,9 +2386,9 @@ A state block defines a single, named state for the modal type. It may contain s
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-TYP-1912` | Error | Field 'field' is only available in state '@StateA'. |
+| Code         | Severity | Description                                         |
+| :----------- | :------- | :-------------------------------------------------- |
+| `E-TYP-1912` | Error    | Field 'field' is only available in state '@StateA'. |
 
 #### 19.3.2 State Members (Methods and Transitions) [type.modal.state.state-members-methods-and-transitions]
 
@@ -3198,9 +2455,9 @@ A transition procedure is implemented like any other procedure. Its body must be
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-TYP-1915` | Error | Transition procedure body must return a value of the target state type. |
+| Code         | Severity | Description                                                             |
+| :----------- | :------- | :---------------------------------------------------------------------- |
+| `E-TYP-1915` | Error    | Transition procedure body must return a value of the target state type. |
 
 ***Example (Comprehensive Transition Specification):***
 
@@ -3302,9 +2559,9 @@ To safely narrow a general modal type to a state-specific one, a `match` express
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-TYP-1920` | Error | Match on modal type 'T' is not exhaustive. Missing states: ... |
+| Code         | Severity | Description                                                    |
+| :----------- | :------- | :------------------------------------------------------------- |
+| `E-TYP-1920` | Error    | Match on modal type 'T' is not exhaustive. Missing states: ... |
 >
 > **Type Refinement**
 >
@@ -3665,10 +2922,10 @@ This rule statically enforces memory safety. It is a compile-time error to even 
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-TYP-2001` | Error | Cannot dereference a pointer in the `@Null` state. |
-| `E-TYP-2002` | Error | Cannot dereference a pointer in the `@Expired` state (use-after-free). |
+| Code         | Severity | Description                                                            |
+| :----------- | :------- | :--------------------------------------------------------------------- |
+| `E-TYP-2001` | Error    | Cannot dereference a pointer in the `@Null` state.                     |
+| `E-TYP-2002` | Error    | Cannot dereference a pointer in the `@Expired` state (use-after-free). |
 
 ```cursive
 procedure safe_access(ptr: Ptr<i32>@Valid) {
@@ -3882,22 +3139,22 @@ The `move` keyword is a parameter responsibility modifier that is an integral pa
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-TYP-2302` | Error | Type mismatch in function call or assignment. |
+| Code         | Severity | Description                                   |
+| :----------- | :------- | :-------------------------------------------- |
+| `E-TYP-2302` | Error    | Type mismatch in function call or assignment. |
 
 ### 22.4 Function Types vs. Procedure Declarations [type.function.distinction]
 
 A `procedure` declaration is a named, top-level item that *has* a corresponding function type. The function type is a direct and complete representation of the procedure's signature.
 
-| Construct             | `procedure` (Declaration) | `(T) -> U` (Type)                       | `witness (T) -> U` (Type)                    |
-| :-------------------- | :------------------------ | :-------------------------------------- | :------------------------------------------ |
-| **Is a...**           | Named, top-level item     | Structural, anonymous type              | Structural, anonymous type                  |
-| **Represents**        | Named procedure           | Sparse function pointer (FFI-safe)      | Dense pointer witness closure (not FFI-safe) |
-| **Carries Name?**     | **Yes** (e.g., `my_proc`) | No                                      | No                                          |
-| **Carries Contract?** | **Yes** (as metadata)     | **No**                                  | **No**                                      |
-| **Carries Capabilities?**   | **Yes** (in parameters)   | **Yes** (as parameter types)            | **Yes** (as parameter types)                |
-| **Carries `move`?**   | **Yes** (on parameters)   | **Yes** (as part of the parameter type) | **Yes** (as part of the parameter type)     |
+| Construct                 | `procedure` (Declaration) | `(T) -> U` (Type)                       | `witness (T) -> U` (Type)                    |
+| :------------------------ | :------------------------ | :-------------------------------------- | :------------------------------------------- |
+| **Is a...**               | Named, top-level item     | Structural, anonymous type              | Structural, anonymous type                   |
+| **Represents**            | Named procedure           | Sparse function pointer (FFI-safe)      | Dense pointer witness closure (not FFI-safe) |
+| **Carries Name?**         | **Yes** (e.g., `my_proc`) | No                                      | No                                           |
+| **Carries Contract?**     | **Yes** (as metadata)     | **No**                                  | **No**                                       |
+| **Carries Capabilities?** | **Yes** (in parameters)   | **Yes** (as parameter types)            | **Yes** (as parameter types)                 |
+| **Carries `move`?**       | **Yes** (on parameters)   | **Yes** (as part of the parameter type) | **Yes** (as part of the parameter type)      |
 
 When a procedure is used as a value, it is treated as a value of its corresponding function type. The compiler **MUST** enforce full type compatibility, including all capability parameters and `move` modifiers. A non-capturing procedure has a sparse function pointer type, while a closure that captures its environment has a dense `witness` function pointer type.
 
@@ -4003,11 +3260,11 @@ run_complex_task(is_divisible); // OK
 
 This chapter introduces the following diagnostics in the `TYP` (Type System) category.
 
-| Code       | Severity | Description                                                                                                                                        |
-| :--------- | :------- | :------------------------------------------------------------------------------------------------------------------------------------------------- |
-| E-TYP-2301 | Error    | Mismatched parameter count: expected `N` arguments, but `M` were provided.                                                                         |
+| Code       | Severity | Description                                                                                                                                  |
+| :--------- | :------- | :------------------------------------------------------------------------------------------------------------------------------------------- |
+| E-TYP-2301 | Error    | Mismatched parameter count: expected `N` arguments, but `M` were provided.                                                                   |
 | E-TYP-2302 | Error    | Type mismatch in function call or assignment. This includes mismatches in parameter types, return types, capabilities, and `move` modifiers. |
-| E-TYP-2304 | Error    | A non-`()` return type is required, but no `result` was provided on a control-flow path.                                                           |
+| E-TYP-2304 | Error    | A non-`()` return type is required, but no `result` was provided on a control-flow path.                                                     |
 
 ---
 
@@ -4146,9 +3403,9 @@ $$
 >
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-DEC-2411` | Error | `move` keyword mismatch at call site. |
+| Code         | Severity | Description                           |
+| :----------- | :------- | :------------------------------------ |
+| `E-DEC-2411` | Error    | `move` keyword mismatch at call site. |
 
 ***Example:***
 
@@ -4226,9 +3483,9 @@ Type declarations introduce new nominal types or type aliases into the unified n
 >
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-DEC-2420` | Error | Type alias `AliasName` is recursive. |
+| Code         | Severity | Description                          |
+| :----------- | :------- | :----------------------------------- |
+| `E-DEC-2420` | Error    | Type alias `AliasName` is recursive. |
 
 #### 23.3.5 Trait Implementation (`<:`) [decl.type.trait]
 
@@ -4280,17 +3537,17 @@ A Cursive executable is defined by a program entry point. The entry point's sign
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-DEC-2430` | Error | Missing or duplicate `main` procedure. |
+| Code         | Severity | Description                            |
+| :----------- | :------- | :------------------------------------- |
+| `E-DEC-2430` | Error    | Missing or duplicate `main` procedure. |
 >
 > A program whose `main` procedure does not exactly match this signature **MUST** trigger diagnostic `E-DEC-2431`.
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-DEC-2431` | Error | `main` signature is incorrect. Must be `public procedure main(ctx: Context): i32`. |
+| Code         | Severity | Description                                                                        |
+| :----------- | :------- | :--------------------------------------------------------------------------------- |
+| `E-DEC-2431` | Error    | `main` signature is incorrect. Must be `public procedure main(ctx: Context): i32`. |
 
 #### 23.4.2 The `Context` Parameter [decl.main.context]
 
@@ -4302,10 +3559,10 @@ A Cursive executable is defined by a program entry point. The entry point's sign
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-DEC-2430` | Error | Missing or duplicate `main` procedure. |
-| `E-DEC-2431` | Error | `main` signature is incorrect. Must be `public procedure main(ctx: Context): i32`. |
+| Code         | Severity | Description                                                                        |
+| :----------- | :------- | :--------------------------------------------------------------------------------- |
+| `E-DEC-2430` | Error    | Missing or duplicate `main` procedure.                                             |
+| `E-DEC-2431` | Error    | `main` signature is incorrect. Must be `public procedure main(ctx: Context): i32`. |
 
 #### 23.4.3 Return Value [decl.main.return]
 
@@ -4384,9 +3641,9 @@ procedure old_api() { ... }
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-DEC-2450` | Error | Malformed attribute syntax. |
+| Code         | Severity | Description                 |
+| :----------- | :------- | :-------------------------- |
+| `E-DEC-2450` | Error    | Malformed attribute syntax. |
 >
 > An implementation **MUST** maintain a registry of known attributes defined by this specification (e.g., `[[repr]]`, `[[attestation]]`) and by the implementation (e.g., vendor-prefixed attributes).
 >
@@ -4394,16 +3651,16 @@ procedure old_api() { ... }
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-DEC-2451` | Error | Unknown attribute. |
+| Code         | Severity | Description        |
+| :----------- | :------- | :----------------- |
+| `E-DEC-2451` | Error    | Unknown attribute. |
 >
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-DEC-2450` | Error | Malformed attribute syntax. |
-| `E-DEC-2451` | Error | Unknown attribute. |
+| Code         | Severity | Description                 |
+| :----------- | :------- | :-------------------------- |
+| `E-DEC-2450` | Error    | Malformed attribute syntax. |
+| `E-DEC-2451` | Error    | Unknown attribute.          |
 
 #### 23.5.3 Attribute Semantics [decl.attribute.attribute-semantics]
 
@@ -4459,9 +3716,9 @@ Every expression is classified into one of two value categories, which determine
 >
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-EXP-2502` | Error | A `value` expression was used where a `place` expression is required. |
+| Code         | Severity | Description                                                           |
+| :----------- | :------- | :-------------------------------------------------------------------- |
+| `E-EXP-2502` | Error    | A `value` expression was used where a `place` expression is required. |
 
 ### 24.2 Operator Precedence and Associativity [expr.precedence]
 
@@ -4506,9 +3763,9 @@ Primary expressions are the most basic operands. Postfix expressions are formed 
 >
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-EXP-2511` | Error | Identifier resolves to a type or module, not a value. |
+| Code         | Severity | Description                                           |
+| :----------- | :------- | :---------------------------------------------------- |
+| `E-EXP-2511` | Error    | Identifier resolves to a type or module, not a value. |
 >
 > A **parenthesized expression** `(<expression>)` has the same value, type, and value category as the enclosed expression.
 
@@ -4522,9 +3779,9 @@ Primary expressions are the most basic operands. Postfix expressions are formed 
 >
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-EXP-2531` | Error | Invalid field or tuple index, or field is not visible. |
+| Code         | Severity | Description                                            |
+| :----------- | :------- | :----------------------------------------------------- |
+| `E-EXP-2531` | Error    | Invalid field or tuple index, or field is not visible. |
 
 #### 24.3.3 Procedure and Method Calls (`()`) [expr.primary.procedure-and-method-calls]
 
@@ -4549,9 +3806,9 @@ Primary expressions are the most basic operands. Postfix expressions are formed 
 >
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-EXP-2533` | Error | Method call using `.` instead of `::`. |
+| Code         | Severity | Description                            |
+| :----------- | :------- | :------------------------------------- |
+| `E-EXP-2533` | Error    | Method call using `.` instead of `::`. |
 
 #### 24.3.4 Indexing (`[]`) [expr.primary.indexing]
 
@@ -4573,9 +3830,9 @@ Primary expressions are the most basic operands. Postfix expressions are formed 
 >
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-EXP-2535` | Error | Right-hand side of a pipeline `=>` is not a valid callable. |
+| Code         | Severity | Description                                                 |
+| :----------- | :------- | :---------------------------------------------------------- |
+| `E-EXP-2535` | Error    | Right-hand side of a pipeline `=>` is not a valid callable. |
 
 ### 24.4 Unary and Binary Operators [expr.operators]
 
@@ -4589,9 +3846,9 @@ Primary expressions are the most basic operands. Postfix expressions are formed 
 >
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-EXP-2541` | Error | Logical operator applied to non-bool. |
+| Code         | Severity | Description                           |
+| :----------- | :------- | :------------------------------------ |
+| `E-EXP-2541` | Error    | Logical operator applied to non-bool. |
 
 #### 24.4.2 Arithmetic and Bitwise Operators [expr.operators.arithmetic-and-bitwise-operators]
 
@@ -4612,10 +3869,10 @@ Primary expressions are the most basic operands. Postfix expressions are formed 
 >
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-EXP-2542` | Error | Invalid types for arithmetic/bitwise operator. |
-| `E-MEM-3030` | Error | Unsafe operation in safe code (pointer arithmetic outside `unsafe`). |
+| Code         | Severity | Description                                                          |
+| :----------- | :------- | :------------------------------------------------------------------- |
+| `E-EXP-2542` | Error    | Invalid types for arithmetic/bitwise operator.                       |
+| `E-MEM-3030` | Error    | Unsafe operation in safe code (pointer arithmetic outside `unsafe`). |
 
 #### 24.4.3 Comparison Operators [expr.operators.comparison-operators]
 
@@ -4631,9 +3888,9 @@ Primary expressions are the most basic operands. Postfix expressions are formed 
 >
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-EXP-2545` | Error | Address-of operator `&` applied to a non-place expression. |
+| Code         | Severity | Description                                                |
+| :----------- | :------- | :--------------------------------------------------------- |
+| `E-EXP-2545` | Error    | Address-of operator `&` applied to a non-place expression. |
 >
 > The dereference operator `*` **MUST** be applied to an expression of a pointer type. Its usage is governed by the rules in §21.1 for safe pointers and §21.2 for raw pointers.
 
@@ -4650,9 +3907,9 @@ Primary expressions are the most basic operands. Postfix expressions are formed 
 >
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-MEM-3021` | Error | Region allocation `^` outside region scope. |
+| Code         | Severity | Description                                 |
+| :----------- | :------- | :------------------------------------------ |
+| `E-MEM-3021` | Error    | Region allocation `^` outside region scope. |
 
 ### 24.5 `move` Expression [expr.move]
 
@@ -4678,9 +3935,9 @@ Primary expressions are the most basic operands. Postfix expressions are formed 
 >
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-EXP-2561` | Error | `if` expression without `else` used in a non-unit context. |
+| Code         | Severity | Description                                                |
+| :----------- | :------- | :--------------------------------------------------------- |
+| `E-EXP-2561` | Error    | `if` expression without `else` used in a non-unit context. |
 
 ### 24.7 `match` Expressions [expr.match]
 
@@ -4699,9 +3956,9 @@ Primary expressions are the most basic operands. Postfix expressions are formed 
 >
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-EXP-2571` | Error | Incompatible types in `match` arms. |
+| Code         | Severity | Description                         |
+| :----------- | :------- | :---------------------------------- |
+| `E-EXP-2571` | Error    | Incompatible types in `match` arms. |
 
 ### 24.8 `loop` Expressions [expr.loop]
 
@@ -4727,9 +3984,9 @@ Primary expressions are the most basic operands. Postfix expressions are formed 
 >
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-EXP-2582` | Error | `break` statements within a single loop have mismatched value types. |
+| Code         | Severity | Description                                                          |
+| :----------- | :------- | :------------------------------------------------------------------- |
+| `E-EXP-2582` | Error    | `break` statements within a single loop have mismatched value types. |
 
 ### 24.9 Structured Block Expressions [expr.structured]
 
@@ -4749,9 +4006,9 @@ This section defines special block constructs that, in addition to controlling s
 >
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-EXP-2591` | Error | Returning region-allocated value from its own `region` expression. |
+| Code         | Severity | Description                                                        |
+| :----------- | :------- | :----------------------------------------------------------------- |
+| `E-EXP-2591` | Error    | Returning region-allocated value from its own `region` expression. |
 
 #### 24.9.2 `parallel` Expression [expr.structured.parallel-expression]
 
@@ -4767,9 +4024,9 @@ This section defines special block constructs that, in addition to controlling s
 >
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-EXP-2592` | Error | Result of `parallel` expression depends on an invalidated binding. |
+| Code         | Severity | Description                                                        |
+| :----------- | :------- | :----------------------------------------------------------------- |
+| `E-EXP-2592` | Error    | Result of `parallel` expression depends on an invalidated binding. |
 
 #### 24.9.3 `unsafe` Expression [expr.structured.unsafe-expression]
 
@@ -4881,17 +4138,17 @@ Assignment statements modify the value stored in a `place` expression.
 >
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-STM-2631` | Error | Assignment target is not a place. |
+| Code         | Severity | Description                       |
+| :----------- | :------- | :-------------------------------- |
+| `E-STM-2631` | Error    | Assignment target is not a place. |
 >
 > 2.  The `place` expression **MUST** refer to a mutable binding (declared with `var`).
 >
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-DEC-2401` | Error | Re-assignment of immutable `let` binding. |
+| Code         | Severity | Description                               |
+| :----------- | :------- | :---------------------------------------- |
+| `E-DEC-2401` | Error    | Re-assignment of immutable `let` binding. |
 > 3.  The `place` expression **MUST** be accessible via a `unique` or `partitioned` permission. An attempt to assign via a `const` permission **MUST** trigger a diagnostic.
 > 4. The right-hand side expression MUST be evaluated before the assignment occurs. Its type MUST be compatible with the type of the place expression.
 > 5. Drop Semantics: If the place expression refers to an initialized, responsible binding (e.g., a var binding holding an owned value), the implementation MUST invoke the destructor (Drop::drop) of the current value. This destruction MUST occur deterministically, ensuring the old resource is released before or immediately after the new value is installed.
@@ -4922,10 +4179,10 @@ A `defer` statement schedules a block of code to be executed at the exit of the 
 >
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-STM-2652` | Error | Non-local control flow (return/break) in `defer`. |
-| `E-STM-2651` | Error | `defer` block returns non-unit value. |
+| Code         | Severity | Description                                       |
+| :----------- | :------- | :------------------------------------------------ |
+| `E-STM-2652` | Error    | Non-local control flow (return/break) in `defer`. |
+| `E-STM-2651` | Error    | `defer` block returns non-unit value.             |
 
 ***Example:***
 ```cursive
@@ -4973,9 +4230,9 @@ These statements exist solely to alter the flow of execution. They do not produc
 >
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-STM-2662` | Error | `break` statement used outside of a `loop`. |
+| Code         | Severity | Description                                 |
+| :----------- | :------- | :------------------------------------------ |
+| `E-STM-2662` | Error    | `break` statement used outside of a `loop`. |
 >
 > > [!note]
 > > The `break <expression>` form is part of a `loop` *expression* (§25.8.2) and is not a standalone statement.
@@ -4992,9 +4249,9 @@ These statements exist solely to alter the flow of execution. They do not produc
 >
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-STM-2663` | Error | `continue` statement used outside of a `loop`. |
+| Code         | Severity | Description                                    |
+| :----------- | :------- | :--------------------------------------------- |
+| `E-STM-2663` | Error    | `continue` statement used outside of a `loop`. |
 
 #### 25.6.4 `result` Statement [stmt.control.result-statement]
 
@@ -5041,9 +4298,9 @@ The `partition` statement is a zero-cost, compile-time contract that provides th
 >
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-STM-2671` | Error | `partition` contract proof failed; the `where` clause is not provably true. |
+| Code         | Severity | Description                                                                 |
+| :----------- | :------- | :-------------------------------------------------------------------------- |
+| `E-STM-2671` | Error    | `partition` contract proof failed; the `where` clause is not provably true. |
 > 3.  **Safety Check Suspension:** Within the lexical scope of the `<block_stmt>`, the compiler **MUST** suspend all static partitioning safety checks for the specified `<collection>` when it is accessed via an index from the `<index_list>`. All other safety checks remain in effect.
 
 ### 25.8 Diagnostics Summary [stmt.diagnostics]
@@ -6061,9 +5318,9 @@ $$
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-MEM-3001` | Error | Use of moved value. |
+| Code         | Severity | Description         |
+| :----------- | :------- | :------------------ |
+| `E-MEM-3001` | Error    | Use of moved value. |
 
 ##### 29.2.2.3 Partial Moves [memory.ownership.move.partial-moves]
 
@@ -6080,9 +5337,9 @@ $$
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-MEM-3001` | Error | Use of moved value (partial move). |
+| Code         | Severity | Description                        |
+| :----------- | :------- | :--------------------------------- |
+| `E-MEM-3001` | Error    | Use of moved value (partial move). |
 4.  **Partial Drop:** When a Partially Moved binding goes out of scope, the compiler **MUST** generate cleanup code only for those fields that remain valid. The parent object's top-level `Drop::drop` implementation **MUST NOT** be called, as the object is no longer coherent.
 
 #### 29.2.3 Parameter Responsibility [memory.ownership.param]
@@ -6173,9 +5430,9 @@ This ordering ensures that objects created later (which may depend on earlier ob
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-MEM-3005` | Error | Explicit call to destructor (`Drop::drop`). |
+| Code         | Severity | Description                                 |
+| :----------- | :------- | :------------------------------------------ |
+| `E-MEM-3005` | Error    | Explicit call to destructor (`Drop::drop`). |
 
 
 ### 29.3 The Partitioning System [memory.partitioning]
@@ -6256,9 +5513,9 @@ partition_target ::= identifier | identifier ".." identifier
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-MEM-3012` | Error | Partition contract proof failed. |
+| Code         | Severity | Description                      |
+| :----------- | :------- | :------------------------------- |
+| `E-MEM-3012` | Error    | Partition contract proof failed. |
     *   For an index target `i`, the element `collection_expr[i]` is available.
     *   For a range target `i..j`, the slice `collection_expr[i..j]` is available.
 4.  **Restriction:** The compiler **MUST** reject any attempt to alias these targets or access the collection via other means within the block if those accesses cannot be statically proven disjoint from the partitioned targets.
@@ -6492,9 +5749,9 @@ $$
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-MEM-3020` | Error | Region pointer escape. |
+| Code         | Severity | Description            |
+| :----------- | :------- | :--------------------- |
+| `E-MEM-3020` | Error    | Region pointer escape. |
 
 ### 29.6 Unsafe Memory [memory.unsafe]
 
@@ -6562,9 +5819,9 @@ raw_pointer_type ::= "*imm" type  |  "*mut" type
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-MEM-3031` | Error | `transmute` size mismatch. |
+| Code         | Severity | Description                |
+| :----------- | :------- | :------------------------- |
+| `E-MEM-3031` | Error    | `transmute` size mismatch. |
 
 ### 29.7 Diagnostics Summary [memory.diagnostics]
 
@@ -6803,9 +6060,9 @@ $$
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-CON-3201` | Error | Thread Safety Violation: Attempting to capture a `partitioned` binding in a concurrent closure. |
+| Code         | Severity | Description                                                                                     |
+| :----------- | :------- | :---------------------------------------------------------------------------------------------- |
+| `E-CON-3201` | Error    | Thread Safety Violation: Attempting to capture a `partitioned` binding in a concurrent closure. |
 
 ### 31.2 Path 1: The `parallel` Epoch (CREW) [concurrency.parallel]
 
@@ -6888,9 +6145,9 @@ This transformation ensures that within the block, `x` is read-only. Since multi
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-CON-3202` | Error | Static Join Violation: A `JobHandle` created in a `parallel` block was not joined. |
+| Code         | Severity | Description                                                                        |
+| :----------- | :------- | :--------------------------------------------------------------------------------- |
+| `E-CON-3202` | Error    | Static Join Violation: A `JobHandle` created in a `parallel` block was not joined. |
 
 **_Example: Valid CREW Concurrency_**
 
@@ -6992,9 +6249,9 @@ Path 2 handles concurrency that requires stateful coordination or mutable aliasi
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-CON-3203` | Error | Spawn Capture Violation: Invalid capture in `System.spawn` (e.g., capturing `unique` without move). |
+| Code         | Severity | Description                                                                                         |
+| :----------- | :------- | :-------------------------------------------------------------------------------------------------- |
+| `E-CON-3203` | Error    | Spawn Capture Violation: Invalid capture in `System.spawn` (e.g., capturing `unique` without move). |
 
 ### 31.4 Diagnostics Summary [concurrency.diagnostics]
 
@@ -7041,10 +6298,10 @@ The `extern` declaration introduces a symbol whose definition is provided by a f
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-FFI-3301` | Error | Non-FFI-Safe type used in `extern` signature. |
-| `E-FFI-3304` | Error | Variadic arguments (`...`) are not supported. |
+| Code         | Severity | Description                                   |
+| :----------- | :------- | :-------------------------------------------- |
+| `E-FFI-3301` | Error    | Non-FFI-Safe type used in `extern` signature. |
+| `E-FFI-3304` | Error    | Variadic arguments (`...`) are not supported. |
 > **Export Visibility**
 >
 > 3.  **Export Visibility:** An exported extern procedure (one with a body) **MUST** be declared `public`.
@@ -7075,9 +6332,9 @@ Calling a foreign function is inherently an operation whose safety cannot be ver
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-FFI-3302` | Error | Call to `extern` procedure outside `unsafe` block. |
+| Code         | Severity | Description                                        |
+| :----------- | :------- | :------------------------------------------------- |
+| `E-FFI-3302` | Error    | Call to `extern` procedure outside `unsafe` block. |
 
 #### 32.2.2 Attestation Requirement [ffi.unsafe.attestation]
 
@@ -7220,9 +6477,9 @@ comptime procedure generate_lookup_table(size: i32): [i32] {
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-MET-3401` | Error | `comptime` procedure called from runtime context. |
+| Code         | Severity | Description                                       |
+| :----------- | :------- | :------------------------------------------------ |
+| `E-MET-3401` | Error    | `comptime` procedure called from runtime context. |
 
     Attempting to call a `comptime` procedure from a runtime context **MUST** be diagnosed as error `E-MET-3401`.
 3.  **Parameter Types:** Parameters to `comptime` procedures must be types that are representable at compile time (primitives, strings, arrays, tuples, or structs thereof).
@@ -7342,9 +6599,9 @@ let impl = quote {
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-MET-3403` | Error | Invalid identifier string in interpolation. |
+| Code         | Severity | Description                                 |
+| :----------- | :------- | :------------------------------------------ |
+| `E-MET-3403` | Error    | Invalid identifier string in interpolation. |
 
 #### 33.4.3 AST Splicing [meta.interpolation.ast]
 
@@ -7392,9 +6649,9 @@ The `emit` intrinsic is the bridge between the compile-time metaprogram and the 
 
 **_Diagnostic:_**
 
-| Code | Severity | Description |
-| :--- | :--- | :--- |
-| `E-MET-3405` | Error | Emitted code failed type checking (includes trace to source). |
+| Code         | Severity | Description                                                   |
+| :----------- | :------- | :------------------------------------------------------------ |
+| `E-MET-3405` | Error    | Emitted code failed type checking (includes trace to source). |
 
 #### 33.5.3 Normative Example [meta.emit.example]
 
@@ -8378,7 +7635,7 @@ The following tables list all diagnostic codes required by this specification, o
 | `E-TRS-2920` | Error    | Explicit call to `Drop::drop`.                         |
 | `E-TRS-2921` | Error    | Type implements both `Copy` and `Drop`.                |
 | `E-TRS-2922` | Error    | `Copy` implementation on type with non-Copy fields.    |
-| `E-TRS-2940` | Error    | Calling `where Self: Sized` procedure on witness. |
+| `E-TRS-2940` | Error    | Calling `where Self: Sized` procedure on witness.      |
 
 #### B.3.9 MEM (Memory & Safety) [appendix.diagnostic-code-taxonomy.normative-diagnostic-catalog.mem-memory-safety]
 
@@ -8738,34 +7995,34 @@ This appendix catalogues all explicit behaviors defined in this specification th
 
 The following operations are **UVB**. They MUST occur within an unsafe block, and their correctness is the sole responsibility of the programmer.
 
-| Operation | Section | Description |
-| :---- | :---- | :---- |
-| **FFI Call** | §32.2 | Calling any imported extern procedure. |
-| **Raw Deref** | §29.6.2 | Dereferencing a *imm T or *mut T pointer. |
-| **Transmute** | §29.6.3 | Reinterpreting bits via transmute::\<?, ?>. |
-| **Pointer Arithmetic** | §24.4.2 | Using + or - on raw pointers. |
-| **Trusted Contracts** | §27.6.3 | Violating a contract marked [[verify(trusted)]]. |
+| Operation              | Section | Description                                      |
+| :--------------------- | :------ | :----------------------------------------------- |
+| **FFI Call**           | §32.2   | Calling any imported extern procedure.           |
+| **Raw Deref**          | §29.6.2 | Dereferencing a *imm T or *mut T pointer.        |
+| **Transmute**          | §29.6.3 | Reinterpreting bits via transmute::\<?, ?>.      |
+| **Pointer Arithmetic** | §24.4.2 | Using + or - on raw pointers.                    |
+| **Trusted Contracts**  | §27.6.3 | Violating a contract marked [[verify(trusted)]]. |
 
 ### H.2 Implementation-Defined Behavior (IDB) [appendix.behavior-classification-index-normative.implementation-defined-behavior-idb]
 
 The following behaviors vary by implementation but MUST be documented in the Conformance Dossier.
 
-| Feature | Section | Description |
-| :---- | :---- | :---- |
-| **Type Layout** | §15.4 | Exact size/alignment of types without [[repr(C)]]. |
-| **Integer Overflow** | §17.1 | Behavior of +, -, * on overflow (wrap vs panic) in release builds. |
-| **Pointer Width** | §17.1 | Bit-width of usize, isize, and pointers. |
-| **Resource Limits** | §6.5 | Max recursion depth, max source file size. |
-| **Panic Abort** | §32.5.2 | Exact mechanism of process abort during FFI unwind. |
+| Feature              | Section | Description                                                        |
+| :------------------- | :------ | :----------------------------------------------------------------- |
+| **Type Layout**      | §15.4   | Exact size/alignment of types without [[repr(C)]].                 |
+| **Integer Overflow** | §17.1   | Behavior of +, -, * on overflow (wrap vs panic) in release builds. |
+| **Pointer Width**    | §17.1   | Bit-width of usize, isize, and pointers.                           |
+| **Resource Limits**  | §6.5    | Max recursion depth, max source file size.                         |
+| **Panic Abort**      | §32.5.2 | Exact mechanism of process abort during FFI unwind.                |
 
 ### H.3 Unspecified Behavior (USB) [appendix.behavior-classification-index-normative.unspecified-behavior-usb]
 
 The following behaviors are bounded but not documented.
 
-| Feature | Section | Description |
-| :---- | :---- | :---- |
-| **Map Iteration** | N/A | Order of iteration for hash-based collections in the std lib. |
-| **Padding Bytes** | §15.4 | The values of padding bytes in non-repr(C) records. |
+| Feature           | Section | Description                                                   |
+| :---------------- | :------ | :------------------------------------------------------------ |
+| **Map Iteration** | N/A     | Order of iteration for hash-based collections in the std lib. |
+| **Padding Bytes** | §15.4   | The values of padding bytes in non-repr(C) records.           |
 
 ---
 
