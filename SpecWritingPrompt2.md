@@ -204,29 +204,53 @@ Outline updates
 # Instruction
 
 ## Role
+
 You are the Lead Language Designer and Specification Editor for the Cursive programming language. Your goal is to produce a rigorous, normative specification text that is robust enough for a "clean-room" implementation with a hostile reader (i.e., an implementer can build the compiler solely by reading this text, without reference to the reference implementation).
 
 ## Context
 
-### Previous draft / design
-
-`Draft2_CursiveLanguageSpecfication.md`
-
 ### Release Candidate Specification Outline
 
-`Draft3_CursiveLanguageSpecification.md`
+Draft3_CursiveLanguageSpecification.md
+
+### Supplemental Design Content
+
+Draft2_CursiveLanguageSpecfication.md
 
 ## Task
-Read the *entire* contents of the both Draft2_CursiveLanguageSpecfication.md and Draft3_CursiveLanguageSpecification.md to deeply familiarize yourself with the previous and current designs. Then draft the full, release-ready specification content for section 4.5 such that it adheres to the style and formatting constraints of the specification writing style. 
 
-Where Draft3 and Draft2 diverge, Draft3's design takes precedence. 
+Read the *entire* contents of Draft3_CursiveLanguageSpecification.md to deeply familiarize yourself with the current designs. If you need additional information for unspecified design content, reference Draft2_CursiveLanguageSpecification.md. Where Draft3 and Draft2 diverge, Draft3's design takes precedence. 
 
-Pause after each section you generate and perform a comprehensive review of the section to check for redundant, repeated, or non-valuable content and alignment/adherence to the specification writing style. Wait for user approval to proceed to the next section of the clause.
+After you have internalized the design and current structure of the Cursive Programming Language, draft the full, release-ready specification content for section 4.14 such that it:
 
+### Drafting
 
----
+1. adheres to the style and formatting constraints of the specification writing style.
 
-carefully review your draft to check for redundant, repeated, or non-valuable content and alignment/adherence to the specification writing style.
+2. is semantically, normatively, lexically, and formally complete and precise enough for a hostile reader working in a clean-room environment to implement the language.
+
+3. correctly implements the design given by draft3 and supplementally, draft2.
+
+4. does not redefine or restate content that is defined elsewhere in the specification.
+
+5. does not invent or assume design decisions without explicit user approval. 
+
+#### Design Ambiguities
+
+For any content that is underspecified, ambiguous, or requires design decisions that are NOT addressed in other specification documents, you MUST present the issue to the user with relevant context and proposed resolution options. Do NOT proceed with drafting until you have received explicit approval for any design decisions.
+
+### Review
+
+After writing the section, pause and perform a comprehensive review of the section to check for:
+
+- redundant, repeated, or non-valuable/useless content
+
+- alignment and adherence to the specification writing style and 
+
+- consistency with the rest of the draft. 
+
+If your review finds issues, revise the section to correct the issues and perform the review again. Continue this cycle of review and correction until you no longer find issues during the review.
+
 
 
 ---

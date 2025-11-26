@@ -20,7 +20,7 @@ $$\text{Conforming}_{\mathcal{I}}(i) \iff i \text{ satisfies all MUST-level requ
 
 $$\text{WellFormed}(p) \iff p \text{ satisfies all syntactic and static-semantic rules}$$
 
-$$\text{Conforming}_{\mathcal{P}}(p) \iff \text{WellFormed}(p) \land p \text{ compiles without errors}$$
+$$\text{Conforming}_{\mathcal{P}}(p) \iff \text{WellFormed}(p)$$
 
 ##### Static Semantics
 
@@ -46,7 +46,7 @@ A **well-formed program** satisfies the following conditions:
 2. Satisfies all syntactic constraints defined in Clause 3.
 3. Satisfies all static-semantic constraints defined throughout this specification.
 
-A **conforming program** is a well-formed program that compiles without errors.
+Since well-formed programs satisfy all lexical, syntactic, and static-semantic constraints, a conforming implementation MUST accept them without errors.
 
 ##### Constraints & Legality
 
@@ -64,7 +64,7 @@ An implementation MUST NOT alter the observable behavior of a conforming program
 | :----------- | :------- | :------------------------------------------------------------------- | :----------- | :-------- |
 | `E-CNF-0101` | Error    | Program is ill-formed due to syntactic or static-semantic violation. | Compile-time | Rejection |
 | `E-CNF-0102` | Error    | Conformance Dossier generation failed.                               | Compile-time | Rejection |
-| `E-CNF-0103` | Error    | Implementation limit exceeded (see §1.4).                            | Compile-time | Rejection |
+| `E-CNF-0301` | Error    | Implementation limit exceeded (see §1.4).                            | Compile-time | Rejection |
 
 ---
 
@@ -99,6 +99,10 @@ where $\uplus$ denotes disjoint union.
 
 **Unverifiable Behavior (UVB)** comprises operations whose runtime correctness depends on properties external to the language's semantic model. UVB is permitted only within `unsafe` blocks and Foreign Function Interface (FFI) calls. By using an `unsafe` block, the programmer asserts responsibility for upholding an external contract that the compiler cannot verify. See Appendix G for the complete UVB index.
 
+**Diagnostic Coordination**
+
+Multiple diagnostic codes across different clauses may be triggered by the same underlying program violation when detected at different compilation phases. See Appendix J for a cross-reference matrix mapping related diagnostics.
+
 ##### Constraints & Legality
 
 **Safety Invariant**
@@ -123,11 +127,9 @@ A program that violates a static-semantic rule of the language is **ill-formed**
 
 **Formal Definition**
 
-Let $\text{IllFormed}(p)$ denote that program $p$ violates at least one static-semantic rule. Define:
+Let $\text{IllFormed}(p)$ denote that program $p$ violates at least one static-semantic rule. Let $\text{DetectionInfeasible}(p)$ hold when at least one of the classification criteria below applies to the violation in $p$. Define:
 
 $$\text{IFNDR}(p) \iff \text{IllFormed}(p) \land \text{DetectionInfeasible}(p)$$
-
-where $\text{DetectionInfeasible}(p)$ indicates that detecting the violation would require solving an undecidable problem or exceed reasonable computational bounds.
 
 ##### Static Semantics
 
@@ -152,13 +154,13 @@ A violation is classified as IFNDR when at least one of the following conditions
 
 **Safety Boundary**
 
-The behavior of an IFNDR program is Unspecified Behavior (USB). However, when the IFNDR condition occurs in safe code, the resulting behavior MUST NOT introduce Unverifiable Behavior (UVB).
+The observable effects of executing an IFNDR program are Unspecified Behavior (USB). The Safety Invariant (§1.2) still applies: when the IFNDR condition occurs in safe code, the observable effects MUST NOT exhibit Unverifiable Behavior (UVB).
 
 **Formal Statement**
 
-$$\text{IFNDR}(p) \land \text{Safe}(p) \implies \text{Behavior}(p) \in \mathcal{B}_{\text{USB}}$$
+$$\text{IFNDR}(p) \land \text{Safe}(p) \implies \text{Effects}(p) \subseteq \mathcal{B}_{\text{USB}}$$
 
-The effects of IFNDR in safe code MUST be bounded by the language's safety guarantees. Permitted outcomes include:
+Permitted outcomes include:
 
 - Compilation failure (if detected)
 - Deterministic panic at runtime
@@ -170,17 +172,9 @@ Prohibited outcomes include:
 - Data races
 - Arbitrary code execution
 
-**Tracking Requirement**
+**Tracking and Reporting**
 
-Implementations MUST track all instances where IFNDR rules apply during compilation, even when no diagnostic is issued. This tracking enables:
-
-- Post-hoc analysis of potentially problematic code
-- Audit trails for security-critical systems
-- Tooling integration for static analysis
-
-**Reporting Requirement**
-
-All IFNDR instances MUST be reported in the Conformance Dossier (see Appendix C).
+IFNDR instances MUST be recorded in the Conformance Dossier per §1.1. See the Instance Data table below for required fields.
 
 **Instance Data**
 
@@ -204,7 +198,7 @@ A **reserved identifier** is an identifier that is reserved for use by this spec
 
 **Reserved Keywords**
 
-The identifiers listed in the keyword table (Clause 2, §2.3) are reserved keywords. They MUST NOT be used as user-defined identifiers.
+The identifiers listed in the keyword table (Clause 2, §2.6) are reserved keywords. They MUST NOT be used as user-defined identifiers.
 
 **Reserved Namespaces**
 
@@ -221,7 +215,15 @@ Conforming programs SHOULD NOT use patterns that are commonly reserved by implem
 
 **Universe-Protected Bindings**
 
-Core language identifiers, including primitive type names (`i8`, `i16`, `i32`, `i64`, `u8`, `u16`, `u32`, `u64`, `f32`, `f64`, `bool`, `char`, `usize`, `isize`), MUST NOT be shadowed by user declarations at module scope. Attempting to do so MUST be diagnosed as an error.
+**A Universe-Protected Binding is an identifier that is pre-declared in the implicit universal scope and MUST NOT be shadowed by user declarations at module scope.**
+
+The following identifiers are universe-protected:
+
+1. **Primitive type names:** `i8`, `i16`, `i32`, `i64`, `i128`, `u8`, `u16`, `u32`, `u64`, `u128`, `f16`, `f32`, `f64`, `bool`, `char`, `usize`, `isize`
+
+2. **Special types:** `Self`, `string`, `Modal`
+
+Attempting to shadow a universe-protected binding at module scope MUST be diagnosed as an error.
 
 ##### Constraints & Legality
 
@@ -246,18 +248,7 @@ Core language identifiers, including primitive type names (`i8`, `i16`, `i32`, `
 
 **Minimum Guaranteed Limits**
 
-Conforming implementations MUST support at least the following limits:
-
-| Category           | Limit  | Unit                  | Description                                      |
-| :----------------- | :----- | :-------------------- | :----------------------------------------------- |
-| Source File Size   | 1      | MiB (1,048,576 bytes) | Maximum byte length of a source file             |
-| Line Length        | 16,384 | Unicode scalar values | Maximum characters per logical line              |
-| Logical Lines      | 65,535 | lines                 | Maximum logical lines per source file            |
-| Nesting Depth      | 256    | levels                | Maximum nesting of blocks and expressions        |
-| Identifier Length  | 1,023  | Unicode scalar values | Maximum length of an identifier                  |
-| Parameters         | 255    | parameters            | Maximum parameters per procedure signature       |
-| Fields             | 1,024  | fields                | Maximum fields per record type                   |
-| Comptime Recursion | 256    | frames                | Maximum recursion depth in `comptime` evaluation |
+Conforming implementations MUST support at least the minimum limits specified in Appendix I. The complete limit table with units and descriptions is normatively defined in Appendix I.
 
 **Exceeding Limits**
 
@@ -414,40 +405,28 @@ Vendor-specific extensions enable implementations to provide additional capabili
 | Feature Flag                    | §1.5    | Opt-in mechanism for preview/experimental features           |
 | Conformance Dossier             | §1.1    | Machine-readable build artifact documenting IDB and IFNDR    |
 
-**Terms Referenced (Defined Elsewhere):**
-
-| Term                  | Source     | Usage in Clause 1                                      |
-| :-------------------- | :--------- | :----------------------------------------------------- |
-| `unsafe` block        | Clause 7   | Referenced as boundary for UVB                         |
-| `comptime`            | Clause 8   | Referenced in IFNDR examples and implementation limits |
-| Diagnostic            | Appendix B | Error/warning classification used throughout           |
-| Appendix C            | Appendix C | Schema for Conformance Dossier                         |
-| Appendix G            | Appendix G | Complete behavior classification index                 |
-| `[[repr(C)]]`         | Clause 4   | Referenced in IDB for type layout                      |
-| `[[verify(trusted)]]` | Clause 7   | Referenced in UVB index                                |
-
 **Terms Deferred to Later Clauses:**
 
 | Term                  | Deferred To | Reason                                               |
 | :-------------------- | :---------- | :--------------------------------------------------- |
 | Lexical constraints   | Clause 2    | Detailed token and identifier rules                  |
-| Syntactic constraints | Clause 3    | Grammar and parse rules                              |
-| Type Layout           | Clause 4    | Size, alignment, representation details              |
-| Permission System     | Clause 5    | `unique`, `const`, `partitioned`, `concurrent` rules |
-| Module System         | Clause 6    | Visibility, imports, compilation units               |
-| `unsafe` semantics    | Clause 7    | Full rules for unsafe blocks and operations          |
-| `comptime` semantics  | Clause 8    | Compile-time evaluation rules                        |
-| FFI                   | Clause 9    | Foreign function interface rules                     |
+| Syntactic constraints | Clause 2    | Grammar and parse rules                              |
+| Type Layout           | Clause 5    | Size, alignment, representation details              |
+| Permission System     | Clause 4    | `unique`, `const`, `partitioned`, `concurrent` rules |
+| Module System         | Clause 9    | Visibility, imports, compilation units               |
+| `unsafe` semantics    | Clause 3    | Full rules for unsafe blocks and operations          |
+| `comptime` semantics  | Clause 10   | Compile-time evaluation rules                        |
+| FFI                   | Clause 12   | Foreign function interface rules                     |
 
 ---
 
-# Clause 2: Lexical Structure and Source Text
+## Clause 2: Lexical Structure and Source Text
 
 This clause defines the lexical structure of Cursive: how source text is encoded, preprocessed, and transformed into a sequence of tokens.
 
 ---
 
-## 2.1 Source Text Encoding
+### 2.1 Source Text Encoding
 
 ##### Definition
 
@@ -493,7 +472,9 @@ Any normalization performed MUST NOT change logical line boundaries or the byte 
 
 Source files MUST NOT contain prohibited code points outside of string and character literals (§2.8). The prohibited code points $\mathcal{F}$ are:
 
-$$\mathcal{F} = \{\text{U+0000}\} \cup \{c : \text{GeneralCategory}(c) = \texttt{Cc}\} \setminus \{\text{U+0009}, \text{U+000A}, \text{U+000C}, \text{U+000D}\}$$
+$$\mathcal{F} = \{c : \text{GeneralCategory}(c) = \texttt{Cc}\} \setminus \{\text{U+0009}, \text{U+000A}, \text{U+000C}, \text{U+000D}\}$$
+
+> **Note:** U+0000 (NULL) is included in the Cc (Control) general category and is therefore prohibited.
 
 A source file containing a prohibited code point outside of a literal MUST be rejected with diagnostic `E-SRC-0104`.
 
@@ -508,7 +489,7 @@ A source file containing a prohibited code point outside of a literal MUST be re
 
 ---
 
-## 2.2 Source File Structure
+### 2.2 Source File Structure
 
 ##### Definition
 
@@ -556,7 +537,7 @@ Implementations MUST enforce the implementation limits specified in §1.4 for so
 
 ---
 
-## 2.3 Preprocessing Pipeline
+### 2.3 Preprocessing Pipeline
 
 ##### Definition
 
@@ -587,7 +568,7 @@ Each step MUST complete successfully before the next step begins. The pipeline M
 
 ---
 
-## 2.4 Lexical Vocabulary
+### 2.4 Lexical Vocabulary
 
 ##### Definition
 
@@ -613,6 +594,8 @@ The lexer MUST classify every non-comment, non-whitespace fragment as exactly on
 | punctuator | A punctuation symbol (§2.7)                    |
 | newline    | A line terminator (U+000A)                     |
 
+> **Note:** Newlines are tokens (not discarded whitespace) to support optional statement termination.
+
 Tokenization MUST be deterministic for a given normalized source file.
 
 ##### Constraints & Legality
@@ -627,7 +610,7 @@ Any maximal character sequence that cannot be classified MUST trigger diagnostic
 
 ---
 
-## 2.5 Identifiers
+### 2.5 Identifiers
 
 ##### Definition
 
@@ -661,14 +644,14 @@ Implementations MUST accept identifiers whose length is at least the minimum spe
 
 **Diagnostic Table**
 
-| Code         | Severity | Condition                            | Detection    | Effect    |
-| :----------- | :------- | :----------------------------------- | :----------- | :-------- |
-| `E-SRC-0305` | Error    | Reserved keyword used as identifier. | Compile-time | Rejection |
-| `E-SRC-0307` | Error    | Invalid Unicode in identifier.       | Compile-time | Rejection |
+| Code         | Severity | Condition                                       | Detection    | Effect    |
+| :----------- | :------- | :---------------------------------------------- | :----------- | :-------- |
+| `E-CNF-0401` | Error    | Reserved keyword used as identifier (see §1.3). | Compile-time | Rejection |
+| `E-SRC-0307` | Error    | Invalid Unicode in identifier.                  | Compile-time | Rejection |
 
 ---
 
-## 2.6 Keywords
+### 2.6 Keywords
 
 ##### Definition
 
@@ -676,35 +659,41 @@ A **Keyword** is a reserved lexeme that has special meaning in the language gram
 
 **Formal Definition**
 
-$$\mathcal{K} = \{\texttt{abstract}, \texttt{as}, \texttt{break}, \texttt{char}, \ldots, \texttt{witness}, \texttt{where}\}$$
-
-The complete enumeration follows.
+Let $\mathcal{K}$ denote the set of reserved keywords. The complete enumeration is provided in the Static Semantics block below.
 
 ##### Static Semantics
 
 The reserved keywords are:
 
 ```
-abstract    as          break       char        comptime    const
-continue    double      else        enum        extern      false
-float       fork        half        if          imm         import
-int         internal    let         loop        match       modal
-module      move        mut         override    parallel    partitioned
-private     procedure   protected   public      quote       record
-region      result      return      self        Self        shadow
-static      true        trait       type        uint        unique
-unsafe      use         var         witness     where
+abstract    as          break       char        comptime
+const       continue    else        enum        extern
+false       fork        if          imm         import
+internal    let         loop        match       modal       module
+move        mut         override    parallel    partitioned private
+procedure   protected   public      quote       record      region
+result      return      self        Self        shadow      true
+trait       type        unique      unsafe      use
+var         witness     where
 ```
 
 Implementations MUST tokenize these as `<keyword>`, not `<identifier>`. The keyword set MUST be identical across conforming implementations for a given language version.
 
+> **Note:** The keywords `imm` and `mut` are used as qualifiers in raw pointer type syntax: `*imm T` (immutable raw pointer to `T`) and `*mut T` (mutable raw pointer to `T`). See §4.13 for the complete grammar and semantics of pointer types.
+
+**Contextual Keywords**
+
+Cursive does not employ contextual keywords. All keywords listed above are **unconditionally reserved** in all syntactic contexts. An identifier matching a reserved keyword MUST be tokenized as `<keyword>`, never as `<identifier>`, regardless of the surrounding syntactic context.
+
+> **Note:** Cursive has no contextual keywords. This simplifies tooling and AI-assisted code generation.
+
 ##### Constraints & Legality
 
-Using a reserved keyword where an identifier is expected MUST trigger diagnostic `E-SRC-0305` (§2.5).
+Using a reserved keyword where an identifier is expected MUST trigger diagnostic `E-CNF-0401` (§1.3).
 
 ---
 
-## 2.7 Operators and Punctuators
+### 2.7 Operators and Punctuators
 
 ##### Definition
 
@@ -712,7 +701,7 @@ An **Operator** is a symbol or symbol sequence denoting an operation. A **Punctu
 
 **Formal Definition**
 
-$$\mathcal{O}_\text{multi} = \{\texttt{==}, \texttt{!=}, \texttt{<=}, \texttt{>=}, \texttt{\&\&}, \texttt{||}, \texttt{<<}, \texttt{>>}, \texttt{..}, \texttt{..=}, \texttt{=>}, \texttt{->}, \texttt{**}, \texttt{::}, \texttt{\~>}, \texttt{\~!}, \texttt{\~\%}, \texttt{\~|}\}$$
+$$\mathcal{O}_\text{multi} = \{\texttt{==}, \texttt{!=}, \texttt{<=}, \texttt{>=}, \texttt{\&\&}, \texttt{||}, \texttt{<<}, \texttt{>>}, \texttt{..}, \texttt{..=}, \texttt{=>}, \texttt{->}, \texttt{**}, \texttt{::}, \texttt{:=}, \texttt{\~>}, \texttt{\~!}, \texttt{\~\%}, \texttt{\~|}\}$$
 
 $$\mathcal{O}_\text{single} = \{+, -, *, /, \%, <, >, =, !, \&, |, \hat{}, \sim, .\}$$
 
@@ -729,6 +718,7 @@ $$\mathcal{P} = \{(, ), [, ], \{, \}, ,, :, ;\}$$
 | Bitwise Shift     | `<<`, `>>`, `<<=`, `>>=`     |
 | Range             | `..`, `..=`                  |
 | Arrow             | `=>`, `->`                   |
+| Binding           | `:=`                         |
 | Other             | `**`, `::`                   |
 | Receiver/Dispatch | `~`, `~>`, `~!`, `~%`, `~\|` |
 
@@ -738,17 +728,24 @@ $$\mathcal{P} = \{(, ), [, ], \{, \}, ,, :, ;\}$$
 +  -  *  /  %  <  >  =  !  &  |  ^  ~  .  ,  :  ;  (  )  [  ]  {  }
 ```
 
-**Receiver Token Semantics**
+**Receiver Token Lexemes**
 
-| Token | Semantic Meaning                          |
-| :---- | :---------------------------------------- |
-| `~`   | Shorthand for `self` in method signatures |
-| `~>`  | Method invocation on a receiver value     |
-| `~!`  | Shorthand for `self: unique Self`         |
-| `~%`  | Shorthand for `self: partitioned Self`    |
-| `~\|` | Shorthand for `self: concurrent Self`     |
+| Token | Lexical Role                                |
+| :---- | :------------------------------------------ |
+| `~`   | Receiver reference in method context        |
+| `~>`  | Method dispatch operator                    |
+| `~!`  | Permission-qualified receiver (unique)      |
+| `~%`  | Permission-qualified receiver (partitioned) |
+| `~\|` | Permission-qualified receiver (concurrent)  |
 
-> **Rationale:** The tilde (`~`) was chosen for its mnemonic association with "home" in Unix systems—representing the method's "home" (the receiver instance).
+> **Note:** Full semantic definitions are in §4.5.6. See Appendix F.4 for design rationale.
+
+**Binding Operator Semantics**
+
+| Token | Semantic Meaning                                                       |
+| :---- | :--------------------------------------------------------------------- |
+| `=`   | Establishes movable responsibility (ownership may transfer via `move`) |
+| `:=`  | Establishes immovable responsibility (ownership cannot transfer)       |
 
 ##### Static Semantics
 
@@ -760,24 +757,9 @@ When multiple tokenizations are possible, the lexer MUST emit the longest valid 
 
 When parsing generic type arguments, the implementation MAY split `>>` into two `>` tokens while preserving the original lexeme for diagnostics.
 
-##### Examples
-
-**Valid:** Method declaration and dispatch:
-
-```cursive
-record Counter {
-    value: i32,
-    procedure get(~): i32 { result self.value }
-    procedure increment(~!) { self.value = self.value + 1 }
-}
-
-let c = Counter { value: 0 }
-c~>increment()
-```
-
 ---
 
-## 2.8 Literals
+### 2.8 Literals
 
 ##### Definition
 
@@ -852,7 +834,7 @@ Any escape sequence not in the set `{\n, \r, \t, \\, \", \', \0, \xHH, \u{H+}}` 
 
 ---
 
-## 2.9 Whitespace and Comments
+### 2.9 Whitespace and Comments
 
 ##### Definition
 
@@ -881,7 +863,9 @@ A line comment begins with `//` outside a literal and extends to but does not in
 
 **Documentation Comments**
 
-Comments beginning with `///` are declaration documentation comments. Comments beginning with `//!` are module documentation comments. Both MUST be preserved for association with declarations but MUST NOT appear as ordinary tokens.
+Comments beginning with `///` or `//!` are documentation comments. Implementations MUST preserve documentation comments and associate them with their following declaration (`///`) or enclosing module (`//!`). Documentation comments MUST NOT appear in the token stream.
+
+> **Note:** Documentation extraction and rendering are implementation-defined. See Appendix F.5 for recommended documentation formats.
 
 **Block Comments**
 
@@ -899,7 +883,7 @@ Characters within comments MUST NOT contribute to token formation, delimiter nes
 
 ---
 
-## 2.10 Lexical Security
+### 2.10 Lexical Security
 
 ##### Definition
 
@@ -911,12 +895,27 @@ $$\mathcal{S} = \{\text{U+202A–U+202E}\} \cup \{\text{U+2066–U+2069}\} \cup 
 
 ##### Static Semantics
 
+**Sensitive Character Categories**
+
+The following Unicode categories contain lexically sensitive characters:
+
+| Category              | Unicode Property       | Risk                              |
+| :-------------------- | :--------------------- | :-------------------------------- |
+| Bidirectional Control | Bidi_Control           | Text reordering attacks           |
+| Zero-Width Characters | General_Category=Cf    | Invisible identifier differences  |
+| Homoglyphs            | Confusable mappings    | Visual spoofing of identifiers    |
+| Combining Characters  | General_Category=Mn/Mc | Stacking attacks on rendered text |
+
+**Enforcement Modes**
+
 When a character in $\mathcal{S}$ appears unescaped in an identifier, operator/punctuator, or adjacent to token boundaries outside literals and comments, the implementation MUST emit a diagnostic. Severity depends on conformance mode:
 
-| Mode       | Diagnostic   | Effect   |
-| :--------- | :----------- | :------- |
-| Permissive | `W-SRC-0308` | Accepted |
-| Strict     | `E-SRC-0308` | Rejected |
+| Mode       | Behavior                                  | Diagnostic |
+| :--------- | :---------------------------------------- | :--------- |
+| Permissive | Issue warning `W-SRC-0308`; accept source | Warning    |
+| Strict     | Issue error `E-SRC-0308`; reject source   | Error      |
+
+The default mode is implementation-defined (IDB). Implementations MUST document their default in the Conformance Dossier and MUST provide a mechanism to select either mode.
 
 Lexically sensitive characters within string or character literals MUST NOT affect well-formedness.
 
@@ -931,7 +930,7 @@ Lexically sensitive characters within string or character literals MUST NOT affe
 
 ---
 
-## 2.11 Statement Termination
+### 2.11 Statement Termination
 
 ##### Definition
 
@@ -957,26 +956,30 @@ A `<newline>` does NOT terminate a statement ($\text{Continues}(L) = \texttt{tru
 | Trailing Operator    | The last non-comment token on line $L$ is a binary operator or `,`.      |
 | Leading Continuation | The first non-comment token on the following line is `.`, `::`, or `~>`. |
 
-##### Examples
+**Ambiguity Resolution for Operators**
 
-**Valid:** Line continuation via open delimiter:
+When a token sequence could be parsed as either a trailing binary operator (triggering continuation) or a leading unary operator on the next line, the following disambiguation rule applies:
+
+If the last non-whitespace, non-comment token on line $L$ is in the set $\{+, -, *, \&, |\}$ (tokens that may be either binary or unary), and the first non-whitespace, non-comment token on the following line $L+1$ is an operand (identifier, literal, or opening delimiter), then:
+
+1. The token on line $L$ is treated as a **binary operator** (continuation).
+2. Line $L$ does NOT terminate.
+
+To force statement termination before a unary operator, insert an explicit semicolon.
+
+**Example — Ambiguous minus:**
 
 ```cursive
-let result = (
-    a + b + c
-)
-```
+let a = b
+-c              // Parsed as: let a = b - c (continuation)
 
-**Valid:** Line continuation via trailing operator:
-
-```cursive
-let sum = a +
-    b + c
+let a = b;
+-c              // Parsed as: let a = b; followed by expression -c
 ```
 
 ---
 
-## 2.12 Translation Phases
+### 2.12 Translation Phases
 
 ##### Definition
 
@@ -986,7 +989,11 @@ A **Translation Phase** is a discrete stage in the compilation pipeline. A **Com
 
 $$\text{Translate} : \text{CompilationUnit} \to \text{Executable} \cup \{\bot\}$$
 
-$$\text{Translate} = \text{CodeGen} \circ \text{TypeCheck} \circ \text{ComptimeExec} \circ \text{Parse}$$
+The translation pipeline is the sequential composition of four phases, where $\bot$ indicates failure:
+
+$$\text{Translate} = \text{Parse} \triangleright \text{ComptimeExec} \triangleright \text{TypeCheck} \triangleright \text{CodeGen}$$
+
+where $f \triangleright g$ denotes "apply $f$, then apply $g$" (left-to-right sequencing).
 
 ##### Dynamic Semantics
 
@@ -1015,7 +1022,7 @@ Cursive provides no C-style textual inclusion (`#include`) or preprocessing (`#d
 
 ---
 
-## 2.13 Syntactic Nesting Limits
+### 2.13 Syntactic Nesting Limits
 
 ##### Definition
 
@@ -1044,7 +1051,7 @@ Implementations MUST support at least the minimum nesting limits specified in §
 
 ---
 
-## Clause 2 Cross-Reference Notes
+### Clause 2 Cross-Reference Notes
 
 **Terms defined in Clause 2 that MUST NOT be redefined elsewhere:**
 
@@ -1072,36 +1079,24 @@ Implementations MUST support at least the minimum nesting limits specified in §
 | Block Nesting Depth           | §2.13   | Count of nested block statements                       |
 | Expression Nesting Depth      | §2.13   | Count of nested expressions                            |
 
-**Terms referenced from other clauses:**
-
-| Term                            | Source | Usage in Clause 2                        |
-| :------------------------------ | :----- | :--------------------------------------- |
-| Conformance Dossier             | §1.1   | Target for documenting IDB choices       |
-| Implementation-Defined Behavior | §1.2   | Classification for normalization choices |
-| Implementation Limits           | §1.4   | Size, line, nesting limits               |
-| Ill-Formed                      | §1.2   | Programs violating static rules          |
-| Permissive Mode                 | §1.2   | Affects lexical security severity        |
-| Strict Mode                     | §1.2   | Affects lexical security severity        |
-
 **Terms deferred to later clauses:**
 
-| Term                                  | Deferred To | Reason                     |
-| :------------------------------------ | :---------- | :------------------------- |
-| Module                                | Clause 6    | Requires module system     |
-| AST                                   | Clause 3    | Requires syntax definition |
-| `comptime` Block                      | Clause 8    | Requires metaprogramming   |
-| `self`, `Self`                        | Clause 4    | Requires type definitions  |
-| `unique`, `partitioned`, `concurrent` | Clause 5    | Requires permission system |
+| Term                                  | Deferred To    | Reason                     |
+| :------------------------------------ | :------------- | :------------------------- |
+| Module                                | Clause 6       | Requires module system     |
+| `comptime` Block                      | Clause 8       | Requires metaprogramming   |
+| `self`, `Self`                        | Clause 4       | Requires type definitions  |
+| `unique`, `partitioned`, `concurrent` | Clause 4, §4.5 | Requires permission system |
 
 ---
 
-# Clause 3: The Object and Memory Model
+## Clause 3: The Object and Memory Model
 
 This clause defines the Cursive memory model: how objects are represented, how their lifetimes are tracked, and how memory safety is enforced.
 
 ---
 
-## 3.1 Foundational Principles
+### 3.1 Foundational Principles
 
 ##### Definition
 
@@ -1156,7 +1151,72 @@ Conforming implementations MUST NOT insert reference counting, garbage collectio
 
 ---
 
-## 3.2 The Object Model
+#### 3.1.1 Aliasing Enforcement
+
+##### Definition
+
+The **Exclusion Principle** governs which permission-qualified paths (§4.5) may coexist for the same object at any given program point. A **path** is an expression denoting a location in memory (a binding, field access chain, or pointer dereference).
+
+##### Static Semantics
+
+**Coexistence Rules**
+
+The rules governing which permission-qualified paths may simultaneously exist for the same object are defined normatively in **§4.5.4 (Exclusion Principle)**. This section provides a summary; §4.5.4 is authoritative.
+
+**Summary:**
+- `unique` paths exclude all other paths to the same object
+- `partitioned` paths may coexist if they access disjoint regions (§3.7)
+- `concurrent` paths may coexist with each other and with `const` paths
+- `const` paths may coexist freely with each other
+
+See §4.5.4 for the formal coexistence matrix and §4.5.5 for the subtyping lattice.
+
+> **Cross-Reference Note:** Type system diagnostics `E-TYP-1602` and `E-TYP-1603` (§4.5) are canonical for permission violations. Memory model diagnostics below are secondary codes per Appendix K.
+
+**Temporal Permission Transitions**
+
+The coexistence matrix above specifies which permissions may **simultaneously** exist for paths to the same object. This section clarifies the rules for **sequential** permission changes.
+
+**Transition Rule:** When all paths of a given permission to an object cease to exist (go out of scope, are moved, or are explicitly released), the object returns to a state where any permission may be established, subject to the coexistence rules.
+
+**Sequencing Examples:**
+
+| Initial State              | Action                    | Permitted Next State                                   |
+| :------------------------- | :------------------------ | :----------------------------------------------------- |
+| `unique` path active       | Path goes out of scope    | Any permission                                         |
+| `const` paths active       | All paths go out of scope | Any permission                                         |
+| `concurrent` path active   | Path goes out of scope    | Any permission (if no other `concurrent` paths remain) |
+| `partitioned` paths active | All paths go out of scope | Any permission                                         |
+
+**Non-Overlapping Temporal Windows:**
+
+The following sequence is **well-formed**:
+
+```cursive
+let data: unique Buffer = Buffer::new()
+{
+    let view: const Buffer = data    // 'data' inactive; 'view' is const
+}                                     // 'view' ends; 'data' reactivates as unique
+data.mutate()                         // OK: 'data' is unique again
+```
+
+The coexistence rules apply to paths that exist **at the same program point**. Paths in disjoint temporal scopes do not conflict.
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                           | Detection    | Effect    |
+| :----------- | :------- | :-------------------------------------------------- | :----------- | :-------- |
+| `E-MEM-3040` | Error    | `unique` path created while other paths are active. | Compile-time | Rejection |
+| `E-MEM-3041` | Error    | `partitioned` path overlaps existing path.          | Compile-time | Rejection |
+| `E-MEM-3042` | Error    | Incompatible sibling permissions on same object.    | Compile-time | Rejection |
+
+> **Note:** Per Appendix K, type system diagnostics (`E-TYP-`) are canonical; memory model diagnostics (`E-MEM-`) are secondary. Implementations MUST emit the canonical diagnostic and MAY additionally emit secondary diagnostics when they provide distinct information.
+
+---
+
+### 3.2 The Object Model
 
 ##### Definition
 
@@ -1176,7 +1236,7 @@ Every object passes through exactly three phases:
 
 1.  **Allocation and Initialization**: Storage is reserved and a valid initial value is written.
 2.  **Usage**: The object's value may be read or modified via valid bindings or pointers, subject to permission constraints (§4.5).
-3.  **Destruction and Deallocation**: If the object's type implements `Drop` (§6.5), its destructor is invoked. Storage is then released.
+3.  **Destruction and Deallocation**: If the object's type implements `Drop` (§9.7), its destructor is invoked. Storage is then released.
 
 **Storage Duration Categories**
 
@@ -1195,7 +1255,7 @@ The size, alignment, and internal layout of objects are governed by their types.
 
 ---
 
-## 3.3 The Provenance Model
+### 3.3 The Provenance Model
 
 ##### Definition
 
@@ -1219,6 +1279,37 @@ Provenance tags form a partial order ($\le$) based on containment:
 $$\pi_{\text{Region}}(\text{Inner}) < \pi_{\text{Region}}(\text{Outer}) < \pi_{\text{Stack}}(S) < \pi_{\text{Heap}} \le \pi_{\text{Global}}$$
 
 The relation $\pi_A \le \pi_B$ holds if and only if storage with provenance $\pi_A$ is guaranteed to be deallocated no later than storage with provenance $\pi_B$.
+
+The distinction between strict ordering ($<$) and non-strict ordering ($\le$) is significant:
+
+- **Strict ordering ($<$):** The left provenance is *guaranteed* to be deallocated *before* the right provenance. Values with the shorter-lived provenance MUST NOT escape to locations with longer-lived provenance.
+
+- **Non-strict ordering ($\le$):** The provenances may have equivalent lifetimes. Specifically, $\pi_{\text{Heap}} \le \pi_{\text{Global}}$ because heap-allocated storage with static lifetime (e.g., intentional memory leaks, process-lifetime allocations) may persist until program termination, matching global storage duration.
+
+> **Note:** The ordering $\pi_{\text{Heap}} \le \pi_{\text{Global}}$ rather than $\pi_{\text{Heap}} < \pi_{\text{Global}}$ permits heap pointers to be stored in global variables without violating the escape rule.
+
+**Constraint:** Heap-allocated storage whose address has been stored in a binding with $\pi_{\text{Global}}$ provenance MUST NOT be deallocated during program execution. Deallocating such storage constitutes Unverifiable Behavior (UVB).
+
+**⚠️ Critical Implementation Note**
+
+This constraint is **not statically enforceable** in the general case because:
+1. The decision to store a heap pointer in a global binding may occur at runtime.
+2. Tracking all possible aliases to heap storage through global bindings is undecidable.
+
+**Enforcement Model:**
+
+| Code Context  | Enforcement Mechanism                 | Responsibility                |
+| :------------ | :------------------------------------ | :---------------------------- |
+| Safe code     | Safe allocator API design (see below) | Standard library implementers |
+| `unsafe` code | Programmer assertion                  | Application developer         |
+
+**Standard Library Requirement:** Allocators in the standard library that return heap pointers MUST be designed such that:
+- Either the returned pointer cannot be stored in global bindings (enforced by provenance typing), OR
+- The allocator does not support explicit deallocation (arena/leaked allocation pattern).
+
+This requirement is **normative for standard library implementations**. Third-party allocators operating in safe code MUST maintain equivalent guarantees.
+
+Violation in `unsafe` code constitutes UVB (§1.2).
 
 ##### Static Semantics
 
@@ -1263,13 +1354,17 @@ $$\frac{\Gamma \vdash e : T, \pi_e \quad \Gamma \vdash x : T, \pi_x \quad \pi_e 
 
 ---
 
-## 3.4 The Binding Model
+### 3.4 The Binding Model
 
 ##### Definition
 
 A **Binding** is a named association between an identifier and an object. Bindings are introduced by `let` and `var` declarations, pattern matching, and procedure parameters.
 
 A **Responsible Binding** is a binding that manages the lifecycle of its associated object. When a responsible binding goes out of scope, it triggers destruction of the object (§3.6).
+
+A **Movable Binding** is a binding established with the `=` operator. Responsibility for the bound object MAY be transferred via `move`.
+
+An **Immovable Binding** is a binding established with the `:=` operator. Responsibility for the bound object CANNOT be transferred. Attempting to `move` from an immovable binding is a compile-time error.
 
 **Binding State**
 
@@ -1281,31 +1376,74 @@ A **Temporary Value** is an object resulting from expression evaluation that is 
 
 ```ebnf
 <binding_decl>     ::= <let_decl> | <var_decl>
-<let_decl>         ::= "let" <pattern> (":" <type>)? "=" <expression>
-<var_decl>         ::= "var" <pattern> (":" <type>)? "=" <expression>
+<binding_op>       ::= "=" | ":="
+<let_decl>         ::= "let" <pattern> (":" <type>)? <binding_op> <expression>
+<var_decl>         ::= "var" <pattern> (":" <type>)? <binding_op> <expression>
 ```
 
 ##### Static Semantics
 
 **Binding Mutability**
 
-`let` establishes an immutable binding; `var` establishes a mutable binding. Binding mutability is orthogonal to data permission (§4.5).
+`let` establishes an immutable binding; `var` establishes a mutable binding. Binding mutability is orthogonal to data permission (§4.5) and responsibility transferability.
+
+**Binding Movability**
+
+The binding operator determines whether responsibility may be transferred:
+
+| Declaration  | Reassignable | Movable | Responsibility                      |
+| :----------- | :----------- | :------ | :---------------------------------- |
+| `let x = v`  | No           | Yes     | Transferable via `move`             |
+| `let x := v` | No           | No      | Permanently fixed to `x`            |
+| `var x = v`  | Yes          | Yes     | Transferable via `move`             |
+| `var x := v` | Yes          | No      | Fixed; reassignment drops old value |
+
+For `var x := v`: reassignment is permitted but `move` is not. Each reassignment drops the previous value and fixes the new value's responsibility to `x`.
+
+**Binding Annotation Notation**
+
+The typing rules below use a decorated type notation to track binding state and properties:
+
+$$T^{\text{State}}_{\text{properties}}$$
+
+where:
+
+- **Superscript** ($^{\text{State}}$) denotes the **binding state** from the BindingState enumeration defined above:
+  - $^{\text{Valid}}$: The binding holds an initialized, accessible value.
+  - $^{\text{Moved}}$: The binding's value has been moved; access is statically prohibited.
+  - $^{\text{PartiallyMoved}}$: Some fields have been moved; the binding is partially accessible.
+
+- **Subscript** ($_{\text{properties}}$) denotes **binding properties** as a comma-separated list:
+  - $_{\text{mov}}$: The binding is movable (established with `=`).
+  - $_{\text{immov}}$: The binding is immovable (established with `:=`).
+  - $_{\text{mut}}$: The binding is mutable (declared with `var`).
+
+For example, $T^{\text{Valid}}_{\text{mut,mov}}$ denotes a type $T$ with a Valid state, mutable binding, and movable responsibility.
 
 **Typing Rules**
 
-**(T-Let)**
-$$\frac{\Gamma \vdash e : T}{\Gamma, x : T \vdash \texttt{let } x = e : () \dashv \Gamma, x : T^{\text{Valid}}}$$
+**(T-Let-Movable)**
+$$\frac{\Gamma \vdash e : T}{\Gamma, x : T \vdash \texttt{let } x = e : () \dashv \Gamma, x : T^{\text{Valid}}_{\text{mov}}}$$
 
-**(T-Var)**
-$$\frac{\Gamma \vdash e : T}{\Gamma, x : T \vdash \texttt{var } x = e : () \dashv \Gamma, x : T^{\text{Valid}}_{\text{mut}}}$$
+**(T-Let-Immovable)**
+$$\frac{\Gamma \vdash e : T}{\Gamma, x : T \vdash \texttt{let } x := e : () \dashv \Gamma, x : T^{\text{Valid}}_{\text{immov}}}$$
+
+**(T-Var-Movable)**
+$$\frac{\Gamma \vdash e : T}{\Gamma, x : T \vdash \texttt{var } x = e : () \dashv \Gamma, x : T^{\text{Valid}}_{\text{mut,mov}}}$$
+
+**(T-Var-Immovable)**
+$$\frac{\Gamma \vdash e : T}{\Gamma, x : T \vdash \texttt{var } x := e : () \dashv \Gamma, x : T^{\text{Valid}}_{\text{mut,immov}}}$$
 
 **State Tracking**
 
 The compiler MUST track binding state through control flow. A binding's state is determined by its declaration, any `move` expressions consuming the binding, partial moves consuming fields, and reassignment of `var` bindings.
 
-**Responsibility Establishment**
+**Responsibility and Move Semantics**
 
-The assignment operator (`=`) establishes cleanup responsibility. The target binding becomes responsible for the assigned value. If the target was previously responsible for another value, that value is dropped first.
+Both binding operators establish cleanup responsibility; the mechanics of responsibility transfer via `move` are defined in §3.5. The key distinction:
+
+- **`=` (movable)**: Responsibility may be transferred per §3.5.
+- **`:=` (immovable)**: Responsibility is permanently fixed; `move` is prohibited.
 
 **Temporary Lifetime**
 
@@ -1320,28 +1458,27 @@ Temporaries have a lifetime extending from their creation to the end of the inne
 | `E-MEM-3002` | Error    | Access to binding in Uninitialized state. | Compile-time | Rejection |
 | `E-MEM-3003` | Error    | Reassignment of immutable binding.        | Compile-time | Rejection |
 
-##### Examples
-
-**Valid:** Binding state transitions:
-
-```cursive
-let a: unique Data = Data::new()     // 'a' is Valid
-var b: unique Data = Data::new()     // 'b' is Valid
-let c = move a                       // 'a' is Moved, 'c' is Valid
-b = Data::new()                      // 'b' remains Valid (reassignment)
-```
-
 ---
 
-## 3.5 Responsibility and Move Semantics
+### 3.5 Responsibility and Move Semantics
+
+> **Cross-Reference:** This section defines the mechanics of ownership transfer. The distinction between movable and immovable bindings is established in §3.4.
 
 ##### Definition
 
 A **Move** is an operation that transfers responsibility for an object from one binding to another. After a move, the source binding is invalidated and the destination binding becomes responsible for the object's lifecycle.
 
+A move operation is only permitted from **movable bindings** (§3.4). Attempting to move from an immovable binding MUST be rejected with diagnostic `E-MEM-3006`.
+
 **Formal Definition**
 
-$$\text{move} : \text{Binding}^{\text{Valid}} \to (\text{Binding}^{\text{Moved}}, \text{Value})$$
+$$\text{move} : (\Gamma, x : T^{\text{Valid}}_{\text{mov}}) \to (\Gamma[x \mapsto T^{\text{Moved}}], T)$$
+
+The move operation takes a context $\Gamma$ containing a valid, movable binding $x$ of type $T$, and produces:
+1. An updated context where $x$ is in the Moved state
+2. The value of type $T$ (now available for binding elsewhere)
+
+The subscript $_{\text{mov}}$ indicates the binding must be movable (established with `=`, not `:=`).
 
 ##### Syntax & Declaration
 
@@ -1355,7 +1492,9 @@ $$\text{move} : \text{Binding}^{\text{Valid}} \to (\text{Binding}^{\text{Moved}}
 **Typing Rules**
 
 **(T-Move)**
-$$\frac{\Gamma \vdash x : T \quad \text{state}(\Gamma, x) = \text{Valid}}{\Gamma \vdash \texttt{move } x : T \dashv \Gamma[x \mapsto \text{Moved}]}$$
+$$\frac{\Gamma \vdash x : T \quad \text{state}(\Gamma, x) = \text{Valid} \quad \text{movable}(\Gamma, x)}{\Gamma \vdash \texttt{move } x : T \dashv \Gamma[x \mapsto \text{Moved}]}$$
+
+Where $\text{movable}(\Gamma, x)$ holds iff $x$ was bound with `=`, not `:=`.
 
 **(T-Move-Field)**
 $$\frac{\Gamma \vdash x : R \quad R = \texttt{record} \{ \ldots, f : T, \ldots \} \quad \text{perm}(\Gamma, x) = \text{unique}}{\Gamma \vdash \texttt{move } x.f : T \dashv \Gamma[x \mapsto \text{PartiallyMoved}(f)]}$$
@@ -1366,7 +1505,12 @@ $$\frac{\Gamma \vdash x : R \quad R = \texttt{record} \{ \ldots, f : T, \ldots \
 
 **Partial Move Constraints**
 
-Partial moves are permitted ONLY from bindings with `unique` permission or from mutable `var` bindings. While the parent is PartiallyMoved, accessing the moved field is an error, accessing other valid fields is permitted, and using the parent as a whole is an error. At scope exit, the compiler MUST generate cleanup only for valid fields; the parent's `Drop::drop` MUST NOT be called.
+Partial moves are permitted ONLY when both of the following conditions are satisfied:
+
+1. The binding is **movable** (established with `=`, not `:=`). Immovable bindings prohibit all `move` operations, including partial moves.
+2. The binding has **`unique` permission**, providing exclusive access to the record's fields.
+
+After a partial move, the parent binding enters the PartiallyMoved state. If the binding is a mutable `var`, reassignment may restore it to Valid state (§3.4). A `let` binding in PartiallyMoved state cannot be restored and remains invalid for the remainder of its scope.
 
 **Parameter Responsibility**
 
@@ -1382,29 +1526,12 @@ A **Non-Transferring Parameter** is declared without `move`. The callee receives
 | :----------- | :------- | :----------------------------------------------------------- | :----------- | :-------- |
 | `E-MEM-3001` | Error    | Access to a binding in Moved or PartiallyMoved state.        | Compile-time | Rejection |
 | `E-MEM-3004` | Error    | Partial move from `const` or `partitioned` binding.          | Compile-time | Rejection |
+| `E-MEM-3006` | Error    | Attempt to move from immovable binding (`:=`).               | Compile-time | Rejection |
 | `E-DEC-2411` | Error    | Missing `move` keyword at call site for consuming parameter. | Compile-time | Rejection |
-
-##### Examples
-
-**Valid:** Move and reassignment:
-
-```cursive
-var x: unique Data = Data::new()
-let y = move x          // 'x' is Moved
-x = Data::new()         // 'x' is Valid again
-```
-
-**Invalid:** Use of moved value triggers `E-MEM-3001`:
-
-```cursive
-let a = Data::new()
-let b = move a
-let c = a.field         // E-MEM-3001
-```
 
 ---
 
-## 3.6 Deterministic Destruction
+### 3.6 Deterministic Destruction
 
 ##### Definition
 
@@ -1418,7 +1545,7 @@ let c = a.field         // E-MEM-3001
 
 At scope exit, the compiler MUST generate code to destroy all responsible bindings in reverse declaration order:
 
-1.  If the binding's type implements `Drop` (§6.5), invoke `Drop::drop`.
+1.  If the binding's type implements `Drop` (§9.7), invoke `Drop::drop`.
 2.  Recursively destroy all fields and elements.
 3.  Release storage.
 
@@ -1440,18 +1567,9 @@ Explicit calls to `Drop::drop` are forbidden. To destroy an object before scope 
 | :----------- | :------- | :------------------------------------ | :----------- | :-------- |
 | `E-MEM-3005` | Error    | Explicit call to `Drop::drop` method. | Compile-time | Rejection |
 
-##### Examples
-
-**Valid:** Early destruction via `mem::drop`:
-
-```cursive
-let file = File::open("data.txt")
-mem::drop(move file)     // 'file' is destroyed here
-```
-
 ---
 
-## 3.7 The Partitioning System
+### 3.7 The Partitioning System
 
 ##### Definition
 
@@ -1461,11 +1579,15 @@ A **Partition** is a named or anonymous subset of a record's fields or a collect
 
 **Verification Modes** determine how disjointness is validated:
 
-| Mode      | Description                                             | Runtime Cost |
-| :-------- | :------------------------------------------------------ | :----------- |
-| `static`  | Compiler proves disjointness using the verifier (§3.8)  | Zero         |
-| `dynamic` | Runtime intersection check                              | Bounds check |
-| `trusted` | Programmer assertion; no verification (UVB if violated) | Zero         |
+| Mode      | Description                                             | Runtime Cost | Safety Context        |
+| :-------- | :------------------------------------------------------ | :----------- | :-------------------- |
+| `static`  | Compiler proves disjointness using the verifier (§3.8)  | Zero         | Safe code             |
+| `dynamic` | Runtime intersection check; panic on overlap            | Bounds check | Safe code             |
+| `trusted` | Programmer assertion; no verification (UVB if violated) | Zero         | **`unsafe` required** |
+
+**Trusted Mode Requirement**
+
+The `[[verify(trusted)]]` attribute MUST appear only within an `unsafe` block or an `unsafe` procedure. Use of `[[verify(trusted)]]` outside an unsafe context MUST be diagnosed as error `E-MEM-3015`.
 
 ##### Syntax & Declaration
 
@@ -1512,39 +1634,16 @@ When `[[verify(dynamic)]]` is specified, the compiler injects code to compute th
 
 **Diagnostic Table**
 
-| Code         | Severity | Condition                                      | Detection    | Effect    |
-| :----------- | :------- | :--------------------------------------------- | :----------- | :-------- |
-| `E-MEM-3010` | Error    | Static partition conflict: overlapping access. | Compile-time | Rejection |
-| `E-MEM-3012` | Error    | Partition contract proof failed.               | Compile-time | Rejection |
-| `P-MEM-3013` | Panic    | Dynamic partition overlap.                     | Runtime      | Panic     |
-
-##### Examples
-
-**Valid:** Record partitioning:
-
-```cursive
-record World {
-    partition physics { bodies: [Body], gravity: f64 }
-    partition ai { agents: [Agent] }
-    time: i64,
-}
-
-let w: partitioned World = ...
-let p = w.bodies        // Locks 'physics'
-let a = w.agents        // OK: 'ai' is disjoint
-```
-
-**Invalid:** Partition conflict triggers `E-MEM-3010`:
-
-```cursive
-let w: partitioned World = ...
-let p = w.bodies        // Locks 'physics'
-let g = w.gravity       // E-MEM-3010: 'physics' already locked
-```
+| Code         | Severity | Condition                                       | Detection    | Effect    |
+| :----------- | :------- | :---------------------------------------------- | :----------- | :-------- |
+| `E-MEM-3010` | Error    | Static partition conflict: overlapping access.  | Compile-time | Rejection |
+| `E-MEM-3012` | Error    | Partition contract proof failed.                | Compile-time | Rejection |
+| `P-MEM-3013` | Panic    | Dynamic partition overlap.                      | Runtime      | Panic     |
+| `E-MEM-3015` | Error    | `[[verify(trusted)]]` outside `unsafe` context. | Compile-time | Rejection |
 
 ---
 
-## 3.8 The Partition Proof Verifier
+### 3.8 The Partition Proof Verifier
 
 ##### Definition
 
@@ -1600,15 +1699,30 @@ If the static proof relies on the absence of integer overflow, the compiler MUST
 
 **Diagnostic Table**
 
-| Code         | Severity | Condition                                          | Detection    | Effect    |
-| :----------- | :------- | :------------------------------------------------- | :----------- | :-------- |
-| `E-MEM-3014` | Error    | Expression not reducible to Canonical Linear Form. | Compile-time | Rejection |
+| Code         | Severity | Condition                                                   | Detection    | Effect    |
+| :----------- | :------- | :---------------------------------------------------------- | :----------- | :-------- |
+| `E-MEM-3014` | Error    | Expression not reducible to Canonical Linear Form.          | Compile-time | Rejection |
+| `E-MEM-3016` | Error    | `[[verify(dynamic)]]` not supported by this implementation. | Compile-time | Rejection |
+
 
 Partition contract proof failures are diagnosed as `E-MEM-3012` per §3.7.
 
+**Non-Reducible Expression Handling**
+
+When an index expression in a partition statement cannot be reduced to Canonical Linear Form (i.e., the Reduce algorithm returns `Unknown`), the implementation MUST:
+
+1. Reject the partition statement with diagnostic `E-MEM-3014` if `[[verify(static)]]` is specified or implied.
+2. Accept the partition statement if `[[verify(dynamic)]]` is specified, inserting runtime disjointness checks.
+
+Conforming implementations MUST support `[[verify(dynamic)]]`. An implementation that cannot generate runtime disjointness checks MUST reject programs containing `[[verify(dynamic)]]` with diagnostic `E-MEM-3016`.
+
+3. Accept the partition statement if `[[verify(trusted)]]` is specified, with the programmer assuming responsibility for disjointness (UVB if violated).
+
+> **Note:** Common sources of non-linear expressions include multiplication of two variables (e.g., `i * j`), division, modulo operations, and function calls with non-constant results.
+
 ---
 
-## 3.9 Regions and Arena Allocation
+### 3.9 Regions and Arena Allocation
 
 ##### Definition
 
@@ -1656,11 +1770,30 @@ $$\frac{\Gamma \vdash e : T \quad \text{region\_depth}(\Gamma) \ge n}{\Gamma \vd
 
 **Caret Resolution**
 
-A single `^` selects the lexically innermost active region. Each additional `^` selects the immediate parent region. The number of carets MUST NOT exceed the current region nesting depth.
+A single `^` selects the lexically innermost active region. Each additional `^` selects the immediate parent region.
+
+**Formal Rule (Caret-Depth):**
+
+Let $n$ be the number of consecutive `^` operators in an allocation expression. Let $d$ be the current region nesting depth (the count of lexically enclosing `region` blocks). The allocation is well-formed if and only if:
+
+$1 \le n \le d$
+
+When $n = 0$, no region allocation occurs (the expression is not a region allocation). When $n > d$, the program is ill-formed.
+
+| Condition                    | Result                                                   |
+| :--------------------------- | :------------------------------------------------------- |
+| $n = 0$                      | Not a region allocation                                  |
+| $1 \le n \le d$              | Allocates in region at depth $d - n + 1$ (1 = innermost) |
+| $n > d$                      | Error `E-MEM-3022`                                       |
+| $d = 0$ (outside any region) | Error `E-MEM-3021` for any $n \ge 1$                     |
 
 **Escape Analysis**
 
 Region pointers are subject to the escape rule (§3.3).
+
+> **Informative Note — Best Practice: Immovable Bindings for Region Values**
+>
+> Values allocated in a region (`^` operator) SHOULD be bound with `:=` (immovable binding) to provide defense-in-depth against accidental escape attempts. While the type system independently prevents escaping region pointers via the provenance escape rule (§3.3), using `:=` documents intent and catches errors earlier in the development cycle.
 
 ##### Constraints & Legality
 
@@ -1673,33 +1806,9 @@ Region pointers are subject to the escape rule (§3.3).
 
 Region pointer escape is diagnosed as `E-MEM-3020` per §3.3.
 
-##### Examples
-
-**Valid:** Nested regions:
-
-```cursive
-region outer {
-    let a = ^Point { x: 1.0, y: 2.0 }
-    region inner {
-        let b = ^Point { x: 3.0, y: 4.0 }
-        let c = ^^Point { x: 5.0, y: 6.0 }  // Allocated in 'outer'
-    }
-    // 'b' destroyed; 'a' and 'c' valid
-}
-```
-
-**Invalid:** Escape triggers `E-MEM-3020`:
-
-```cursive
-var escaped: Ptr<Point>
-region r {
-    escaped = ^Point { x: 1.0, y: 2.0 }  // E-MEM-3020
-}
-```
-
 ---
 
-## 3.10 Unsafe Memory Operations
+### 3.10 Unsafe Memory Operations
 
 ##### Definition
 
@@ -1745,31 +1854,16 @@ The use of an `unsafe` block constitutes a normative assertion by the programmer
 | `E-MEM-3030` | Error    | Unsafe operation outside block. | Compile-time | Rejection |
 | `E-MEM-3031` | Error    | Transmute size mismatch.        | Compile-time | Rejection |
 
-##### Examples
-
-**Valid:** Transmute with matching sizes:
-
-```cursive
-procedure u32_to_bytes(value: u32): [u8; 4] {
-    unsafe { result transmute::<u32, [u8; 4]>(value) }
-}
-```
-
-**Invalid:** Unsafe operation outside block triggers `E-MEM-3030`:
-
-```cursive
-let ptr: *mut i32 = ...
-let value = *ptr    // E-MEM-3030
-```
-
 ---
 
-## Clause 3 Cross-Reference Notes
+### Clause 3 Cross-Reference Notes
 
 **Terms defined in Clause 3 that MUST NOT be redefined elsewhere:**
 
 | Term                   | Section | Description                                               |
 | :--------------------- | :------ | :-------------------------------------------------------- |
+| Exclusion Principle    | §3.1.1  | Rules governing permission-qualified path coexistence     |
+| Path                   | §3.1.1  | Expression denoting a memory location                     |
 | Object                 | §3.2    | Fundamental unit of typed storage                         |
 | Storage Duration       | §3.2    | Classification of object lifetime                         |
 | Provenance Tag         | §3.3    | Compile-time annotation indicating address origin         |
@@ -1777,6 +1871,9 @@ let value = *ptr    // E-MEM-3030
 | Escape Rule            | §3.3    | Constraint preventing assignment across provenance bounds |
 | Binding                | §3.4    | Named association between identifier and object           |
 | Responsible Binding    | §3.4    | Binding managing lifecycle of its object                  |
+| Movable Binding        | §3.4    | Binding established with `=`; responsibility transferable |
+| Immovable Binding      | §3.4    | Binding established with `:=`; responsibility fixed       |
+| Define-As Operator     | §3.4    | The `:=` operator establishing immovable responsibility   |
 | Binding State          | §3.4    | Valid, Moved, PartiallyMoved, or Uninitialized            |
 | Temporary Value        | §3.4    | Unnamed intermediate expression result                    |
 | Move                   | §3.5    | Operation transferring responsibility between bindings    |
@@ -1795,10 +1892,10 @@ let value = *ptr    // E-MEM-3030
 
 | Term             | Source | Usage in Clause 3                          |
 | :--------------- | :----- | :----------------------------------------- |
-| Permission Types | §4.5   | Govern mutation and aliasing               |
+| Permission Types | §4.5   | Define type annotations for aliasing rules |
 | Modal Types      | §4.8   | Arena is a modal type                      |
 | Pointer Types    | §4.13  | Raw pointers defined there; semantics here |
-| Drop Trait       | §6.5   | Destructor mechanism                       |
+| Drop Trait       | §9.7   | Destructor mechanism                       |
 | Place Expression | §8.1   | Required for `move` operand                |
 | HeapAllocator    | §9.3   | Capability for dynamic allocation          |
 
@@ -1806,16 +1903,18 @@ let value = *ptr    // E-MEM-3030
 
 | Term    | Deferred To | Reason                        |
 | :------ | :---------- | :---------------------------- |
-| Panic   | §10         | Error handling semantics      |
-| Abort   | §10         | Process termination semantics |
-| FFI     | §12         | Foreign function interface    |
-| Mutex   | §11         | Synchronization primitive     |
-| Atomic  | §11         | Lock-free synchronization     |
-| `defer` | §7          | Deferred execution statement  |
+| Panic   | Clause 10   | Error handling semantics      |
+| Abort   | Clause 10   | Process termination semantics |
+| FFI     | Clause 12   | Foreign function interface    |
+| Mutex   | Clause 11   | Synchronization primitive     |
+| Atomic  | Clause 11   | Lock-free synchronization     |
+| `defer` | Clause 8    | Deferred execution statement  |
 
 ---
 
-## Clause 4: Types and the Type System
+## Clause 4: Type System Foundations
+
+This clause defines the foundational machinery of the Cursive type system: the abstract framework governing type equivalence, subtyping, variance, inference, and the permission system. These concepts underpin all concrete type definitions in subsequent clauses.
 
 ---
 
@@ -1885,7 +1984,7 @@ Union types are equivalent if their member type multisets are equal (order-indep
 **(T-Equiv-Permission)** Permission Equivalence:
 $$\frac{P_1 = P_2 \quad \Gamma \vdash T \equiv U}{\Gamma \vdash P_1\ T \equiv P_2\ U}$$
 
-Permissions are part of the type. `unique T` is not equivalent to `const T`.
+Permissions are part of the type. `unique T` is not equivalent to `const T`. See §4.5 for the complete permission system specification.
 
 **Type Categories**
 
@@ -1907,7 +2006,8 @@ $$\text{TypeKind} : \text{Type} \to \mathcal{K}$$
 | Procedure  | §4.14   | Callable signatures `(T) -> U`                 |
 | Generic    | §4.15   | Uninstantiated type parameters                 |
 | Refinement | §4.19   | Types with predicate constraints `T where {P}` |
-| String     | §4.12   | Built-in string types (`string@Managed`)       |
+
+> **Note:** The `string` type (§4.12) is a built-in Modal type with states `@Managed`, `@View`, and `@Static`. It belongs to the Modal category but is documented separately due to its special syntax and standard library integration.
 
 ##### Constraints & Legality
 
@@ -1921,35 +2021,6 @@ Top-level declarations (procedures, module-scope bindings, type definitions) MUS
 | `E-TYP-1502` | Error    | No valid type derivable for expression.           | Compile-time | Rejection |
 | `E-TYP-1503` | Error    | Operation not supported for operand type.         | Compile-time | Rejection |
 | `E-TYP-1505` | Error    | Missing required type annotation at module scope. | Compile-time | Rejection |
-
-##### Examples
-
-**Valid:** Nominal type distinction:
-
-```cursive
-record Point2D { x: f64, y: f64 }
-record Vector2D { x: f64, y: f64 }
-
-let p: Point2D = Point2D { x: 1.0, y: 2.0 }
-let v: Vector2D = Vector2D { x: 1.0, y: 2.0 }
-
-// p and v have identical structure but different types
-// let q: Point2D = v   // E-TYP-1501: type mismatch
-```
-
-**Valid:** Structural tuple equivalence:
-
-```cursive
-let a: (i32, bool) = (42, true)
-let b: (i32, bool) = a   // OK: tuples are structural
-```
-
-**Invalid:** Missing type annotation triggers `E-TYP-1505`:
-
-```cursive
-// At module scope
-static let CONFIG = load_config()   // E-TYP-1505: type required
-```
 
 ---
 
@@ -1979,39 +2050,20 @@ $$\frac{\Gamma \vdash e : S \quad \Gamma \vdash S <: T}{\Gamma \vdash e : T} \qu
 
 **Permission Subtyping**
 
-A type with a stronger permission is a subtype of the same base type with a weaker permission:
-
-$$\frac{}{\Gamma \vdash \texttt{unique}\ T <: \texttt{const}\ T} \quad \frac{}{\Gamma \vdash \texttt{partitioned}\ T <: \texttt{const}\ T} \quad \text{(Sub-Perm)}$$
-
-The complete permission lattice is defined in §4.5. The subtyping relationships are:
-
-- `unique T` is a subtype of `partitioned T`, `concurrent T`, and `const T`
-- `partitioned T` is a subtype of `const T`
-- `concurrent T` is a subtype of `const T`
-
-**Sibling Incompatibility**
-
-The permissions `partitioned` and `concurrent` are incompatible siblings. Neither is a subtype of the other:
-
-$$\Gamma \nvdash \texttt{partitioned}\ T <: \texttt{concurrent}\ T \qquad \Gamma \nvdash \texttt{concurrent}\ T <: \texttt{partitioned}\ T$$
+Permission types form a subtype lattice. The complete lattice structure, formal subtyping rules, sibling incompatibility between `partitioned` and `concurrent`, and the prohibition on implicit upgrades are all defined in §4.5.
 
 **Trait Implementation Subtyping**
 
-A concrete type that implements a trait is a subtype of that trait:
-
-$$\frac{\Gamma \vdash T\ \texttt{implements}\ \textit{Tr}}{\Gamma \vdash T <: \textit{Tr}} \quad \text{(Sub-Trait)}$$
+A concrete type that implements a trait is a subtype of that trait. See §6.3 for the formal rule (Sub-Trait).
 
 **Additional Subtyping Rules**
 
 The following subtyping relationships are defined in their respective sections:
 
-- Modal widening ($M@S <: M$): §4.11
+- Modal widening ($M@S <: M$, where $M$ is the general modal type): §4.11
 - Union member subtyping: §4.10
 - Refinement type subtyping: §4.19
-
-**No Implicit Upgrade**
-
-A weaker permission MUST NOT be implicitly coerced to a stronger permission. `const T` is not a subtype of `unique T`, `partitioned T`, or `concurrent T`.
+- Permission subtyping: §4.5
 
 ##### Constraints & Legality
 
@@ -2183,1129 +2235,4095 @@ An implementation MUST NOT infer types for public API boundaries.
 | `E-TYP-1505` | Error    | Missing required type annotation at module scope. | Compile-time | Rejection |
 | `E-TYP-1530` | Error    | Type inference failed; unable to determine type.  | Compile-time | Rejection |
 
+When type arguments cannot be inferred, explicit type arguments may be supplied using turbofish syntax (`::<>`). See §7.1 for the full specification.
+
 ---
 
-### 4.5 Permission Types {Source: Draft 2 §16; Amendment 1}
+### 4.5 Permission Types
+
+This section defines the permission system that governs data access, mutation, and aliasing.
+
+---
+
+#### 4.5.0 Permission System Overview
+
+The permission system governs data access through two complementary mechanisms:
+
+1. **Coexistence Rules (§3.1.1):** Specify which permission-qualified paths may exist *simultaneously* for the same object. These rules prevent aliasing violations at any program point.
+
+2. **Subtyping Rules (§4.5.5):** Specify which permissions may be *implicitly converted* to other permissions. These rules govern type compatibility in assignment, argument passing, and return contexts.
+
+**Quick Reference:**
+
+| Question                                             | Governing Rule | Location |
+| :--------------------------------------------------- | :------------- | :------- |
+| Can I have both a `const` and `unique` path to X?    | Coexistence    | §3.1.1   |
+| Can I pass a `unique T` where `const T` is expected? | Subtyping      | §4.5.5   |
+| Can I have two `partitioned` paths to X?             | Coexistence    | §3.1.1   |
+| Can I convert `const T` to `unique T`?               | Subtyping (no) | §4.5.5   |
+
+See §3.1.1 for the full coexistence matrix and §4.5.5 for the subtyping lattice.
+
+---
+
+#### 4.5.1 Permission Definitions
 
 ##### Definition
 
-**Permission**
+A **permission** is a type qualifier that governs how the data referenced by a binding may be accessed, mutated, and aliased. Permissions are fundamental to the language's memory safety guarantees, providing compile-time enforcement of aliasing rules without runtime overhead. When no permission is explicitly specified, `const` is the default.
 
-A permission is a **type qualifier** that governs how the **data** referenced by a binding may be accessed, mutated, and aliased. Permissions are fundamental to the language's memory safety guarantees. If no permission is explicitly written, `const` is the default.
+**Formal Definition**
 
-##### The Orthogonality Principle
+Let $\mathcal{P}$ denote the set of permissions:
 
-The Permission System is **strictly orthogonal** to two other concepts that are often conflated in other languages:
+$$\mathcal{P} = \{\texttt{const}, \texttt{unique}, \texttt{partitioned}, \texttt{concurrent}\}$$
 
-1. **Binding Mutability** (§4.18): Whether a binding can be re-assigned to a different value.
-   - Controlled by `let` (immutable binding) vs `var` (mutable binding)
-   - Orthogonal to permissions: a `let` binding may hold `unique` data; a `var` binding may hold `const` data
+A **permission-qualified type** is a pair $(P, T)$ where $P \in \mathcal{P}$ and $T$ is a base type. The notation $P\ T$ denotes this qualification (e.g., `unique Buffer`, `const Config`).
 
-2. **Cleanup Responsibility** (§3.4-§3.5): Which binding is responsible for destroying an object.
+**Permission Equivalence**
+
+Two permission-qualified types are equivalent if and only if both their base types and their permissions are identical. The formal rule (T-Equiv-Permission) is defined in §4.1.
+
+---
+
+#### 4.5.2 The Permission Lattice
+
+The four permissions form a directed lattice ordered by the subtype relation:
+
+$$\texttt{unique} <: \{\texttt{partitioned}, \texttt{concurrent}\} <: \texttt{const}$$
+
+The lattice structure is:
+
+```
+        unique
+       /      \
+partitioned  concurrent
+       \      /
+        const
+```
+
+A value with a stronger (higher) permission may be implicitly coerced to the same base type with a weaker (lower) permission. The permissions `partitioned` and `concurrent` are **incompatible siblings**: neither is a subtype of the other. The formal subtyping rules are specified in the Static Semantics block.
+
+---
+
+#### 4.5.3 Orthogonality with Binding Mutability and Responsibility
+
+The permission system is **strictly orthogonal** to two other language concepts:
+
+1. **Binding Mutability** (§4.18): Whether a binding can be reassigned to a different value.
+   - Controlled by `let` (immutable binding) versus `var` (mutable binding)
+   - A `let` binding may hold `unique` data; a `var` binding may hold `const` data
+
+2. **Cleanup Responsibility** (§3.4–§3.5): Which binding is responsible for destroying an object.
    - Controlled **exclusively** by the `move` keyword
-   - Permissions do **NOT** affect responsibility—`unique` does not mean "responsible for cleanup"
+   - Permissions do **not** determine cleanup responsibility
 
-**Comparison with Rust:**
+These orthogonal axes produce four distinct parameter forms:
 
-In Rust, these concepts are partially conflated:
-- `T` (owned) = exclusive access + cleanup responsibility
-- `&mut T` = exclusive access + NO cleanup responsibility
-- `&T` = shared read access + NO cleanup responsibility
-
-Rust cannot directly express "exclusive mutable access where the caller retains cleanup responsibility" without additional wrapper types.
-
-In Cursive, these axes are fully independent:
-
-| Cursive              | Permission        | Cleanup Responsibility |
-| :------------------- | :---------------- | :--------------------- |
-| `unique T` (no move) | Exclusive mutable | Caller retains         |
-| `move x: unique T`   | Exclusive mutable | Callee takes           |
-| `const T`            | Read-only         | Caller retains         |
-| `move x: const T`    | Read-only         | Callee takes           |
-
-This orthogonality enables patterns that are awkward or impossible in Rust:
-
-```cursive
-// Callee gets exclusive access but caller remains responsible for cleanup
-procedure transform_in_place(data: unique Buffer) {
-    // Can mutate data freely
-    data.bytes[0] = 0xFF
-}   // data goes out of scope but is NOT dropped—caller still responsible
-
-// Callee takes responsibility for read-only data
-procedure consume_readonly(move data: const Config) {
-    // Can only read data, but will drop it when done
-    log(data.name)
-}   // data IS dropped here—callee took responsibility via move
-```
-
-**Key Insight:** In Cursive, `unique` answers "who can access this right now?" while `move` answers "who must clean this up?" These are separate questions with separate answers.
-
-**The Permission Lattice**
-
-The permission system consists of four permissions forming a directed lattice:
-
-$$\text{unique} <: \{\text{partitioned}, \text{concurrent}\} <: \text{const}$$
-
-| Permission        | Access               | Aliasing                     | Mutation             | Requirement                |
-| :---------------- | :------------------- | :--------------------------- | :------------------- | :------------------------- |
-| `const` (default) | Read-only            | Unlimited                    | Forbidden            | —                          |
-| `partitioned`     | Disjoint mutable     | Multiple (verified disjoint) | Permitted            | Partitioning System (§3.7) |
-| `concurrent`      | Synchronized mutable | Multiple (synchronized)      | Permitted (interior) | Synchronized methods       |
-| `unique`          | Exclusive mutable    | None                         | Permitted            | —                          |
-
-##### Permission Semantics (Detailed)
-
-**`const`** — Immutable/Read-Only Access
-- The data cannot be mutated through this path
-- Unlimited aliasing is permitted (many `const` references may coexist)
-- This is the default when no permission is specified
-- Analogous to `&T` in Rust (but without lifetime annotations)
-
-**`unique`** — Exclusive Mutable Access
-- The data may be mutated through this path
-- No other live references (of any permission) may exist to this data
-- Does **NOT** imply cleanup responsibility (see Orthogonality Principle above)
-- Analogous to having sole access, but responsibility is tracked separately
-
-**`partitioned`** — Spatially-Shared Mutable Access
-- The data may be mutated through this path
-- Other `partitioned` references may coexist if they access **disjoint** portions
-- Requires compile-time or runtime proof of disjointness (§3.7)
-- Enables parallel mutation of different array slices or record fields
-
-**`concurrent`** — Temporally-Shared Mutable Access
-- The data may be mutated through synchronized methods only
-- Other `concurrent` references may coexist (synchronization prevents races)
-- Direct field mutation is forbidden; must use type's synchronized methods
-- The type must provide methods accepting `concurrent self` (or `~|`)
-
-##### Static Semantics
-
-**Subtyping (Downgrading)**
-
-A value with a stronger permission **MAY** be used in a context expecting a weaker permission. This is an implicit coercion:
-
-- `unique` coerces to `partitioned`, `concurrent`, or `const`.
-- `partitioned` coerces to `const`.
-- `concurrent` coerces to `const`.
-
-**Sibling Incompatibility**
-
-`partitioned` and `concurrent` are **incompatible siblings**:
-
-- `partitioned` (spatial disjointness) **MUST NOT** coerce to `concurrent` (temporal synchronization) because `partitioned` guarantees no overlap, while `concurrent` implies overlap managed by locks.
-- `concurrent` **MUST NOT** coerce to `partitioned` because `concurrent` implies shared state that cannot be statically split.
-
-**`concurrent` Permission Operations**
-
-The `concurrent` permission governs what operations are permitted on a reference. Unlike `unique` or `partitioned`, `concurrent` does **not** permit direct field mutation:
-
-| Operation                                        | Permitted? |
-| :----------------------------------------------- | :--------- |
-| Field read                                       | Yes        |
-| Field mutation                                   | **No**     |
-| Method call (accepts `concurrent self` or `~\|`) | Yes        |
-| Method call (accepts `const self` or `~`)        | Yes        |
-| Method call (requires `unique` or `partitioned`) | No         |
-
-**User-Defined Concurrent Types**
-
-A type is usable with `concurrent` permission when it provides methods accepting `self: concurrent` (or the shorthand `~|`). Such methods **MUST** use internal synchronization primitives (`Mutex`, `Atomic`, etc.) to ensure thread-safe mutation.
-
-**Concurrent-Safe Method Rule**
-
-A method $m$ on type $T$ is callable through a `concurrent` reference iff the method's receiver accepts `concurrent` or a weaker permission (`const`):
-
-$$\frac{\Gamma \vdash m : T.\text{method} \quad m.\text{receiver} \in \{\texttt{concurrent}, \texttt{const}\}}{\Gamma \vdash \texttt{concurrent } T \vdash m \text{ callable}}$$
-
-**Rationale**: Thread safety is enforced through the permission system and method signatures, not marker traits. Types opt-in to concurrent usage by providing synchronized methods.
-
-**No Upgrade**
-
-A value with a weaker permission **MUST NOT** be implicitly coerced to a stronger permission. `const` **MUST NOT** coerce to `unique`, `partitioned`, or `concurrent`.
-
-**Exclusion Principle**
-
-- **`unique`**: Valid **ONLY** if no other live permissions (read or write) exist to the same object. The compiler **MUST** reject the formation of any alias to an object while a `unique` path to that object remains active.
-- **`partitioned`**: Allows multiple mutable aliases (disjoint) but forbids `unique`.
-- **`concurrent`**: Allows multiple mutable aliases (synchronized) but forbids `unique`.
-- **`const`**: Allows multiple read-only aliases but forbids `unique`, `partitioned`, or `concurrent` coexistence.
-
-**Downgrading Scope**
-
-A `unique` type **MAY** be temporarily downgraded to `const` or `partitioned` for a bounded scope (e.g., passing to a procedure). During this scope, the original `unique` path is considered **inactive** and cannot be used. When the downgrade scope ends, the original path regains `unique` status.
-
-##### Responsibility vs Permission: A Clarifying Example
-
-Consider a procedure that needs temporary exclusive access to modify data:
-
-```cursive
-record Document {
-    content: string@Managed,
-    modified: bool,
-}
-
-// Permission: unique (exclusive access)
-// Responsibility: caller retains (no 'move' on parameter)
-procedure mark_modified(doc: unique Document) {
-    doc.modified = true
-}
-
-// Permission: unique (exclusive access)
-// Responsibility: callee takes (has 'move' on parameter)
-procedure archive(move doc: unique Document) {
-    save_to_disk(doc)
-}   // doc is dropped here
-
-public procedure main(ctx: Context): i32 {
-    var doc = Document {
-        content: "Hello",
-        modified: false
-    }
-
-    // doc is temporarily inaccessible during this call
-    mark_modified(doc)      // No 'move' at call site—we keep responsibility
-
-    // doc is accessible again; we still own it
-    if doc.modified {
-        archive(move doc)   // 'move' at call site—transferring responsibility
-    }
-
-    // doc is now invalid (moved)
-    // doc.content          // ERROR: use of moved value
-
-    result 0
-}
-```
-
-This separation allows fine-grained control over both access patterns and resource lifetimes.
-
-##### Constraints & Legality
-
-| Code         | Severity | Condition                                                           |
-| :----------- | :------- | :------------------------------------------------------------------ |
-| `E-TYP-1601` | Error    | Attempt to mutate data via a `const` reference.                     |
-| `E-TYP-1602` | Error    | Violation of `unique` exclusion (aliasing detected).                |
-| `E-TYP-1603` | Error    | Partitioning system violation.                                      |
-| `E-TYP-1604` | Error    | Field mutation through `concurrent` reference (use method instead). |
-| `E-TYP-1605` | Error    | Method requires stronger permission than `concurrent` provides.     |
+| Parameter Declaration  | Permission        | Cleanup Responsibility |
+| :--------------------- | :---------------- | :--------------------- |
+| `param: unique T`      | Exclusive mutable | Caller retains         |
+| `move param: unique T` | Exclusive mutable | Callee takes           |
+| `param: const T`       | Read-only         | Caller retains         |
+| `move param: const T`  | Read-only         | Callee takes           |
 
 ---
 
-### 4.6 Primitive Types {Source: Draft 2 §17}
+#### 4.5.4 Detailed Permission Semantics
 
-##### Definition
+The following definitions specify the semantic meaning of each permission.
 
-Primitive types are the built-in scalar types that form the basis for all other types and represent the fundamental units of data.
+**`const` — Immutable Access (Default)**
 
-- **Integer types** (`iN`/`uN`): Fixed-width integers. Signed integers **MUST** use two's complement representation.
-- **Floating-point types** (`fN`): IEEE 754 binary floating-point numbers.
-- **Character type** (`char`): A Unicode Scalar Value (U+0000–U+D7FF, U+E000–U+10FFFF).
-- **Boolean type** (`bool`): Logical true/false.
-- **Unit type** (`()`): The type with exactly one value, zero size.
-- **Never type** (`!`): The uninhabited type; an expression of type `!` never produces a value.
+The `const` permission grants read-only access to data and permits unlimited aliasing. Mutation through a `const` path is forbidden; any number of `const` paths to the same data may coexist simultaneously. Data accessible only through `const` paths is inherently safe for concurrent read access across threads.
+
+**`unique` — Exclusive Mutable Access**
+
+The `unique` permission grants exclusive read-write access to data, guaranteeing that no other live path to the same data exists. The existence of a live `unique` path to an object statically precludes the existence of any other path to that object or its sub-components. A `unique` path may be temporarily downgraded to a weaker permission for a bounded scope; during this period, the original path is **inactive** and the binding becomes unusable until the scope ends. The `unique` permission does **not** imply cleanup responsibility; a procedure parameter of type `unique T` (without `move`) grants exclusive access while the caller retains responsibility for cleanup.
+
+**`partitioned` — Spatially-Disjoint Mutable Access**
+
+The `partitioned` permission grants mutable access to data under the constraint that all coexisting mutable paths access **disjoint regions** of the data. Multiple `partitioned` paths to the same aggregate object may coexist simultaneously when they access statically verified disjoint portions. Disjointness is validated by the Partitioning System (§3.7). This permission enables safe parallel mutation of different array elements or record fields.
+
+**`concurrent` — Temporally-Synchronized Mutable Access**
+
+The `concurrent` permission grants access to data through synchronized operations. Multiple `concurrent` paths may coexist because synchronization primitives prevent data races. Fields may be read through a `concurrent` path, but direct field mutation is forbidden; mutation occurs only through methods that accept `concurrent self` (or the shorthand `~|`), which provide internal synchronization. A type supports `concurrent` access when it provides methods accepting `self: concurrent Self`; a type without such methods exposes only field reads and `const`-compatible method calls through `concurrent` paths.
+
+The following table specifies which operations are permitted through a `concurrent` path:
+
+| Operation                                             | Permitted |
+| :---------------------------------------------------- | :-------- |
+| Field read                                            | Yes       |
+| Field mutation                                        | No        |
+| Method call (receiver accepts `concurrent` or `~\|`)  | Yes       |
+| Method call (receiver accepts `const` or `~`)         | Yes       |
+| Method call (receiver requires `unique` or `~!`)      | No        |
+| Method call (receiver requires `partitioned` or `~%`) | No        |
+
+> **Rationale:** Thread safety is visible in API signatures via method receiver permissions, not marker traits.
+
+**Exclusion Principle (Normative)**
+
+The rules governing which permission-qualified paths may coexist for the same object are defined in this section. The **coexistence matrix** specifies which permissions may exist simultaneously:
+
+| Active Permission | May Add `unique` | May Add `partitioned` | May Add `concurrent` | May Add `const` |
+| :---------------- | :--------------- | :-------------------- | :------------------- | :-------------- |
+| `unique`          | No               | No                    | No                   | No              |
+| `partitioned`     | No               | Yes (if disjoint)     | No                   | Yes             |
+| `concurrent`      | No               | No                    | Yes                  | Yes             |
+| `const`           | No               | No                    | Yes                  | Yes             |
+| (none)            | Yes              | Yes                   | Yes                  | Yes             |
+
+The permissions `partitioned` and `concurrent` are **siblings** in the permission lattice—neither is a subtype of the other. Paths with `partitioned` permission and paths with `concurrent` permission to the same object MUST NOT coexist.
+
+> **Cross-Reference:** See §3.1.1 for memory model context and enforcement diagnostics.
 
 ##### Syntax & Declaration
 
-**Integers**:
-- Sized: `i8`, `i16`, `i32`, `i64`, `i128`, `u8`, `u16`, `u32`, `u64`, `u128`
-- Pointer-sized: `isize`, `usize`
-- Aliases: `int` (`i32`), `uint` (`u32`) — fully equivalent in all contexts
+**Grammar**
 
-**Floats**:
-- `f16`, `f32`, `f64`
-- Aliases: `half` (`f16`), `float` (`f32`), `double` (`f64`) — fully equivalent in all contexts
+```ebnf
+permission       ::= "const" | "unique" | "partitioned" | "concurrent"
+permission_type  ::= [permission] type
+```
 
-**Others**: `bool`, `char`, `()`, `!`
+When no permission is specified, `const` is implied.
 
-##### Memory & Layout
+**Shorthand Notation**
 
-Implementations **MUST** match target platform pointer width for `isize`, `usize`, and `Ptr`.
+The receiver shorthand notations (`~`, `~!`, `~%`, `~|`) are defined in §2.7 (Operators and Punctuators). The semantic mapping to permission-qualified `self` parameters is:
 
-| Type                     | Size (bytes)  | Alignment (bytes) | Representation                                                             |
-| :----------------------- | :------------ | :---------------- | :------------------------------------------------------------------------- |
-| `i8`/`u8`/`bool`         | 1             | 1                 | —                                                                          |
-| `i16`/`u16`/`f16`        | 2             | 2                 | —                                                                          |
-| `i32`/`u32`/`f32`/`char` | 4             | 4                 | Two's complement (signed); IEEE 754 (float); Unicode Scalar Value (`char`) |
-| `i64`/`u64`/`f64`        | 8             | 8                 | —                                                                          |
-| `i128`/`u128`            | 16            | 8 or 16 (IDB)     | —                                                                          |
-| `isize`/`usize`          | Platform word | Platform word     | —                                                                          |
-| `()`                     | 0             | 1                 | Zero-sized type                                                            |
-| `!`                      | 0             | 1                 | Uninhabited type                                                           |
+- `~` expands to `self: const Self`
+- `~!` expands to `self: unique Self`
+- `~%` expands to `self: partitioned Self`
+- `~|` expands to `self: concurrent Self`
+
+These shorthands are syntactic sugar. A conforming implementation MUST treat them as equivalent to their expanded forms.
+
+---
+
+#### 4.5.5 Permission Subtyping Rules
+
+##### Static Semantics
+
+**Subtyping Rules**
+
+The following rules define the subtype relation for permission-qualified types:
+
+$$\frac{}{\Gamma \vdash \texttt{unique}\ T <: \texttt{partitioned}\ T} \quad \text{(Sub-Perm-UP)}$$
+
+$$\frac{}{\Gamma \vdash \texttt{unique}\ T <: \texttt{concurrent}\ T} \quad \text{(Sub-Perm-UC)}$$
+
+$$\frac{}{\Gamma \vdash \texttt{unique}\ T <: \texttt{const}\ T} \quad \text{(Sub-Perm-UK)}$$
+
+$$\frac{}{\Gamma \vdash \texttt{partitioned}\ T <: \texttt{const}\ T} \quad \text{(Sub-Perm-PK)}$$
+
+$$\frac{}{\Gamma \vdash \texttt{concurrent}\ T <: \texttt{const}\ T} \quad \text{(Sub-Perm-CK)}$$
+
+**Permission Lattice Summary**
+
+The subtyping rules above formalize the lattice structure defined in §4.5.2.
+
+**Sibling Incompatibility**
+
+The permissions `partitioned` and `concurrent` are incompatible. The following subtype relationships are **not derivable**:
+
+$$\Gamma \nvdash \texttt{partitioned}\ T <: \texttt{concurrent}\ T$$
+
+$$\Gamma \nvdash \texttt{concurrent}\ T <: \texttt{partitioned}\ T$$
+
+Coercion between sibling permissions is rejected per §4.2 (`E-TYP-1512`).
+
+**No Implicit Upgrade**
+
+Coercion from a weaker permission to a stronger permission is **not derivable**:
+
+$$\Gamma \nvdash \texttt{const}\ T <: \texttt{unique}\ T$$
+
+$$\Gamma \nvdash \texttt{const}\ T <: \texttt{partitioned}\ T$$
+
+$$\Gamma \nvdash \texttt{const}\ T <: \texttt{concurrent}\ T$$
+
+Implicit upgrade attempts are rejected per §4.2 (`E-TYP-1511`).
+
+**Concurrent-Safe Method Rule**
+
+A method $m$ on type $T$ is callable through a `concurrent` path if and only if the method's receiver accepts `concurrent` permission or a weaker permission (`const`):
+
+$$\frac{\Gamma \vdash m : T.\text{method} \quad m.\text{receiver} \in \{\texttt{concurrent}, \texttt{const}\}}{\Gamma \vdash (\texttt{concurrent}\ T).m\ \text{callable}} \quad \text{(Concurrent-Method)}$$
+
+**Concurrent Access to Types Without Synchronized Methods**
+
+A type that provides no methods accepting `concurrent Self` (or `~|`) receiver is **read-only through `concurrent` paths**. Such types may still be useful in concurrent contexts when:
+
+1. Only field reads are required, OR
+2. The type implements `const`-compatible methods sufficient for the use case.
+
+**Example — Read-only concurrent access:**
+
+```cursive
+record Config {
+    timeout_ms: u32,
+    max_retries: u32,
+    // No methods accepting ~| receiver
+}
+
+let config: concurrent Config = load_config()
+let timeout = config.timeout_ms    // OK: field read
+// config.timeout_ms = 5000        // ERROR E-TYP-1604: field mutation forbidden
+```
+
+> **Design Note:** Types intended for concurrent mutation SHOULD provide methods with `~|` receivers that encapsulate synchronization. Types without such methods are implicitly read-only when accessed through `concurrent` paths. This is intentional: the absence of synchronized methods indicates the type was not designed for concurrent mutation.
+
+---
+
+#### 4.5.6 Method Receiver Permissions
+
+**Downgrading Scope and Inactive Bindings**
+
+A binding is **inactive** when its permission has been temporarily downgraded for a bounded scope.
+
+When a `unique` path is passed to a procedure expecting a weaker permission, the original binding enters the inactive state for the duration of the call:
+
+1. During the inactive period, the original `unique` binding MUST NOT be read, written, or moved.
+2. Any attempt to use an inactive binding MUST be rejected with diagnostic `E-TYP-1602`.
+3. When the downgrade scope ends, the original binding returns to active status with `unique` permission restored.
+
+**Inactive Binding Examples**
+
+The following examples illustrate the inactive binding mechanism:
+
+**Example 1 — Function call downgrade:**
+
+```cursive
+procedure read_only(data: const Buffer) { /* ... */ }
+
+let buf: unique Buffer = Buffer::new()
+read_only(buf)          // 'buf' inactive during call (downgraded to const)
+buf.write(42)           // OK: 'buf' reactivated as unique after call returns
+```
+
+**Example 2 — Nested downgrade scope:**
+
+```cursive
+let buf: unique Buffer = Buffer::new()
+{
+    let view: const Buffer = buf    // 'buf' inactive in this block
+    // buf.write(42)                // ERROR E-TYP-1602: 'buf' is inactive
+    view.read()                     // OK: 'view' is const
+}
+buf.write(42)                       // OK: 'buf' reactivated
+```
+
+**Example 3 — Inactive binding error:**
+
+```cursive
+procedure process(a: const Data, b: unique Data) { /* ... */ }
+
+let d: unique Data = Data::new()
+process(d, d)           // ERROR E-TYP-1602: 'd' is inactive (passed as const)
+                        // when attempting second use (as unique)
+```
+
+##### Constraints & Legality
+
+**Negative Constraints**
+
+The following constraints apply to permission-qualified types:
+
+1. A `const` path MUST NOT be used to mutate data.
+2. A `concurrent` path MUST NOT be used for direct field mutation.
+3. All `partitioned` access MUST be validated by the Partitioning System (§3.7).
+4. Multiple paths violating the Exclusion Principle MUST NOT coexist.
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                                            | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------------------------- | :----------- | :-------- |
+| `E-TYP-1601` | Error    | Attempt to mutate data via a `const` path.                           | Compile-time | Rejection |
+| `E-TYP-1602` | Error    | Violation of `unique` exclusion (aliasing detected or inactive use). | Compile-time | Rejection |
+| `E-TYP-1603` | Error    | Partitioning system violation (non-disjoint `partitioned` access).   | Compile-time | Rejection |
+| `E-TYP-1604` | Error    | Direct field mutation through `concurrent` path.                     | Compile-time | Rejection |
+| `E-TYP-1605` | Error    | Method requires stronger permission than `concurrent` provides.      | Compile-time | Rejection |
+
+**Canonical Diagnostic Codes**
+
+See Appendix J (§J.1) for the cross-reference matrix mapping permission diagnostics to memory model diagnostics. Per Appendix K, type system diagnostics (`E-TYP-`) are canonical; memory model diagnostics (`E-MEM-`) are secondary.
+
+> **Note:** Implicit permission upgrade (`E-TYP-1511`) and sibling coercion (`E-TYP-1512`) diagnostics are defined in §4.2.
+
+---
+
+### Clause 4 Cross-Reference Notes
+
+**Terms Defined in Clause 4 That MUST NOT Be Redefined Elsewhere:**
+
+| Term                    | Section | Description                                                   |
+| :---------------------- | :------ | :------------------------------------------------------------ |
+| Type                    | §4.1    | Classification of values determining representation and usage |
+| Type Equivalence        | §4.1    | Relation determining when two types classify the same values  |
+| Type Context (Γ)        | §4.1    | Environment mapping identifiers to types                      |
+| Subtype                 | §4.2    | Partial order relation on types for safe substitution         |
+| Coercion                | §4.2    | Implicit conversion from subtype to supertype                 |
+| Variance                | §4.3    | How subtyping of type arguments affects parameterized types   |
+| Bidirectional Inference | §4.4    | Type inference combining synthesis and checking modes         |
+| Permission              | §4.5    | Type qualifier governing access, mutation, and aliasing       |
+| `const`                 | §4.5    | Permission for immutable, freely aliasable access             |
+| `unique`                | §4.5    | Permission for exclusive read-write access                    |
+| `partitioned`           | §4.5    | Permission for spatial disjoint aliased mutability            |
+| `concurrent`            | §4.5    | Permission for synchronized temporal aliased mutability       |
+| Permission Lattice      | §4.5    | Partial order on permissions defining subtyping               |
+
+**Terms Deferred to Later Clauses:**
+
+| Term           | Deferred To | Reason                     |
+| :------------- | :---------- | :------------------------- |
+| Primitive Type | §5.1        | Concrete type definitions  |
+| Record Type    | §5.3        | Concrete type definitions  |
+| Enum Type      | §5.4        | Concrete type definitions  |
+| Modal Type     | §5.5        | State-machine types        |
+| String Type    | §5.6        | Built-in modal string      |
+| Pointer Type   | §6.2        | Safe and raw pointer types |
+| Generic Type   | §7.1        | Static polymorphism        |
+| Trait          | Clause 8    | Polymorphism system        |
+
+---
+
+## Clause 5: Data Types
+
+This clause defines the concrete data-carrying types in Cursive: primitive scalar types, composite structural types (tuples, arrays, slices, ranges), nominal product types (records), nominal sum types (enums), structural sum types (unions), and the built-in string type. These types represent the "nouns" of the type system—the fundamental building blocks for representing data.
+
+---
+
+### 5.1 Primitive Types
+
+##### Definition
+
+**Primitive types** are the built-in scalar types that form the foundation of the Cursive type system. These types represent indivisible units of data with fixed size and well-defined representation. All composite types are ultimately constructed from primitive types.
+
+**Formal Definition**
+
+Let $\mathcal{T}_{\text{prim}}$ denote the set of primitive types:
+
+$$\mathcal{T}_{\text{prim}} = \mathcal{T}_{\text{int}} \cup \mathcal{T}_{\text{float}} \cup \{\texttt{bool}, \texttt{char}, \texttt{()}, \texttt{!}\}$$
+
+where:
+
+$$\mathcal{T}_{\text{int}} = \{\texttt{i8}, \texttt{i16}, \texttt{i32}, \texttt{i64}, \texttt{i128}, \texttt{u8}, \texttt{u16}, \texttt{u32}, \texttt{u64}, \texttt{u128}, \texttt{isize}, \texttt{usize}\}$$
+
+$$\mathcal{T}_{\text{float}} = \{\texttt{f16}, \texttt{f32}, \texttt{f64}\}$$
+
+##### Syntax & Declaration
+
+**Grammar**
+
+```ebnf
+primitive_type     ::= integer_type | float_type | "bool" | "char" | unit_type | never_type
+
+integer_type       ::= signed_int | unsigned_int | pointer_int 
+signed_int         ::= "i8" | "i16" | "i32" | "i64" | "i128"
+unsigned_int       ::= "u8" | "u16" | "u32" | "u64" | "u128"
+pointer_int        ::= "isize" | "usize"
+
+float_type         ::= "f16" | "f32" | "f64" 
+
+unit_type          ::= "(" ")"
+never_type         ::= "!"
+```
+
+
+**Literal Syntax**
+
+Integer and floating-point literals are defined in Clause 2 (Lexical Structure). The following summary specifies the mapping from literal forms to types:
+
+| Literal Form              | Default Type | Type Suffix       |
+| :------------------------ | :----------- | :---------------- |
+| `42`, `-7`                | `i32`        | `i8`, `u64`, etc. |
+| `0x1F`, `0o77`, `0b1010`  | `i32`        | `i8`, `u64`, etc. |
+| `3.14`, `-0.5`            | `f64`        | `f32`, `f16`      |
+| `1e10`, `2.5e-3`          | `f64`        | `f32`, `f16`      |
+| `true`, `false`           | `bool`       | (none)            |
+| `'a'`, `'\n'`, `'\u0041'` | `char`       | (none)            |
+| `()`                      | `()`         | (none)            |
+
+##### Static Semantics
+
+**Type Equivalence**
+
+Primitive types have **strict name equivalence**: two primitive type expressions are equivalent if and only if, after alias resolution, they denote the same type:
+
+$$\frac{T \in \mathcal{T}_{\text{prim}} \quad U \in \mathcal{T}_{\text{prim}} \quad T = U}{\Gamma \vdash T \equiv U} \quad \text{(T-Equiv-Prim)}$$
+
+**Never Type as Bottom**
+
+The never type `!` is the **bottom type** of the type system. It is a subtype of all other types:
+
+$$\frac{T \in \mathcal{T}}{\Gamma \vdash \texttt{!} <: T} \quad \text{(Sub-Never)}$$
+
+This rule permits expressions of type `!` (such as `panic()` or infinite loops) to appear in any context regardless of the expected type.
+
+**Literal Typing Rules**
+
+**(T-Int-Literal)**
+$$\frac{v \in \text{IntLiteral} \quad T \in \mathcal{T}_{\text{int}} \quad \text{InRange}(v, T)}{\Gamma \vdash v : T}$$
+
+**(T-Float-Literal)**
+$$\frac{v \in \text{FloatLiteral} \quad T \in \mathcal{T}_{\text{float}}}{\Gamma \vdash v : T}$$
+
+**(T-Bool-Literal)**
+$$\frac{v \in \{\texttt{true}, \texttt{false}\}}{\Gamma \vdash v : \texttt{bool}}$$
+
+**(T-Char-Literal)**
+$$\frac{v \in \text{CharLiteral} \quad \text{IsUSV}(v)}{\Gamma \vdash v : \texttt{char}}$$
+
+**(T-Unit-Literal)**
+$$\frac{}{\Gamma \vdash () : ()}$$
+
+where $\text{InRange}(v, T)$ holds when the numeric value $v$ is representable in type $T$, and $\text{IsUSV}(v)$ holds when $v$ is a valid Unicode Scalar Value.
+
+**Operator Typing**
+
+The following operators are defined for integer types:
+
+| Category    | Operators                        | Signature                                      |
+| :---------- | :------------------------------- | :--------------------------------------------- |
+| Arithmetic  | `+`, `-`, `*`, `/`, `%`          | $(T, T) \to T$ where $T \in \mathcal{T}_{int}$ |
+| Bitwise     | `&`, `\|`, `^`, `<<`, `>>`       | $(T, T) \to T$ where $T \in \mathcal{T}_{int}$ |
+| Comparison  | `==`, `!=`, `<`, `<=`, `>`, `>=` | $(T, T) \to \texttt{bool}$                     |
+| Negation    | `-` (prefix)                     | $T \to T$ where $T \in \mathcal{T}_{int}$      |
+| Bitwise NOT | `!` (prefix)                     | $T \to T$ where $T \in \mathcal{T}_{int}$      |
+
+Floating-point types support arithmetic (`+`, `-`, `*`, `/`, `%`) and comparison operators with analogous signatures. The `%` operator on floating-point types computes the IEEE 754 remainder.
+
+The following operators are defined for boolean types:
+
+| Operator   | Name        | Signature                                          | Semantics            |
+| :--------- | :---------- | :------------------------------------------------- | :------------------- |
+| `&&`       | Logical AND | $(\texttt{bool}, \texttt{bool}) \to \texttt{bool}$ | Short-circuiting     |
+| `\|\|`     | Logical OR  | $(\texttt{bool}, \texttt{bool}) \to \texttt{bool}$ | Short-circuiting     |
+| `!`        | Logical NOT | $\texttt{bool} \to \texttt{bool}$                  | Prefix unary         |
+| `==`, `!=` | Equality    | $(\texttt{bool}, \texttt{bool}) \to \texttt{bool}$ | Non-short-circuiting |
+
+> **Note:** The logical operators `&&` and `||` evaluate their right operand only when necessary to determine the result. Short-circuit evaluation semantics are defined in Clause 8 (Expressions).
+
+The character type supports equality and ordering comparisons based on Unicode code point value:
+
+| Operator                         | Signature                                          | Semantics             |
+| :------------------------------- | :------------------------------------------------- | :-------------------- |
+| `==`, `!=`, `<`, `<=`, `>`, `>=` | $(\texttt{char}, \texttt{char}) \to \texttt{bool}$ | Code point comparison |
+
+**Implicit Numeric Conversions**
+
+There are **no implicit conversions** between distinct primitive types. A conforming implementation MUST reject any expression where a value of one primitive type is used in a context requiring a different primitive type without an explicit cast.
+
+$$\frac{T \neq U \quad T \in \mathcal{T}_{\text{prim}} \quad U \in \mathcal{T}_{\text{prim}} \quad U \neq \texttt{!}}{\Gamma \nvdash T <: U} \quad \text{(No-Implicit-Prim-Coerce)}$$
+
+> **Rationale:** Implicit numeric conversions are a common source of bugs, including silent precision loss, sign-related errors, and platform-dependent behavior. Cursive requires explicit casts to make all conversions visible in source code.
 
 ##### Dynamic Semantics
 
 **Integer Overflow**
 
-Implementations **MUST** provide a checked mode in which signed and unsigned integer overflow triggers a **panic**. Behavior in release mode is **IDB**.
+Arithmetic operations on integer types (`+`, `-`, `*`) may overflow when the mathematical result is not representable in the result type.
+
+A conforming implementation MUST provide a **checked mode** in which signed and unsigned integer overflow causes the executing thread to **panic**. This mode MUST be the default for debug builds.
+
+The behavior of integer overflow in release (optimized) builds is **implementation-defined (IDB)**. Conforming implementations MAY choose one of the following behaviors for release mode:
+
+1. **Wrap** — The result is the mathematical result modulo $2^N$ where $N$ is the bit width.
+2. **Panic** — Same behavior as checked mode.
+3. **Trap** — Invoke a platform-specific trap or signal.
+
+The implementation MUST document its release-mode overflow behavior in the Conformance Dossier (§1.1). The chosen behavior MUST apply uniformly to all integer overflow operations of the same category (signed vs. unsigned); an implementation MUST NOT vary overflow behavior on a per-operation or per-type basis within a single compilation.
+
+> **Note:** An implementation MAY choose different behaviors for signed and unsigned overflow (e.g., wrap for unsigned, panic for signed), but MUST apply each choice consistently across all operations of that signedness category.
+
+> **Note:** Explicit wrapping, saturating, and checked arithmetic operations are available as methods on integer types (e.g., `i32::wrapping_add`, `i32::saturating_mul`, `i32::checked_sub`) and are not affected by build mode.
+
+**Integer Division and Remainder**
+
+Division (`/`) and remainder (`%`) operations on integer types MUST trigger a **panic** when the divisor is zero. Implementations MUST NOT optimize away division-by-zero checks.
+
+**Floating-Point Semantics**
+
+Floating-point arithmetic MUST conform to **IEEE 754** for the corresponding precision:
+
+| Type  | IEEE 754 Format | Exponent Bits | Significand Bits |
+| :---- | :-------------- | :------------ | :--------------- |
+| `f16` | binary16        | 5             | 10               |
+| `f32` | binary32        | 8             | 23               |
+| `f64` | binary64        | 11            | 52               |
+
+All IEEE 754 special values and behaviors are supported:
+
+- **NaN (Not a Number)** — Propagates through arithmetic operations per IEEE 754.
+- **Infinity** — Positive and negative infinity (`+inf`, `-inf`).
+- **Signed zero** — Positive and negative zero are distinct bit patterns but compare equal.
+- **Division by zero** — Produces infinity (for non-zero dividend) or NaN (for zero dividend).
+
+**Unit Type Semantics**
+
+The unit type `()` has exactly one value, also written `()`. The unit value is the implicit result of:
+
+- Procedures without an explicit return type
+- Block expressions whose final statement is not an expression
+- The `result` statement with no expression
+
+**Never Type Semantics**
+
+The never type `!` is **uninhabited**: no value of type `!` can be created. Expressions of type `!` represent computations that do not return normally. Such expressions include:
+
+- Invocations of diverging procedures (e.g., `panic()`, `sys::exit()`)
+- Infinite loops with no `break` expression
+- The `unreachable!()` intrinsic
+
+Because `!` is uninhabited, code following an expression of type `!` is unreachable.
+
+##### Memory & Layout
+
+**Primitive Type Layout**
+
+Primitive types have defined layouts. Implementations MUST use the following sizes and alignments:
+
+| Type   | Size (bytes) | Alignment (bytes) | Representation                                               |
+| :----- | :----------- | :---------------- | :----------------------------------------------------------- |
+| `i8`   | 1            | 1                 | Two's complement signed integer                              |
+| `u8`   | 1            | 1                 | Unsigned integer                                             |
+| `bool` | 1            | 1                 | `0x00` = `false`, `0x01` = `true`; other values are invalid  |
+| `i16`  | 2            | 2                 | Two's complement signed integer                              |
+| `u16`  | 2            | 2                 | Unsigned integer                                             |
+| `f16`  | 2            | 2                 | IEEE 754 binary16                                            |
+| `i32`  | 4            | 4                 | Two's complement signed integer                              |
+| `u32`  | 4            | 4                 | Unsigned integer                                             |
+| `f32`  | 4            | 4                 | IEEE 754 binary32                                            |
+| `char` | 4            | 4                 | Unicode scalar value (U+0000–U+10FFFF, excluding surrogates) |
+| `i64`  | 8            | 8                 | Two's complement signed integer                              |
+| `u64`  | 8            | 8                 | Unsigned integer                                             |
+| `f64`  | 8            | 8                 | IEEE 754 binary64                                            |
+| `i128` | 16           | IDB               | Two's complement signed integer                              |
+| `u128` | 16           | IDB               | Unsigned integer                                             |
+
+The alignment of `i128` and `u128` is implementation-defined (IDB). Conforming implementations MUST choose an alignment of 8 or 16 bytes and document the choice in the Conformance Dossier.
+
+**Platform-Dependent Types**
+
+The pointer-sized integer types have sizes and alignments determined by the target platform:
+
+| Type    | Size                   | Alignment              | Representation                  |
+| :------ | :--------------------- | :--------------------- | :------------------------------ |
+| `usize` | Platform pointer width | Platform pointer width | Unsigned integer                |
+| `isize` | Platform pointer width | Platform pointer width | Two's complement signed integer |
+
+On 32-bit platforms, `usize` and `isize` are 4 bytes with 4-byte alignment. On 64-bit platforms, they are 8 bytes with 8-byte alignment. The exact pointer width is implementation-defined (IDB) and MUST be documented in the Conformance Dossier.
+
+**Unit and Never Types**
+
+| Type | Size (bytes) | Alignment (bytes) |
+| :--- | :----------- | :---------------- |
+| `()` | 0            | 1                 |
+| `!`  | 0            | 1                 |
+
+The unit type `()` and never type `!` are zero-sized types (ZSTs). Values of these types do not occupy storage.
+
+**Representation Invariants**
+
+The following invariants define valid bit patterns for specific primitive types. Constructing a value that violates these invariants is **Unverifiable Behavior (UVB)** and MUST occur only within an `unsafe` block.
+
+*Boolean:* A valid `bool` value MUST be represented by exactly one of two bit patterns: `0x00` (false) or `0x01` (true). Any other bit pattern is invalid.
+
+*Character:* A valid `char` value MUST contain a **Unicode Scalar Value (USV)**, defined as any Unicode code point in the ranges `U+0000`–`U+D7FF` or `U+E000`–`U+10FFFF`. Surrogate code points (`U+D800`–`U+DFFF`) and values above `U+10FFFF` are invalid.
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                                     |
-| :----------- | :------- | :-------------------------------------------- |
-| `W-TYP-1701` | Warning  | `f16` arithmetic emulated on target platform. |
+**Negative Constraints**
+
+See diagnostic table below for constraint violations. Key constraints:
+
+1. Integer literals MUST be representable in their target type.
+2. Character literals MUST represent valid Unicode Scalar Values.
+3. Implicit conversions between distinct primitive types are forbidden.
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                              | Detection    | Effect    |
+| :----------- | :------- | :----------------------------------------------------- | :----------- | :-------- |
+| `W-TYP-1701` | Warning  | `f16` arithmetic emulated on target platform.          | Compile-time | Warning   |
+| `E-TYP-1710` | Error    | Integer literal out of range for target type.          | Compile-time | Rejection |
+| `E-TYP-1711` | Error    | Character literal is not a valid Unicode Scalar Value. | Compile-time | Rejection |
+| `E-TYP-1712` | Error    | Implicit conversion between distinct primitive types.  | Compile-time | Rejection |
+| `E-TYP-1713` | Error    | Shadowing of primitive type alias identifier.          | Compile-time | Rejection |
+| `P-TYP-1720` | Panic    | Integer overflow in checked mode.                      | Runtime      | Panic     |
+| `P-TYP-1721` | Panic    | Integer division or remainder by zero.                 | Runtime      | Panic     |
 
 ---
 
-### 4.7 Composite Types {Source: Draft 2 §18.1, 18.5-18.7}
-
-#### 4.7.1 Tuples
+### 5.2 Composite Types
 
 ##### Definition
 
-A **tuple** is an ordered, fixed-length sequence of heterogeneous types. Tuples have **structural** equivalence.
+**Composite types** are types constructed by aggregating other types into structured collections. This section defines the structural composite types: tuples, arrays, slices, and ranges. These types share the property of **structural equivalence**: two composite type expressions are equivalent if their structure matches, regardless of where or how they are declared.
+
+**Formal Definition**
+
+Let $\mathcal{T}_{\text{composite}}$ denote the set of structural composite types defined in this section:
+
+$$\mathcal{T}_{\text{composite}} = \mathcal{T}_{\text{tuple}} \cup \mathcal{T}_{\text{array}} \cup \mathcal{T}_{\text{slice}} \cup \mathcal{T}_{\text{range}}$$
+
+> **Note:** Nominal composite types (records and enums) are defined separately in §5.3 and §5.4 respectively. Union types are defined in §5.5.
+
+#### 5.2.1 Tuples
+
+##### Definition
+
+A **tuple** is an ordered, fixed-length, heterogeneous sequence of values. Tuples are anonymous product types with **structural equivalence**.
+
+**Formal Definition**
+
+A tuple type is an ordered sequence of component types:
+
+$$\mathcal{T}_{\text{tuple}} = \{(T_1, T_2, \ldots, T_n) : n \geq 0 \land \forall i \in 1..n,\ T_i \in \mathcal{T}\}$$
+
+The **arity** of a tuple type $(T_1, \ldots, T_n)$ is $n$. The **unit type** `()` is the tuple of arity zero.
 
 ##### Syntax & Declaration
 
-**Type**: `(T1, T2, ..., Tn)`
+**Grammar**
 
-**Literal**: `(v1, v2, ..., vn)`
+```ebnf
+tuple_type       ::= "(" type_list? ")"
+type_list        ::= type ("," type)* ","?
 
-**Access**: Index-based only (e.g., `t.0`, `t.1`).
+tuple_literal    ::= "(" expression_list? ")"
+expression_list  ::= expression ("," expression)* ","?
+
+tuple_access     ::= expression "." decimal_literal
+```
+
+**Type Expression**
+
+A tuple type is written as a parenthesized, comma-separated list of component types: `(T₁, T₂, ..., Tₙ)`.
+
+**Literal Syntax**
+
+A tuple value is constructed with a corresponding literal: `(e₁, e₂, ..., eₙ)`.
+
+**Element Access**
+
+Individual elements of a tuple `t` are accessed by a constant, zero-based integer index using dot notation: `t.0`, `t.1`, etc. The index MUST be a decimal integer literal; it MUST NOT be a variable or computed expression.
 
 ##### Static Semantics
 
-**(T-Equiv-Tuple)** Equivalence:
-$$(T_1, \ldots, T_n) \equiv (U_1, \ldots, U_m) \text{ iff } n = m \text{ and } \forall i \in 1..n,\ T_i \equiv U_i$$
+**Typing Rules**
+
+**(T-Tuple-Type)**
+A tuple type is well-formed when all component types are well-formed:
+$$\frac{\forall i \in 1..n,\ \Gamma \vdash T_i\ \text{wf}}{\Gamma \vdash (T_1, \ldots, T_n)\ \text{wf}}$$
+
+**(T-Tuple-Literal)**
+A tuple literal has a tuple type when each component expression has the corresponding component type:
+$$\frac{\forall i \in 1..n,\ \Gamma \vdash e_i : T_i}{\Gamma \vdash (e_1, \ldots, e_n) : (T_1, \ldots, T_n)}$$
+
+**(T-Tuple-Index)**
+Accessing element $i$ of a tuple yields the $i$-th component type (zero-indexed):
+$$\frac{\Gamma \vdash e : (T_0, T_1, \ldots, T_{n-1}) \quad 0 \leq i < n}{\Gamma \vdash e.i : T_i} \quad \text{(T-Tuple-Index)}$$
+
+**Type Equivalence**
+
+Tuple types have structural equivalence. Two tuple types are equivalent if and only if they have the same arity and all corresponding component types are equivalent:
+
+$$\frac{n = m \quad \forall i \in 1..n,\ \Gamma \vdash T_i \equiv U_i}{\Gamma \vdash (T_1, \ldots, T_n) \equiv (U_1, \ldots, U_m)} \quad \text{(T-Equiv-Tuple)}$$
+
+**Subtyping**
+
+Tuple subtyping is covariant in all component positions:
+
+$$\frac{n = m \quad \forall i \in 1..n,\ \Gamma \vdash T_i <: U_i}{\Gamma \vdash (T_1, \ldots, T_n) <: (U_1, \ldots, U_m)} \quad \text{(Sub-Tuple)}$$
+
+**Permission Propagation**
+
+The permission of a tuple value propagates to element access. If `t` has permission $P$, then `t.i` has permission $P$ for all valid indices $i$.
 
 ##### Memory & Layout
 
-Structural layout. Field order is preserved. Padding is IDB.
+**Representation**
 
----
+A tuple is laid out as a contiguous sequence of its component values. Components are stored in declaration order (left to right).
 
-#### 4.7.2 Arrays
+**Size and Alignment**
 
-##### Definition
+$$\text{sizeof}((T_1, \ldots, T_n)) = \sum_{i=1}^{n} \text{sizeof}(T_i) + \text{padding}$$
 
-An **array** is a contiguous, fixed-length sequence of homogeneous elements.
+$$\text{alignof}((T_1, \ldots, T_n)) = \max_{i \in 1..n}(\text{alignof}(T_i))$$
 
-##### Syntax & Declaration
+For the unit type: $\text{sizeof}(()) = 0$ and $\text{alignof}(()) = 1$.
 
-**Type**: `[T; N]` where `N` is a compile-time constant expression.
+**Padding**
 
-**Literals**:
-- List form: `[e1, e2, ..., en]`
-- Repeat form: `[e; N]` (value `e` duplicated `N` times)
+The amount and placement of inter-element padding is **implementation-defined (IDB)**. Implementations MUST document their tuple padding strategy in the Conformance Dossier.
 
-##### Memory & Layout
-
-Contiguous storage. No inter-element padding. Size = `N * sizeof(T)`.
+> **Note:** Padding is typically inserted to satisfy alignment requirements of subsequent elements, but implementations MAY choose different strategies.
 
 ##### Constraints & Legality
 
-- Index expression **MUST** have type `usize`.
-- Runtime bounds checking is **REQUIRED**.
+**Constraints**
 
-| Code         | Severity    | Condition                  |
-| :----------- | :---------- | :------------------------- |
-| `E-TYP-1801` | Error/Panic | Array index out of bounds. |
+Tuple indices MUST be compile-time constant integers within bounds. Single-element tuples require trailing comma: `(T,)` (1-tuple) vs. `(T)` (parenthesized expression).
 
----
+**Diagnostic Table**
 
-#### 4.7.3 Slices
+| Code         | Severity | Condition                                                   | Detection    | Effect    |
+| :----------- | :------- | :---------------------------------------------------------- | :----------- | :-------- |
+| `E-TYP-1801` | Error    | Tuple index out of bounds.                                  | Compile-time | Rejection |
+| `E-TYP-1802` | Error    | Tuple index is not a compile-time constant integer literal. | Compile-time | Rejection |
+| `E-TYP-1803` | Error    | Tuple arity mismatch in assignment or pattern.              | Compile-time | Rejection |
 
-##### Definition
 
-A **slice** is a dynamically-sized view into a contiguous sequence. It is represented as a **fat pointer** containing a data pointer and a length.
-
-##### Memory & Layout
-
-```
-struct { ptr: *imm T, len: usize }
-```
-
-Two machine words. The slice does not own its data; it borrows from an array or other contiguous storage.
-
----
-
-#### 4.7.4 Range Types
+#### 5.2.2 Arrays
 
 ##### Definition
 
-**Range types** are structural record types produced by range expressions (`..`, `..=`, etc.).
+An **array** is a contiguous, fixed-length, homogeneous sequence of elements. The length of an array is part of its type and MUST be known at compile time.
+
+**Formal Definition**
+
+An array type is parameterized by an element type and a compile-time constant length:
+
+$$\mathcal{T}_{\text{array}} = \{[T; N] : T \in \mathcal{T} \land N \in \mathbb{N}\}$$
+
+where $N$ is a non-negative integer constant expression of type `usize`.
 
 ##### Syntax & Declaration
 
-Implementations **MUST** provide the following generic records with **public fields**:
-
-| Expression    | Type                  | Fields               |
-| :------------ | :-------------------- | :------------------- |
-| `start..end`  | `Range<T>`            | `start: T`, `end: T` |
-| `start..=end` | `RangeInclusive<T>`   | `start: T`, `end: T` |
-| `start..`     | `RangeFrom<T>`        | `start: T`           |
-| `..end`       | `RangeTo<T>`          | `end: T`             |
-| `..=end`      | `RangeToInclusive<T>` | `end: T`             |
-| `..`          | `RangeFull`           | (none)               |
-
-##### Constraints & Legality
-
-Range types **MUST** implement `Copy` if and only if `T` implements `Copy`.
-
----
-
-### 4.8 Records {Source: Draft 2 §18.2, §23.3}
-
-##### Definition
-
-A **record** is a nominal product type with named fields.
-
-##### Syntax & Declaration
+**Grammar**
 
 ```ebnf
-record_decl ::= [visibility] "record" identifier [generic_params]
-                "{" field_list "}" [type_invariant]
-field_decl  ::= [visibility] identifier ":" type
-field_list  ::= (field_decl ("," field_decl)* ","?)?
-type_invariant ::= "where" "{" predicate "}"
+array_type       ::= "[" type ";" const_expression "]"
+
+array_literal    ::= "[" expression_list "]"
+                   | "[" expression ";" const_expression "]"
+
+array_access     ::= expression "[" expression "]"
 ```
 
-**Literal**: `TypeName { field1: v1, field2: v2 }`
+**Type Expression**
 
-**Field Shorthand**: `{ field }` is equivalent to `{ field: field }`.
+An array type is written as `[T; N]`, where `T` is the element type and `N` is a compile-time constant expression of type `usize` specifying the array length.
 
-**Type Invariant**: Records may include a `where` clause after the field list to specify invariants that must hold for all valid instances. Within the predicate, `self` refers to the record instance.
+**Literal Syntax**
 
-##### Examples
+Array values are constructed using one of two literal forms:
 
-```cursive
-// Simple record (no invariant)
-record Point { x: f64, y: f64 }
+1. **List form:** `[e₁, e₂, ..., eₙ]` — Creates an array of length $n$ with each element initialized to the corresponding expression.
 
-// Record with type invariant
-record PositiveInt {
-    value: i32
-} where { self.value > 0 }
+2. **Repeat form:** `[e; N]` — Creates an array of length $N$ with all elements initialized to copies of `e`. The expression `e` MUST have a type that implements `Copy`, or MUST be a constant expression.
 
-// Record with multi-constraint invariant
-record BoundedCounter {
-    value: i32,
-    max: i32
-} where { self.value >= 0 && self.value <= self.max }
-```
+**Element Access**
+
+Elements of an array `a` are accessed via indexing: `a[i]`, where `i` is an expression of type `usize`.
 
 ##### Static Semantics
 
-- **Nominal equivalence**: Two record types are equivalent if and only if they refer to the same declaration.
-- **Default field visibility**: `private` (module-local) unless explicitly marked `public` or `internal`.
-- **Invariant enforcement**: Type invariants are verified at construction time and after any mutating operation. See §7.3 for enforcement details.
+**Typing Rules**
+
+**(T-Array-Type)**
+An array type is well-formed when the element type is well-formed and the length is a valid constant:
+$$\frac{\Gamma \vdash T\ \text{wf} \quad N : \texttt{usize} \quad N \geq 0}{\Gamma \vdash [T; N]\ \text{wf}}$$
+
+**(T-Array-Literal-List)**
+A list-form array literal has an array type when all element expressions have the element type:
+$$\frac{\forall i \in 1..n,\ \Gamma \vdash e_i : T}{\Gamma \vdash [e_1, \ldots, e_n] : [T; n]}$$
+
+**(T-Array-Literal-Repeat)**
+A repeat-form array literal has an array type when the initializer has the element type:
+$$\frac{\Gamma \vdash e : T \quad N : \texttt{usize} \quad T : \texttt{Copy} \lor e \in \text{ConstExpr}}{\Gamma \vdash [e; N] : [T; N]}$$
+
+**(T-Array-Index)**
+Indexing an array yields the element type:
+$$\frac{\Gamma \vdash a : [T; N] \quad \Gamma \vdash i : \texttt{usize}}{\Gamma \vdash a[i] : T}$$
+
+**Type Equivalence**
+
+Array types have structural equivalence. Two array types are equivalent if and only if their element types are equivalent and their lengths are equal:
+
+$$\frac{\Gamma \vdash T \equiv U \quad N = M}{\Gamma \vdash [T; N] \equiv [U; M]} \quad \text{(T-Equiv-Array)}$$
+
+**Subtyping**
+
+Array subtyping is covariant in the element type and invariant in length:
+
+$$\frac{\Gamma \vdash T <: U \quad N = M}{\Gamma \vdash [T; N] <: [U; M]} \quad \text{(Sub-Array)}$$
+
+**Permission Propagation**
+
+The permission of an array value propagates to element access. If `a` has permission $P$, then `a[i]` has permission $P$ for all valid indices $i$.
+
+##### Dynamic Semantics
+
+**Bounds Checking**
+
+All array indexing MUST be bounds-checked at runtime. An attempt to access an index $i$ where $i \geq N$ MUST cause the executing thread to panic with diagnostic `P-TYP-1811`.
+
+**Bounds Check Elision**
+
+Implementations MAY elide bounds checks only when they can **statically prove** that the access is always within bounds. The Partitioning System (§3.7) provides one mechanism for such proofs.
+
+**Initialization**
+
+For list-form literals, elements are initialized in left-to-right order. For repeat-form literals, the initialization order is unspecified.
 
 ##### Memory & Layout
 
-Field ordering and padding are **IDB** unless `[[repr(C)]]` is specified.
+**Representation**
 
----
+An array is laid out as a contiguous sequence of elements with no inter-element padding:
 
-### 4.9 Enums {Source: Draft 2 §18.3}
+$$\text{layout}([T; N]) = T\ ||\ T\ ||\ \cdots\ ||\ T \quad (N \text{ times})$$
+
+where $||$ denotes contiguous concatenation.
+
+**Size and Alignment**
+
+$$\text{sizeof}([T; N]) = N \times \text{sizeof}(T)$$
+
+$$\text{alignof}([T; N]) = \text{alignof}(T)$$
+
+For zero-length arrays: $\text{sizeof}([T; 0]) = 0$ and $\text{alignof}([T; 0]) = \text{alignof}(T)$.
+
+**ABI Guarantee**
+
+The array layout formula above is **defined behavior**. Implementations MUST NOT insert padding between array elements.
+
+##### Constraints & Legality
+
+**Negative Constraints**
+
+The following constraints apply to array types and values:
+
+1. The array length expression MUST be a compile-time constant of type `usize`.
+2. The array length MUST NOT be negative.
+3. The index expression in an array access MUST have type `usize`.
+4. A repeat-form literal with a non-Copy element type MUST use a constant expression for the initializer.
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                                     | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------------------ | :----------- | :-------- |
+| `E-TYP-1810` | Error    | Array length is not a compile-time constant.                  | Compile-time | Rejection |
+| `P-TYP-1811` | Panic    | Array index out of bounds.                                    | Runtime      | Panic     |
+| `E-TYP-1812` | Error    | Array index expression has non-`usize` type.                  | Compile-time | Rejection |
+| `E-TYP-1813` | Error    | Array repeat literal requires `Copy` or constant initializer. | Compile-time | Rejection |
+| `E-TYP-1814` | Error    | Array length mismatch in assignment or pattern.               | Compile-time | Rejection |
+
+#### 5.2.3 Slices
 
 ##### Definition
 
-**Enum**
+A **slice** is a dynamically-sized view into a contiguous sequence of elements. A slice does not own its data; it borrows from an array or other contiguous storage.
 
-An **enum** is a nominal sum type (tagged union) with named variants.
+**Formal Definition**
 
-**Discriminant**
+A slice type is parameterized by an element type:
 
-A **discriminant** is an integer value identifying the active variant of an enum.
+$$\mathcal{T}_{\text{slice}} = \{[T] : T \in \mathcal{T}\}$$
+
+A slice value is a **dense pointer** consisting of a data pointer and a length.
 
 ##### Syntax & Declaration
 
+**Grammar**
+
 ```ebnf
-enum_decl ::= [visibility] "enum" identifier [generic_params]
-              "{" variant_list "}" [type_invariant]
-variant   ::= identifier [payload] ["=" integer_constant]
-payload   ::= "(" type_list ")" | "{" field_list "}"
-type_invariant ::= "where" "{" predicate "}"
+slice_type       ::= "[" type "]"
+
+slice_access     ::= expression "[" expression "]"
+slice_range      ::= expression "[" range_expression "]"
 ```
 
-**Type Invariant**: Enums may include a `where` clause after the variant list to specify invariants. Within the predicate, `self` refers to the enum instance and may be matched to access variant-specific data.
+**Type Expression**
 
-##### Examples
+A slice type is written as `[T]`, where `T` is the element type. Note the absence of a length parameter, distinguishing slices from arrays.
+
+**Slice Creation**
+
+Slices are created by borrowing a range from an array or another slice:
 
 ```cursive
-// Simple enum (no invariant)
-enum Option<T> {
-    None,
-    Some(T)
+let arr: [i32; 5] = [10, 20, 30, 40, 50]
+let slice: const [i32] = arr[1..4]    // borrows elements [20, 30, 40]
+```
+
+**Element Access**
+
+Elements of a slice `s` are accessed via indexing: `s[i]`, where `i` is an expression of type `usize`.
+
+##### Static Semantics
+
+**Typing Rules**
+
+**(T-Slice-Type)**
+A slice type is well-formed when the element type is well-formed:
+$$\frac{\Gamma \vdash T\ \text{wf}}{\Gamma \vdash [T]\ \text{wf}}$$
+
+**(T-Slice-From-Array)**
+A range expression on an array produces a slice:
+$$\frac{\Gamma \vdash a : P\ [T; N] \quad \Gamma \vdash r : \text{Range}}{\Gamma \vdash a[r] : P\ [T]}$$
+
+where $P$ is the permission of the array and Range is any range type from §4.7.4.
+
+**(T-Slice-Index)**
+Indexing a slice yields the element type:
+$$\frac{\Gamma \vdash s : [T] \quad \Gamma \vdash i : \texttt{usize}}{\Gamma \vdash s[i] : T}$$
+
+**Type Equivalence**
+
+Slice types have structural equivalence based on their element type:
+
+$$\frac{\Gamma \vdash T \equiv U}{\Gamma \vdash [T] \equiv [U]} \quad \text{(T-Equiv-Slice)}$$
+
+**Subtyping**
+
+Slice subtyping is covariant in the element type:
+
+$$\frac{\Gamma \vdash T <: U}{\Gamma \vdash [T] <: [U]} \quad \text{(Sub-Slice)}$$
+
+**Coercion from Array**
+
+An array type coerces to a slice type with the same element type:
+
+$$\frac{\Gamma \vdash a : P\ [T; N]}{\Gamma \vdash a : P\ [T]} \quad \text{(Coerce-Array-Slice)}$$
+
+This coercion is implicit and creates a slice viewing the entire array.
+
+**Permission Propagation**
+
+The permission of a slice value propagates to element access and sub-slicing. If `s` has permission $P$, then `s[i]` and `s[r]` have permission $P$.
+
+##### Dynamic Semantics
+
+**Bounds Checking**
+
+All slice indexing MUST be bounds-checked at runtime. An attempt to access an index $i$ where $i \geq \text{len}(s)$ MUST cause the executing thread to panic with diagnostic `P-TYP-1821`.
+
+**Slice Range Bounds**
+
+Creating a sub-slice with a range MUST verify that the range bounds are within the slice. For a slice `s` of length $L$ and range `start..end`:
+- `start` MUST satisfy $0 \leq \text{start} \leq L$
+- `end` MUST satisfy $\text{start} \leq \text{end} \leq L$
+
+Violation of either condition MUST cause a panic with diagnostic `P-TYP-1822`.
+
+**Length Accessor**
+
+The `len()` method on slices returns the number of elements:
+$$\text{len}(s) : \texttt{usize}$$
+
+##### Memory & Layout
+
+**Representation**
+
+A slice is represented as a **dense pointer** containing two machine words:
+
+| Field | Type    | Description                     |
+| :---- | :------ | :------------------------------ |
+| `ptr` | `*T`    | Pointer to the first element    |
+| `len` | `usize` | Number of elements in the slice |
+
+**Size and Alignment**
+
+$$\text{sizeof}([T]) = 2 \times \text{sizeof}(\texttt{usize})$$
+
+$$\text{alignof}([T]) = \text{alignof}(\texttt{usize})$$
+
+On a 64-bit platform, a slice occupies 16 bytes (two 8-byte words).
+
+**Ownership**
+
+A slice does not own its data. The underlying storage MUST remain valid for the lifetime of the slice. The slice's permission determines whether it may read or mutate the underlying elements.
+
+##### Constraints & Legality
+
+**Negative Constraints**
+
+The following constraints apply to slice types and values:
+
+1. The index expression in a slice access MUST have type `usize`.
+2. A slice MUST NOT outlive the storage it borrows from.
+3. A mutable slice (`unique [T]`) MUST NOT coexist with any other path to the same elements.
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                    | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------- | :----------- | :-------- |
+| `E-TYP-1820` | Error    | Slice index expression has non-`usize` type. | Compile-time | Rejection |
+| `P-TYP-1821` | Panic    | Slice index out of bounds.                   | Runtime      | Panic     |
+| `P-TYP-1822` | Panic    | Slice range out of bounds.                   | Runtime      | Panic     |
+| `E-TYP-1823` | Error    | Slice outlives borrowed storage.             | Compile-time | Rejection |
+
+#### 5.2.4 Range Types
+
+##### Definition
+
+**Range types** are structural record types produced by range expressions. Ranges represent bounded or unbounded intervals and are primarily used for iteration and slicing operations.
+
+**Formal Definition**
+
+The set of range types comprises six distinct structural record types:
+
+$$\mathcal{T}_{\text{range}} = \{\texttt{Range}\langle T \rangle, \texttt{RangeInclusive}\langle T \rangle, \texttt{RangeFrom}\langle T \rangle, \texttt{RangeTo}\langle T \rangle, \texttt{RangeToInclusive}\langle T \rangle, \texttt{RangeFull}\}$$
+
+##### Syntax & Declaration
+
+**Grammar**
+
+```ebnf
+range_expression ::= exclusive_range | inclusive_range | from_range
+                   | to_range | to_inclusive_range | full_range
+
+exclusive_range     ::= expression ".." expression
+inclusive_range     ::= expression "..=" expression
+from_range          ::= expression ".."
+to_range            ::= ".." expression
+to_inclusive_range  ::= "..=" expression
+full_range          ::= ".."
+```
+
+**Range Type Definitions**
+
+Implementations MUST provide the following generic record definitions with **public fields**:
+
+| Expression    | Type                  | Fields                             |
+| :------------ | :-------------------- | :--------------------------------- |
+| `start..end`  | `Range<T>`            | `public start: T`, `public end: T` |
+| `start..=end` | `RangeInclusive<T>`   | `public start: T`, `public end: T` |
+| `start..`     | `RangeFrom<T>`        | `public start: T`                  |
+| `..end`       | `RangeTo<T>`          | `public end: T`                    |
+| `..=end`      | `RangeToInclusive<T>` | `public end: T`                    |
+| `..`          | `RangeFull`           | (none)                             |
+
+##### Static Semantics
+
+**Typing Rules**
+
+**(T-Range-Exclusive)**
+$$\frac{\Gamma \vdash e_1 : T \quad \Gamma \vdash e_2 : T}{\Gamma \vdash e_1\text{..}e_2 : \texttt{Range}\langle T \rangle}$$
+
+**(T-Range-Inclusive)**
+$$\frac{\Gamma \vdash e_1 : T \quad \Gamma \vdash e_2 : T}{\Gamma \vdash e_1\text{..=}e_2 : \texttt{RangeInclusive}\langle T \rangle}$$
+
+**(T-Range-From)**
+$$\frac{\Gamma \vdash e : T}{\Gamma \vdash e\text{..} : \texttt{RangeFrom}\langle T \rangle}$$
+
+**(T-Range-To)**
+$$\frac{\Gamma \vdash e : T}{\Gamma \vdash \text{..}e : \texttt{RangeTo}\langle T \rangle}$$
+
+**(T-Range-To-Inclusive)**
+$$\frac{\Gamma \vdash e : T}{\Gamma \vdash \text{..=}e : \texttt{RangeToInclusive}\langle T \rangle}$$
+
+**(T-Range-Full)**
+$$\frac{}{\Gamma \vdash \text{..} : \texttt{RangeFull}}$$
+
+**Type Equivalence**
+
+Range types have structural equivalence based on their element type:
+
+$$\frac{\Gamma \vdash T \equiv U}{\Gamma \vdash \texttt{Range}\langle T \rangle \equiv \texttt{Range}\langle U \rangle} \quad \text{(T-Equiv-Range)}$$
+
+Analogous rules apply to all other range type constructors.
+
+**Copy Semantics**
+
+A range type implements `Copy` if and only if its element type `T` implements `Copy`:
+
+$$\frac{T : \texttt{Copy}}{\texttt{Range}\langle T \rangle : \texttt{Copy}} \quad \text{(Copy-Range)}$$
+
+This rule applies to all generic range types. The type `RangeFull` unconditionally implements `Copy`.
+
+**Iteration**
+
+Range types `Range<T>` and `RangeInclusive<T>` implement the `Iterator` trait when `T` implements `Step`. This enables their use in `for` loops:
+
+```cursive
+for i in 0..10 { /* i: i32, values 0 through 9 */ }
+for i in 0..=10 { /* i: i32, values 0 through 10 */ }
+```
+
+##### Dynamic Semantics
+
+**Inclusive vs. Exclusive Semantics**
+
+The exclusive range `start..end` represents values $v$ where $\text{start} \leq v < \text{end}$.
+
+The inclusive range `start..=end` represents values $v$ where $\text{start} \leq v \leq \text{end}$.
+
+**Empty Ranges**
+
+A range `start..end` where $\text{start} \geq \text{end}$ is **empty** and produces no elements when iterated.
+
+A range `start..=end` where $\text{start} > \text{end}$ is **empty**.
+
+**Unbounded Ranges**
+
+The types `RangeFrom`, `RangeTo`, `RangeToInclusive`, and `RangeFull` represent unbounded ranges. These types are valid for slicing operations but MUST NOT be used directly in `for` loops without an explicit bound, as iteration would be unbounded.
+
+##### Memory & Layout
+
+**Representation**
+
+Range types are laid out as their equivalent record definitions. Each generic range type containing element type `T` has:
+
+| Type                  | Size                                         | Alignment           |
+| :-------------------- | :------------------------------------------- | :------------------ |
+| `Range<T>`            | $2 \times \text{sizeof}(T) + \text{padding}$ | $\text{alignof}(T)$ |
+| `RangeInclusive<T>`   | $2 \times \text{sizeof}(T) + \text{padding}$ | $\text{alignof}(T)$ |
+| `RangeFrom<T>`        | $\text{sizeof}(T)$                           | $\text{alignof}(T)$ |
+| `RangeTo<T>`          | $\text{sizeof}(T)$                           | $\text{alignof}(T)$ |
+| `RangeToInclusive<T>` | $\text{sizeof}(T)$                           | $\text{alignof}(T)$ |
+| `RangeFull`           | $0$                                          | $1$                 |
+
+Padding within range types follows the same implementation-defined rules as records (§4.8).
+
+##### Constraints & Legality
+
+**Negative Constraints**
+
+The following constraints apply to range types:
+
+1. Both bounds of a two-bound range expression (`..` or `..=`) MUST have the same type.
+2. Unbounded ranges (`RangeFrom`, `RangeTo`, `RangeToInclusive`, `RangeFull`) MUST NOT be used in contexts requiring a finite iterator without explicit bounds.
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                                   | Detection    | Effect    |
+| :----------- | :------- | :---------------------------------------------------------- | :----------- | :-------- |
+| `E-TYP-1830` | Error    | Range bound types do not match.                             | Compile-time | Rejection |
+| `E-TYP-1831` | Error    | Unbounded range used in context requiring finite iteration. | Compile-time | Rejection |
+
+---
+
+### 5.3 Records
+
+##### Definition
+
+A **record** is a nominal product type with named fields. A record aggregates zero or more typed values into a single composite value, where each constituent value is identified by a field name rather than by position.
+
+**Formal Definition**
+
+Let $\mathcal{R}$ denote the set of all record types. A record type $R$ is defined by:
+
+$$R = (\text{Name}, \text{Params}, \text{Fields}, \text{Traits}, \text{Invariant})$$
+
+where:
+
+- $\text{Name}$ is the unique type identifier within its declaring module
+- $\text{Params}$ is an optional list of generic type parameters
+- $\text{Fields} = \{(f_1, V_1, T_1), \ldots, (f_n, V_n, T_n)\}$ is an ordered sequence of field declarations, where $f_i$ is the field name, $V_i$ is the field visibility, and $T_i$ is the field type
+- $\text{Traits}$ is the set of traits the record implements (possibly empty)
+- $\text{Invariant}$ is an optional predicate that constrains valid instances
+
+Two record types are **equivalent** if and only if they refer to the same declaration:
+
+$$\frac{D(R_1) = D(R_2)}{\Gamma \vdash R_1 \equiv R_2} \quad \text{(T-Equiv-Record)}$$
+
+##### Syntax & Declaration
+
+**Grammar**
+
+```ebnf
+record_decl      ::= [visibility] "record" identifier [generic_params] 
+                     [implements_clause] "{" record_body "}" [type_invariant]
+
+record_body      ::= (partition_decl | field_decl) ("," (partition_decl | field_decl))* ","?
+
+field_decl       ::= [visibility] identifier ":" type
+
+partition_decl   ::= "partition" identifier "{" field_decl ("," field_decl)* ","? "}"
+
+implements_clause ::= "<:" trait_list
+trait_list       ::= type_path ("," type_path)*
+
+type_invariant   ::= "where" "{" predicate "}"
+```
+
+**Record Literal**
+
+A record value is constructed using a literal that specifies the type name and provides values for all fields:
+
+```ebnf
+record_literal   ::= type_path "{" field_init_list "}"
+field_init_list  ::= field_init ("," field_init)* ","?
+field_init       ::= identifier ":" expression
+                   | identifier
+```
+
+**Field Shorthand**
+
+When the initializing expression is a variable with the same name as the field, the shorthand syntax `{ field }` is equivalent to `{ field: field }`.
+
+**Field Access**
+
+Fields of a record instance are accessed using dot notation:
+
+```ebnf
+field_access     ::= expression "." identifier
+```
+
+**Type Invariant**
+
+A record declaration MAY include a `where` clause after the closing brace to specify an invariant that MUST hold for all valid instances. Within the predicate, the identifier `self` refers to the record instance being constrained.
+
+##### Static Semantics
+
+**Typing Rules**
+
+**(T-Record-Type)**
+A record type is well-formed when all field types are well-formed and all fields have distinct names:
+$$\frac{\forall i \in 1..n,\ \Gamma \vdash T_i\ \text{wf} \quad \forall i \neq j,\ f_i \neq f_j}{\Gamma \vdash \texttt{record}\ R\ \{f_1: T_1, \ldots, f_n: T_n\}\ \text{wf}} \quad \text{(T-Record-WF)}$$
+
+**(T-Record-Literal)**
+A record literal has the declared record type when each field initializer has the corresponding field type:
+$$\frac{\forall i \in 1..n,\ \Gamma \vdash e_i : T_i \quad R = \{f_1: T_1, \ldots, f_n: T_n\}}{\Gamma \vdash R\ \{f_1: e_1, \ldots, f_n: e_n\} : R} \quad \text{(T-Record-Lit)}$$
+
+**(T-Field-Access)**
+Accessing field $f$ of a record yields the field's type:
+$$\frac{\Gamma \vdash e : R \quad R.\text{fields}(f) = T \quad \text{visible}(f, \Gamma)}{\Gamma \vdash e.f : T} \quad \text{(T-Field)}$$
+
+**Nominal Equivalence**
+
+Record types have nominal equivalence. Two record types are equivalent if and only if they refer to the same declaration. Records with identical structure but different names are distinct types:
+
+```cursive
+record Point2D { x: f64, y: f64 }
+record Vector2D { x: f64, y: f64 }
+// Point2D and Vector2D are NOT equivalent despite identical structure
+```
+
+**Field Visibility**
+
+The default visibility for record fields is `private` (accessible only within the declaring module). Each field MAY be annotated with an explicit visibility modifier:
+
+| Visibility  | Accessible From                             |
+| :---------- | :------------------------------------------ |
+| `private`   | Declaring module only (default)             |
+| `internal`  | Declaring package only                      |
+| `protected` | Declaring type and its implementations only |
+| `public`    | Any module that can access the record type  |
+
+Field visibility MUST NOT exceed the visibility of the enclosing record type.
+
+**Trait Implementation**
+
+A record declaration MAY specify the traits it implements using the subtype operator (`<:`) followed by a comma-separated list of trait identifiers. The record body MUST provide implementations for all required trait procedures. Trait implementation semantics are defined in §6.3.
+
+**Invariant Enforcement**
+
+When a record declares a type invariant via a `where` clause, the implementation MUST verify that the invariant holds at the following boundary points:
+
+1. **Post-Construction:** Immediately after any constructor or literal initialization completes.
+2. **Pre-Call (Public):** Before any `public` procedure is invoked on the instance.
+3. **Post-Call (Mutating):** Before any procedure taking `unique` or `partitioned` access to `self` returns.
+
+The invariant predicate is implicitly conjoined with the postconditions of all mutating procedures. Invariant enforcement modes and verification strategies are defined in §7.3.
+
+**Permission Propagation**
+
+The permission of a record value propagates to field access. If binding `r` has permission $P$, then `r.f` has permission $P$ for all accessible fields $f$.
+
+**Subtyping**
+
+Record types do not participate in structural subtyping. A record type $R$ is a subtype of a trait type $\textit{Tr}$ if and only if $R$ implements $\textit{Tr}$:
+
+$$\frac{R\ \texttt{<:}\ \textit{Tr}}{\Gamma \vdash R <: \textit{Tr}} \quad \text{(Sub-Record-Trait)}$$
+
+**Static Record Partitioning**
+
+A record definition MAY include `partition` declarations to group fields into named sets for use with the `partitioned` permission (§4.5). Fields declared within a `partition` block belong to that partition. Fields declared outside any partition block each belong to an implicit, anonymous partition unique to that field.
+
+When accessing a record via a `partitioned` binding, the compiler tracks active partition locks. Accessing a field acquires a lock on its containing partition. Simultaneous access to fields in different partitions is permitted; simultaneous access to fields in the same partition via separate paths is forbidden. Partition semantics are fully defined in §3.7.
+
+##### Memory & Layout
+
+**Representation**
+
+A record is laid out as a contiguous sequence of its field values. Each field occupies storage sufficient for its type, plus any padding required for alignment.
+
+**Field Ordering**
+
+By default, the physical ordering of fields in memory is **implementation-defined (IDB)**. Implementations MAY reorder fields to minimize padding or improve cache locality. Implementations MUST document their default field ordering strategy in the Conformance Dossier.
+
+**Size and Alignment**
+
+$$\text{alignof}(R) = \max_{f \in \text{fields}(R)}(\text{alignof}(T_f))$$
+
+$$\text{sizeof}(R) \geq \sum_{f \in \text{fields}(R)} \text{sizeof}(T_f)$$
+
+The actual size includes implementation-defined padding to satisfy alignment constraints.
+
+**Padding**
+
+The amount and placement of inter-field padding is **implementation-defined (IDB)**. The values of padding bytes are **unspecified behavior (USB)**.
+
+**C-Compatible Layout**
+
+When the `[[layout(C)]]` attribute is applied to a record declaration, the implementation MUST produce a C-compatible memory layout:
+
+1. Fields MUST be stored in declaration order.
+2. Padding MUST be inserted to satisfy alignment requirements of subsequent fields.
+3. The total size MUST be a multiple of the record's alignment.
+4. The layout MUST conform to the target platform's C ABI.
+
+**Zero-Field Records**
+
+A record with no fields has size 0 and alignment 1:
+
+$$\text{sizeof}(\texttt{record}\ R\ \{\}) = 0 \qquad \text{alignof}(\texttt{record}\ R\ \{\}) = 1$$
+
+##### Constraints & Legality
+
+**Negative Constraints**
+
+The following constraints apply to record types and values:
+
+1. A record declaration MUST contain zero or more field declarations; duplicate field names within a single record are forbidden.
+2. A record literal MUST provide initializers for all fields of the record type; missing or duplicate field initializers are forbidden.
+3. A field access expression MUST name a field that exists and is visible in the current scope.
+4. A record field visibility MUST NOT exceed the visibility of the enclosing record.
+5. A partition name MUST be unique within its enclosing record declaration.
+6. A field MUST NOT appear in more than one explicit partition block.
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                       | Detection    | Effect    |
+| :----------- | :------- | :---------------------------------------------- | :----------- | :-------- |
+| `E-TYP-1901` | Error    | Duplicate field name in record declaration.     | Compile-time | Rejection |
+| `E-TYP-1902` | Error    | Missing field initializer in record literal.    | Compile-time | Rejection |
+| `E-TYP-1903` | Error    | Duplicate field initializer in record literal.  | Compile-time | Rejection |
+| `E-TYP-1904` | Error    | Access to nonexistent field.                    | Compile-time | Rejection |
+| `E-TYP-1905` | Error    | Access to field not visible in current scope.   | Compile-time | Rejection |
+| `E-TYP-1906` | Error    | Field visibility exceeds record visibility.     | Compile-time | Rejection |
+| `E-TYP-1907` | Error    | Duplicate partition name in record declaration. | Compile-time | Rejection |
+| `E-TYP-1908` | Error    | Field appears in multiple partition blocks.     | Compile-time | Rejection |
+| `P-TYP-1909` | Panic    | Type invariant violated at construction.        | Runtime      | Panic     |
+| `P-TYP-1910` | Panic    | Type invariant violated at procedure boundary.  | Runtime      | Panic     |
+
+---
+
+### 5.4 Enums
+
+##### Definition
+
+An **enum** (enumerated type) is a nominal sum type, also known as a tagged union. An enum value is exactly one of several defined **variants**, each of which may carry a payload of associated data. Unlike union types (§4.10), which are structural and anonymous, enums are nominal: two enum types with identical variants but different names are distinct types.
+
+A **variant** is a named alternative within an enum. Each variant is identified by name and may optionally contain associated data in one of three forms: unit-like (no data), tuple-like (positional data), or record-like (named fields).
+
+A **discriminant** is a compile-time-assigned integer value that uniquely identifies each variant within an enum. The discriminant enables runtime determination of which variant is active and is stored alongside the payload in the enum's memory representation.
+
+**Formal Definition**
+
+Let $\mathcal{E}$ denote the set of all enum types. An enum type $E$ is defined by:
+
+$$E = (\text{Name}, \text{Params}, \text{Variants}, \text{Traits}, \text{Invariant})$$
+
+where:
+
+- $\text{Name}$ is the unique type identifier within its declaring module
+- $\text{Params}$ is an optional list of generic type parameters
+- $\text{Variants} = \{(v_1, D_1, P_1), \ldots, (v_n, D_n, P_n)\}$ is a non-empty sequence of variant declarations, where $v_i$ is the variant name, $D_i$ is the discriminant value, and $P_i$ is the optional payload type
+- $\text{Traits}$ is the set of traits the enum implements (possibly empty)
+- $\text{Invariant}$ is an optional predicate that constrains valid instances
+
+Two enum types are **equivalent** if and only if they refer to the same declaration:
+
+$$\frac{D(E_1) = D(E_2)}{\Gamma \vdash E_1 \equiv E_2} \quad \text{(T-Equiv-Enum)}$$
+
+##### Syntax & Declaration
+
+**Grammar**
+
+```ebnf
+enum_decl        ::= [visibility] "enum" identifier [generic_params]
+                     [implements_clause] "{" variant_list "}" [type_invariant]
+
+variant_list     ::= variant ("," variant)* ","?
+
+variant          ::= identifier [variant_payload] ["=" integer_constant]
+
+variant_payload  ::= "(" type_list ")"
+                   | "{" field_decl_list "}"
+
+type_list        ::= type ("," type)* ","?
+
+field_decl_list  ::= field_decl ("," field_decl)* ","?
+
+field_decl       ::= identifier ":" type
+
+implements_clause ::= "<:" trait_list
+
+trait_list       ::= type_path ("," type_path)*
+
+type_invariant   ::= "where" "{" predicate "}"
+```
+
+**Variant Forms**
+
+Variants may take one of three forms:
+
+| Form        | Syntax                       | Payload Structure                    |
+| :---------- | :--------------------------- | :----------------------------------- |
+| Unit-like   | `Variant`                    | No associated data                   |
+| Tuple-like  | `Variant(T₁, T₂, ...)`       | Positional fields, accessed by index |
+| Record-like | `Variant { f₁: T₁, f₂: T₂ }` | Named fields, accessed by name       |
+
+**Value Construction**
+
+An enum value is constructed by qualifying the variant name with the enum's type path:
+
+```ebnf
+enum_literal     ::= type_path "::" identifier [variant_args]
+
+variant_args     ::= "(" expression_list ")"
+                   | "{" field_init_list "}"
+```
+
+For tuple-like variants, the arguments are positional expressions. For record-like variants, the arguments are named field initializers following the same rules as record literals (§4.8), including support for field shorthand.
+
+**Explicit Discriminant Assignment**
+
+A variant MAY specify an explicit discriminant value using the `=` syntax followed by a compile-time integer constant:
+
+```cursive
+enum Status {
+    Pending = 0,
+    Active = 1,
+    Completed = 100
 }
+```
 
-// Enum with invariant (all variants must satisfy)
-enum NonEmptyResult<T, E> {
-    Ok(T),
-    Err(E)
+**Type Invariant**
+
+An enum declaration MAY include a `where` clause after the closing brace to specify an invariant that MUST hold for all valid instances. Within the predicate, the identifier `self` refers to the enum instance being constrained. When the predicate requires access to variant-specific data, it MUST use a `match` expression:
+
+```cursive
+enum NonEmpty<T> {
+    Single(T),
+    Multiple([T])
 } where {
     match self {
-        Ok(v) => v~>len() > 0,
-        Err(_) => true
+        NonEmpty::Single(_) => true,
+        NonEmpty::Multiple(items) => items.len() > 1
     }
 }
 ```
 
 ##### Static Semantics
 
-- Explicit discriminants **MUST** be compile-time integer constants.
-- Unspecified discriminants are assigned sequentially (0, or previous + 1).
-- Duplicate discriminant values are **forbidden**.
-- **Invariant enforcement**: Type invariants are verified at construction time and after any mutating operation. See §7.3 for enforcement details.
+**Typing Rules**
 
-##### Memory & Layout
+**(T-Enum-Type)**
+An enum type is well-formed when all variant payload types are well-formed and all variant names are distinct:
+$$\frac{\forall i \in 1..n,\ \Gamma \vdash P_i\ \text{wf} \quad \forall i \neq j,\ v_i \neq v_j}{\Gamma \vdash \texttt{enum}\ E\ \{v_1(P_1), \ldots, v_n(P_n)\}\ \text{wf}} \quad \text{(T-Enum-WF)}$$
 
-**Size**: `sizeof(Discriminant) + sizeof(LargestVariant) + Padding`
+**(T-Enum-Variant-Unit)**
+A unit-like variant has the enum type:
+$$\frac{E \text{ declares variant } V \text{ with no payload}}{\Gamma \vdash E::V : E} \quad \text{(T-Variant-Unit)}$$
 
-**Alignment**: `max(alignof(Discriminant), alignof(LargestVariant))`
+**(T-Enum-Variant-Tuple)**
+A tuple-like variant has the enum type when each argument has the corresponding payload type:
+$$\frac{E \text{ declares variant } V(T_1, \ldots, T_n) \quad \forall i,\ \Gamma \vdash e_i : T_i}{\Gamma \vdash E::V(e_1, \ldots, e_n) : E} \quad \text{(T-Variant-Tuple)}$$
 
-**Niche Optimization**: Implementations **SHOULD** apply niche optimization where payload bit-patterns allow elision of the separate discriminant.
+**(T-Enum-Variant-Record)**
+A record-like variant has the enum type when each field initializer has the corresponding field type:
+$$\frac{E \text{ declares variant } V\{f_1: T_1, \ldots, f_n: T_n\} \quad \forall i,\ \Gamma \vdash e_i : T_i}{\Gamma \vdash E::V\{f_1: e_1, \ldots, f_n: e_n\} : E} \quad \text{(T-Variant-Record)}$$
 
----
+**Nominal Equivalence**
 
-### 4.10 Union Types {Source: Draft 2 §18.4}
+Enum types have nominal equivalence. Two enum types are equivalent if and only if they refer to the same declaration. Enums with identical variants but different names are distinct types:
 
-##### Definition
+```cursive
+enum Result<T, E> { Ok(T), Err(E) }
+enum Outcome<T, E> { Ok(T), Err(E) }
+// Result<T, E> and Outcome<T, E> are NOT equivalent despite identical structure
+```
 
-A **union type** is a structural anonymous sum type (`A | B`). Union types are safe and tagged.
+**Discriminant Assignment**
 
-##### Static Semantics
+Discriminant values are assigned as follows:
 
-**Equivalence**
+1. If a variant specifies an explicit discriminant value, that value is assigned to the variant.
+2. If a variant does not specify an explicit discriminant and is the first variant, it is assigned the value `0`.
+3. If a variant does not specify an explicit discriminant and is not the first variant, it is assigned the value of the previous variant's discriminant plus one.
 
-Set-based (order independent): `A | B ≡ B | A`.
+Discriminant values MUST be unique within an enum. The discriminant type is implementation-defined but MUST be an integer type large enough to represent all discriminant values.
+
+**Discriminant Overflow**
+
+If the implicit discriminant value of a variant would exceed the maximum value of the discriminant type (due to sequential assignment following an explicit discriminant), the program is ill-formed.
+
+**Variant Access**
+
+Accessing the data stored within an enum variant MUST be performed using a `match` expression (§8.4). Direct field access on an enum value is forbidden; the active variant must first be determined through pattern matching.
+
+**Exhaustiveness**
+
+A `match` expression on an enum type MUST be exhaustive: the set of patterns in its arms, taken together, MUST cover every variant of the enum. Exhaustiveness checking is mandatory for all enum types. See §8.4 for pattern matching semantics.
+
+**Trait Implementation**
+
+An enum declaration MAY specify the traits it implements using the subtype operator (`<:`) followed by a comma-separated list of trait identifiers. The enum body MUST provide implementations for all required trait procedures. Trait implementation semantics are defined in §6.3.
+
+**Invariant Enforcement**
+
+When an enum declares a type invariant via a `where` clause, the implementation MUST verify that the invariant holds at the following boundary points:
+
+1. **Post-Construction:** Immediately after any variant constructor is invoked.
+2. **Pre-Call (Public):** Before any `public` procedure is invoked on the instance.
+3. **Post-Call (Mutating):** Before any procedure taking `unique` or `partitioned` access to `self` returns.
+
+Invariant enforcement modes and verification strategies are defined in §7.3.
 
 **Subtyping**
 
-$T <: U$ if the set of member types in $T$ is a subset of the member types in $U$.
+Enum types do not participate in structural subtyping. An enum type $E$ is a subtype of a trait type $\textit{Tr}$ if and only if $E$ implements $\textit{Tr}$:
 
-**Access**
-
-Values of union type **MUST** be accessed via exhaustive `match`.
+$$\frac{E\ \texttt{<:}\ \textit{Tr}}{\Gamma \vdash E <: \textit{Tr}} \quad \text{(Sub-Enum-Trait)}$$
 
 ##### Memory & Layout
 
-Structure: `(tag, payload)`
+**Representation**
 
-- **Tag**: Integer discriminant (size IDB, typically `u8` or `u16`).
-- **Payload**: Union of fields (overlapping storage).
-- **Size**: `sizeof(Tag) + sizeof(LargestMember) + Padding`.
-- **Alignment**: `max(alignof(Tag), alignof(LargestMember))`.
+An enum is represented as a discriminant followed by a payload region large enough to hold any variant's data:
+
+$$\text{layout}(E) = \text{Discriminant}\ ||\ \text{Payload}\ ||\ \text{Padding}$$
+
+where $||$ denotes contiguous concatenation.
+
+The **discriminant** is an integer value identifying the active variant. The **payload** is storage for the variant's associated data. The payload region is sized to accommodate the largest variant.
+
+**Size and Alignment**
+
+$$\text{sizeof}(E) = \text{sizeof}(\text{Discriminant}) + \max_{v \in \text{Variants}}(\text{sizeof}(P_v)) + \text{Padding}$$
+
+$$\text{alignof}(E) = \max(\text{alignof}(\text{Discriminant}), \max_{v \in \text{Variants}}(\text{alignof}(P_v)))$$
+
+Padding is inserted as necessary to satisfy alignment requirements.
+
+**Discriminant Size**
+
+For enums without a `[[layout(...)]]` attribute, the discriminant size is implementation-defined but MUST be sufficient to represent all discriminant values. Implementations SHOULD use the smallest integer type that can represent all discriminants.
+
+**Niche Optimization**
+
+Implementations SHOULD apply **niche optimization** when variant payloads contain invalid bit patterns (niches) that can be repurposed to encode the discriminant. When niche optimization is applied, the discriminant storage may be elided entirely.
+
+> **Note:** A common example is `Option<Ptr<T>>`, where the null pointer value (`0x0`) can represent the `None` variant, allowing `Option<Ptr<T>>` to occupy the same space as a raw pointer.
+
+**C-Compatible Layout**
+
+When an enum is annotated with `[[layout(C)]]` or `[[layout(IntType)]]` (e.g., `[[layout(u8)]]`), the implementation MUST use a C-compatible layout:
+
+1. The discriminant MUST be stored first, using the specified integer type (or `i32` for `[[layout(C)]]`).
+2. The payload MUST follow the discriminant.
+3. Field ordering within record-like variants follows declaration order.
+
+C-compatible enum layout semantics are fully specified in §9.4.
+
+**Layout Guarantees**
+
+| Aspect            | Default Layout         | `[[layout(C)]]` Layout  |
+| :---------------- | :--------------------- | :---------------------- |
+| Discriminant size | Implementation-defined | Specified type or `i32` |
+| Field order       | Unspecified            | Declaration order       |
+| Padding           | Implementation-defined | C ABI rules             |
+
+##### Constraints & Legality
+
+**Negative Constraints**
+
+The following constraints apply to enum declarations and values:
+
+1. An enum declaration MUST contain at least one variant.
+2. All variant names within an enum MUST be unique.
+3. All discriminant values within an enum MUST be unique.
+4. Explicit discriminant values MUST be compile-time integer constants.
+5. Direct field access on an enum value is forbidden; use `match` to access variant data.
+6. An enum type MUST NOT be recursive without indirection (pointer or reference).
+7. Visibility of variants MUST NOT exceed the visibility of the enclosing enum type.
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                                   | Detection    | Effect    |
+| :----------- | :------- | :---------------------------------------------------------- | :----------- | :-------- |
+| `E-TYP-2001` | Error    | Enum declaration contains no variants.                      | Compile-time | Rejection |
+| `E-TYP-2002` | Error    | Duplicate variant name in enum declaration.                 | Compile-time | Rejection |
+| `E-TYP-2003` | Error    | Duplicate discriminant value in enum declaration.           | Compile-time | Rejection |
+| `E-TYP-2004` | Error    | Discriminant value is not a compile-time constant.          | Compile-time | Rejection |
+| `E-TYP-2005` | Error    | Direct field access on enum value without pattern matching. | Compile-time | Rejection |
+| `E-TYP-2006` | Error    | Infinite type: recursive enum without indirection.          | Compile-time | Rejection |
+| `E-TYP-2007` | Error    | Unknown variant name in enum construction.                  | Compile-time | Rejection |
+| `E-TYP-2008` | Error    | Variant payload arity mismatch.                             | Compile-time | Rejection |
+| `E-TYP-2009` | Error    | Missing field initializer in record-like variant.           | Compile-time | Rejection |
+| `E-TYP-2010` | Error    | Discriminant overflow during implicit assignment.           | Compile-time | Rejection |
+| `E-PAT-2741` | Error    | `match` expression is not exhaustive for enum type.         | Compile-time | Rejection |
+| `P-TYP-2011` | Panic    | Type invariant violated at construction.                    | Runtime      | Panic     |
+| `P-TYP-2012` | Panic    | Type invariant violated at procedure boundary.              | Runtime      | Panic     |
 
 ---
 
-### 4.11 Modal Types {Source: Draft 2 §19}
+### Section 4.9 Cross-Reference Notes
+
+**Terms Defined in Section 4.9:**
+
+| Term                | Section | Description                                        |
+| :------------------ | :------ | :------------------------------------------------- |
+| Enum                | §4.9    | Nominal sum type with named variants               |
+| Variant             | §4.9    | Named alternative within an enum                   |
+| Discriminant        | §4.9    | Integer value identifying active variant           |
+| Unit-like variant   | §4.9    | Variant with no associated data                    |
+| Tuple-like variant  | §4.9    | Variant with positional payload fields             |
+| Record-like variant | §4.9    | Variant with named payload fields                  |
+| Niche optimization  | §4.9    | Elision of discriminant using invalid bit patterns |
+
+**Terms Referenced from Other Sections:**
+
+| Term                 | Source | Usage in Section 4.9                  |
+| :------------------- | :----- | :------------------------------------ |
+| Nominal Equivalence  | §4.1   | Enums use nominal type equivalence    |
+| Union Types          | §4.10  | Contrasted with nominal enums         |
+| Pattern Matching     | §8.4   | Required for variant data access      |
+| Trait Implementation | §6.3   | Mechanism for `<:` clause             |
+| Type Invariant       | §7.3   | Enforcement modes for `where` clause  |
+| Visibility           | §5.5   | Access control for enum and variants  |
+| `[[layout(C)]]`      | §4.17  | Attribute for C-compatible layout     |
+| Generic Parameters   | §4.15  | Type parameterization for enums       |
+| Exhaustiveness       | §8.4   | Match expression coverage requirement |
+
+**Terms Deferred to Later Sections:**
+
+| Term         | Deferred To | Reason                                |
+| :----------- | :---------- | :------------------------------------ |
+| Enum Pattern | §8.4        | Pattern matching syntax for enums     |
+| FFI Layout   | §9.4        | Full C ABI compatibility rules        |
+| Drop Trait   | §9.7        | Destructor mechanism for enum cleanup |
+
+---
+
+### 5.5 Union Types
 
 ##### Definition
 
-**Modal Type**
+A **union type** is a structural anonymous sum type representing a value that may be one of several distinct types. Union types are written using the pipe operator (`|`) to combine member types. Unlike enums (§4.9), which are nominal and require explicit declaration, union types are structural: two union types are equivalent if they have the same member types, regardless of the order in which those members appear.
 
-A **modal type** is a nominal type that embeds a compile-time-validated state machine. It consists of a family of related types:
+A **member type** is one of the component types that constitutes the union. The set of member types defines the possible runtime values that an expression of the union type may hold.
 
-1. **State-Specific Types (`M@S`)**: Concrete, zero-overhead types containing only the data defined in their specific state payload. They do **not** store a runtime state tag.
-2. **The General Modal Type (`M`)**: A sum type (tagged union) capable of holding a value of any of its specific states. It stores the state payload **plus** a runtime discriminant (tag) to identify the current state.
+Union types in Cursive are **safe** and **tagged**. Every union value carries a runtime discriminant that identifies the currently active member type, enabling type-safe access through pattern matching.
 
-This system allows for "Zero-Cost" states when the state is known at compile time, while supporting safe, dynamic inspection via `match` when the state is erased to the general type.
+**Formal Definition**
+
+Let $\mathcal{T}$ denote the universe of all types. A union type $U$ is defined by a non-empty multiset of member types:
+
+$$U = \bigcup_{i=1}^{n} T_i \quad \text{where } n \geq 2 \text{ and } T_i \in \mathcal{T}$$
+
+The union type is denoted syntactically as $T_1 \mid T_2 \mid \cdots \mid T_n$.
+
+The **membership relation** $\in_U$ defines which types are members of a union:
+
+$$T \in_U (T_1 \mid T_2 \mid \cdots \mid T_n) \iff \exists i \in 1..n : T \equiv T_i$$
+
+Two union types are **equivalent** if and only if they have the same member type multisets:
+
+$$\frac{\text{multiset}(\text{members}(U_1)) = \text{multiset}(\text{members}(U_2))}{\Gamma \vdash U_1 \equiv U_2} \quad \text{(T-Equiv-Union)}$$
 
 ##### Syntax & Declaration
 
-```ebnf
-modal_decl  ::= [visibility] "modal" identifier [generic_params] "{" state_block+ "}"
-state_block ::= "@" identifier [state_payload] [state_members]
-state_payload ::= "{" (field_decl ("," field_decl)* ","?)? "}"
-state_members ::= "{" procedure_declaration* "}"
-```
-
-- A `modal` declaration **MUST** contain at least one state block.
-- All state names within a `modal` declaration **MUST** be unique.
-- Fields defined within a `@State` block are implicitly `protected` (accessible only to the modal type's implementation).
-
-**Transition Signature**:
+**Grammar**
 
 ```ebnf
-transition_signature ::= "transition" identifier "(" param_list ")" "->" "@" target_state
+union_type       ::= type ("|" type)+
+
+type             ::= union_type
+                   | non_union_type
+
+non_union_type   ::= primitive_type
+                   | nominal_type
+                   | tuple_type
+                   | array_type
+                   | slice_type
+                   | function_type
+                   | pointer_type
+                   | "(" union_type ")"
 ```
 
-**Transition Implementation**:
+**Precedence and Associativity**
+
+The union type operator `|` has the following properties:
+
+1. **Precedence:** The `|` operator has lower precedence than function type arrows (`->`), array brackets, and pointer constructors. Parentheses are required to use a union type as a function parameter or return type without ambiguity.
+
+2. **Associativity:** The `|` operator is **non-associative** because union type equivalence is defined over multisets, making associativity semantically irrelevant.
+
+**Parsing Disambiguation**
+
+When a `|` appears in a type position, it MUST be interpreted as the union type operator. The following contexts disambiguate union types:
+
+| Context               | Interpretation               | Example                     |
+| :-------------------- | :--------------------------- | :-------------------------- |
+| Type annotation       | Union type                   | `let x: i32 \| bool`        |
+| Function parameter    | Requires parentheses         | `proc(x: (i32 \| bool))`    |
+| Function return       | Requires parentheses         | `-> (i32 \| bool)`          |
+| Generic type argument | Union type                   | `Vec<i32 \| string>`        |
+| Pattern match binding | Not a type; use member types | `match x { i: i32 => ... }` |
+
+**Value Construction**
+
+A value of union type is constructed by assigning a value of any member type:
 
 ```ebnf
-transition_impl ::= "transition" type_name "::" identifier "(" param_list ")" "->" target_state_type block
+union_value      ::= expression
 ```
+
+No explicit constructor or wrapping syntax is required. When an expression of type $T$ appears in a context expecting a union type $U$ where $T \in_U U$, the value is implicitly wrapped.
 
 ##### Static Semantics
+
+**Typing Rules**
+
+**(T-Union-Intro)** Union Introduction:
+A value of a member type may be used where a union type is expected:
+$$\frac{\Gamma \vdash e : T \quad T \in_U U}{\Gamma \vdash e : U} \quad \text{(T-Union-Intro)}$$
+
+**(T-Union-Member)** Member Type Check:
+A type $T$ is a member of union $U = T_1 \mid T_2 \mid \cdots \mid T_n$ if:
+$$\frac{\exists i \in 1..n : \Gamma \vdash T \equiv T_i}{\Gamma \vdash T \in_U U} \quad \text{(T-Union-Member)}$$
+
+**(T-Union-WF)** Union Well-Formedness:
+A union type is well-formed when all member types are well-formed and there are at least two members:
+$$\frac{n \geq 2 \quad \forall i \in 1..n,\ \Gamma \vdash T_i\ \text{wf}}{\Gamma \vdash T_1 \mid T_2 \mid \cdots \mid T_n\ \text{wf}} \quad \text{(T-Union-WF)}$$
+
+**(T-Union-Match)** Union Elimination:
+A union value MUST be accessed through exhaustive pattern matching:
+$$\frac{\Gamma \vdash e : U \quad U = T_1 \mid \cdots \mid T_n \quad \forall i,\ \Gamma, x_i : T_i \vdash e_i : R}{\Gamma \vdash \texttt{match } e\ \{x_1 : T_1 \Rightarrow e_1, \ldots, x_n : T_n \Rightarrow e_n\} : R} \quad \text{(T-Union-Match)}$$
+
+**Type Equivalence**
+
+Union type equivalence follows the rule (T-Equiv-Union) defined above. Equivalence is **set-based and order-independent**:
+
+$$\Gamma \vdash (A \mid B) \equiv (B \mid A)$$
+
+$$\Gamma \vdash (A \mid B \mid C) \equiv (C \mid A \mid B) \equiv (B \mid C \mid A)$$
+
+**Duplicate Handling**
+
+Duplicate member types within a union are semantically distinct entries in the multiset:
+
+$$\Gamma \vdash (A \mid A) \not\equiv A$$
+
+$$\Gamma \vdash (A \mid A \mid B) \not\equiv (A \mid B)$$
+
+> **Note:** While syntactically permitted, duplicate member types are diagnostically discouraged (see `W-TYP-2201`).
+
+**Subtyping**
+
+Union types participate in the subtype relation in two ways:
+
+**(Sub-Union-Width)** A union type is a subtype of another union type if the first's member types form a subset of the second's:
+$$\frac{\forall T \in_U U_1 : T \in_U U_2}{\Gamma \vdash U_1 <: U_2} \quad \text{(Sub-Union-Width)}$$
+
+**(Sub-Union-Depth)** A union type is a subtype of another union type if corresponding members are subtypes:
+$$\frac{U_1 = T_1 \mid \cdots \mid T_n \quad U_2 = S_1 \mid \cdots \mid S_n \quad \forall i,\ \exists j : \Gamma \vdash T_i <: S_j}{\Gamma \vdash U_1 <: U_2} \quad \text{(Sub-Union-Depth)}$$
+
+**(Sub-Member-Union)** A single type is a subtype of any union containing it as a member:
+$$\frac{T \in_U U}{\Gamma \vdash T <: U} \quad \text{(Sub-Member-Union)}$$
+
+**Coercion**
+
+Implicit coercion from a member type to its containing union type occurs at assignment, argument passing, and return, per the coercion rule (T-Coerce) defined in §4.2. This coercion injects the value into the union representation, setting the appropriate discriminant.
+
+**Access Restriction**
+
+Direct field access, method invocation, or operator application on a union value is forbidden. The active member type MUST first be determined through pattern matching:
+
+$$\Gamma \vdash e : U \implies \Gamma \nvdash e.f : T \quad \text{(Union-No-Direct-Access)}$$
+
+**Exhaustiveness Requirement**
+
+A `match` expression over a union type MUST be exhaustive. The set of patterns MUST cover all member types of the union. Exhaustiveness checking is defined in §8.4.
+
+**Nested Unions**
+
+When a union type appears as a member of another union, the nested union is **not** automatically flattened. The types `(A | B) | C` and `A | B | C` are distinct:
+
+$$\Gamma \vdash ((A \mid B) \mid C) \not\equiv (A \mid B \mid C)$$
+
+To match a value of type `(A | B) | C`, the outer union must first be matched, then the inner union if applicable.
+
+##### Memory & Layout
+
+**Representation**
+
+A union value is represented as a discriminant followed by a payload region:
+
+$$\text{layout}(U) = \text{Discriminant}\ ||\ \text{Payload}\ ||\ \text{Padding}$$
+
+where $||$ denotes contiguous concatenation.
+
+The **discriminant** (tag) is an integer value identifying which member type is currently active. The **payload** is storage for the active member's data, sized to accommodate the largest member.
+
+**Size and Alignment**
+
+$$\text{sizeof}(U) = \text{sizeof}(\text{Discriminant}) + \max_{T \in_U U}(\text{sizeof}(T)) + \text{Padding}$$
+
+$$\text{alignof}(U) = \max(\text{alignof}(\text{Discriminant}), \max_{T \in_U U}(\text{alignof}(T)))$$
+
+Padding is inserted as necessary to satisfy alignment requirements.
+
+**Discriminant Encoding**
+
+The discriminant value for each member type is assigned based on the **canonical ordering** of member types. The canonical ordering is determined by:
+
+1. Sorting member types lexicographically by their fully-qualified type name.
+2. Assigning discriminant values starting from `0` in sorted order.
+
+This deterministic assignment ensures that equivalent union types have identical discriminant mappings.
+
+**Discriminant Size**
+
+The discriminant size is implementation-defined but MUST be sufficient to represent all member types. Implementations SHOULD use the smallest integer type capable of representing all discriminants:
+
+| Member Count | Minimum Discriminant Size |
+| :----------- | :------------------------ |
+| 2–256        | 1 byte (`u8`)             |
+| 257–65,536   | 2 bytes (`u16`)           |
+| > 65,536     | 4 bytes (`u32`)           |
+
+**Niche Optimization**
+
+Implementations SHOULD apply **niche optimization** when a member type contains invalid bit patterns (niches) that can encode discriminant information. When niche optimization is applicable, the discriminant storage may be partially or fully elided.
+
+> **Note:** A common example is `i32 | Ptr<T>`, where the null pointer value (`0x0`) can represent a discriminant, potentially reducing the union's size.
+
+**Layout Guarantees**
+
+| Aspect             | Classification         |
+| :----------------- | :--------------------- |
+| Discriminant size  | Implementation-defined |
+| Member ordering    | Defined (canonical)    |
+| Padding            | Implementation-defined |
+| Niche optimization | Implementation-defined |
+
+**Zero-Sized Types**
+
+If a union contains zero-sized types (ZSTs) as members, those members occupy no payload space but still require a discriminant value. The union's payload size is determined by the largest non-ZST member.
+
+##### Constraints & Legality
+
+**Negative Constraints**
+
+The following constraints apply to union type declarations and values:
+
+1. A union type MUST have at least two member types. A single type `T | T` where both are equivalent does not satisfy this requirement semantically, though it is syntactically valid and results in a warning.
+
+2. Direct field access, method calls, or operator application on a union value is forbidden without prior pattern matching.
+
+3. A `match` expression over a union type MUST be exhaustive.
+
+4. Union types MUST NOT be recursive without indirection. A type `T | U` where `T` or `U` contains the union type itself is ill-formed unless the recursion passes through a pointer type.
+
+5. Union types MUST NOT appear in `[[layout(C)]]` contexts. C-compatible code requiring sum types MUST use enums with explicit discriminants.
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                              | Detection    | Effect    |
+| :----------- | :------- | :----------------------------------------------------- | :----------- | :-------- |
+| `E-TYP-2201` | Error    | Union type has fewer than two member types.            | Compile-time | Rejection |
+| `E-TYP-2202` | Error    | Direct access on union value without pattern matching. | Compile-time | Rejection |
+| `E-TYP-2203` | Error    | Infinite type: recursive union without indirection.    | Compile-time | Rejection |
+| `E-TYP-2204` | Error    | Union type used in `[[layout(C)]]` context.            | Compile-time | Rejection |
+| `E-PAT-2205` | Error    | `match` expression is not exhaustive for union type.   | Compile-time | Rejection |
+| `W-TYP-2201` | Warning  | Union type contains duplicate member types.            | Compile-time | N/A       |
+
+---
+
+### Clause 5 Cross-Reference Notes
+
+**Terms Defined in Clause 5 That MUST NOT Be Redefined Elsewhere:**
+
+| Term             | Section | Description                                    |
+| :--------------- | :------ | :--------------------------------------------- |
+| Primitive Type   | §5.1    | Built-in scalar type with fixed representation |
+| Never Type (`!`) | §5.1    | Bottom type; subtype of all types              |
+| Unit Type (`()`) | §5.1    | Zero-sized type with single value              |
+| Tuple            | §5.2.1  | Structural product type with positional access |
+| Array            | §5.2.2  | Fixed-length homogeneous sequence              |
+| Slice            | §5.2.3  | Dynamically-sized view into contiguous storage |
+| Range            | §5.2.4  | Half-open interval type                        |
+| Record           | §5.3    | Nominal product type with named fields         |
+| Enum             | §5.4    | Nominal sum type with variants                 |
+| Union Type       | §5.5    | Structural anonymous sum type                  |
+| String Type      | §5.6    | Built-in text type with modal states           |
+
+**Terms Referenced from Other Clauses:**
+
+| Term             | Source | Usage in Clause 5                  |
+| :--------------- | :----- | :--------------------------------- |
+| Permission Types | §4.5   | Applied to all data types          |
+| Type Equivalence | §4.1   | Structural vs. nominal rules       |
+| Subtyping        | §4.2   | Covariance rules for composites    |
+| Variance         | §4.3   | Container type variance            |
+| Copy Trait       | §9.2   | Required for array repeat literals |
+| Drop Trait       | §9.3   | Destructor typing                  |
+
+**Terms Deferred to Later Clauses:**
+
+| Term             | Deferred To | Reason                                |
+| :--------------- | :---------- | :------------------------------------ |
+| Modal Type       | Clause 6    | String is modal; full semantics there |
+| Pointer Type     | Clause 6    | Slice internal representation         |
+| Pattern Matching | Clause 11   | Destructuring records/enums           |
+
+---
+
+## Clause 6: Behavioral Types
+
+This clause defines types with state, behavior, or indirection: modal types (state machines embedded in the type system), pointer types (safe and raw), and function types (callable signatures). These types share the property of having internal state transitions, lifetime management, or representing callable abstractions.
+
+---
+
+### 6.1 Modal Types
+
+> **Cross-Reference Note:** This section is forward-referenced from §4.2 (modal widening), §6.2 (safe pointer states), and other sections. Modal types are a foundational concept for Cursive's state-tracking capabilities. Readers encountering forward references to this section should consult the definitions below.
+
+##### Definition
+
+A **modal type** is a nominal type that embeds a compile-time-validated state machine into the type system. Modal types statically prevent operations from being performed in an incorrect state, such as dereferencing a null pointer or reading from a closed file. A modal type defines a family of related types:
+
+1. **State-Specific Types (`M@S`)**: Concrete types containing only the data defined in their state's payload. State-specific types do not store a runtime discriminant; the state is tracked statically by the type system.
+
+2. **General Modal Type (`M`)**: A sum type (tagged union) capable of holding a value in any of the declared states. The general type stores the state payload together with a runtime discriminant that identifies the currently active state.
+
+This dual representation enables zero-cost state tracking when the state is statically known while supporting safe, dynamic state inspection via pattern matching when the state has been erased to the general type.
+
+**Formal Definition**
+
+Let $\mathcal{M}$ denote the set of modal type names and let $\text{States}(M)$ denote the finite, non-empty set of state names declared for modal type $M$. For each $M \in \mathcal{M}$ and $S \in \text{States}(M)$:
+
+- $M@S$ denotes the state-specific type for state $S$ of modal $M$.
+- $M$ denotes the general modal type.
+
+The type family induced by a modal declaration is:
+
+$$\mathcal{T}_M = \{M\} \cup \{M@S : S \in \text{States}(M)\}$$
+
+A **state transition** is a procedure that consumes a value of one state-specific type and produces a value of another (or the same) state-specific type. Transitions define the edges of the modal state graph:
+
+$$\text{Transitions}(M) \subseteq \text{States}(M) \times \text{States}(M)$$
+
+##### Syntax & Declaration
+
+**Grammar**
+
+```ebnf
+modal_decl        ::= [visibility] "modal" identifier [generic_params] "{" state_block+ "}"
+
+state_block       ::= "@" state_name [state_payload] [state_members]
+
+state_name        ::= identifier
+
+state_payload     ::= "{" (field_decl ("," field_decl)* ","?)? "}"
+
+state_members     ::= "{" (method_def | transition_def)* "}"
+
+method_def        ::= "procedure" identifier "(" param_list ")" ["->" return_type] block
+
+transition_def    ::= "transition" identifier "(" param_list ")" "->" "@" target_state block
+
+target_state      ::= identifier
+```
+
+Methods and transitions MUST be defined inline within their state block. Separate declaration and definition is not supported.
+
+**State-Specific Type Syntax**
+
+A state-specific type is written as the modal type name followed by `@` and the state name:
+
+```ebnf
+state_specific_type ::= modal_type_name "@" state_name
+```
+
+**Syntactic Constraints**
+
+The following syntactic constraints apply to modal declarations:
+
+1. A `modal` declaration MUST contain at least one state block.
+2. All state names within a single `modal` declaration MUST be unique.
+3. State names MUST NOT collide with the modal type name itself.
+4. Within `state_members`, the `self` parameter type is implicitly the enclosing state-specific type.
+
+**Transition Resolution**
+
+A `transition` defined in state `@S` targeting `@T` has:
+- Implicit receiver type: `Self` = `M@S` (the enclosing state)
+- Return type: `M@T` (the target state-specific type)
+
+The transition `connect` in `@Disconnected` targeting `@Connecting` resolves to the function type: `(unique Connection@Disconnected, Duration) → Connection@Connecting`
+
+##### Static Semantics
+
+**Well-Formedness**
+
+A modal type declaration is well-formed when:
+
+$$\frac{n \geq 1 \quad \forall i \in 1..n,\ S_i \text{ unique} \quad \forall i,\ \text{Payload}(S_i) \text{ wf}}{\Gamma \vdash \texttt{modal } M\ \{@S_1\ \ldots\ @S_n\}\ \text{wf}} \quad \text{(Modal-WF)}$$
+
+**State-Specific Type Formation**
+
+A state-specific type $M@S$ is well-formed when $S$ is a declared state of modal $M$:
+
+$$\frac{S \in \text{States}(M)}{\Gamma \vdash M@S\ \text{wf}} \quad \text{(State-Specific-WF)}$$
+
+**Typing Rules**
+
+**(T-Modal-State-Intro)** State-Specific Value Construction:
+
+A state-specific value is constructed by providing values for all payload fields:
+
+$$\frac{M@S \text{ has payload fields } f_1 : T_1, \ldots, f_k : T_k \quad \forall i,\ \Gamma \vdash e_i : T_i}{\Gamma \vdash M@S\ \{f_1: e_1, \ldots, f_k: e_k\} : M@S} \quad \text{(T-Modal-State-Intro)}$$
+
+**(T-Modal-Field)** State Payload Field Access:
+
+Payload fields are accessible only when the binding has the corresponding state-specific type:
+
+$$\frac{\Gamma \vdash e : M@S \quad f \in \text{Payload}(S) \quad \text{Payload}(S).f : T}{\Gamma \vdash e.f : T} \quad \text{(T-Modal-Field)}$$
+
+Field access through a general modal type $M$ or a different state-specific type $M@S'$ where $S' \neq S$ is ill-formed.
+
+**(T-Modal-Method)** State-Specific Method Invocation:
+
+A method declared in state block `@S` is callable only on bindings of type `M@S`:
+
+$$\frac{\Gamma \vdash e : M@S \quad m \in \text{Methods}(S) \quad m : (M@S, T_1, \ldots, T_n) \to R}{\Gamma \vdash e.m(a_1, \ldots, a_n) : R} \quad \text{(T-Modal-Method)}$$
 
 **Incomparability**
 
-Two different state-specific types of the same modal type are incomparable:
-$$\frac{S_A \neq S_B}{\Gamma \vdash M@S_A \not<: M@S_B \quad \land \quad \Gamma \vdash M@S_B \not<: M@S_A}$$
+Two distinct state-specific types of the same modal type are **incomparable**. Neither is a subtype of the other:
 
-**Modal Widening (Coercion)**
+$$\frac{S_A \neq S_B}{\Gamma \vdash M@S_A \not<: M@S_B \quad \land \quad \Gamma \vdash M@S_B \not<: M@S_A} \quad \text{(Modal-Incomparable)}$$
 
-An expression of a state-specific type `M@S` **MAY** be implicitly coerced to the general modal type `M`:
-$$\frac{}{\Gamma \vdash M@S <: M}$$
+This rule prohibits implicit conversion between states; state changes MUST occur through explicit transition procedures.
 
-**Transition Desugaring**
+**Modal Widening**
 
-- The `transition` keyword **MUST** be used (not `procedure`).
-- The receiver type is determined by the enclosing state block.
-- The return type **MUST** be the target state type.
+A state-specific type is a subtype of its general modal type. This coercion is called **modal widening**:
 
-##### Memory & Layout
+$$\frac{S \in \text{States}(M)}{\Gamma \vdash M@S <: M} \quad \text{(Sub-Modal-Widen)}$$
 
-- **State-Specific Type (`M@S`)**: Layout equivalent to a `record` with the state payload fields. Zero size if payload is empty.
-- **General Modal Type (`M`)**: Layout equivalent to an `enum` (tagged union) where each variant corresponds to one defined state.
+Modal widening is an implicit coercion permitted at assignment, argument passing, and return positions. The converse does not hold: the general type $M$ is not a subtype of any state-specific type $M@S$.
 
-**Niche Optimization (MANDATE)**
+**Transition Typing**
 
-Implementations **MUST** apply niche optimization when any state payload contains invalid bit patterns that can distinguish states:
+A transition procedure consumes a value of the source state and produces a value of the target state:
 
-- **Example**: `Ptr<T>` has `@Null` (address `0x0`) and `@Valid` (non-zero addresses). The general `Ptr<T>` type **MUST** have the same size/alignment as a raw pointer (one machine word), **NOT** size of pointer + discriminant.
+$$\frac{\Gamma \vdash e_{\text{self}} : P_{\text{src}}\ M@S_{\text{src}} \quad (S_{\text{src}}, S_{\text{tgt}}) \in \text{Transitions}(M) \quad \forall i,\ \Gamma \vdash a_i : T_i}{\Gamma \vdash e_{\text{self}}.t(a_1, \ldots, a_n) : M@S_{\text{tgt}}} \quad \text{(T-Modal-Transition)}$$
+
+where $P_{\text{src}}$ is the permission qualifier on the receiver (typically `unique` for consuming transitions).
+
+The implementation of a transition procedure MUST return a value of exactly the declared target state-specific type:
+
+$$\frac{\Gamma \vdash \text{body} : M@S_{\text{tgt}}}{\text{transition } M\text{::}t(\ldots) \to M@S_{\text{tgt}}\ \{\text{body}\}\ \text{well-typed}}$$
+
+**Visibility of Payload Fields**
+
+Fields declared within a state payload are implicitly `protected`. They are accessible only from:
+
+1. Procedures declared within the same modal type's state blocks.
+2. Transition implementations for the modal type.
+3. Associated trait implementations for the modal type.
+
+External code MUST NOT directly access payload fields; access is mediated through methods and pattern matching.
 
 ##### Dynamic Semantics
+
+**State Transition Evaluation**
+
+When a transition procedure is invoked:
+
+1. The receiver value (in the source state) is consumed.
+2. The transition body executes, constructing a new value of the target state.
+3. The resulting value is returned with the target state-specific type.
+
+After a consuming transition, the original binding is statically invalid; the source state's data has been moved into the transition.
 
 **Pattern Matching**
 
-- **General Type (`M`)**: Runtime dispatch on discriminant/niche. Match **MUST** be exhaustive.
-- **Specific Type (`M@S`)**: Irrefutable payload destructuring (state statically known).
+Pattern matching provides the mechanism for safely narrowing a general modal type to a state-specific type.
 
-##### Constraints & Legality
+**(Match on General Type)** When the scrutinee has general modal type $M$:
 
-| Code         | Severity | Condition                                           |
-| :----------- | :------- | :-------------------------------------------------- |
-| `E-TYP-1910` | Error    | Modal type must declare at least one `@State`.      |
-| `E-TYP-1911` | Error    | Duplicate state name in modal type.                 |
-| `E-TYP-1912` | Error    | Field access in wrong state.                        |
-| `E-TYP-1915` | Error    | Transition procedure must return target state type. |
-| `E-TYP-1920` | Error    | Non-exhaustive match on modal type.                 |
+1. The runtime discriminant (or niche encoding) is inspected to determine the active state.
+2. Control transfers to the arm matching the active state.
+3. Within that arm, the bound variable has the corresponding state-specific type.
 
----
+The match MUST be exhaustive: all declared states MUST be covered by match arms.
 
-### 4.12 String Types {Source: Draft 2 §20}
+**(Match on State-Specific Type)** When the scrutinee has state-specific type $M@S$:
 
-##### Definition
+The state is statically known. A match expression on $M@S$ is treated as irrefutable payload destructuring, analogous to matching on a record type. Coverage of other states is neither required nor permitted.
 
-The **string** type is a built-in modal type with two states:
+**Pattern Syntax**
 
-- **`string@Managed`**: An owned, heap-allocated string.
-- **`string@View`**: A borrowed slice/view into string data.
+```ebnf
+modal_pattern     ::= "@" state_name ["{" payload_pattern "}"]
 
-All string content **MUST** be valid UTF-8.
+payload_pattern   ::= (field_name [":" pattern] ("," field_name [":" pattern])* ","?)?
+```
+
+When a field pattern omits the `: pattern` suffix, the field name binds a variable of the field's type.
 
 ##### Memory & Layout
 
-- **`string@View`**: Fat pointer `(ptr: *u8, len: usize)`. Two machine words.
-- **Storage**: Not null-terminated. Content **MUST** be valid UTF-8.
+**State-Specific Type Layout**
+
+The layout of a state-specific type $M@S$ is equivalent to a `record` containing the fields declared in the payload of state $@S$:
+
+$$\text{layout}(M@S) \equiv \text{layout}(\texttt{record}\ \{\text{Payload}(S)\})$$
+
+If the state payload is empty, the state-specific type is a zero-sized type (ZST):
+
+$$\text{Payload}(S) = \emptyset \implies \text{sizeof}(M@S) = 0$$
+
+State-specific types carry no runtime discriminant; the type system tracks the state statically.
+
+**General Modal Type Layout**
+
+The layout of the general modal type $M$ is equivalent to a tagged union (`enum`) where each variant corresponds to a declared state:
+
+$$\text{layout}(M) \equiv \text{layout}(\texttt{enum}\ \{S_1(\text{Payload}(S_1)),\ \ldots,\ S_n(\text{Payload}(S_n))\})$$
+
+The general type stores:
+
+1. A **discriminant** (tag) identifying the currently active state.
+2. A **payload region** sized to accommodate the largest state payload.
+3. **Padding** as required for alignment.
+
+$$\text{sizeof}(M) = \text{sizeof}(\text{Discriminant}) + \max_{S \in \text{States}(M)}(\text{sizeof}(M@S)) + \text{Padding}$$
+
+$$\text{alignof}(M) = \max(\text{alignof}(\text{Discriminant}),\ \max_{S \in \text{States}(M)}(\text{alignof}(M@S)))$$
+
+**Niche Optimization (Normative)**
+
+Implementations MUST apply **niche optimization** when any state payload contains invalid bit patterns that can unambiguously distinguish between states.
+
+When niche optimization is applicable:
+
+1. The separate discriminant storage MAY be elided partially or entirely.
+2. State identification is performed by inspecting the payload bits directly.
+3. The resulting general type MUST have the same size as the largest state-specific type (not larger).
+
+> **Rationale:** Niche optimization is mandatory (not merely recommended) to ensure that common modal types like `Ptr<T>` achieve their intended zero-overhead representation. Without this guarantee, programs could not rely on `Ptr<T>` having pointer-sized layout.
+
+**Normative Example:** For the built-in `Ptr<T>` type:
+
+- `@Null` state is represented by address `0x0`.
+- `@Valid` state is represented by non-zero addresses.
+
+The general `Ptr<T>` type MUST occupy one machine word (the size of `Ptr<T>@Valid`), NOT one machine word plus a discriminant byte. The null address serves as an implicit discriminant.
+
+**Modal Widening Operation**
+
+When a state-specific value $v : M@S$ is coerced to the general type $M$:
+
+1. The payload from $v$ is moved into the corresponding storage region of the general representation.
+2. The discriminant (or niche encoding) for state $@S$ is written.
+
+This operation has complexity $O(\text{sizeof}(\text{Payload}(S)))$—that is, linear in the payload size.
+
+**Layout Classification**
+
+| Aspect                 | Classification                 |
+| :--------------------- | :----------------------------- |
+| State-specific layout  | Defined (equivalent to record) |
+| General type layout    | Defined (equivalent to enum)   |
+| Discriminant size      | Implementation-Defined         |
+| Niche optimization     | MUST apply when applicable     |
+| Payload field ordering | Implementation-Defined         |
+| Padding                | Implementation-Defined         |
 
 ##### Constraints & Legality
 
-- **Indexing**: Direct byte indexing (`s[i]`) on any string type is **forbidden**.
-- **Slicing**: Indices are interpreted as **byte offsets**. Slice boundaries **MUST** fall on valid UTF-8 character starts; failure triggers a panic.
-- **Copy/Clone**: `string@Managed` **MUST NOT** implement `Copy`.
+**Structural Constraints**
 
-| Code         | Severity | Condition                                    |
-| :----------- | :------- | :------------------------------------------- |
-| `E-TYP-1901` | Panic    | Slice boundary not on UTF-8 character start. |
-| `E-TYP-1902` | Error    | Direct byte indexing on string type.         |
+The following structural constraints apply to modal type declarations:
+
+1. A modal type MUST declare at least one state.
+2. State names within a modal type MUST be unique.
+
+**Access Constraints**
+
+The following access constraints apply to modal values:
+
+1. Payload field access on a value of general modal type $M$ is forbidden; the state MUST first be determined via pattern matching.
+2. Payload field access on a state-specific type $M@S$ for a field not in state $@S$'s payload is forbidden.
+3. Method invocation on a value of general modal type $M$ is forbidden for methods declared in specific states; the state MUST first be determined via pattern matching.
+4. Method invocation on a state-specific type $M@S$ for a method not declared in state $@S$ is forbidden.
+
+**Match Constraints**
+
+1. A `match` expression on a general modal type $M$ MUST be exhaustive; all states in $\text{States}(M)$ MUST be covered.
+2. A `match` expression on a state-specific type $M@S$ is irrefutable and MUST NOT include arms for other states.
+
+**Transition Constraints**
+
+1. A transition implementation MUST return a value of exactly the declared target state-specific type.
+2. A transition MUST be invoked only on a value of the declared source state-specific type.
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                                                             | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------------------------------------------ | :----------- | :-------- |
+| `E-TYP-2050` | Error    | Modal type declares zero states.                                                      | Compile-time | Rejection |
+| `E-TYP-2051` | Error    | Duplicate state name within modal type declaration.                                   | Compile-time | Rejection |
+| `E-TYP-2052` | Error    | Field access for field not present in the current state's payload.                    | Compile-time | Rejection |
+| `E-TYP-2053` | Error    | Method invocation for method not available in the current state.                      | Compile-time | Rejection |
+| `E-TYP-2055` | Error    | Transition body returns a value not matching the declared target state-specific type. | Compile-time | Rejection |
+| `E-TYP-2056` | Error    | Transition invoked on value not of the declared source state-specific type.           | Compile-time | Rejection |
+| `E-TYP-2057` | Error    | Direct field or method access on general modal type without pattern matching.         | Compile-time | Rejection |
+| `E-TYP-2060` | Error    | Non-exhaustive match on general modal type; missing states must be listed.            | Compile-time | Rejection |
 
 ---
 
-### 4.13 Pointer Types {Source: Draft 2 §21}
+### 5.6 String Types
 
 ##### Definition
 
-**Safe Pointer (`Ptr<T>`)**
+The **`string`** type is a built-in modal type representing sequences of Unicode scalar values encoded as UTF-8. The `string` type has two states:
 
-A modal type with states:
-- **`@Valid`**: Points to valid, initialized memory.
-- **`@Null`**: The null pointer (address `0`).
-- **`@Expired`**: Points to deallocated memory (only reachable via unsafe code).
+1. **`string@Managed`**: An owned, heap-allocated, mutable string buffer responsible for its underlying memory allocation.
 
-**Raw Pointers**
+2. **`string@View`**: A non-owning, immutable slice into string data, referencing either a `string@Managed` buffer or a statically allocated string literal.
 
-- **`*imm T`**: Raw immutable pointer.
-- **`*mut T`**: Raw mutable pointer.
+All string content MUST be valid UTF-8. The type system enforces this invariant statically for literals and at runtime for slicing operations.
 
-Raw pointer operations are **unsafe**.
+**Formal Definition**
 
-##### Memory & Layout
+The `string` type is defined as a member of the modal type family (§4.11):
 
-- **Size**: One machine word (platform pointer size).
-- **Alignment**: Platform word alignment.
+$$\text{States}(\texttt{string}) = \{\ \texttt{@Managed},\ \texttt{@View}\ \}$$
 
-##### Constraints & Legality
+The type family induced by the `string` modal type is:
 
-- Dereferencing `Ptr<T>@Null` or `Ptr<T>@Expired` is a **compile-time error**.
-- Dereferencing raw pointers requires an `unsafe` block.
+$$\mathcal{T}_{\texttt{string}} = \{\ \texttt{string},\ \texttt{string@Managed},\ \texttt{string@View}\ \}$$
 
----
+As established by the modal incomparability rule (§4.11), the state-specific types `string@Managed` and `string@View` are incomparable:
 
-### 4.14 Function Types {Source: Draft 2 §22}
+$$\Gamma \nvdash \texttt{string@Managed} <: \texttt{string@View} \qquad \Gamma \nvdash \texttt{string@View} <: \texttt{string@Managed}$$
 
-##### Definition
-
-**Function Type**
-
-A structural type representing a callable signature: `(T1, ..., Tn) -> R`.
-
-**Sparse (Function Pointer)**
-
-A single machine-word code pointer. FFI-safe.
-
-**Dense (Witness Closure)**
-
-A two-word pointer `(env_ptr, code_ptr)` where `env_ptr` points to the captured environment. **Not** FFI-safe.
+Conversion between states requires explicit operations (see Dynamic Semantics).
 
 ##### Syntax & Declaration
 
-```ebnf
-function_type   ::= "(" [param_type_list] ")" "->" type
-param_type_list ::= param_type ("," param_type)*
-param_type      ::= ["move"] type
+**Conceptual Modal Declaration** `[INFORMATIVE]`
+
+The `string` type is a built-in primitive; it is not user-declarable. The following declaration illustrates its conceptual structure but is not valid Cursive source code:
+
+```cursive
+// Conceptual built-in declaration (not valid user code)
+modal string {
+    @Managed {
+        pointer: Ptr<u8>@Valid,
+        length: usize,
+        capacity: usize,
+    } {
+        // Creates an immutable view of this managed string's data.
+        procedure as_view(self: const Self) -> string@View {
+            result string@View {
+                pointer: self.pointer,
+                length: self.length,
+            }
+        }
+    }
+
+    @View {
+        pointer: Ptr<const u8>@Valid,
+        length: usize,
+    }
+}
 ```
 
-A function type's identity includes:
-- The full ordered list of parameter types (including the presence or absence of the `move` modifier).
-- The return type.
+**Grammar**
 
-Parameter names and contract annotations are **not** part of the function type.
+```ebnf
+string_type         ::= "string" ["@" string_state]
+
+string_state        ::= "Managed" | "View"
+```
+
+String literal syntax and escape sequences are defined in §2.4.2.
 
 ##### Static Semantics
 
-**Structural Equivalence**
+**Typing Rules**
 
-Two function types are equivalent if and only if:
-- They have the same number of parameters.
-- Each corresponding pair of parameters has equivalent types and matching `move` modifiers.
-- Their return types are equivalent.
+**(T-String-Literal)** String Literal Typing:
 
-**Variance**
+A string literal has type `string@View`. The literal content MUST be valid UTF-8:
 
-- Parameters are **contravariant**.
-- Return type is **covariant**.
+$$\frac{\Gamma \vdash s \text{ is a valid string literal}}{\Gamma \vdash s : \texttt{string@View}} \quad \text{(T-String-Literal)}$$
 
-**Subtyping**
+**(T-String-Slice)** Slice Typing:
 
-For the same parameter and return types, a sparse function pointer `(T) -> U` is a subtype of a witness closure `witness (T) -> U`. Non-capturing procedures may be used where a witness closure is expected, but not vice versa.
+A slice operation on any string type produces a `string@View`:
 
-##### Memory & Layout
+$$\frac{\Gamma \vdash e : \texttt{string@}S \quad S \in \{\texttt{Managed}, \texttt{View}\} \quad \Gamma \vdash a : \texttt{usize} \quad \Gamma \vdash b : \texttt{usize}}{\Gamma \vdash e[a..b] : \texttt{string@View}} \quad \text{(T-String-Slice)}$$
 
-- **Sparse**: 1 machine word.
-- **Dense (witness)**: 2 machine words. **Not** FFI-safe.
+**Modal Widening**
 
----
+Both state-specific types are subtypes of the general modal type `string` per the modal widening rule (§4.11):
 
-### 4.15 Static Polymorphism (Generics) {Source: Draft 2 §28.3}
+$$\frac{S \in \{\texttt{@Managed}, \texttt{@View}\}}{\Gamma \vdash \texttt{string@}S <: \texttt{string}} \quad \text{(Sub-Modal-Widen)}$$
 
-##### Definition
+A procedure accepting the general type `string` may receive either state; the active state is determined via pattern matching.
 
-**Monomorphization**
+**Trait Implementations**
 
-**Monomorphization** is the process of generating specialized code for each concrete instantiation of a generic type or procedure. This is Cursive's "Path 1" polymorphism: zero overhead, polymorphism on *inputs* resolved at compile time.
+| State            | `Copy` | `Clone` | `Drop` |
+| :--------------- | :----- | :------ | :----- |
+| `string@Managed` | No     | No      | Yes    |
+| `string@View`    | Yes    | Yes     | No     |
 
-##### Syntax & Declaration
+The following constraints apply per §6.7:
 
-```ebnf
-generic_params ::= "<" generic_param ("," generic_param)* ">"
-generic_param  ::= identifier ["<:" trait_bound]
-```
-
-**Declaration**: `<T>` (unconstrained) or `<T <: Trait>` (constrained).
-
-**Instantiation**: Implicit at call site; the compiler infers concrete types.
-
-##### Static Semantics
-
-- **Monomorphization**: Implementations **MUST** generate specialized code for each concrete type combination.
-- **Zero Overhead**: Generic calls **MUST** resolve to direct static calls; no vtable lookup is permitted.
-- **Resolution**: Generic parameters are treated as invariant types within the procedure body unless bounded otherwise.
-- **Infinite Recursion Detection**: Infinite monomorphization recursion (e.g., `f<T>() { f<Option<T>>() }`) **MUST** be detected and rejected.
-
-##### Constraints & Legality
-
-- Generic parameters are **PROHIBITED** in `extern` procedure signatures.
-
----
-
-### 4.16 Type Layout {Source: Draft 2 §15.4}
-
-##### Definition
-
-**Layout**
-
-The **layout** of a type comprises its size (`sizeof`), alignment (`alignof`), and physical representation (padding, field ordering).
-
-##### Memory & Layout
-
-- General layouts are **IDB** (implementation-defined behavior).
-- Implementations **MUST** document their type layout strategy for each supported target platform in the conformance dossier (Appendix C).
-- The `[[repr(C)]]` attribute, when applied to a `record` or `enum` declaration, **MUST** direct the implementation to produce a C-compatible memory layout as defined by the target platform's C ABI.
-
-**Minimum Guarantees**
-
-The following minimum guarantees **MUST** hold regardless of IDB choices:
-
-- The size of a `record` is at least the sum of the sizes of its fields.
-- The size of an `enum` is at least the size of its tag plus the size of its largest variant.
-- The size of an array `[T; N]` is at least `N` times the size of `T`.
-- The alignment of a composite type is at least as great as the largest alignment of any of its fields.
-
----
-
-### 4.17 Attributes {Source: Draft 2 §23.5}
-
-##### Definition
-
-An **attribute** is a compile-time annotation attached to a declaration, providing metadata to the compiler.
-
-##### Syntax & Declaration
-
-```ebnf
-attribute_list ::= "[[" attribute_spec ("," attribute_spec)* "]]"
-attribute_spec ::= identifier ["(" argument_list ")"]
-argument_list  ::= argument ("," argument)*
-argument       ::= literal | identifier | identifier ":" literal
-```
-
-##### Static Semantics
-
-**Normative Attribute Registry**
-
-| Attribute               | Target             | Effect                                       |
-| :---------------------- | :----------------- | :------------------------------------------- |
-| `[[repr(...)]]`         | `record`, `enum`   | Memory layout control (C, packed, align).    |
-| `[[inline(...)]]`       | `procedure`        | Inlining hint (always, never, default).      |
-| `[[cold]]`              | `procedure`        | Unlikely-to-execute hint.                    |
-| `[[link_name("...")]]`  | `extern` procedure | FFI symbol naming.                           |
-| `[[unwind(...)]]`       | `extern` procedure | FFI panic handling.                          |
-| `[[deprecated("...")]]` | Any declaration    | Warn on usage.                               |
-| `[[verify(...)]]`       | Contract           | Contract verification mode selection (§7.4). |
-
-##### Constraints & Legality
-
-- Unknown attributes **MUST** trigger `E-DEC-2451`.
-- Attributes **MUST** match their target declaration type (e.g., `[[repr(C)]]` is valid only on `record` or `enum`).
-
-| Code         | Severity | Condition          |
-| :----------- | :------- | :----------------- |
-| `E-DEC-2451` | Error    | Unknown attribute. |
-
----
-
-### 4.18 Bindings {Source: Draft 2 §23.1, §29.2}
-
-##### Definition
-
-A **binding** is a named association between an identifier and a typed value.
-
-**Binding Categories**
-
-| Category         | Keyword        | Storage Duration  | Scope     |
-| :--------------- | :------------- | :---------------- | :-------- |
-| Local immutable  | `let`          | Automatic (stack) | Block     |
-| Local mutable    | `var`          | Automatic (stack) | Block     |
-| Global immutable | `static let`   | Static            | Module    |
-| Global mutable   | `static var`   | Static            | Module    |
-| Parameter        | (in signature) | Automatic (stack) | Procedure |
-
-##### Syntax & Declaration
-
-```ebnf
-local_binding  ::= ("let" | "var") identifier [":" type] "=" expression
-global_binding ::= [visibility] "static" ("let" | "var") identifier ":" type "=" expression
-```
-
-##### Static Semantics
-
-- **`let`**: Immutable binding. Cannot be reassigned after initialization.
-- **`var`**: Mutable binding. May be reassigned.
-- **Orthogonality**: Binding mutability is orthogonal to permission:
-  - A `let` binding may hold `unique` data (data is mutable, but the binding cannot be reassigned).
-  - A `var` binding may hold `const` data (binding is reassignable, but the referenced data is immutable).
-- Global bindings **MUST** have explicit type annotations.
+1. `string@Managed` MUST NOT implement `Copy` because it owns a heap allocation.
+2. `string@Managed` MUST NOT implement `Clone` because cloning requires heap allocation; duplication requires explicit `clone_with` (see Dynamic Semantics).
+3. `string@Managed` MUST implement `Drop` to deallocate its buffer when responsibility ends.
+4. `string@View` MUST implement `Copy` because it is a non-owning pointer-length pair.
+5. `string@View` MUST implement `Clone` (implied by `Copy` per §6.7).
 
 ##### Dynamic Semantics
 
-**Initialization**
+**String Literal Evaluation**
 
-- **Static Init**: Compile-time-constant expressions are baked into the data section.
-- **Dynamic Init**: Runtime expressions follow the **Acyclic Eager Subgraph** rule defined in §5.5 (Initialization).
+When a string literal is evaluated:
+
+1. The implementation allocates the literal content in static, read-only memory during compilation.
+2. At runtime, a `string@View` value is constructed containing a pointer to this static memory and the byte length.
+
+String literals have static storage duration; their backing memory is never deallocated.
+
+**State Conversion**
+
+Conversion between `string@Managed` and `string@View` requires explicit operations:
+
+**(Managed to View)** The `as_view` method creates an immutable view of a managed string's buffer:
+
+```cursive
+procedure as_view(self: const string@Managed) -> string@View
+```
+
+This operation has complexity $O(1)$. The resulting view borrows from the managed string; the view's lifetime MUST NOT exceed the managed string's lifetime.
+
+**(View to Managed)** The `to_managed` method creates a new managed string by copying a view's data:
+
+```cursive
+procedure to_managed(self: const string@View, heap: witness HeapAllocator) -> string@Managed
+```
+
+This operation has complexity $O(n)$ where $n$ is the view's byte length.
+
+**`string@Managed` Operations**
+
+Operations on `string@Managed` that may allocate or reallocate the buffer MUST receive a `HeapAllocator` capability parameter (§10.5):
+
+- **Construction:** `string::from(source: string@View, heap: witness HeapAllocator): string@Managed`
+- **Mutation:** `append(self: unique, data: string@View, heap: witness HeapAllocator)`
+- **Duplication:** `clone_with(self: const, heap: witness HeapAllocator): string@Managed`
+
+> **Rationale:** Explicit allocator parameters enforce the Object-Capability model (§10.1).
+
+**`string@View` Operations**
+
+The `string@View` state provides non-mutating methods:
+
+- `length(self: const): usize` — Returns the byte length.
+- `is_empty(self: const): bool` — Returns `true` if the length is zero.
+- `chars(self: const): CharIterator` — Returns an iterator over Unicode scalar values.
+
+**Slicing Evaluation**
+
+When a slice expression `s[a..b]` is evaluated:
+
+1. Let `start` be the value of `a`.
+2. Let `end` be the value of `b`.
+3. If `start > end`, the operation MUST panic (`E-TYP-2153`).
+4. If `end > s.length()`, the operation MUST panic (`E-TYP-2154`).
+5. If `start` does not fall on a valid UTF-8 character boundary, the operation MUST panic (`E-TYP-2151`).
+6. If `end` does not fall on a valid UTF-8 character boundary, the operation MUST panic (`E-TYP-2151`).
+7. A new `string@View` is constructed with pointer `s.pointer + start` and length `end - start`.
+
+**UTF-8 Character Boundary Definition**
+
+A byte offset `i` within a UTF-8 string is a **valid character boundary** if and only if one of the following holds:
+
+1. `i == 0` (start of string).
+2. `i == length` (end of string).
+3. The byte at offset `i` is NOT a UTF-8 continuation byte (the two high bits are NOT `10`).
+
+##### Memory & Layout
+
+**`string@Managed` Representation**
+
+| Field      | Type            | Offset  | Description                            |
+| :--------- | :-------------- | :------ | :------------------------------------- |
+| `pointer`  | `Ptr<u8>@Valid` | 0       | Pointer to heap-allocated UTF-8 buffer |
+| `length`   | `usize`         | 1 word  | Number of bytes of valid content       |
+| `capacity` | `usize`         | 2 words | Total allocated buffer size in bytes   |
+
+$$\text{sizeof}(\texttt{string@Managed}) = 3 \times \text{sizeof}(\texttt{usize})$$
+
+$$\text{alignof}(\texttt{string@Managed}) = \text{alignof}(\texttt{usize})$$
+
+**`string@View` Representation**
+
+| Field     | Type                  | Offset | Description                           |
+| :-------- | :-------------------- | :----- | :------------------------------------ |
+| `pointer` | `Ptr<const u8>@Valid` | 0      | Pointer to the first byte of the view |
+| `length`  | `usize`               | 1 word | Number of bytes in the view           |
+
+$$\text{sizeof}(\texttt{string@View}) = 2 \times \text{sizeof}(\texttt{usize})$$
+
+$$\text{alignof}(\texttt{string@View}) = \text{alignof}(\texttt{usize})$$
+
+**General `string` Type Representation**
+
+The general modal type `string` uses standard modal type layout (§4.11): a discriminant plus a payload region sized to the largest state.
+
+**Storage Characteristics**
+
+- String content is NOT null-terminated; length is tracked explicitly.
+- All content MUST be valid UTF-8.
+- The `pointer` field of `string@View` for string literals points into static, read-only memory.
+- The `pointer` field of `string@Managed` points into heap-allocated memory.
+
+**Layout Classification**
+
+| Aspect                  | Classification         |
+| :---------------------- | :--------------------- |
+| `string@View` size      | Defined (2 words)      |
+| `string@Managed` size   | Defined (3 words)      |
+| Field ordering          | Defined                |
+| Buffer null-termination | Defined (not present)  |
+| Content encoding        | Defined (UTF-8)        |
+| Pointer alignment       | Implementation-Defined |
 
 ##### Constraints & Legality
 
-- Accessing `static var` (mutable global) is **`unsafe`** unless synchronized.
-- Type annotations **MAY** be omitted for local bindings when the type is inferable from context.
+**Indexing Prohibition**
+
+Direct byte indexing on any string type using the subscript operator is forbidden:
+
+$$\Gamma \vdash e : \texttt{string@}S \implies e[i] \text{ is ill-formed}$$
+
+where `i` is a single index expression (not a range).
+
+> **Rationale:** A byte index into a UTF-8 string does not necessarily correspond to a character boundary. Forbidding `s[i]` prevents accidental mid-character access.
+
+**Slicing Requirements**
+
+1. Slice indices are interpreted as **byte offsets**, not character indices.
+2. Both boundaries MUST fall on valid UTF-8 character boundaries.
+3. Boundary violations MUST cause a panic at runtime.
+
+**Responsibility Constraints**
+
+The `string@Managed` state follows standard responsibility semantics (§3.5):
+
+1. A `string@Managed` binding MUST have exactly one responsible owner.
+2. Transfer of responsibility MUST use explicit `move`.
+3. When responsibility ends, the `Drop` implementation deallocates the buffer.
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                     | Detection    | Effect    |
+| :----------- | :------- | :-------------------------------------------- | :----------- | :-------- |
+| `E-TYP-2151` | Error    | Slice boundary not on UTF-8 char boundary.    | Runtime      | Panic     |
+| `E-TYP-2152` | Error    | Direct byte indexing (`s[i]`) on string type. | Compile-time | Rejection |
+| `E-TYP-2153` | Error    | Slice end index less than start index.        | Runtime      | Panic     |
+| `E-TYP-2154` | Error    | Slice index exceeds string length.            | Runtime      | Panic     |
 
 ---
 
-### 4.19 Refinement Types {Source: Draft 2 §27.4}
+### 6.2 Pointer Types
 
 ##### Definition
 
-A **Refinement Type** is a subtype constructed by attaching a predicate constraint to a base type. The refinement type `T where { P }` denotes the subset of values of type `T` for which predicate `P` evaluates to `true`.
+A **pointer type** is a type whose values are memory addresses. Cursive provides two families of pointer types designed for distinct purposes:
 
-**Formal Definition:**
-$$
-\text{Values}(T \text{ where } \{P\}) = \{ v \in \text{Values}(T) \mid P(v) = \text{true} \}
-$$
+1. **Safe Modal Pointers (`Ptr<T>`)**: The primary pointer type for safe code. `Ptr<T>` is a built-in modal type with compile-time-tracked states that statically prevent null-pointer dereferences and use-after-free errors.
 
-Refinement types enable **dependent typing** patterns where type validity depends on runtime-checkable properties.
+2. **Raw Pointers (`*imm T`, `*mut T`)**: Unsafe, C-style pointers providing no safety guarantees. Raw pointers are intended for `unsafe` blocks and Foreign Function Interface (FFI) interoperability.
+
+The safe pointer type integrates with the modal type system (§4.11) to encode pointer validity as a static property. The raw pointer types bypass this system entirely, delegating all safety responsibility to the programmer.
+
+**Formal Definition**
+
+The `Ptr<T>` type is defined as a member of the modal type family (§4.11):
+
+$$\text{States}(\texttt{Ptr<T>}) = \{\ \texttt{@Valid},\ \texttt{@Null},\ \texttt{@Expired}\ \}$$
+
+The type family induced by the `Ptr<T>` modal type is:
+
+$$\mathcal{T}_{\texttt{Ptr<T>}} = \{\ \texttt{Ptr<T>},\ \texttt{Ptr<T>@Valid},\ \texttt{Ptr<T>@Null},\ \texttt{Ptr<T>@Expired}\ \}$$
+
+As established by the modal incomparability rule (§4.11), the state-specific types are pairwise incomparable:
+
+$$\forall S_A, S_B \in \text{States}(\texttt{Ptr<T>}),\ S_A \neq S_B \implies \Gamma \nvdash \texttt{Ptr<T>@}S_A <: \texttt{Ptr<T>@}S_B$$
+
+The raw pointer types form a separate type family:
+
+$$\mathcal{T}_{\text{RawPtr}} = \{\ \texttt{*imm T},\ \texttt{*mut T}\ :\ T \in \mathcal{T}\ \}$$
+
+where $\mathcal{T}$ is the set of all types.
 
 ##### Syntax & Declaration
 
-**Grammar:**
+**Conceptual Modal Declaration** `[INFORMATIVE]`
 
-```ebnf
-refinement_type ::= type "where" "{" predicate "}"
+The `Ptr<T>` type is a built-in primitive; it is not user-declarable. The following declaration illustrates its conceptual structure but is not valid Cursive source code:
+
+```cursive
+// Conceptual built-in declaration (not valid user code)
+modal Ptr<T> {
+    // State: The pointer is guaranteed to be non-null
+    // and point to live, initialized memory.
+    // This is the ONLY state that permits dereferencing.
+    @Valid {
+        // (Internal representation: non-null address)
+    }
+
+    // State: The pointer is guaranteed to be null.
+    // This is Cursive's safe, explicit replacement for null pointers.
+    @Null {
+        // (Internal representation: address 0x0)
+    }
+
+    // State: The pointer was valid, but the memory region it
+    // pointed to has been deallocated.
+    // This state is assigned by the compiler when a region exits.
+    @Expired {
+        // (Internal representation: formerly-valid address)
+    }
+}
 ```
 
-**Self Reference:** Within the predicate of a **type alias** or **standalone refinement type**, the keyword `self` refers to the value being constrained.
+**Grammar**
 
-**Examples:**
+```ebnf
+safe_pointer_type     ::= "Ptr" "<" type ">" ["@" pointer_state]
+
+pointer_state         ::= "Valid" | "Null" | "Expired"
+
+raw_pointer_type      ::= "*" raw_pointer_qual type
+
+raw_pointer_qual      ::= "imm" | "mut"
+```
+
+> **Design Note — Vocabulary Distinction:** Raw pointer qualifiers use `imm` (immutable) and `mut` (mutable) rather than the permission keywords `const` and `unique`. This distinction is intentional:
+>
+> 1. **Semantic Separation:** Permission keywords (`const`, `unique`, `partitioned`, `concurrent`) denote the language's verified aliasing model with compile-time guarantees. Raw pointer qualifiers denote unverified mutability intent with no compiler enforcement.
+>
+> 2. **FFI Alignment:** The `imm`/`mut` vocabulary aligns with C's `const`/non-`const` pointer semantics, facilitating FFI reasoning without conflating C's shallow `const` with Cursive's deep `const` permission.
+>
+> 3. **Visual Distinction:** The abbreviated forms `*imm` and `*mut` are visually distinct from permission-qualified types like `const Buffer`, reducing the risk of confusion between safe and unsafe pointer operations.
+
+**Address-Of Operator**
+
+The `&` operator creates a safe pointer from a valid memory location:
+
+```ebnf
+address_of_expr       ::= "&" place_expr
+```
+
+**Null Pointer Constructor**
+
+A null pointer is created using the built-in constructor:
+
+```ebnf
+null_ptr_expr         ::= "Ptr" "::" "null" "()"
+```
+
+**Raw Pointer Cast**
+
+A safe pointer in the `@Valid` state may be cast to a raw pointer:
+
+```ebnf
+raw_ptr_cast_expr     ::= safe_ptr_expr "as" raw_pointer_type
+```
+
+##### Static Semantics
+
+**Pointer States**
+
+The `Ptr<T>` type has three compile-time states that track pointer validity:
+
+| State      | Description                                                                           | Dereferenceable |
+| :--------- | :------------------------------------------------------------------------------------ | :-------------- |
+| `@Valid`   | The pointer is guaranteed to be non-null and to point to live, accessible memory.     | Yes             |
+| `@Null`    | The pointer is guaranteed to be null (address `0x0`).                                 | No              |
+| `@Expired` | The pointer was valid but now references deallocated memory (e.g., an exited region). | No              |
+
+**Typing Rules**
+
+**(T-Addr-Of)** Address-Of Operator:
+
+The `&` operator applied to a valid place expression produces a pointer in the `@Valid` state:
+
+$$\frac{\Gamma \vdash e : T \quad e\ \text{is a valid place expression}}{\Gamma \vdash \texttt{\&}e : \texttt{Ptr<T>@Valid}} \quad \text{(T-Addr-Of)}$$
+
+A **place expression** is an expression that denotes a memory location. Place expressions include:
+- Variable bindings
+- Field access expressions on place expressions
+- Indexed access into arrays or slices
+
+**(T-Null-Ptr)** Null Pointer Construction:
+
+The `Ptr::null()` constructor produces a pointer in the `@Null` state:
+
+$$\frac{}{\Gamma \vdash \texttt{Ptr::null()} : \texttt{Ptr<T>@Null}} \quad \text{(T-Null-Ptr)}$$
+
+The type parameter `T` is inferred from context or explicitly annotated.
+
+**(T-Deref)** Dereference Operator:
+
+The dereference operator `*` applied to a safe pointer MUST only be applied to a pointer in the `@Valid` state:
+
+$$\frac{\Gamma \vdash p : \texttt{Ptr<T>@Valid}}{\Gamma \vdash \texttt{*}p : T} \quad \text{(T-Deref)}$$
+
+This rule statically enforces memory safety. An attempt to dereference a pointer in the `@Null` or `@Expired` state is ill-formed.
+
+**(T-Raw-Ptr-Cast)** Raw Pointer Cast:
+
+A safe pointer in the `@Valid` state may be cast to a raw pointer of compatible mutability:
+
+$$\frac{\Gamma \vdash p : \texttt{Ptr<T>@Valid}}{\Gamma \vdash p\ \texttt{as *imm T} : \texttt{*imm T}} \quad \text{(T-Raw-Ptr-Cast-Imm)}$$
+
+$$\frac{\Gamma \vdash p : \texttt{Ptr<T>@Valid}}{\Gamma \vdash p\ \texttt{as *mut T} : \texttt{*mut T}} \quad \text{(T-Raw-Ptr-Cast-Mut)}$$
+
+**(T-Raw-Deref)** Unsafe Raw Pointer Dereference:
+
+Dereferencing a raw pointer is permitted only within an `unsafe` block:
+
+$$\frac{\Gamma \vdash p : \texttt{*imm T} \quad \text{context is } \texttt{unsafe}}{\Gamma \vdash \texttt{*}p : T} \quad \text{(T-Raw-Deref-Imm)}$$
+
+$$\frac{\Gamma \vdash p : \texttt{*mut T} \quad \text{context is } \texttt{unsafe}}{\Gamma \vdash \texttt{*}p : T} \quad \text{(T-Raw-Deref-Mut)}$$
+
+**Modal Widening**
+
+All state-specific pointer types are subtypes of the general modal type `Ptr<T>` per the modal widening rule (§4.11):
+
+$$\frac{S \in \{\texttt{@Valid}, \texttt{@Null}, \texttt{@Expired}\}}{\Gamma \vdash \texttt{Ptr<T>@}S <: \texttt{Ptr<T>}} \quad \text{(Sub-Modal-Widen)}$$
+
+A procedure accepting the general type `Ptr<T>` may receive any state; the active state is determined via pattern matching.
+
+**Trait Implementations**
+
+| State            | `Copy` | `Clone` | `Drop` |
+| :--------------- | :----- | :------ | :----- |
+| `Ptr<T>@Valid`   | Yes    | Yes     | No     |
+| `Ptr<T>@Null`    | Yes    | Yes     | No     |
+| `Ptr<T>@Expired` | Yes    | Yes     | No     |
+| `*imm T`         | Yes    | Yes     | No     |
+| `*mut T`         | Yes    | Yes     | No     |
+
+The following constraints apply per §6.7:
+
+1. All pointer types (safe and raw) MUST implement `Copy` because they are address values.
+2. All pointer types MUST implement `Clone` (implied by `Copy` per §6.7).
+3. No pointer type implements `Drop`. Pointers do not own the memory they reference; the referenced data's lifetime is managed by the responsibility system (§3.5) or region system (§3.9).
+
+##### Dynamic Semantics
+
+**Address-Of Evaluation**
+
+When an address-of expression `&e` is evaluated:
+
+1. Let `loc` be the memory location denoted by place expression `e`.
+2. Construct a `Ptr<T>@Valid` value containing the address of `loc`.
+3. Return this pointer value.
+
+The resulting pointer's validity is tied to the lifetime of the referenced storage. When the storage is deallocated, pointers into that storage transition to the `@Expired` state.
+
+**Null Pointer Evaluation**
+
+When `Ptr::null()` is evaluated:
+
+1. Construct a `Ptr<T>@Null` value containing address `0x0`.
+2. Return this pointer value.
+
+**Dereference Evaluation**
+
+When a dereference expression `*p` is evaluated where `p : Ptr<T>@Valid`:
+
+1. Let `addr` be the address stored in `p`.
+2. Read the value of type `T` stored at address `addr`.
+3. Return this value.
+
+**Region Exit State Transition**
+
+When a region block (§3.9) exits:
+
+1. For every pointer `p : Ptr<T>@Valid` whose referent was allocated in the exiting region:
+2. The compiler transitions `p` to state `Ptr<T>@Expired`.
+3. Subsequent attempts to dereference `p` are statically rejected.
+
+This state transition is not a runtime operation; it is a compile-time type refinement. The physical pointer value is unchanged, but the type system prevents its use.
+
+> **Note:** The `@Expired` state is reachable only through the region system's compile-time tracking. Safe code cannot construct an `@Expired` pointer directly. The state exists to provide precise error messages distinguishing null pointer access from use-after-free.
+
+**Raw Pointer Dereference Evaluation**
+
+When a raw pointer dereference `*p` is evaluated within an `unsafe` block:
+
+1. Let `addr` be the address stored in `p`.
+2. Read the value of type `T` stored at address `addr`.
+3. Return this value.
+
+The implementation provides no safety guarantees. If `addr` is null, dangling, misaligned, or points to uninitialized memory, the behavior is Unverifiable Behavior (UVB) per §1.2.
+
+##### Memory & Layout
+
+**Safe Pointer Representation**
+
+The safe pointer type `Ptr<T>` uses niche optimization (§4.11) to achieve a single-word representation:
+
+| State      | Representation                    |
+| :--------- | :-------------------------------- |
+| `@Valid`   | Non-zero address (pointer to `T`) |
+| `@Null`    | Address `0x0`                     |
+| `@Expired` | Formerly-valid address            |
+
+$$\text{sizeof}(\texttt{Ptr<T>}) = \text{sizeof}(\texttt{usize})$$
+
+$$\text{alignof}(\texttt{Ptr<T>}) = \text{alignof}(\texttt{usize})$$
+
+The general modal type `Ptr<T>` MUST occupy exactly one machine word. The null address (`0x0`) serves as an implicit discriminant for the `@Null` state. Non-zero addresses indicate either `@Valid` or `@Expired`; the distinction between these states is tracked statically, not at runtime.
+
+> **Rationale:** This representation ensures zero-overhead abstraction. A `Ptr<T>` has identical size and alignment to a C pointer, enabling efficient FFI interoperability when cast to a raw pointer.
+
+**Raw Pointer Representation**
+
+| Type     | Size            | Alignment        |
+| :------- | :-------------- | :--------------- |
+| `*imm T` | `sizeof(usize)` | `alignof(usize)` |
+| `*mut T` | `sizeof(usize)` | `alignof(usize)` |
+
+Raw pointers have identical representation regardless of mutability qualifier. The `imm`/`mut` distinction is a compile-time property only.
+
+**Layout Classification**
+
+| Aspect                  | Classification         |
+| :---------------------- | :--------------------- |
+| Pointer size            | Implementation-Defined |
+| Pointer alignment       | Implementation-Defined |
+| `@Null` representation  | Defined (`0x0`)        |
+| `@Valid` representation | Defined (non-zero)     |
+| Niche optimization      | MUST apply             |
+
+##### Constraints & Legality
+
+**Dereference Constraints**
+
+The following constraints govern pointer dereferencing:
+
+1. The dereference operator `*` applied to `Ptr<T>@Null` is ill-formed.
+2. The dereference operator `*` applied to `Ptr<T>@Expired` is ill-formed.
+3. The dereference operator `*` applied to a raw pointer (`*imm T` or `*mut T`) outside an `unsafe` block is ill-formed.
+
+**Address-Of Constraints**
+
+The following constraints govern the address-of operator:
+
+1. The operand of `&` MUST be a place expression (a memory location).
+2. The operand of `&` MUST be initialized.
+3. The resulting pointer MUST NOT escape the lifetime of the referenced storage (see §3.3 Escape Rule).
+
+**Cast Constraints**
+
+The following constraints govern pointer casts:
+
+1. Only `Ptr<T>@Valid` may be cast to a raw pointer.
+2. Casting `Ptr<T>@Null` or `Ptr<T>@Expired` to a raw pointer is ill-formed.
+
+**FFI Constraints**
+
+Raw pointers are the only FFI-safe (Clause 12) pointer types:
+
+1. The `Ptr<T>@State` modal type MUST NOT appear in `extern` procedure signatures.
+2. Procedures accepting or returning pointers across the FFI boundary MUST use raw pointer types.
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                                    | Detection    | Effect    |
+| :----------- | :------- | :----------------------------------------------------------- | :----------- | :-------- |
+| `E-TYP-2101` | Error    | Dereference of pointer in `@Null` state.                     | Compile-time | Rejection |
+| `E-TYP-2102` | Error    | Dereference of pointer in `@Expired` state (use-after-free). | Compile-time | Rejection |
+| `E-TYP-2103` | Error    | Dereference of raw pointer outside `unsafe` block.           | Compile-time | Rejection |
+| `E-TYP-2104` | Error    | Address-of operator applied to non-place expression.         | Compile-time | Rejection |
+| `E-TYP-2105` | Error    | Cast of non-`@Valid` pointer to raw pointer.                 | Compile-time | Rejection |
+| `E-TYP-2106` | Error    | Modal pointer type in `extern` procedure signature.          | Compile-time | Rejection |
+
+
+---
+
+
+### 6.3 Function Types
+
+##### Definition
+
+A **function type** is a structural type representing a callable signature. Function types describe the interface of callable entities—procedures and closures—as mappings from parameter types to a return type. A function type is defined by its ordered parameter types (including any `move` responsibility modifiers) and its return type.
+
+Cursive distinguishes two representations of function types based on whether the callable captures state from its environment:
+
+1. **Sparse Function Pointer (`(T) -> U`)**: A direct pointer to executable code. Sparse function pointers occupy a single machine word and are FFI-safe. Non-capturing procedures and non-capturing closure expressions have sparse function pointer types.
+
+2. **Closure (`|T| -> U`)**: A dense pointer containing both a code pointer and an environment pointer. Closures occupy two machine words and are NOT FFI-safe. Closure expressions that capture bindings from their enclosing scope have closure types.
+
+This distinction ensures that the representation cost of each callable form is explicit in the type system and that FFI boundary constraints are enforced statically.
+
+**Formal Definition**
+
+Let $\mathcal{F}$ denote the set of all function types. A function type is defined by the tuple:
+
+$$F = (P_1, \ldots, P_n, R, \kappa)$$
+
+where:
+- $P_i = (m_i, T_i)$ is a parameter descriptor consisting of an optional `move` modifier $m_i \in \{\epsilon, \texttt{move}\}$ and a type $T_i$
+- $R$ is the return type
+- $\kappa \in \{\texttt{sparse}, \texttt{closure}\}$ is the representation kind
+
+The type families are:
+
+$$\mathcal{F}_{\text{sparse}} = \{(m_1\ T_1, \ldots, m_n\ T_n) \to R : \forall i,\ T_i \in \mathcal{T},\ R \in \mathcal{T}\}$$
+
+$$\mathcal{F}_{\text{closure}} = \{|m_1\ T_1, \ldots, m_n\ T_n| \to R : \forall i,\ T_i \in \mathcal{T},\ R \in \mathcal{T}\}$$
+
+where $\mathcal{T}$ is the universe of all types.
+
+**Function Type vs. Procedure Declaration**
+
+A function type is distinct from a procedure declaration. A `procedure` declaration (Clause 7) is a named, top-level item that *has* a corresponding function type. The function type captures the procedure's complete callable interface without its name or contract annotations.
+
+| Aspect                | Procedure Declaration           | Function Type                |
+| :-------------------- | :------------------------------ | :--------------------------- |
+| Nature                | Named, top-level item           | Structural, anonymous type   |
+| Name                  | Yes                             | No                           |
+| Contract (`[[...]]`)  | Yes (as metadata, per Clause 7) | No                           |
+| Capability parameters | Yes (as parameters)             | Yes (as parameter types)     |
+| `move` modifiers      | Yes (on parameters)             | Yes (part of parameter type) |
+
+##### Syntax & Declaration
+
+**Grammar**
+
+```ebnf
+function_type         ::= sparse_function_type | closure_type
+
+sparse_function_type  ::= "(" [param_type_list] ")" "->" type
+
+closure_type          ::= "|" [param_type_list] "|" "->" type
+
+param_type_list       ::= param_type ("," param_type)*
+
+param_type            ::= ["move"] type
+```
+
+**Syntactic Disambiguation**
+
+The `|` token serves as both a closure type delimiter and the bitwise OR operator. Disambiguation is context-dependent:
+
+1. In type position, `|` followed by a type list and `|` forms a closure type.
+2. In expression position, `|` is the bitwise OR operator.
+3. The parser resolves ambiguity by syntactic context (type vs. expression position).
+
+**Syntactic Constraints**
+
+The following syntactic constraints apply to function types:
+
+1. The `param_type_list` is a comma-separated sequence of zero or more parameter types. Each parameter type MAY be prefixed with the `move` keyword.
+2. Parameter types include capability types (e.g., `FileSystem`, `HeapAllocator`) on equal footing with data types.
+3. The `->` token separates the parameter list from the return type.
+4. The return type MUST be a single type. Procedures returning no meaningful value use the unit type `()`.
+5. Parameter names are not part of function type syntax; only types appear.
+
+**Type Identity**
+
+A function type's identity is determined by the tuple $(P_1, \ldots, P_n, R, \kappa)$ as defined in the Formal Definition above. Specifically:
+
+1. Representation kind (sparse or closure) is part of identity; `(T) -> U` and `|T| -> U` are distinct types.
+2. The `move` modifier is part of identity; `(T) -> U` and `(move T) -> U` are distinct types.
+3. Contract annotations and parameter names are NOT part of function type identity.
+
+##### Static Semantics
+
+**Well-Formedness (T-Func-WF)**
+
+A function type is well-formed if and only if all its constituent types are well-formed:
+
+$$\frac{\Gamma \vdash R\ \text{wf} \quad \forall i \in 1..n,\ \Gamma \vdash T_i\ \text{wf}}{\Gamma \vdash (m_1\ T_1, \ldots, m_n\ T_n) \to R\ \text{wf}} \quad \text{(T-Func-WF)}$$
+
+where $m_i \in \{\epsilon, \texttt{move}\}$ is the optional `move` modifier for parameter $i$.
+
+The same rule applies to closure types:
+
+$$\frac{\Gamma \vdash R\ \text{wf} \quad \forall i \in 1..n,\ \Gamma \vdash T_i\ \text{wf}}{\Gamma \vdash |m_1\ T_1, \ldots, m_n\ T_n| \to R\ \text{wf}} \quad \text{(T-Closure-WF)}$$
+
+**Type Equivalence (T-Equiv-Func)**
+
+Function types are structural. Two function types are equivalent if and only if:
+- They have the same representation kind.
+- They have the same number of parameters.
+- Each corresponding parameter pair has equivalent types and matching `move` modifiers.
+- Their return types are equivalent.
+
+$$\frac{\begin{gathered}
+\kappa_F = \kappa_G \quad n = k \\
+\forall i \in 1..n,\ (m_i = m'_i \land \Gamma \vdash T_i \equiv U_i) \\
+\Gamma \vdash R_F \equiv R_G
+\end{gathered}}{\Gamma \vdash F \equiv G} \quad \text{(T-Equiv-Func)}$$
+
+where $F = (\kappa_F,\ m_1\ T_1, \ldots, m_n\ T_n,\ R_F)$ and $G = (\kappa_G,\ m'_1\ U_1, \ldots, m'_k\ U_k,\ R_G)$.
+
+> **Note:** The types `(move Buffer) -> ()` and `(Buffer) -> ()` are NOT equivalent. The types `(i32) -> bool` and `|i32| -> bool` are NOT equivalent.
+
+**Variance**
+
+Function types exhibit contravariant parameters and covariant return types as defined by rule `(Var-Func)` in §4.3. This variance applies to both sparse function pointer types and closure types independently.
+
+> **Note:** The variance rules in §4.3 govern subtyping relationships arising from type parameter substitution. The subtyping rules below govern relationships arising from representation kind and parameter responsibility modifiers.
+
+**Representation Subtyping (T-Sparse-Sub-Closure)**
+
+A sparse function pointer is a subtype of the corresponding closure type with the same parameter and return types:
+
+$$\frac{\Gamma \vdash (T_1, \ldots, T_n) \to R\ \text{wf}}{\Gamma \vdash (T_1, \ldots, T_n) \to R <: |T_1, \ldots, T_n| \to R} \quad \text{(T-Sparse-Sub-Closure)}$$
+
+This rule permits a non-capturing function to be used where a capturing closure is expected. The implicit coercion constructs a closure value with a null environment pointer (see Memory & Layout). The converse does NOT hold: a closure type is NOT a subtype of a sparse function pointer type.
+
+**Move Modifier Subtyping (T-NonMove-Sub-Move)**
+
+A function type with a non-`move` parameter is a subtype of a function type with a `move` parameter for the same underlying type:
+
+$$\frac{\Gamma \vdash T\ \text{wf}}{\Gamma \vdash (T) \to R <: (\texttt{move } T) \to R} \quad \text{(T-NonMove-Sub-Move)}$$
+
+This rule permits a procedure that does not take responsibility for an argument to substitute for a procedure that does. The caller prepares for the argument's responsibility to be transferred, but the callee declines to accept responsibility, which is always safe. The reverse substitution is NOT permitted: a procedure that requires responsibility transfer cannot substitute for one that does not.
+
+This rule extends to corresponding parameters in multi-parameter function types and applies equally to sparse and closure representations.
+
+**Combined Subtyping**
+
+The subtyping rules compose via transitivity. A sparse non-`move` function is a subtype of a closure `move` function with compatible types:
+
+$$\Gamma \vdash (T) \to R <: |\texttt{move } T| \to R$$
+
+**Typing Rules**
+
+**(T-Proc-As-Value)** Procedure Reference:
+
+When a procedure name appears in value position (not immediately followed by an argument list), the expression has the sparse function type corresponding to the procedure's signature:
+
+$$\frac{\text{procedure } f(m_1\ x_1 : T_1, \ldots, m_n\ x_n : T_n) \to R\ \text{declared}}{\Gamma \vdash f : (m_1\ T_1, \ldots, m_n\ T_n) \to R} \quad \text{(T-Proc-As-Value)}$$
+
+**(T-Closure-Sparse)** Non-Capturing Closure Expression:
+
+A closure expression that captures no bindings from its environment has a sparse function type:
+
+$$\frac{\Gamma \vdash |p_1, \ldots, p_n| \to e : (T_1, \ldots, T_n) \to R \quad \text{captures}(|p_1, \ldots, p_n| \to e) = \emptyset}{\Gamma \vdash |p_1, \ldots, p_n| \to e : (T_1, \ldots, T_n) \to R} \quad \text{(T-Closure-Sparse)}$$
+
+**(T-Closure-Capturing)** Capturing Closure Expression:
+
+A closure expression that captures one or more bindings from its environment has a closure type:
+
+$$\frac{\Gamma \vdash |p_1, \ldots, p_n| \to e : (T_1, \ldots, T_n) \to R \quad \text{captures}(|p_1, \ldots, p_n| \to e) \neq \emptyset}{\Gamma \vdash |p_1, \ldots, p_n| \to e : |T_1, \ldots, T_n| \to R} \quad \text{(T-Closure-Capturing)}$$
+
+> **Note:** Closure expression syntax and capture semantics are defined in Clause 8. This section defines only the typing of the resulting callable values.
+
+**(T-Call)** Function Invocation:
+
+A value of function type may be invoked with arguments matching the parameter types:
+
+$$\frac{\Gamma \vdash f : (m_1\ T_1, \ldots, m_n\ T_n) \to R \quad \forall i \in 1..n,\ \Gamma \vdash a_i : T_i}{\Gamma \vdash f(a_1, \ldots, a_n) : R} \quad \text{(T-Call)}$$
+
+When $m_i = \texttt{move}$, the argument $a_i$ MUST be passed via an explicit `move` expression, and the source binding becomes invalid after the call (per §3.5).
+
+The same rule applies to closure type values.
+
+##### Memory & Layout
+
+**Sparse Function Pointer Representation**
+
+A sparse function pointer is represented as a single machine word containing the address of the callable code:
+
+$$\text{sizeof}((T_1, \ldots, T_n) \to R) = \text{sizeof}(\texttt{usize})$$
+
+$$\text{alignof}((T_1, \ldots, T_n) \to R) = \text{alignof}(\texttt{usize})$$
+
+The representation is a code pointer:
+
+```
+┌─────────────────────────────────┐
+│          code_ptr               │  ← pointer to executable code
+└─────────────────────────────────┘
+         (1 machine word)
+```
+
+**Closure Representation**
+
+A closure is represented as a two-word structure containing an environment pointer and a code pointer:
+
+$$\text{sizeof}(|T_1, \ldots, T_n| \to R) = 2 \times \text{sizeof}(\texttt{usize})$$
+
+$$\text{alignof}(|T_1, \ldots, T_n| \to R) = \text{alignof}(\texttt{usize})$$
+
+The representation is:
+
+```
+┌─────────────────────────────────┬─────────────────────────────────┐
+│          env_ptr                │          code_ptr               │
+└─────────────────────────────────┴─────────────────────────────────┘
+         (1 machine word)                  (1 machine word)
+```
+
+where:
+- `env_ptr` points to the captured environment (or is null for non-capturing callables coerced to closure type).
+- `code_ptr` points to the executable code, which expects `env_ptr` as an implicit first argument.
+
+**Sparse-to-Closure Coercion**
+
+When a sparse function pointer value is coerced to a closure type (via the subtyping rule T-Sparse-Sub-Closure):
+
+1. A closure value is constructed.
+2. The `env_ptr` field is set to null.
+3. The `code_ptr` field is set to a thunk that ignores the environment parameter and calls the original code.
+
+Implementations MAY optimize this coercion to avoid the thunk when the calling convention permits.
+
+**Layout Classification**
+
+| Aspect                    | Classification         |
+| :------------------------ | :--------------------- |
+| Sparse function pointer   | Defined (1 word)       |
+| Closure type              | Defined (2 words)      |
+| Field ordering in closure | Defined (env, code)    |
+| Environment layout        | Implementation-Defined |
+
+> **Note:** The internal layout of a closure's captured environment is implementation-defined. Implementations determine field ordering, padding, and whether captures are stored inline or via indirection.
+
+##### Constraints & Legality
+
+**Structural Constraints**
+
+The following structural constraints apply to function types:
+
+1. A function type MUST have zero or more parameters and exactly one return type.
+2. The return type `()` (unit) MUST be used when a callable returns no meaningful value.
+3. The `move` modifier MUST NOT appear on the return type; it applies only to parameters.
+
+**FFI Constraints**
+
+Closure types are NOT FFI-safe:
+
+1. Closure types (`|T| -> U`) MUST NOT appear in `extern` procedure signatures (Clause 12).
+2. Only sparse function pointer types are permitted at FFI boundaries.
+3. Sparse function pointers used in FFI contexts MUST NOT have generic type parameters.
+
+**Invocation Constraints**
+
+The following constraints apply when invoking a function type value:
+
+1. The number of arguments MUST equal the number of parameters.
+2. Each argument type MUST be a subtype of the corresponding parameter type.
+3. For parameters with the `move` modifier, the argument MUST be an explicit `move` expression.
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                                    | Detection    | Effect    |
+| :----------- | :------- | :----------------------------------------------------------- | :----------- | :-------- |
+| `E-TYP-2201` | Error    | Argument count mismatch: expected $n$ arguments, found $m$.  | Compile-time | Rejection |
+| `E-TYP-2202` | Error    | Type mismatch in function argument or return position.       | Compile-time | Rejection |
+| `E-TYP-2203` | Error    | Missing `move` on argument to `move` parameter.              | Compile-time | Rejection |
+| `E-TYP-2204` | Error    | Closure type in `extern` procedure signature.                | Compile-time | Rejection |
+| `E-TYP-2205` | Error    | Assignment of closure value to sparse function pointer type. | Compile-time | Rejection |
+| `E-TYP-2206` | Error    | `move` modifier on return type.                              | Compile-time | Rejection |
+
+---
+
+### Clause 6 Cross-Reference Notes
+
+**Terms Defined in Clause 6 That MUST NOT Be Redefined Elsewhere:**
+
+| Term                             | Section | Description                                                  |
+| :------------------------------- | :------ | :----------------------------------------------------------- |
+| Modal Type                       | §6.1    | State-machine type with compile-time state tracking          |
+| General Modal Type               | §6.1    | Sum type holding any state of a modal                        |
+| State-Specific Type              | §6.1    | Concrete type for a single modal state (`M@S`)               |
+| Modal Widening                   | §6.1    | Coercion from state-specific to general modal type           |
+| State Transition                 | §6.1    | Method consuming one state and producing another             |
+| Safe Pointer (`Ptr<T>`)          | §6.2    | Modal pointer type with `@Valid`, `@Null`, `@Expired` states |
+| Raw Pointer (`*imm T`, `*mut T`) | §6.2    | Untracked pointer type for unsafe code                       |
+| Procedure Type                   | §6.3    | First-class callable signature type                          |
+| Closure Type                     | §6.3    | Anonymous procedure with captured environment                |
+
+**Terms Referenced from Other Clauses:**
+
+| Term             | Source | Usage in Clause 6                   |
+| :--------------- | :----- | :---------------------------------- |
+| Permission Types | §4.5   | Pointer permission qualifiers       |
+| Provenance       | §3.3   | Pointer lifetime tracking           |
+| Unsafe Block     | §3.10  | Required for raw pointer operations |
+| Region           | §3.9   | Pointer provenance source           |
+| Drop Trait       | §9.3   | Destructor for pointer cleanup      |
+
+**Terms Deferred to Later Clauses:**
+
+| Term               | Deferred To | Reason                        |
+| :----------------- | :---------- | :---------------------------- |
+| Generic Parameters | Clause 7    | Pointer type parameterization |
+| FFI                | Clause 15   | Raw pointer interop           |
+| Closure Captures   | Clause 11   | Expression semantics          |
+
+---
+
+## Clause 7: Type Extensions
+
+This clause defines mechanisms that extend or constrain the type system: static polymorphism (generics), attributes (compile-time metadata), and refinement types (types with predicate constraints). These features do not define new types per se but add parameterization, metadata, or constraints to existing types.
+
+---
+
+### 7.1 Static Polymorphism (Generics)
+
+##### Definition
+
+**Static polymorphism** (also called **generics**) is the mechanism by which a single type or procedure definition operates uniformly over multiple concrete types. A **generic declaration** introduces one or more **type parameters** that serve as placeholders for concrete types supplied at instantiation. Generic declarations are resolved entirely at compile time via **monomorphization**: the compiler generates specialized code for each distinct combination of type arguments.
+
+Static polymorphism provides zero-overhead polymorphism on *inputs* resolved at compile time. It contrasts with dynamic polymorphism (§9.5), which uses runtime dispatch via trait objects.
+
+**Formal Definition**
+
+A generic declaration $D$ is defined by:
+
+$$D = (\text{Name}, \text{Params}, \text{Body})$$
+
+where:
+
+- $\text{Name}$ is the declaration's identifier
+- $\text{Params} = \langle P_1, P_2, \ldots, P_n \rangle$ is an ordered sequence of type parameters
+- $\text{Body}$ is the declaration body (type definition or procedure body)
+
+Each type parameter $P_i$ is defined by:
+
+$$P_i = (\text{name}_i, \text{Bounds}_i)$$
+
+where:
+
+- $\text{name}_i$ is an identifier serving as the parameter name
+- $\text{Bounds}_i \subseteq \mathcal{T}_{\text{trait}}$ is a (possibly empty) set of trait bounds that constrain valid type arguments
+
+A type parameter with $\text{Bounds}_i = \emptyset$ is **unconstrained**; any type may be substituted. A type parameter with $\text{Bounds}_i \neq \emptyset$ is **constrained**; only types implementing all traits in $\text{Bounds}_i$ may be substituted.
+
+**Monomorphization**
+
+**Monomorphization** is the process of generating specialized code for each concrete instantiation of a generic type or procedure. Given a generic declaration $D\langle T_1, \ldots, T_n \rangle$ and concrete type arguments $A_1, \ldots, A_n$, monomorphization produces a specialized declaration $D[A_1/T_1, \ldots, A_n/T_n]$ where each occurrence of $T_i$ in the body is replaced with $A_i$.
+
+##### Syntax & Declaration
+
+**Grammar**
+
+```ebnf
+generic_params     ::= "<" generic_param_list ">"
+generic_param_list ::= generic_param ("," generic_param)*
+generic_param      ::= identifier [bound_clause]
+bound_clause       ::= "<:" trait_bound_list
+trait_bound_list   ::= trait_bound ("," trait_bound)*
+trait_bound        ::= type_path
+
+where_clause       ::= "where" where_predicate_list
+where_predicate_list ::= where_predicate ("," where_predicate)*
+where_predicate    ::= identifier "<:" trait_bound_list
+
+generic_args       ::= "<" type_arg_list ">"
+type_arg_list      ::= type ("," type)*
+
+turbofish          ::= "::" generic_args
+```
+
+**Generic Parameter Declaration**
+
+A generic parameter list appears after the name in type and procedure declarations:
+
+```cursive
+record Container<T> { ... }
+procedure sort<T <: Ord>(arr: unique [T]) { ... }
+```
+
+**Bound Clause Syntax**
+
+A type parameter MAY be followed by a bound clause using the `<:` operator. Multiple trait bounds are separated by commas:
+
+```cursive
+<T>                         // Unconstrained
+<T <: Display>              // Single bound
+<T <: Display, Ord>         // Multiple bounds (T must implement both)
+<T, U <: Clone>             // Multiple parameters, one constrained
+```
+
+**Where Clause Syntax**
+
+As an alternative to inline bounds, constraints MAY be specified in a `where` clause following the parameter list:
+
+```cursive
+procedure compare<T>(a: T, b: T) -> Ordering
+where T <: Ord
+{ ... }
+
+procedure process<T, U>(x: T, y: U) -> string
+where T <: Display, Clone,
+      U <: Hash
+{ ... }
+```
+
+When both inline bounds and a `where` clause specify constraints for the same parameter, the effective constraint is the union of all specified bounds.
+
+**Parsing Disambiguation**
+
+The comma character serves as a separator for both trait bounds (within a single parameter's bound list) and generic parameters. Parsing is disambiguated as follows:
+
+1. After parsing `<:` and a trait bound, if a comma is encountered:
+   - If the token following the comma is an identifier followed by `<:`, the identifier begins a new bounded parameter.
+   - Otherwise, the identifier is another trait bound for the current parameter.
+
+2. Identifiers NOT preceded by `<:` in the current parse state are unconstrained type parameters.
+
+This rule implies:
+- `<T, U>` — Two unconstrained parameters
+- `<T <: A, B>` — One parameter `T` bounded by both `A` and `B`
+- `<T <: A, U <: B>` — Parameter `T` bounded by `A`, parameter `U` bounded by `B`
+- `<T <: A, U>` — Parameter `T` bounded by both `A` and `U` (NOT `T` bounded by `A` with unconstrained `U`)
+
+> **⚠️ Parsing Pitfall:** The comma-separated bound syntax can surprise developers familiar with other languages. The declaration `<T <: A, U>` does NOT declare two parameters. To declare a bounded parameter followed by an unconstrained parameter, use a `where` clause:
+> ```cursive
+> // INCORRECT interpretation: T bounded by A, U unconstrained
+> // ACTUAL interpretation: T bounded by both A and U
+> procedure wrong<T <: A, U>(x: T, y: U) { ... }  // COMPILE ERROR if U is not a trait
+>
+> // CORRECT: Use where clause
+> procedure correct<T, U>(x: T, y: U) where T <: A { ... }
+> ```
+
+To declare bounded parameters followed by unconstrained parameters, use a `where` clause:
+
+```cursive
+procedure example<T, U>(x: T, y: U) where T <: Display { ... }
+```
+
+**Summary Table — Generic Parameter Syntax:**
+
+| Syntax                | Meaning                                                    |
+| :-------------------- | :--------------------------------------------------------- |
+| `<T>`                 | One unconstrained parameter `T`                            |
+| `<T, U>`              | Two unconstrained parameters `T` and `U`                   |
+| `<T <: A>`            | Parameter `T` bounded by trait `A`                         |
+| `<T <: A, B>`         | Parameter `T` bounded by traits `A` AND `B`                |
+| `<T <: A, U <: B>`    | Parameter `T` bounded by `A`, parameter `U` bounded by `B` |
+| `<T, U> where T <: A` | Equivalent to above; preferred for readability             |
+
+**Best Practice:** When mixing bounded and unconstrained parameters, use a `where` clause for clarity.
+
+**Type Argument Syntax**
+
+Generic types are instantiated by supplying type arguments in angle brackets:
+
+```cursive
+let opt: Option<i32> = Option::Some(42)
+let map: HashMap<string, i64> = HashMap::new()
+```
+
+For generic procedure calls, type arguments are typically inferred from the arguments and return context. When explicit type arguments are required, the **turbofish** syntax (`::<>`) disambiguates type arguments from comparison operators:
+
+```cursive
+let values = collect::<Vec<i32>>(iter)
+let default_val = Default::default::<Config>()
+```
+
+##### Static Semantics
+
+**Well-Formedness of Generic Parameters (WF-Generic-Param)**
+
+A generic parameter list is well-formed if all parameter names are distinct and all trait bounds reference valid trait types:
+
+$$\frac{
+    \forall i \neq j,\ \text{name}_i \neq \text{name}_j \quad
+    \forall i,\ \forall B \in \text{Bounds}_i,\ \Gamma \vdash B : \text{Trait}
+}{
+    \Gamma \vdash \langle P_1, \ldots, P_n \rangle\ \text{wf}
+} \quad \text{(WF-Generic-Param)}$$
+
+**Generic Type Well-Formedness (WF-Generic-Type)**
+
+A generic type declaration is well-formed if its parameter list is well-formed and its body is well-formed under a context extended with the type parameters:
+
+$$\frac{
+    \Gamma \vdash \langle P_1, \ldots, P_n \rangle\ \text{wf} \quad
+    \Gamma, T_1 : P_1, \ldots, T_n : P_n \vdash \text{Body}\ \text{wf}
+}{
+    \Gamma \vdash \texttt{type}\ \textit{Name}\langle P_1, \ldots, P_n \rangle\ \text{Body}\ \text{wf}
+} \quad \text{(WF-Generic-Type)}$$
+
+**Generic Procedure Well-Formedness (WF-Generic-Proc)**
+
+A generic procedure declaration is well-formed if its parameter list is well-formed and its signature and body are well-formed under a context extended with the type parameters:
+
+$$\frac{
+    \Gamma \vdash \langle P_1, \ldots, P_n \rangle\ \text{wf} \quad
+    \Gamma' = \Gamma, T_1 : P_1, \ldots, T_n : P_n \quad
+    \Gamma' \vdash \text{signature}\ \text{wf} \quad
+    \Gamma' \vdash \text{body}\ \text{wf}
+}{
+    \Gamma \vdash \texttt{procedure}\ f\langle P_1, \ldots, P_n \rangle(\ldots) \to R\ \{\ldots\}\ \text{wf}
+} \quad \text{(WF-Generic-Proc)}$$
+
+**Constraint Satisfaction (T-Constraint-Sat)**
+
+A type argument $A$ satisfies a constraint set $\text{Bounds}$ if $A$ implements all traits in $\text{Bounds}$:
+
+$$\frac{
+    \forall B \in \text{Bounds},\ \Gamma \vdash A <: B
+}{
+    \Gamma \vdash A\ \text{satisfies}\ \text{Bounds}
+} \quad \text{(T-Constraint-Sat)}$$
+
+**Generic Instantiation (T-Generic-Inst)**
+
+A generic type instantiation is well-formed if all type arguments satisfy their corresponding constraints:
+
+$$\frac{
+    \text{Name}\langle P_1, \ldots, P_n \rangle\ \text{declared} \quad
+    \forall i \in 1..n,\ \Gamma \vdash A_i\ \text{satisfies}\ \text{Bounds}(P_i)
+}{
+    \Gamma \vdash \text{Name}\langle A_1, \ldots, A_n \rangle\ \text{wf}
+} \quad \text{(T-Generic-Inst)}$$
+
+**Generic Procedure Call (T-Generic-Call)**
+
+A call to a generic procedure is well-typed if the inferred or explicit type arguments satisfy all constraints and the value arguments match the specialized parameter types:
+
+$$\frac{
+    \begin{gathered}
+    f\langle P_1, \ldots, P_n \rangle(x_1 : S_1, \ldots, x_m : S_m) \to R\ \text{declared} \\
+    \forall i \in 1..n,\ \Gamma \vdash A_i\ \text{satisfies}\ \text{Bounds}(P_i) \\
+    \forall j \in 1..m,\ \Gamma \vdash e_j : S_j[A_1/T_1, \ldots, A_n/T_n]
+    \end{gathered}
+}{
+    \Gamma \vdash f\langle A_1, \ldots, A_n \rangle(e_1, \ldots, e_m) : R[A_1/T_1, \ldots, A_n/T_n]
+} \quad \text{(T-Generic-Call)}$$
+
+**Type Argument Inference**
+
+When type arguments are not explicitly provided, the implementation MUST infer them using bidirectional type inference (§4.4). Type arguments are inferred from:
+
+1. The types of value arguments at the call site
+2. The expected return type from the surrounding context
+
+If type arguments cannot be uniquely determined, the program is ill-formed with diagnostic `E-TYP-2301`.
+
+**Variance of Generic Parameters**
+
+The variance of each type parameter is determined by its usage within the type definition, as specified in §4.3. Variance governs the subtyping relationship between instantiations of the same generic type with different type arguments.
+
+**Monomorphization Requirements**
+
+Implementations MUST generate specialized code for each distinct combination of concrete type arguments used in the program. The following requirements apply:
+
+1. **Specialization:** For each instantiation $D\langle A_1, \ldots, A_n \rangle$, the implementation MUST produce code equivalent to manually substituting each type argument for its corresponding parameter throughout the declaration body.
+
+2. **Zero Overhead:** Calls to generic procedures MUST compile to direct static calls to the specialized instantiation. Virtual dispatch (vtable lookup) is prohibited for static polymorphism.
+
+3. **Independent Instantiation:** Each distinct instantiation is an independent type or procedure. `Container<i32>` and `Container<i64>` are distinct types with no implicit relationship.
+
+**Recursion Depth Limit**
+
+Monomorphization MAY produce recursive instantiations (e.g., `List<Option<List<T>>>`). Implementations MUST detect and reject infinite monomorphization recursion.
+
+The maximum instantiation depth is **implementation-defined (IDB)**. Implementations MUST support a minimum depth of 128 levels and MUST document their limit in the Conformance Dossier.
+
+> **Note:** Infinite recursion typically arises from patterns like `procedure f<T>() { f::<Option<T>>() }` where each instantiation triggers another with a strictly larger type.
+
+##### Memory & Layout
+
+**Layout Independence**
+
+Each monomorphized instantiation has an independent memory layout. The layout of `Container<i32>` is computed using the rules for `i32` as the element type; the layout of `Container<i64>` is computed independently using `i64`.
+
+**Size and Alignment**
+
+The size and alignment of a generic type instantiation are determined by substituting the concrete type arguments and applying the layout rules for the resulting concrete type (§4.16).
+
+$$\text{sizeof}(\text{Name}\langle A_1, \ldots, A_n \rangle) = \text{sizeof}(\text{Name}[A_1/T_1, \ldots, A_n/T_n])$$
+
+$$\text{alignof}(\text{Name}\langle A_1, \ldots, A_n \rangle) = \text{alignof}(\text{Name}[A_1/T_1, \ldots, A_n/T_n])$$
+
+##### Constraints & Legality
+
+**Negative Constraints**
+
+The following constraints apply to generic declarations and instantiations:
+
+1. A generic parameter list MUST NOT contain duplicate parameter names.
+2. A trait bound MUST reference a valid trait type; bounding by non-trait types is forbidden.
+3. A generic instantiation MUST provide exactly the number of type arguments declared by the generic; partial application is not permitted.
+4. Type arguments MUST satisfy all constraints (trait bounds) declared for their corresponding parameters.
+5. Generic parameters are **prohibited** in `extern` procedure signatures. FFI boundaries require monomorphic types.
+6. Infinite monomorphization recursion MUST be detected and rejected.
+7. The monomorphization depth MUST NOT exceed the implementation's documented limit.
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                                           | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------------------------ | :----------- | :-------- |
+| `E-TYP-2301` | Error    | Type arguments cannot be inferred; explicit instantiation required. | Compile-time | Rejection |
+| `E-TYP-2302` | Error    | Type argument does not satisfy trait bound.                         | Compile-time | Rejection |
+| `E-TYP-2303` | Error    | Wrong number of type arguments for generic instantiation.           | Compile-time | Rejection |
+| `E-TYP-2304` | Error    | Duplicate type parameter name in generic declaration.               | Compile-time | Rejection |
+| `E-TYP-2305` | Error    | Trait bound references a non-trait type.                            | Compile-time | Rejection |
+| `E-TYP-2306` | Error    | Generic parameter in `extern` procedure signature.                  | Compile-time | Rejection |
+| `E-TYP-2307` | Error    | Infinite monomorphization recursion detected.                       | Compile-time | Rejection |
+| `E-TYP-2308` | Error    | Monomorphization depth limit exceeded.                              | Compile-time | Rejection |
+
+---
+
+
+### 7.2 Attributes
+
+##### Definition
+
+An **attribute** is a compile-time annotation attached to a declaration that provides metadata to the compiler. Attributes influence code generation, memory layout, diagnostics, verification strategies, and interoperability without altering the core semantics of the annotated declaration except where this specification explicitly defines such alteration.
+
+**Formal Definition**
+
+An attribute $A$ is defined by:
+
+$$A = (\text{Name}, \text{Args})$$
+
+where:
+
+- $\text{Name}$ is an identifier designating the attribute
+- $\text{Args}$ is a (possibly empty) sequence of arguments
+
+An **attribute list** is a sequence of one or more attributes applied to a declaration:
+
+$$\text{AttributeList} = \langle A_1, A_2, \ldots, A_n \rangle$$
+
+The **attribute registry** $\mathcal{R}$ is the set of all attributes recognized by a conforming implementation. The registry partitions into:
+
+$$\mathcal{R} = \mathcal{R}_{\text{spec}} \uplus \mathcal{R}_{\text{vendor}}$$
+
+where $\mathcal{R}_{\text{spec}}$ contains specification-defined attributes and $\mathcal{R}_{\text{vendor}}$ contains vendor-defined extensions.
+
+##### Syntax & Declaration
+
+**Grammar**
+
+```ebnf
+attribute_list     ::= attribute+
+attribute          ::= "[[" attribute_spec ("," attribute_spec)* "]]"
+attribute_spec     ::= attribute_name ["(" attribute_args ")"]
+attribute_name     ::= identifier | vendor_prefix "::" identifier
+vendor_prefix      ::= identifier ("." identifier)*
+attribute_args     ::= attribute_arg ("," attribute_arg)*
+attribute_arg      ::= literal
+                     | identifier
+                     | identifier ":" literal
+                     | identifier "(" attribute_args ")"
+```
+
+**Placement**
+
+An attribute list MUST appear immediately before the declaration it modifies. The attribute list and its target declaration MUST NOT be separated by other declarations or statements.
+
+**Attribute Block Equivalence**
+
+Multiple attributes MAY be specified in a single block or in separate blocks. The following forms are semantically equivalent:
+
+```cursive
+[[attr1, attr2]]
+declaration
+
+[[attr1]]
+[[attr2]]
+declaration
+```
+
+The order of attribute application within equivalent forms is Unspecified Behavior (USB).
+
+##### Static Semantics
+
+**Attribute Processing**
+
+Attribute processing occurs during semantic analysis. For each attribute $A$ applied to declaration $D$:
+
+1. The implementation MUST verify that $A.\text{Name} \in \mathcal{R}$.
+2. The implementation MUST verify that $D$ is a valid target for $A$ per the target constraints defined below.
+3. The implementation MUST verify that $A.\text{Args}$ conforms to the argument specification for $A$.
+4. If all verifications succeed, the implementation applies the effect defined for $A$.
+
+**Normative Attribute Registry**
+
+The following table defines $\mathcal{R}_{\text{spec}}$, the complete set of specification-defined attributes. Valid targets for each attribute are specified in the Attribute Target Constraints table below.
+
+| Attribute             | Arguments                            | Effect                                  | Full Semantics |
+| :-------------------- | :----------------------------------- | :-------------------------------------- | :------------- |
+| `[[layout(...)]]`     | `C`, `packed`, `align(N)`, `IntType` | Controls memory representation          | §4.16.1        |
+| `[[inline(...)]]`     | `always`, `never`, `default`         | Inlining directive                      | §4.16.2        |
+| `[[cold]]`            | (none)                               | Marks procedure as unlikely to execute  | §4.16.3        |
+| `[[deprecated(...)]]` | Optional string message              | Emits warning on usage                  | §4.16.4        |
+| `[[reflect]]`         | (none)                               | Enables compile-time introspection      | §4.16.5        |
+| `[[verify(...)]]`     | `static`, `dynamic`, `trusted`       | Contract verification mode              | §7.4           |
+| `[[link_name(...)]]`  | String literal                       | Overrides linker symbol name            | §12.4          |
+| `[[no_mangle]]`       | (none)                               | Disables symbol name mangling           | §12.4          |
+| `[[unwind(...)]]`     | `abort`, `catch`                     | Controls panic behavior at FFI boundary | §12.5          |
+
+**Attribute Target Constraints**
+
+Each attribute is valid only on specific declaration kinds. Applying an attribute to an invalid target is ill-formed:
+
+| Attribute             | `record` | `enum` | `modal` | `procedure` | `extern` proc | Contract | Other |
+| :-------------------- | :------: | :----: | :-----: | :---------: | :-----------: | :------: | :---: |
+| `[[layout(...)]]`     |    ✓     |   ✓    |    ✗    |      ✗      |       ✗       |    ✗     |   ✗   |
+| `[[inline(...)]]`     |    ✗     |   ✗    |    ✗    |      ✓      |       ✓       |    ✗     |   ✗   |
+| `[[cold]]`            |    ✗     |   ✗    |    ✗    |      ✓      |       ✓       |    ✗     |   ✗   |
+| `[[deprecated(...)]]` |    ✓     |   ✓    |    ✓    |      ✓      |       ✓       |    ✗     |   ✓   |
+| `[[verify(...)]]`     |    ✗     |   ✗    |    ✗    |      ✗      |       ✗       |    ✓     |   ✗   |
+| `[[reflect]]`         |    ✓     |   ✓    |    ✓    |      ✗      |       ✗       |    ✗     |   ✗   |
+| `[[link_name(...)]]`  |    ✗     |   ✗    |    ✗    |      ✗      |       ✓       |    ✗     |   ✗   |
+| `[[no_mangle]]`       |    ✗     |   ✗    |    ✗    |      ✗      |       ✓       |    ✗     |   ✗   |
+| `[[unwind(...)]]`     |    ✗     |   ✗    |    ✗    |      ✗      |       ✓       |    ✗     |   ✗   |
+
+**Vendor Extension Namespacing**
+
+Vendor-defined attributes MUST use a namespaced identifier to prevent collision with specification-defined attributes and other vendors' extensions:
+
+1. Vendor attributes MUST use reverse-domain-style prefixes: `[[com.vendor.attribute_name]]`
+2. The `cursive` namespace and all `cursive::*` prefixes are reserved for specification-defined attributes and MUST NOT be used by vendor extensions.
+3. Implementations MUST document all vendor-defined attributes in the Conformance Dossier.
+
+An implementation encountering an unknown attribute (one not in $\mathcal{R}$) MUST diagnose error `E-DEC-2451`.
+
+---
+
+#### 4.16.1 The `[[layout(...)]]` Attribute
+
+##### Definition
+
+The `[[layout(...)]]` attribute controls the memory representation of composite types. It specifies field ordering, padding behavior, alignment requirements, and discriminant representation.
+
+> **Rationale:** The attribute name `layout` was chosen over `repr` (used in some other systems languages) because it more directly describes the attribute's purpose: controlling memory layout. This aligns with Cursive's design principle of self-documenting syntax.
+
+##### Syntax & Declaration
+
+**Grammar**
+
+```ebnf
+layout_attribute ::= "[[" "layout" "(" layout_args ")" "]]"
+layout_args      ::= layout_kind ("," layout_kind)*
+layout_kind      ::= "C"
+                   | "packed"
+                   | "align" "(" integer_literal ")"
+                   | int_type
+int_type         ::= "i8" | "i16" | "i32" | "i64" | "u8" | "u16" | "u32" | "u64"
+```
+
+##### Static Semantics
+
+**`layout(C)` — C-Compatible Layout**
+
+For a `record` marked `[[layout(C)]]`:
+1. Fields MUST be laid out in declaration order.
+2. Padding MUST be inserted only as required to satisfy alignment constraints per the target platform's C ABI.
+3. The total size MUST be a multiple of the record's alignment.
+
+For an `enum` marked `[[layout(C)]]`:
+1. The discriminant MUST be represented as a C-compatible integer tag.
+2. The default tag type is implementation-defined (IDB), typically `i32`.
+3. The enum is laid out as a tagged union per the target C ABI.
+
+**`layout(IntType)` — Explicit Discriminant Type**
+
+For an `enum` marked `[[layout(IntType)]]` where `IntType` is one of `i8`, `i16`, `i32`, `i64`, `u8`, `u16`, `u32`, `u64`:
+1. The discriminant MUST be represented using the specified integer type.
+2. The discriminant value for each variant MUST be representable in the specified type.
+3. This form is valid only on `enum` declarations. Applying `[[layout(IntType)]]` to a `record` is ill-formed (`E-DEC-2452`).
+
+**`layout(packed)` — Packed Layout**
+
+For a `record` marked `[[layout(packed)]]`:
+1. All inter-field padding is removed.
+2. Each field is laid out with alignment 1, regardless of its natural alignment.
+3. The record's overall alignment becomes 1.
+
+Packed layout has the following implications:
+- Field access MAY require unaligned memory operations.
+- Taking a reference to a packed field is Unverifiable Behavior (UVB) because the resulting reference may be misaligned. Such operations MUST occur within an `unsafe` block.
+- Direct field reads and writes remain safe (not UVB).
+
+The `packed` layout kind is valid only on `record` declarations. Applying `packed` to an `enum` is ill-formed (`E-DEC-2454`).
+
+**`layout(align(N))` — Minimum Alignment**
+
+The `align(N)` layout kind sets a minimum alignment for the type:
+1. $N$ MUST be a positive integer that is a power of two. Non-power-of-two values are ill-formed (`E-DEC-2453`).
+2. The effective alignment of the type is $\max(N, \text{natural alignment})$.
+3. If $N$ is less than the natural alignment, the natural alignment is used and a warning (`W-DEC-2451`) is emitted.
+4. The type's size is padded to be a multiple of the effective alignment.
+
+**Valid Combinations**
+
+Multiple layout kinds MAY be combined in a single attribute:
+
+| Combination                | Validity | Effect                                         |
+| :------------------------- | :------- | :--------------------------------------------- |
+| `layout(C)`                | Valid    | C-compatible layout                            |
+| `layout(packed)`           | Valid    | Packed layout (records only)                   |
+| `layout(align(N))`         | Valid    | Minimum alignment $N$                          |
+| `layout(C, packed)`        | Valid    | C-compatible packed layout                     |
+| `layout(C, align(N))`      | Valid    | C-compatible layout with minimum alignment $N$ |
+| `layout(u8)` (on enum)     | Valid    | 8-bit unsigned discriminant                    |
+| `layout(packed, align(N))` | Invalid  | Conflicting directives (`E-DEC-2455`)          |
+
+**Applicability Constraints**
+
+| Declaration Kind          |  `C`  | `packed` | `align(N)` | `IntType` |
+| :------------------------ | :---: | :------: | :--------: | :-------: |
+| `record`                  |   ✓   |    ✓     |     ✓      |     ✗     |
+| `enum`                    |   ✓   |    ✗     |     ✓      |     ✓     |
+| `modal`                   |   ✗   |    ✗     |     ✗      |     ✗     |
+| Generic (unmonomorphized) |   ✗   |    ✗     |     ✗      |     ✗     |
+
+Applying `[[layout(...)]]` to a `modal` type or an unmonomorphized generic type is ill-formed (`E-FFI-3303`, as defined in §12.3).
+
+---
+
+#### 4.16.2 The `[[inline(...)]]` Attribute
+
+##### Definition
+
+The `[[inline(...)]]` attribute provides directives to the compiler regarding procedure inlining.
+
+##### Static Semantics
+
+**`inline(always)`**
+
+The implementation SHOULD inline the procedure at all call sites. If inlining is not possible (e.g., the procedure is recursive, exceeds implementation limits, or its address is taken), the implementation MUST emit warning `W-DEC-2452`.
+
+**`inline(never)`**
+
+The implementation MUST NOT inline the procedure. The procedure body MUST be emitted as a separate callable unit, and all calls MUST use the standard calling convention.
+
+**`inline(default)`**
+
+The implementation applies its default inlining heuristics. This is semantically equivalent to omitting the `[[inline(...)]]` attribute entirely.
+
+**Default Behavior (No Attribute)**
+
+When no `[[inline(...)]]` attribute is present, the implementation MAY inline or not inline the procedure at its discretion based on optimization heuristics.
+
+---
+
+#### 4.16.3 The `[[cold]]` Attribute
+
+##### Definition
+
+The `[[cold]]` attribute marks a procedure as unlikely to be executed during typical program runs. This hint enables the implementation to optimize for the common case by:
+
+1. Placing the procedure's code in a separate section to improve instruction cache locality of hot code.
+2. Reducing optimization effort on the cold procedure.
+3. Biasing branch prediction at call sites toward not calling the procedure.
+
+##### Static Semantics
+
+The `[[cold]]` attribute takes no arguments. It is valid only on procedure declarations.
+
+The attribute is a hint; implementations MAY ignore it without diagnostic.
+
+---
+
+#### 4.16.4 The `[[deprecated(...)]]` Attribute
+
+##### Definition
+
+The `[[deprecated(...)]]` attribute marks a declaration as deprecated. Usage of a deprecated declaration triggers a warning diagnostic.
+
+##### Syntax & Declaration
+
+```ebnf
+deprecated_attribute ::= "[[" "deprecated" ["(" string_literal ")"] "]]"
+```
+
+The optional string argument provides a deprecation message that SHOULD be included in the warning diagnostic.
+
+##### Static Semantics
+
+When a program references a declaration marked `[[deprecated(...)]]`:
+
+1. The implementation MUST emit warning `W-CNF-0601` (as defined in §1.5).
+2. If a message argument is present, the diagnostic SHOULD include the message text.
+3. The deprecated declaration remains fully functional; only a warning is emitted.
+
+---
+
+#### 4.16.5 The `[[reflect]]` Attribute
+
+##### Definition
+
+The `[[reflect]]` attribute enables compile-time introspection for a type declaration. Types marked with `[[reflect]]` have their metadata accessible to the `reflect_type<T>()` intrinsic during compile-time evaluation.
+
+##### Static Semantics
+
+1. The `[[reflect]]` attribute takes no arguments.
+2. It is valid on `record`, `enum`, and `modal` type declarations.
+3. The attribute has no effect on runtime behavior or memory layout.
+4. Full semantics for compile-time introspection are defined in Clause 10 (Metaprogramming).
+
+---
+
+#### 4.16.6 FFI Attributes
+
+##### Definition
+
+**FFI Attributes** are attributes specific to Foreign Function Interface declarations. These attributes control linking behavior and panic propagation across the language boundary.
+
+##### Static Semantics
+
+The following FFI attributes are recognized. Complete semantics are defined in Clause 12 (Interoperability):
+
+| Attribute              | Reference | Effect                                                       |
+| :--------------------- | :-------- | :----------------------------------------------------------- |
+| `[[link_name("sym")]]` | §12.4     | Overrides the linker symbol name for an extern procedure     |
+| `[[no_mangle]]`        | §12.4     | Disables name mangling (implicit for `extern "C"`)           |
+| `[[unwind(mode)]]`     | §12.5     | Controls panic behavior at FFI boundary (`abort` or `catch`) |
+
+These attributes are valid only on `extern` procedure declarations.
+
+---
+
+#### 4.16.7 The `[[verify(...)]]` Attribute
+
+##### Definition
+
+The `[[verify(...)]]` attribute controls the verification strategy for contract clauses. It specifies whether contracts are checked statically, dynamically, or trusted without verification.
+
+##### Static Semantics
+
+The `[[verify(...)]]` attribute accepts one of three modes. Complete semantics are defined in §7.4 (Verification Modes):
+
+| Mode      | Effect                                                        |
+| :-------- | :------------------------------------------------------------ |
+| `static`  | Requires compile-time proof; failure is ill-formed            |
+| `dynamic` | Generates runtime checks; failure triggers panic              |
+| `trusted` | No verification; violation is UVB (requires `unsafe` context) |
+
+This attribute is valid only on contract clauses (`where`, `must`, `ensure`).
+
+---
+
+#### 4.16.8 Consolidated Constraints and Diagnostics
+
+##### Constraints & Legality
+
+**Negative Constraints**
+
+1. An attribute name not in $\mathcal{R}$ (the attribute registry) MUST be diagnosed as unknown.
+2. An attribute applied to an invalid target declaration kind MUST be diagnosed.
+3. Malformed attribute syntax (e.g., missing brackets, invalid argument types) MUST be diagnosed.
+4. Conflicting layout arguments (`packed` with `align`) MUST be diagnosed.
+5. The `align(N)` argument MUST be a power of two.
+6. The `packed` layout kind MUST NOT be applied to `enum` declarations.
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                             | Detection    | Effect    |
+| :----------- | :------- | :---------------------------------------------------- | :----------- | :-------- |
+| `E-DEC-2450` | Error    | Malformed attribute syntax.                           | Compile-time | Rejection |
+| `E-DEC-2451` | Error    | Unknown attribute name.                               | Compile-time | Rejection |
+| `E-DEC-2452` | Error    | Attribute not valid on target declaration kind.       | Compile-time | Rejection |
+| `E-DEC-2453` | Error    | `align(N)` where N is not a power of two.             | Compile-time | Rejection |
+| `E-DEC-2454` | Error    | `packed` applied to non-record declaration.           | Compile-time | Rejection |
+| `E-DEC-2455` | Error    | Conflicting layout arguments (`packed` with `align`). | Compile-time | Rejection |
+| `W-DEC-2451` | Warning  | `align(N)` where N < natural alignment (no effect).   | Compile-time | N/A       |
+| `W-DEC-2452` | Warning  | `inline(always)` but inlining not possible.           | Compile-time | N/A       |
+
+---
+
+
+### 7.3 Refinement Types
+
+##### Definition
+
+A **refinement type** is a type constructed by attaching a predicate constraint to a base type. The refinement type `T where { P }` denotes the subset of values of type `T` for which predicate `P` evaluates to `true`. Refinement types enable dependent typing patterns where type validity depends on runtime-checkable value properties.
+
+**Formal Definition**
+
+Let $\mathcal{T}$ denote the set of all types and $\mathcal{P}$ denote the set of all pure boolean predicates. A refinement type $R$ is defined by:
+
+$$R = (T_{\text{base}}, P)$$
+
+where:
+
+- $T_{\text{base}} \in \mathcal{T}$ is the base type being refined
+- $P : T_{\text{base}} \to \texttt{bool}$ is a pure predicate constraining the value set
+
+The value set of a refinement type is the subset of base type values satisfying the predicate:
+
+$$\text{Values}(T \text{ where } \{P\}) = \{ v \in \text{Values}(T) \mid P(v) = \texttt{true} \}$$
+
+A refinement type is a **proper subtype** of its base type; a value of type `T where { P }` may be used wherever a value of type `T` is expected.
+
+##### Syntax & Declaration
+
+**Grammar**
+
+```ebnf
+refinement_type       ::= type "where" "{" predicate "}"
+
+type_alias_refine     ::= "type" identifier "=" type "where" "{" predicate "}"
+
+param_with_constraint ::= identifier ":" type "where" "{" predicate "}"
+
+predicate             ::= expression
+```
+
+**Self Reference**
+
+Within the predicate of a **type alias** or **standalone refinement type expression**, the keyword `self` refers to the value being constrained. The identifier `self` is implicitly bound within the predicate scope with the base type `T`.
+
+**Inline Notation Examples:**
+
+The following notations are valid refinement type expressions:
+
 - `usize where { self < 256 }` — unsigned integers less than 256
 - `i32 where { self > 0 }` — positive 32-bit integers
 - `[T] where { self~>len() > 0 }` — non-empty slices
 
-##### Unified Parameter Constraints
+**Parameter Constraint Syntax**
 
-When a refinement type appears as a **procedure parameter type**, the `self` keyword is **NOT** used. Instead, the predicate uses the **parameter name** directly:
+When a refinement type appears as a **procedure parameter type**, the predicate uses the **parameter name** directly rather than `self`. This syntax integrates with procedure contract clauses (§7.2).
 
-```ebnf
-param_with_constraint ::= identifier ":" type "where" "{" predicate "}"
-```
+Within the predicate of a parameter constraint, the **parameter name** refers to the parameter value being constrained. Other in-scope parameters declared earlier in the parameter list MAY be referenced, enabling dependent constraints between parameters.
 
-Within the predicate:
-- The **parameter name** refers to the parameter value
-- Other in-scope parameters may also be referenced (for dependent constraints)
+**Desugaring**
 
-This syntax is unified with procedure `where` clauses (§7.1). A parameter constraint is semantically equivalent to a precondition that constrains only that parameter.
+A parameter with an inline constraint is semantically equivalent to an unrefined parameter with a procedure-level precondition. The following declarations are equivalent:
 
-**Desugaring:**
-
-A parameter with inline constraint:
 ```cursive
-procedure get<T>(arr: [T], idx: usize where { idx < arr~>len() }): T
-```
+// Inline constraint form
+procedure get<T>(arr: [T], idx: usize where { idx < arr~>len() }) -> T
 
-Is semantically equivalent to:
-```cursive
-procedure get<T>(arr: [T], idx: usize): T
+// Procedure where-clause form (equivalent)
+procedure get<T>(arr: [T], idx: usize) -> T
     where { idx < arr~>len() }
 ```
 
-The inline form is preferred when the constraint concerns a single parameter. The procedure `where` clause is preferred for:
-- Multi-parameter relationships
-- Postconditions
-- Complex predicates that benefit from separate formatting
+The inline form is preferred when the constraint concerns a single parameter. The procedure `where` clause (§7.2) is preferred for multi-parameter relationships, postconditions, or complex predicates that benefit from separate formatting.
+
+> **Rationale:** Using the parameter name (instead of `self`) in inline parameter constraints provides consistency (the same identifier appears in the signature and predicate), enables dependent typing (later parameters can reference earlier parameters by name), unifies inline constraints with procedure `where` clause syntax, and improves readability (`idx < arr~>len()` reads more naturally than `self < arr~>len()`). The `self` keyword is reserved for contexts where no parameter name exists: type aliases (`type Positive = i32 where { self > 0 }`) and record/enum invariants (`record R { x: i32 } where { self.x > 0 }`).
 
 ##### Static Semantics
 
-**Subtyping Rule:**
+**Well-Formedness (WF-Refine-Type)**
 
-A refinement type is a subtype of its base type and of other refinement types with weaker predicates:
+A refinement type `T where { P }` is well-formed when the base type is well-formed and the predicate is a valid pure expression of type `bool` under a context extended with the constrained value:
 
-$$
-\frac{
+$$\frac{
+    \Gamma \vdash T\ \text{wf} \quad
+    \Gamma, \texttt{self} : T \vdash P : \texttt{bool} \quad
+    \text{Pure}(P)
+}{
+    \Gamma \vdash (T \text{ where } \{P\})\ \text{wf}
+} \quad \text{(WF-Refine-Type)}$$
+
+**Well-Formedness of Parameter Constraint (WF-Param-Constraint)**
+
+A parameter constraint `x: T where { P }` is well-formed when the base type is well-formed, the predicate is a valid pure expression of type `bool`, and the predicate references the parameter name (not `self`):
+
+$$\frac{
+    \Gamma \vdash T\ \text{wf} \quad
+    \Gamma, x : T \vdash P : \texttt{bool} \quad
+    \text{Pure}(P) \quad
+    \texttt{self} \notin \text{FreeVars}(P)
+}{
+    \Gamma \vdash (x : T \text{ where } \{P\})\ \text{wf}
+} \quad \text{(WF-Param-Constraint)}$$
+
+**Typing Rules**
+
+**(T-Refine-Intro)**
+
+A value of base type `T` has refinement type `T where { P }` when a Verification Fact (§7.5) establishes that `P` holds for that value:
+
+$$\frac{
+    \Gamma \vdash e : T \quad
+    \Gamma \vdash F(P[e/\texttt{self}], L) \quad
+    L \text{ dominates current location}
+}{
+    \Gamma \vdash e : T \text{ where } \{P\}
+} \quad \text{(T-Refine-Intro)}$$
+
+**(T-Refine-Elim)**
+
+A value of refinement type may be used as a value of its base type without any runtime check:
+
+$$\frac{
+    \Gamma \vdash e : T \text{ where } \{P\}
+}{
+    \Gamma \vdash e : T
+} \quad \text{(T-Refine-Elim)}$$
+
+**Subtyping Rules**
+
+A refinement type is a subtype of its base type:
+
+$$\Gamma \vdash (T \text{ where } \{P\}) <: T \quad \text{(Sub-Refine-Base)}$$
+
+A refinement type with a stronger predicate is a subtype of one with a weaker predicate when both share the same base type:
+
+$$\frac{
     \Gamma \vdash P \implies Q
 }{
     \Gamma \vdash (T \text{ where } \{P\}) <: (T \text{ where } \{Q\})
-}
-\tag{Sub-Refine}
-$$
+} \quad \text{(Sub-Refine)}$$
 
-$$
-\Gamma \vdash (T \text{ where } \{P\}) <: T
-\tag{Sub-Refine-Base}
-$$
+**Type Equivalence**
 
-**Type Equivalence:**
+Two refinement types with the same base type are equivalent if and only if their predicates are logically equivalent:
 
-Two refinement types are equivalent if their predicates are logically equivalent:
-$$
-\Gamma \vdash (T \text{ where } \{P\}) \equiv (T \text{ where } \{Q\}) \iff \Gamma \vdash P \iff Q
-$$
+$$\Gamma \vdash (T \text{ where } \{P\}) \equiv (T \text{ where } \{Q\}) \iff \Gamma \vdash P \iff Q$$
 
-**Intersection (Nested Refinements):**
+**Nested Refinements**
 
-Nested refinement types are equivalent to conjunction:
-$$
-(T \text{ where } \{P\}) \text{ where } \{Q\} \equiv T \text{ where } \{P \land Q\}
-$$
+Nested refinement types flatten to a single refinement with conjoined predicates:
 
-**Predicate Scope:**
+$$(T \text{ where } \{P\}) \text{ where } \{Q\} \equiv T \text{ where } \{P \land Q\}$$
 
-The predicate `P` in `T where { P }`:
-- **MUST** be a pure expression (see Clause 7 §7.1)
-- **MUST** evaluate to type `bool`
-- **MAY** reference `self` (the constrained value) in type aliases and standalone refinement types
-- **MUST** reference the parameter name (not `self`) in inline parameter constraints
-- **MAY** reference other in-scope bindings (for dependent constraints)
-- **MAY** reference earlier parameters when used in procedure signatures (for dependent parameter types)
+**Predicate Scope and Purity**
 
-**Unified Syntax Rationale:**
+The predicate `P` in a refinement type `T where { P }`:
 
-Using the parameter name (instead of `self`) in inline parameter constraints provides:
+1. MUST be a pure expression as defined in §7.1 (no side effects, no I/O, no allocation, no capability invocation).
+2. MUST evaluate to type `bool`.
+3. In type aliases and standalone refinement type expressions, MUST use `self` to refer to the constrained value.
+4. In inline parameter constraints, MUST use the parameter name to refer to the constrained value; use of `self` is forbidden.
+5. MAY reference other in-scope bindings, including earlier parameters in procedure signatures.
 
-1. **Consistency**: The same identifier appears in the signature and the predicate
-2. **Dependent typing**: Later parameters can reference earlier parameters by name
-3. **Unification**: Inline constraints and procedure `where` clauses use identical predicate syntax
-4. **Readability**: `idx < arr~>len()` reads more naturally than `self < arr~>len()`
+**Automatic Coercion**
 
-The `self` keyword is reserved for contexts where no parameter name exists:
-- Type aliases: `type Positive = i32 where { self > 0 }`
-- Record/enum invariants: `record R { x: i32 } where { self.x > 0 }`
+The implementation MUST automatically coerce a value of type `T` to type `T where { P }` when active Verification Facts (§7.5) prove that `P` holds for that value. This coercion is implicit and requires no runtime check.
 
-**Automatic Coercion:**
+**Variance Interaction**
 
-The implementation **MUST** automatically coerce a value of type `T` to type `T where { P }` if active Verification Facts (Clause 7 §7.5) prove that `P` holds for that value.
+Refinement types participate in the standard subtyping relation defined in §4.2. Because `T where { P }` is a subtype of `T`, refinement types interact with generic type constructors according to the variance rules defined in §4.3. For a type constructor `C<T>` with covariant parameter `T`, if `S where { P } <: S` then `C<S where { P }> <: C<S>` follows from transitivity.
 
 ##### Dynamic Semantics
 
-**Verification:**
+**Verification**
 
-When a value is assigned to a binding of refinement type, or passed to a parameter of refinement type, the predicate **MUST** be verified according to the active Verification Mode (Clause 7 §7.4):
+When a value is assigned to a binding of refinement type, or passed to a parameter of refinement type, and no Verification Fact establishes that the predicate holds, the predicate MUST be verified according to the active Verification Mode (§7.4):
 
-| Mode      | Behavior                                           |
-| :-------- | :------------------------------------------------- |
-| `static`  | Predicate must be statically provable              |
-| `dynamic` | Runtime check inserted; panic on failure (default) |
-| `trusted` | No check; violation is UVB (requires `unsafe`)     |
-| (default) | Runtime check with static elision optimization     |
+| Mode      | Behavior                                                                                       |
+| :-------- | :--------------------------------------------------------------------------------------------- |
+| `static`  | The predicate MUST be statically provable; failure to prove is a compile-time error.           |
+| `dynamic` | A runtime check is inserted; if the check fails, the thread MUST panic.                        |
+| `trusted` | No verification is performed; predicate violation is Unverifiable Behavior (UVB).              |
+| (default) | The implementation first attempts static proof; if inconclusive, falls back to `dynamic` mode. |
+
+**Fact Synthesis**
+
+Successful runtime verification of a refinement predicate synthesizes a Verification Fact that MAY be used by the implementation to elide subsequent checks on the same value for the same or implied predicates.
 
 ##### Memory & Layout
 
-**Representation:**
+**Representation**
 
-A refinement type `T where { P }` has the **same size, alignment, and layout** as its base type `T`. The predicate is a compile-time/runtime constraint only; it does not affect physical representation.
+A refinement type `T where { P }` has identical size, alignment, and layout to its base type `T`. The predicate is a compile-time and runtime constraint only; it does not affect physical representation.
 
-$$
-\text{sizeof}(T \text{ where } \{P\}) = \text{sizeof}(T)
-$$
-$$
-\text{alignof}(T \text{ where } \{P\}) = \text{alignof}(T)
-$$
+$$\text{sizeof}(T \text{ where } \{P\}) = \text{sizeof}(T)$$
+
+$$\text{alignof}(T \text{ where } \{P\}) = \text{alignof}(T)$$
+
+The memory representation of a value of type `T where { P }` is indistinguishable from a value of type `T`.
 
 ##### Constraints & Legality
 
-**Purity:** The predicate **MUST** be pure (no side effects, no I/O, no allocation).
+**Negative Constraints**
 
-**Decidability:** For `static` verification mode, the implementation **MAY** reject predicates that are not decidable by its proof system. This is not an error in the program but a limitation of the verifier; the programmer may use `dynamic` mode as fallback.
+The following constraints apply to refinement types:
 
-**Recursive Constraints:** Refinement predicates **MUST NOT** create circular type dependencies.
+1. A refinement predicate MUST be a pure expression. Impure expressions (those performing I/O, allocation, mutation, or capability invocation) are forbidden.
 
-| Code         | Severity | Condition                                                       |
-| :----------- | :------- | :-------------------------------------------------------------- |
-| `E-TYP-1950` | Error    | `self` used in inline parameter constraint (use parameter name) |
+2. A refinement predicate MUST evaluate to type `bool`. Predicates of other types are forbidden.
 
-##### Examples
+3. In inline parameter constraints, the `self` keyword MUST NOT appear in the predicate; the parameter name MUST be used instead.
 
-**Valid:**
+4. Refinement predicates MUST NOT create circular type dependencies. A predicate that references a type alias containing the refinement being defined is ill-formed.
 
-```cursive
-// Bounded array index - parameter name used in predicate
-procedure get<T>(arr: [T], idx: usize where { idx < arr~>len() }): T {
-    result arr[idx]  // No bounds check needed - statically verified
-}
+5. For `static` verification mode, if the implementation's proof system cannot decide the predicate, the program is ill-formed. The programmer MAY use `dynamic` mode as a fallback.
 
-// Positive number type alias - 'self' used (no parameter name available)
-type PositiveInt = i32 where { self > 0 }
+**Diagnostic Table**
 
-// Non-empty slice - parameter name used
-procedure first<T>(slice: [T] where { slice~>len() > 0 }): T {
-    result slice[0]  // Safe - slice is non-empty
-}
-
-// Multi-parameter constraint - can use either inline or procedure where
-procedure copy_range<T>(
-    src: [T],
-    dst: [T] where { dst~>len() >= src~>len() },
-    count: usize where { count <= src~>len() }
-) {
-    // ...
-}
-
-// Equivalent using procedure where clause
-procedure copy_range_alt<T>(src: [T], dst: [T], count: usize)
-    where { dst~>len() >= src~>len() && count <= src~>len() }
-{
-    // ...
-}
-
-// Dependent parameter constraint - later param references earlier param
-procedure slice_range<T>(
-    arr: [T],
-    start: usize where { start <= arr~>len() },
-    end: usize where { end >= start && end <= arr~>len() }
-): [T] {
-    // ...
-}
-```
-
-**Invalid:**
-
-```cursive
-// E-CON-2802: Impure predicate (I/O)
-type Bad = i32 where { print(self); true }
-
-// Undecidable in static mode (may require dynamic fallback)
-procedure collatz(n: i32 where { terminates_collatz(n) }) { ... }
-
-// E-TYP-1950: 'self' used in parameter constraint (should use 'idx')
-procedure bad_get<T>(arr: [T], idx: usize where { self < arr~>len() }): T { ... }
-```
+| Code         | Severity | Condition                                             | Detection    | Effect    |
+| :----------- | :------- | :---------------------------------------------------- | :----------- | :-------- |
+| `E-TYP-1950` | Error    | `self` used in inline parameter constraint.           | Compile-time | Rejection |
+| `E-TYP-1951` | Error    | Refinement predicate is not of type `bool`.           | Compile-time | Rejection |
+| `E-TYP-1952` | Error    | Circular type dependency in refinement predicate.     | Compile-time | Rejection |
+| `E-CON-2801` | Error    | Static verification failed in `static` mode.          | Compile-time | Rejection |
+| `E-CON-2802` | Error    | Impure expression in refinement predicate.            | Compile-time | Rejection |
+| `P-TYP-1953` | Panic    | Refinement predicate evaluated to `false` at runtime. | Runtime      | Panic     |
 
 ---
 
-### Clause 4: Cross-Reference Notes
+### Clause 7 Cross-Reference Notes
 
-**Terms defined in Clause 4 that MUST NOT be redefined elsewhere:**
+**Terms Defined in Clause 7 That MUST NOT Be Redefined Elsewhere:**
 
-| Term                        | Section | Description                                                  |
-| :-------------------------- | :------ | :----------------------------------------------------------- |
-| Type Context ($\Gamma$)     | §4.1    | Environment mapping identifiers to types.                    |
-| Subtype Relation ($<:$)     | §4.2    | Subtyping relation definition.                               |
-| Covariant                   | §4.3    | Variance polarity for output positions.                      |
-| Contravariant               | §4.3    | Variance polarity for input positions.                       |
-| Invariant                   | §4.3    | Variance polarity for mutable positions.                     |
-| Bivariant                   | §4.3    | Variance polarity for unused parameters.                     |
-| Permission Lattice          | §4.5    | Hierarchy of `unique`, `partitioned`, `concurrent`, `const`. |
-| `concurrent`                | §4.5    | Permission for synchronized mutable access.                  |
-| Discriminant                | §4.9    | Integer identifying active enum variant.                     |
-| Modal Type                  | §4.11   | Type with compile-time state machine.                        |
-| Monomorphization            | §4.15   | Generic specialization process.                              |
-| Layout                      | §4.16   | Size/alignment/representation of types.                      |
-| Attribute                   | §4.17   | Compile-time annotation on declarations.                     |
-| Binding                     | §4.18   | Named association between identifier and typed value.        |
-| Refinement Type             | §4.19   | Subtype with predicate constraint (`T where { P }`).         |
-| Inline Parameter Constraint | §4.19   | Parameter refinement using parameter name in predicate.      |
+| Term               | Section | Description                                            |
+| :----------------- | :------ | :----------------------------------------------------- |
+| Generic Type       | §7.1    | Type parameterized by type variables                   |
+| Type Parameter     | §7.1    | Placeholder for a concrete type in generic definitions |
+| Type Constraint    | §7.1    | Trait bound on a type parameter                        |
+| Monomorphization   | §7.1    | Instantiation of generics to concrete types            |
+| Attribute          | §7.2    | Compile-time metadata annotation                       |
+| Built-in Attribute | §7.2    | Language-defined attribute with special semantics      |
+| Refinement Type    | §7.3    | Type with predicate constraint (`T where {P}`)         |
+| Predicate          | §7.3    | Boolean expression constraining refinement type        |
 
-**Terms referenced from other clauses:**
+**Terms Referenced from Other Clauses:**
 
-| Term                | Source   | Usage in Clause 4                                |
-| :------------------ | :------- | :----------------------------------------------- |
-| UVB                 | Clause 1 | Coercion must not introduce UVB.                 |
-| IDB                 | Clause 1 | Layout choices documented as IDB.                |
-| Object              | Clause 3 | Types classify objects.                          |
-| Provenance          | Clause 3 | Pointer provenance tracking.                     |
-| Partitioning System | Clause 3 | Validates `partitioned` access.                  |
-| Responsibility      | Clause 3 | Move semantics for bindings.                     |
-| `unsafe`            | Clause 1 | Raw pointer dereference; `static var` access.    |
-| Initialization      | §5.5     | Acyclic Eager Subgraph rule for globals.         |
-| Verification Mode   | §7.4     | Verification strategy for refinement predicates. |
-| Verification Fact   | §7.5     | Enables automatic coercion to refinement types.  |
-| Pure expression     | §7.1     | Purity requirement for refinement predicates.    |
+| Term      | Source | Usage in Clause 7                  |
+| :-------- | :----- | :--------------------------------- |
+| Variance  | §4.3   | Generic parameter variance         |
+| Subtyping | §4.2   | Constrained type relationships     |
+| Trait     | §9.1   | Type constraints use traits        |
+| Contract  | §10.1  | Refinement predicates as contracts |
+| Comptime  | §14.1  | Attribute evaluation context       |
 
-**Terms deferred to later clauses:**
+**Terms Deferred to Later Clauses:**
 
-| Term                   | Deferred To | Reason                                              |
-| :--------------------- | :---------- | :-------------------------------------------------- |
-| Trait                  | Clause 6    | Trait bounds for generics.                          |
-| Witness (dynamic)      | Clause 6    | Dynamic polymorphism mechanism.                     |
-| `match` exhaustiveness | Clause 8    | Pattern matching semantics.                         |
-| Procedure Declaration  | Clause 8    | Syntactic declaration separate from function types. |
+| Term                  | Deferred To | Reason                        |
+| :-------------------- | :---------- | :---------------------------- |
+| Trait Definition      | Clause 9    | Constraint semantics          |
+| Contract Verification | Clause 10   | Predicate verification modes  |
+| Comptime Evaluation   | Clause 14   | Attribute argument evaluation |
 
 ---
 
-## Clause 5: Modules and Name Resolution
+## Clause 8: Modules and Name Resolution
 
 This clause defines Cursive's module system: how code is organized into projects, assemblies, and modules; how names are introduced, resolved, and accessed; and how modules are initialized before program execution.
 
-### 5.1 Module System Architecture {Source: Draft 2 §11.1, §8.3, §10.1}
+### 8.1 Module System Architecture
 
 ##### Definition
 
@@ -3343,7 +6361,7 @@ top_level_item ::= import_decl
                  | type_decl
                  | trait_decl
 
-static_decl    ::= visibility? "static" ("let" | "var") binding
+static_decl    ::= visibility? ("let" | "var") binding
 type_decl      ::= visibility? ("record" | "enum" | "modal" | "type") identifier ...
 trait_decl     ::= visibility? "trait" identifier ...
 procedure_decl ::= visibility? "procedure" identifier ...
@@ -3393,7 +6411,7 @@ A module is well-formed if:
 
 ---
 
-### 5.2 Project Manifest {Source: Draft 2 §11.3}
+### 8.2 Project Manifest
 
 ##### Definition
 
@@ -3519,38 +6537,9 @@ $$
 | `E-MOD-1108` | Error    | Duplicate assembly name in manifest.                                |
 | `E-MOD-1109` | Error    | `[language]` version missing or incompatible with compiler.         |
 
-##### Examples
-
-**Valid Manifest:**
-
-```toml
-[project]
-name = "acme.cli"
-version = "1.2.3"
-
-[language]
-version = "1.0.0"
-
-[paths]
-core = "src"
-vendor = "deps/vendor"
-
-[[assembly]]
-name = "core"
-root = "core"
-path = "."
-type = "executable"
-
-[[assembly]]
-name = "utils"
-root = "core"
-path = "utils"
-type = "library"
-```
-
 ---
 
-### 5.3 Module Discovery and Paths {Source: Draft 2 §11.2, §11.4}
+### 8.3 Module Discovery and Paths
 
 ##### Definition
 
@@ -3608,7 +6597,7 @@ $$
 
 ---
 
-### 5.4 Scope Context Structure {Source: Draft 2 §13.2}
+### 8.4 Scope Context Structure
 
 ##### Definition
 
@@ -3681,7 +6670,7 @@ Because Cursive uses a unified namespace, declaring a type and a term with the s
 
 ---
 
-### 5.5 Visibility and Access Control {Source: Draft 2 §12.1}
+### 8.5 Visibility and Access Control
 
 ##### Definition
 
@@ -3760,7 +6749,7 @@ $$
 
 ---
 
-### 5.6 Import and Use Declarations {Source: Draft 2 §12.3–§12.5}
+### 8.6 Import and Use Declarations
 
 ##### Definition
 
@@ -3840,29 +6829,9 @@ A `public use` declaration:
 | `E-NAM-1305` | Error    | Use of inaccessible item (visibility violation).     |
 | `E-NAM-1307` | Error    | Re-export exposes item with incompatible visibility. |
 
-##### Examples
-
-```cursive
-// Module: app/main.cursive
-
-import core::io          // External dependency
-import utils::helpers    // Same-project dependency
-
-use io::File             // Brings File into scope
-use helpers::format as fmt  // Alias
-
-public use io::File      // Re-export for dependents
-
-public procedure main(ctx: Context): i32 {
-    let f = File::open(ctx.fs, "test.txt")  // Unqualified access
-    let s = fmt("Hello")                     // Aliased access
-    result 0
-}
-```
-
 ---
 
-### 5.7 Name Resolution {Source: Draft 2 §13.1, §13.3–§13.4}
+### 8.7 Name Resolution
 
 ##### Definition
 
@@ -3961,26 +6930,9 @@ To resolve a path `p::i`:
 | `E-NAM-1305` | Error    | Inaccessible item: item found but visibility forbids access.   |
 | `E-NAM-1306` | Error    | Unnecessary `shadow` keyword: no binding is being shadowed.    |
 
-##### Examples
-
-```cursive
-let x: i32 = 10
-
-procedure test() {
-    // VALID: Explicitly shadows outer 'x'
-    shadow let x: string@View = "hello"
-
-    // ERROR in Strict Mode (E-NAM-1303):
-    // let x = 20  // Implicit shadowing
-
-    // ERROR (E-NAM-1306): No binding to shadow
-    // shadow let y = 30
-}
-```
-
 ---
 
-### 5.8 Module Initialization {Source: Draft 2 §14.1–§14.5}
+### 8.8 Module Initialization
 
 ##### Definition
 
@@ -4068,7 +7020,7 @@ If the evaluation of any module-level initializer terminates with a panic:
 
 ---
 
-### 5.9 Program Entry Point {Source: Draft 2 §30.1, §30.2}
+### 8.9 Program Entry Point
 
 ##### Definition
 
@@ -4089,7 +7041,7 @@ The **Context** record is the container for all system capabilities, injected by
 **Required Signature:**
 
 ```cursive
-public procedure main(ctx: Context): i32
+public procedure main(ctx: Context) -> i32
 ```
 
 The `main` procedure:
@@ -4113,7 +7065,7 @@ record Context {
 **Main Procedure Well-Formedness:**
 
 1. Exactly one `main` procedure **MUST** exist in the entry assembly
-2. The signature **MUST** match `main(ctx: Context): i32`
+2. The signature **MUST** match `main(ctx: Context) -> i32`
 3. `main` **MUST NOT** be generic (no type parameters)
 
 **Return Semantics:**
@@ -4132,27 +7084,9 @@ record Context {
 | `E-DEC-2432` | Error    | `main` is generic (has type parameters). |
 | `E-DEC-2433` | Error    | Public mutable global state.             |
 
-##### Examples
-
-**Valid Entry Point:**
-
-```cursive
-import core::io
-
-public procedure main(ctx: Context): i32 {
-    // ctx.fs provides filesystem capability
-    let file = io::File::open(ctx.fs, "config.txt")
-
-    // ctx.heap provides allocation capability
-    let buffer = Vec::new(ctx.heap)
-
-    result 0
-}
-```
-
 ---
 
-### Clause 5: Modules and Resolution Cross-Reference Notes
+### Clause 8: Modules and Resolution Cross-Reference Notes
 
 **Terms defined in Clause 5 that MUST NOT be redefined elsewhere:**
 
@@ -4210,11 +7144,11 @@ public procedure main(ctx: Context): i32 {
 
 ---
 
-## Clause 6: Traits and Polymorphism
+## Clause 9: Traits and Polymorphism
 
 This clause defines the Cursive trait system: the unified mechanism for defining interfaces, sharing implementations, and enabling polymorphism. Traits replace separate "behavior" and "contract" declarations from earlier designs, unifying them into a single `trait` keyword.
 
-### 6.1 Introduction to Traits {Source: Draft 2 §28.0}
+### 9.1 Introduction to Traits
 
 ##### Definition
 
@@ -4238,7 +7172,7 @@ Cursive provides three distinct mechanisms for polymorphism, each with different
 
 ---
 
-### 6.2 Trait Declarations {Source: Draft 2 §28.1}
+### 9.2 Trait Declarations
 
 ##### Definition
 
@@ -4359,62 +7293,9 @@ $$\frac{\text{type } Alias = A + B}{\Gamma \vdash T <: Alias \iff \Gamma \vdash 
 | `E-TRS-2908` | Error    | Cyclic supertrait dependency detected.         |
 | `E-TRS-2909` | Error    | Supertrait bound refers to undefined trait.    |
 
-##### Examples
-
-**Valid - Basic Trait:**
-```cursive
-public trait Drawable {
-    // Abstract procedure - implementers MUST provide body
-    procedure draw(~, ctx: Context);
-
-    // Associated type - implementers MUST specify concrete type
-    type Output;
-
-    // Concrete procedure - default implementation provided
-    procedure description(~): string@View {
-        result "[drawable object]"
-    }
-}
-```
-
-**Valid - Generic Trait:**
-```cursive
-// Generic trait parameterized by type T
-public trait Container<T> {
-    procedure get(~, index: usize): T;
-    procedure set(~!, index: usize, value: T);
-    type Iterator;
-}
-```
-
-**Valid - Supertrait:**
-```cursive
-// DebugDrawable requires Drawable as supertrait
-public trait DebugDrawable <: Drawable {
-    procedure debug_draw(~, ctx: Context, show_bounds: bool);
-}
-
-// Implementers MUST implement both DebugDrawable AND Drawable
-record Widget <: DebugDrawable {
-    // MUST provide: draw(), debug_draw(), and type Output
-}
-```
-
-**Valid - Trait Alias:**
-```cursive
-// Trait alias combining multiple bounds
-public type Renderable = Drawable + Sizeable + Clone;
-
-// Equivalent to requiring all three traits
-procedure render<T <: Renderable>(item: T, ctx: Context) {
-    let size = item~>size()
-    item~>draw(ctx)
-}
-```
-
 ---
 
-### 6.3 Trait Implementation {Source: Draft 2 §28.2}
+### 9.3 Trait Implementation
 
 ##### Definition
 
@@ -4486,42 +7367,9 @@ This rule prevents external code from creating conflicting implementations.
 | `E-TRS-2906` | Error    | Coherence violation: duplicate trait implementation.    |
 | `E-TRS-2907` | Error    | Orphan rule violation: neither type nor trait is local. |
 
-##### Examples
-
-**Valid:**
-```cursive
-record Point <: Drawable {
-    x: f64,
-    y: f64,
-
-    // Implements abstract procedure (no 'override')
-    procedure draw(~, ctx: Context) {
-        ctx~>draw_point(self.x, self.y)
-    }
-
-    // Associated type binding
-    type Output = ()
-
-    // Replaces concrete procedure (requires 'override')
-    override procedure description(~): string@View {
-        result "Point"
-    }
-}
-```
-
-**Invalid:**
-```cursive
-// E-TRS-2903: Missing implementation of 'draw'
-record Circle <: Drawable {
-    radius: f64,
-    type Output = ()
-    // ERROR: 'draw' not implemented
-}
-```
-
 ---
 
-### 6.4 Static Polymorphism (Generics) {Source: Draft 2 §28.3}
+### 9.4 Static Polymorphism (Generics)
 
 ##### Definition
 
@@ -4578,28 +7426,9 @@ Static polymorphism **MUST** incur zero runtime overhead compared to non-generic
 | `E-TRS-2930` | Error    | Type argument does not satisfy trait constraint.   |
 | `E-TRS-2931` | Error    | Unconstrained type parameter used in trait method. |
 
-##### Examples
-
-**Valid:**
-```cursive
-// T is constrained to implement Drawable
-procedure render_item<T <: Drawable>(item: T, ctx: Context) {
-    item~>draw(ctx)  // Direct call to T::draw, not vtable
-}
-
-let p: Point = Point { x: 0.0, y: 0.0 }
-render_item<Point>(p, ctx)  // Monomorphized to render_item_Point
-```
-
-**Invalid:**
-```cursive
-// E-TRS-2930: i32 does not implement Drawable
-render_item<i32>(42, ctx)
-```
-
 ---
 
-### 6.5 Dynamic Polymorphism (Witnesses) {Source: Draft 2 §28.4}
+### 9.5 Dynamic Polymorphism (Witnesses)
 
 ##### Definition
 
@@ -4609,7 +7438,7 @@ Dynamic polymorphism is opt-in runtime dispatch using trait witnesses. It enable
 
 **Witness**
 
-A **witness** (`witness Trait`) is a concrete, sized type representing any value implementing a witness-safe trait. It is implemented as a dense pointer (fat pointer).
+A **witness** (`witness Trait`) is a concrete, sized type representing any value implementing a witness-safe trait. It is implemented as a dense pointer (dense pointer).
 
 **Witness Safety (Object Safety)**
 
@@ -4683,38 +7512,9 @@ VTable entries **MUST** appear in this exact order:
 | `E-TRS-2941` | Error    | Witness created from non-witness-safe trait.             |
 | `E-TRS-2942` | Error    | Generic procedure in trait without `Self: Sized` clause. |
 
-##### Examples
-
-**Valid:**
-```cursive
-// Witness-safe trait
-public trait Drawable {
-    procedure draw(~, ctx: Context);
-
-    // Excluded from vtable - only available in static dispatch
-    procedure clone(~): Self where Self: Sized;
-}
-
-// Dynamic dispatch via witness
-procedure render_dynamic(item: witness Drawable, ctx: Context) {
-    item~>draw(ctx)  // VTable lookup + indirect call
-}
-
-// Heterogeneous collection
-let shapes: [witness Drawable] = [point, circle, rect]
-```
-
-**Invalid:**
-```cursive
-// E-TRS-2940: Cannot call excluded method on witness
-procedure bad(item: witness Drawable) {
-    let copy = item~>clone()  // ERROR: clone requires Self: Sized
-}
-```
-
 ---
 
-### 6.6 Opaque Polymorphism {Source: Draft 2 §28.5}
+### 9.6 Opaque Polymorphism
 
 ##### Definition
 
@@ -4754,29 +7554,9 @@ Opaque types **MUST** incur zero runtime overhead. The returned value is the con
 | `E-TRS-2910` | Error    | Accessing member not defined on opaque type's trait.  |
 | `E-TRS-2911` | Error    | Opaque return type does not implement required trait. |
 
-##### Examples
-
-**Valid:**
-```cursive
-// Library code
-internal record Widget <: Drawable {
-    id: u32,
-    procedure draw(~, ctx: Context) { /* ... */ }
-}
-
-public procedure make_widget(): opaque Drawable {
-    result Widget { id: 123 }
-}
-
-// User code
-let w = make_widget()
-w~>draw(ctx)      // OK: draw is on Drawable trait
-// w.id          // ERROR E-TRS-2910: id not on Drawable
-```
-
 ---
 
-### 6.7 Foundational Traits {Source: Draft 2 §28.6, Appendix D.1}
+### 9.7 Foundational Traits
 
 ##### Definition
 
@@ -4788,8 +7568,8 @@ Foundational traits are traits fundamental to language semantics. The normative 
 | :--------- | :--------------------------- | :--------------------------- |
 | `Drop`     | Deterministic cleanup (RAII) | Compiler-invoked only        |
 | `Copy`     | Implicit bitwise duplication | Mutual exclusion with `Drop` |
-| `Clone`    | Explicit deep copy           | `clone(~): Self`             |
-| `Iterator` | Iteration protocol           | `next(~!): Option<Item>`     |
+| `Clone`    | Explicit deep copy           | `clone(~) -> Self`           |
+| `Iterator` | Iteration protocol           | `next(~!) -> Option<Item>`   |
 
 ##### Static Semantics
 
@@ -4808,7 +7588,7 @@ Foundational traits are traits fundamental to language semantics. The normative 
 
 **Clone Semantics (Summary)**
 
-- **Signature**: `procedure clone(~): Self`
+- **Signature**: `procedure clone(~) -> Self`
 - Explicit duplication (deep copy)
 - `Copy` types **SHOULD** also implement `Clone`
 
@@ -4828,7 +7608,7 @@ Foundational traits are traits fundamental to language semantics. The normative 
 
 ---
 
-### Clause 6: Traits and Polymorphism Cross-Reference Notes
+### Clause 9: Traits and Polymorphism Cross-Reference Notes
 
 **Terms defined in Clause 6 that MUST NOT be redefined elsewhere:**
 
@@ -4878,11 +7658,11 @@ Foundational traits are traits fundamental to language semantics. The normative 
 
 ---
 
-## Clause 7: Contracts and Verification
+## Clause 10: Contracts and Verification
 
 This clause defines the formal semantics, syntax, and verification rules for Contracts in Cursive. Contracts are the primary mechanism for specifying behavioral properties of code beyond the type system. They govern the logical validity of procedures, types, and loops through preconditions, postconditions, and invariants.
 
-### 7.1 Contract Fundamentals {Source: Draft 2 §27.1}
+### 10.1 Contract Fundamentals
 
 ##### Definition
 
@@ -5001,11 +7781,11 @@ $$
 
 ---
 
-### 7.2 Contract Clauses {Source: Draft 2 §27.2, §27.3}
+### 10.2 Contract Clauses
 
 This section defines preconditions and postconditions within the unified `where` clause syntax.
 
-#### 7.2.1 Preconditions
+#### 10.2.1 Preconditions
 
 ##### Definition
 
@@ -5040,7 +7820,7 @@ Precondition expressions **MUST NOT** reference `@result` or `@entry()`.
 
 ---
 
-#### 7.2.2 Postconditions
+#### 10.2.2 Postconditions
 
 ##### Definition
 
@@ -5093,120 +7873,9 @@ For mutable parameters (those with `~!` or `~%` receiver):
 | `E-CON-2805` | Error    | `@entry` operator used with non-Copy/Clone result type            |
 | `E-CON-2806` | Error    | `@result` intrinsic used outside of postcondition (right of `=>`) |
 
-##### Examples
-
-**Valid:**
-
-```cursive
-// Precondition only (no =>)
-procedure sqrt(x: f64): f64
-    where { x >= 0.0 }
-{
-    // ...
-}
-
-// Postcondition only (just =>)
-procedure abs(x: i32): i32
-    where { => @result >= 0 }
-{
-    if x < 0 { -x } else { x }
-}
-
-// Both precondition and postcondition
-procedure divide(a: i32, b: i32): i32
-    where { b != 0 => @result * b == a }
-{
-    a / b
-}
-
-// Complex multi-parameter precondition with logical operators
-procedure clamp(x: i32, lo: i32, hi: i32): i32
-    where {
-        lo <= hi
-        =>
-        @result >= lo && @result <= hi && (@result == x || @result == lo || @result == hi)
-    }
-{
-    if x < lo { lo }
-    else if x > hi { hi }
-    else { x }
-}
-
-// Stateful with @entry
-procedure increment(~! counter: Counter)
-    where { => counter.value == @entry(counter.value) + 1 }
-{
-    counter.value += 1
-}
-
-// Precondition and stateful postcondition
-procedure pop<T>(~! vec: Vec<T>): T
-    where {
-        vec~>len() > 0  // Precondition: entry state
-        =>
-        vec~>len() == @entry(vec~>len()) - 1  // Postcondition: need @entry for pre-state
-    }
-{
-    // ...
-}
-
-// Combined refinement type + procedure where
-procedure insert_sorted<T>(
-    ~! vec: Vec<T> where { is_sorted(self) },
-    item: T
-): ()
-    where {
-        is_sorted(@entry(vec))  // Precondition: sorted on entry
-        =>
-        is_sorted(vec) &&  // Postcondition: sorted on exit
-        vec~>len() == @entry(vec~>len()) + 1
-    }
-{
-    // ...
-}
-```
-
-**Unified syntax examples:**
-
-```cursive
-// Inline precondition + procedure postcondition
-procedure sqrt(x: f64 where { x >= 0.0 }): f64
-    where { => @result >= 0.0 && @result * @result == x }
-{
-    // ...
-}
-
-// Mixed inline and procedure preconditions
-procedure binary_search<T>(
-    arr: [T] where { is_sorted(arr) },
-    target: T
-): usize | ()
-    where {
-        arr~>len() > 0
-        =>
-        match @result {
-            idx: usize => arr[idx] == target,
-            () => true
-        }
-    }
-{
-    // ...
-}
-```
-
-**Invalid:**
-
-```cursive
-// E-CON-2806: @result used in precondition (left of =>)
-procedure bad(x: i32): i32 where { @result > 0 } { x }
-
-// E-CON-2805: Buffer is not Copy/Clone
-procedure bad2(~! buf: Buffer): () where { => buf == @entry(buf) } { ... }
-```
-
 ---
 
-### 7.3 Invariants (`where`) {Source: Draft 2 §27.4}
+### 10.3 Invariants (`where`)
 
 ##### Definition
 
@@ -5263,51 +7932,9 @@ $$
 
 **Type:** Invariant predicates **MUST** evaluate to type `bool`.
 
-##### Examples
-
-**Type Invariant:**
-
-```cursive
-// Sugar form - where clause follows the record body
-record PositiveInt {
-    value: i32
-} where { self.value > 0 }
-
-// Explicit type alias form
-type PositiveInt = record {
-    value: i32
-} where { self.value > 0 }
-
-// Multi-constraint invariant using logical operators
-record BoundedCounter {
-    value: i32,
-    min: i32,
-    max: i32
-} where {
-    self.min <= self.max &&
-    self.value >= self.min &&
-    self.value <= self.max
-}
-
-// Fraction with non-zero denominator
-type Fraction = record {
-    num: i32,
-    denom: i32
-} where { self.denom != 0 }
-```
-
-**Loop Invariant:**
-
-```cursive
-var i = 0
-loop i < 10 where { i >= 0 && i <= 10 } {
-    i += 1
-}
-```
-
 ---
 
-### 7.4 Verification Modes {Source: Draft 2 §27.6}
+### 10.4 Verification Modes
 
 ##### Definition
 
@@ -5396,62 +8023,10 @@ This is equivalent to `[[verify(dynamic)]]` but the attribute is unnecessary for
 | `E-CON-2801` | Error    | Static verification failed in `static` mode         |
 | `E-CON-2807` | Error    | `[[verify(trusted)]]` used outside `unsafe` context |
 
-##### Examples
-
-```cursive
-// Default: runtime checks with static elision
-procedure pop(~! stack: Stack)
-    where { stack~>len() > 0 }
-{
-    // Runtime check generated (elided if caller's context proves len > 0)
-}
-
-// Trusted verification - REQUIRES unsafe context
-unsafe procedure ffi_bridge(~ ctx: Context)
-    where { [[verify(trusted)]] external_invariant_holds() }
-{
-    // NO checks emitted - programmer guarantees invariant
-    // UVB if predicate is false
-}
-
-// Alternative: trusted within unsafe block
-procedure call_ffi(~ ctx: Context) {
-    // ... safe setup code ...
-
-    // SAFETY: external_invariant_holds() is guaranteed by the FFI contract
-    // established during ctx initialization.
-    unsafe {
-        [[verify(trusted)]]
-        ffi_do_work(ctx)
-            where { external_invariant_holds() }
-    }
-}
-
-// Static verification - must prove at compile time
-[[verify(static)]]
-procedure get_first<T>(arr: [T])
-    where { arr~>len() > 0 }
-{
-    result arr[0]  // Compiler must prove len > 0 statically
-}
-
-// Explicit dynamic (same as default, for documentation)
-[[verify(dynamic)]]
-procedure bounds_checked_get<T>(arr: [T], idx: usize): T
-    where { idx < arr~>len() }
-{
-    result arr[idx]
-}
-```
 
 ##### Rationale
 
 **Why Dynamic Default?**
-
-The previous "static-first, dynamic-fallback" default created unpredictable behavior:
-- Whether a check existed at runtime depended on verifier capabilities
-- Code could silently become unsafe when refactored in ways the verifier couldn't follow
-- Performance characteristics were unpredictable across compiler versions
 
 The "dynamic with static elision" default provides:
 - Predictable safety: contracts are always enforced unless explicitly trusted
@@ -5467,7 +8042,7 @@ The "dynamic with static elision" default provides:
 
 ---
 
-### 7.5 Verification Facts {Source: Draft 2 §27.7}
+### 10.5 Verification Facts
 
 ##### Definition
 
@@ -5524,7 +8099,7 @@ In `trusted` mode (within `unsafe` context), the predicate is assumed true witho
 
 ---
 
-### 7.6 Behavioral Subtyping (Liskov Substitution) {Source: Draft 2 §27.5}
+### 10.6 Behavioral Subtyping (Liskov Substitution)
 
 ##### Definition
 
@@ -5555,45 +8130,9 @@ $$Q_{impl} \implies Q_{trait}$$
 | `E-CON-2803` | Error    | Precondition strengthened in implementation |
 | `E-CON-2804` | Error    | Postcondition weakened in implementation    |
 
-##### Examples
-
-```cursive
-trait Stack<T> {
-    // Trait contract: caller must ensure non-empty
-    procedure pop(~!): T where { self~>len() > 0 };
-}
-
-record MyStack<T> <: Stack<T> {
-    // VALID: Weakened precondition (accepts len >= 0, returns Option)
-    procedure pop(~!): Option<T>
-        where {
-            self~>len() >= 0  // Weakened: accepts empty stacks
-            =>
-            @result~>is_some() == (@entry(self~>len()) > 0)  // Strengthened: better guarantee
-        }
-    {
-        // ...
-    }
-}
-
-// INVALID example - would produce E-CON-2803
-trait Container<T> {
-    procedure get(~, idx: usize): T where { idx < self~>len() };
-}
-
-record MyContainer<T> <: Container<T> {
-    // ERROR: Precondition strengthened (more restrictive than trait)
-    procedure get(~, idx: usize): T
-        where { idx < self~>len() && idx > 0 }  // E-CON-2803: idx > 0 not in trait
-    {
-        // ...
-    }
-}
-```
-
 ---
 
-### 7.7 Diagnostics Summary
+### 10.7 Diagnostics Summary
 
 | Code         | Severity | Description                                                       |
 | :----------- | :------- | :---------------------------------------------------------------- |
@@ -5607,9 +8146,9 @@ record MyContainer<T> <: Container<T> {
 
 ---
 
-### Clause 7: Cross-Reference Notes
+### Clause 10: Cross-Reference Notes
 
-**Terms defined in Clause 7 that MUST NOT be redefined elsewhere:**
+**Terms defined in Clause 10 that MUST NOT be redefined elsewhere:**
 
 | Term                 | Section | Description                                                     |
 | :------------------- | :------ | :-------------------------------------------------------------- |
@@ -5648,11 +8187,11 @@ record MyContainer<T> <: Container<T> {
 
 ---
 
-## Clause 8: Expressions & Statements
+## Clause 11: Expressions & Statements
 
 This clause defines the syntax and semantics of expressions and statements in Cursive. Expressions are syntactic forms that produce typed values; statements are syntactic forms executed for their side effects. This clause establishes the foundational abstractions (the "nouns") before describing the operations on them (the "verbs").
 
-### 8.1 Foundational Definitions {Source: Draft 2 §24.1, §25.1}
+### 11.1 Foundational Definitions
 
 ##### Definition
 
@@ -5722,7 +8261,7 @@ Statement termination is governed by §2.11. A statement is terminated by a `<ne
 
 ---
 
-### 8.2 Pattern Matching {Source: Draft 2 §26}
+### 11.2 Pattern Matching
 
 *[RATIONALE: Patterns are placed early because they are used by both declaration statements (§8.7) and match expressions (§8.5). This follows the "nouns before verbs" principle.]*
 
@@ -5827,42 +8366,9 @@ A match arm **MUST NOT** be unreachable. An arm is unreachable if its pattern co
 | `E-PAT-2741` | Error    | `match` expression is not exhaustive for its scrutinee type.             |
 | `E-PAT-2751` | Error    | `match` arm is unreachable because its pattern is covered by prior arms. |
 
-##### Examples
-
-**Valid: Exhaustive Match**
-```cursive
-enum Status {
-    Running,
-    Finished,
-}
-
-procedure check(s: Status) {
-    match s {
-        Status::Running => { /* ... */ }
-        Status::Finished => { /* ... */ }
-    }
-}
-```
-
-**Invalid: Non-Exhaustive Match (E-PAT-2741)**
-```cursive
-match s {
-    Status::Running => { /* ... */ }
-    // Missing: Status::Finished
-}
-```
-
-**Invalid: Unreachable Arm (E-PAT-2751)**
-```cursive
-match s {
-    _ => { /* Wildcard covers all */ }
-    Status::Running => { /* Unreachable */ }
-}
-```
-
 ---
 
-### 8.3 Operator Precedence and Associativity {Source: Draft 2 §24.2}
+### 11.3 Operator Precedence and Associativity
 
 ##### Definition
 
@@ -5885,17 +8391,18 @@ match s {
 | 1          | `()` `[]` `.` `~>` `::`                                  | Call, Index, Field, Method, Scope       | Left          |
 | 2          | `=>`                                                     | Pipeline                                | Left          |
 | 3          | `!` `-` `&` `*` `^` `move`                               | Unary Not, Neg, Ref, Deref, Alloc, Move | Right         |
-| 4          | `**`                                                     | Power                                   | Right         |
-| 5          | `*` `/` `%`                                              | Multiplicative                          | Left          |
-| 6          | `+` `-`                                                  | Additive                                | Left          |
-| 7          | `<<` `>>`                                                | Bitwise Shift                           | Left          |
-| 8          | `&`                                                      | Bitwise AND                             | Left          |
-| 9          | `^`                                                      | Bitwise XOR                             | Left          |
-| 10         | `\|`                                                     | Bitwise OR                              | Left          |
-| 11         | `==` `!=` `<` `<=` `>` `>=`                              | Comparison                              | Left          |
-| 12         | `&&`                                                     | Logical AND                             | Left          |
-| 13         | `\|\|`                                                   | Logical OR                              | Left          |
-| 14         | `=` `+=` `-=` `*=` `/=` `%=` `&=` `\|=` `^=` `<<=` `>>=` | Assignment                              | Right         |
+| 4          | `as`                                                     | Type Cast                               | Left          |
+| 5          | `**`                                                     | Power                                   | Right         |
+| 6          | `*` `/` `%`                                              | Multiplicative                          | Left          |
+| 7          | `+` `-`                                                  | Additive                                | Left          |
+| 8          | `<<` `>>`                                                | Bitwise Shift                           | Left          |
+| 9          | `&`                                                      | Bitwise AND                             | Left          |
+| 10         | `^`                                                      | Bitwise XOR                             | Left          |
+| 11         | `\|`                                                     | Bitwise OR                              | Left          |
+| 12         | `==` `!=` `<` `<=` `>` `>=`                              | Comparison                              | Left          |
+| 13         | `&&`                                                     | Logical AND                             | Left          |
+| 14         | `\|\|`                                                   | Logical OR                              | Left          |
+| 15         | `=` `+=` `-=` `*=` `/=` `%=` `&=` `\|=` `^=` `<<=` `>>=` | Assignment                              | Right         |
 
 ##### Static Semantics
 
@@ -5909,7 +8416,7 @@ Inside generic argument lists (e.g., `Vec<Option<i32>>`), the token sequence `>>
 
 ---
 
-### 8.4 Primary Expressions and Operators {Source: Draft 2 §24.3, §24.4}
+### 11.4 Primary Expressions and Operators
 
 *[RATIONALE: All operator categories are consolidated into content blocks within this section, avoiding excessive h4 nesting. The operators share common typing infrastructure.]*
 
@@ -6071,7 +8578,159 @@ The expression `x => f` desugars to `f(x)` before type checking.
 
 ---
 
-### 8.5 Control Flow Expressions {Source: Draft 2 §24.6-§24.8}
+#### 11.4.5 Cast Expressions (`as`)
+
+##### Definition
+
+A **cast expression** explicitly converts a value from one type to another. Casts are required for all conversions between distinct types; Cursive does not perform implicit numeric conversions.
+
+**Formal Definition**
+
+A cast expression has the form:
+
+$$e\ \texttt{as}\ T$$
+
+where $e$ is an expression and $T$ is a target type. The cast is well-formed if and only if the source type of $e$ and target type $T$ form a valid cast pair as defined in the Static Semantics below.
+
+##### Syntax & Declaration
+
+**Grammar**
+
+```ebnf
+cast_expr ::= unary_expr "as" type
+```
+
+**Precedence**
+
+The `as` operator has **precedence 4** (between unary operators and the power operator `**`), and is **left-associative**.
+
+| Precedence | Operator(s)                | Description |
+| :--------- | :------------------------- | :---------- |
+| 3          | `!` `-` `&` `*` `^` `move` | Unary       |
+| **4**      | **`as`**                   | **Cast**    |
+| 5          | `**`                       | Power       |
+
+**Chained Casts**
+
+Multiple casts may be chained: `x as i32 as f64` parses as `(x as i32) as f64`.
+
+##### Static Semantics
+
+**Typing Rule**
+
+**(T-Cast)**
+$$\frac{\Gamma \vdash e : S \quad \text{CastValid}(S, T)}{\Gamma \vdash e\ \texttt{as}\ T : T}$$
+
+where $\text{CastValid}(S, T)$ holds iff the source-target pair is in one of the categories defined below.
+
+**Cast Categories**
+
+The following cast categories are permitted. All other source-target combinations are ill-formed.
+
+| Category              | Source Type         | Target Type         | Semantics               |
+| :-------------------- | :------------------ | :------------------ | :---------------------- |
+| **Numeric Widening**  | `iN`                | `iM` where `M > N`  | Sign-extended           |
+|                       | `uN`                | `uM` where `M > N`  | Zero-extended           |
+|                       | `fN`                | `fM` where `M > N`  | Precision-extended      |
+| **Numeric Narrowing** | `iN`                | `iM` where `M < N`  | Truncated (low bits)    |
+|                       | `uN`                | `uM` where `M < N`  | Truncated (low bits)    |
+|                       | `fN`                | `fM` where `M < N`  | Rounded to nearest      |
+| **Sign Conversion**   | `iN`                | `uN`                | Bit reinterpretation    |
+|                       | `uN`                | `iN`                | Bit reinterpretation    |
+| **Integer ↔ Float**   | `iN` / `uN`         | `fM`                | Nearest representable   |
+|                       | `fM`                | `iN` / `uN`         | Truncate toward zero†   |
+| **Pointer Size**      | `usize`             | `*imm T` / `*mut T` | Address interpretation‡ |
+|                       | `*imm T` / `*mut T` | `usize`             | Address extraction‡     |
+| **Safe → Raw Ptr**    | `Ptr<T>@Valid`      | `*imm T` / `*mut T` | Extract address         |
+| **Enum → Integer**    | `enum E`            | Integer type        | Discriminant value§     |
+| **Bool → Integer**    | `bool`              | Any integer         | `false`→0, `true`→1     |
+
+† Float-to-integer casts that overflow or produce NaN trigger a **panic** (see Dynamic Semantics).
+
+‡ Pointer-integer casts are permitted only within `unsafe` blocks.
+
+§ Enum-to-integer casts are valid only when the enum has an explicit `#[repr(intN)]` attribute specifying its discriminant type.
+
+**Forbidden Casts**
+
+The following conversions are **never** permitted, even with explicit `as`:
+
+| Source           | Target                | Reason                                     |
+| :--------------- | :-------------------- | :----------------------------------------- |
+| `bool`           | `float`               | Use integer intermediate: `b as u8 as f64` |
+| `char`           | `bool`                | Semantically meaningless                   |
+| `string`         | Any numeric           | Use parsing methods                        |
+| Any numeric      | `string`              | Use formatting methods                     |
+| Record/Enum      | Different Record/Enum | Use explicit conversion functions          |
+| `Ptr<T>@Null`    | `*imm T` / `*mut T`   | Only `@Valid` can cast to raw              |
+| `Ptr<T>@Expired` | `*imm T` / `*mut T`   | Only `@Valid` can cast to raw              |
+
+**Char-Integer Conversions**
+
+Character-integer conversions have special rules:
+
+| Conversion    | Semantics                                                          |
+| :------------ | :----------------------------------------------------------------- |
+| `char as u32` | Unicode scalar value (always valid)                                |
+| `u32 as char` | Valid only if value is a Unicode scalar value; otherwise **panic** |
+| `char as u8`  | Valid only if `char <= '\u{FF}'`; otherwise **panic**              |
+| `u8 as char`  | Always valid (ASCII subset)                                        |
+
+##### Dynamic Semantics
+
+**Widening Casts**
+
+Widening casts (smaller to larger type) are always well-defined:
+- Integer widening: Sign-extension for signed, zero-extension for unsigned.
+- Float widening: Exact representation in larger format.
+
+**Narrowing Casts**
+
+Narrowing casts (larger to smaller type) may lose information:
+- Integer narrowing: Truncation to low-order bits. No panic; information loss is silent.
+- Float narrowing: Round to nearest representable value in target format.
+
+**Float-to-Integer Casts**
+
+Float-to-integer casts truncate toward zero. The following conditions trigger a **panic**:
+
+| Condition                  | Example                |
+| :------------------------- | :--------------------- |
+| Value exceeds target range | `1e20_f64 as i32`      |
+| Value is NaN               | `f64::NAN as i32`      |
+| Value is ±Infinity         | `f64::INFINITY as i32` |
+
+> **Rationale:** Silent truncation of out-of-range floats would produce arbitrary, platform-dependent results. Panicking ensures predictable behavior and forces programmers to handle edge cases explicitly.
+
+**Integer-to-Float Casts**
+
+Integer-to-float casts produce the nearest representable floating-point value. For large integers that cannot be exactly represented, rounding occurs per IEEE 754 "round to nearest, ties to even."
+
+**Pointer Casts**
+
+Pointer-integer casts within `unsafe` blocks:
+- `*T as usize`: Extracts the numeric address.
+- `usize as *T`: Interprets the integer as an address.
+
+These casts preserve the bit pattern. The programmer assumes responsibility for validity.
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                        | Detection    | Effect    |
+| :----------- | :------- | :----------------------------------------------- | :----------- | :-------- |
+| `E-EXP-2601` | Error    | Cast between incompatible types.                 | Compile-time | Rejection |
+| `E-EXP-2602` | Error    | Pointer-integer cast outside `unsafe` block.     | Compile-time | Rejection |
+| `E-EXP-2603` | Error    | Enum cast without `#[repr]` attribute.           | Compile-time | Rejection |
+| `E-EXP-2604` | Error    | Cast of non-`@Valid` pointer to raw pointer.     | Compile-time | Rejection |
+| `P-EXP-2610` | Panic    | Float-to-integer cast overflow or NaN.           | Runtime      | Panic     |
+| `P-EXP-2611` | Panic    | `u32 as char` with invalid Unicode scalar value. | Runtime      | Panic     |
+| `P-EXP-2612` | Panic    | `char as u8` with value > 255.                   | Runtime      | Panic     |
+
+---
+
+### 11.5 Control Flow Expressions
 
 ##### Definition
 
@@ -6131,7 +8790,7 @@ $$\frac{\Gamma \vdash e : T_s \quad \forall i.\, \Gamma, \text{bindings}(p_i) \v
 
 ---
 
-### 8.6 Block Expressions {Source: Draft 2 §24.9}
+### 11.6 Block Expressions
 
 ##### Definition
 
@@ -6169,7 +8828,7 @@ Clause 8 does NOT re-specify these blocks; see the authoritative sections for fu
 
 ---
 
-### 8.7 Declaration Statements {Source: Draft 2 §25.2}
+### 11.7 Declaration Statements
 
 ##### Definition
 
@@ -6178,16 +8837,19 @@ Declaration statements introduce new bindings into the current scope.
 ##### Syntax & Declaration
 
 ```ebnf
-let_stmt ::= "let" pattern [ ":" type ] "=" expression
-var_stmt ::= "var" pattern [ ":" type ] "=" expression
+binding_op ::= "=" | ":="
+let_stmt   ::= "let" pattern [ ":" type ] binding_op expression
+var_stmt   ::= "var" pattern [ ":" type ] binding_op expression
 ```
 
 ##### Static Semantics
 
 - `let`: Immutable binding (identifier cannot be rebound).
 - `var`: Mutable binding (identifier can be rebound).
-- **Orthogonality**: Binding mutability is orthogonal to data permission (`unique`, `const`, etc.). See **§3.4 The Binding Model**.
-- **Responsibility**: The `=` operator establishes cleanup responsibility per **§3.4** and **§3.5**.
+- `=`: Movable binding (responsibility may transfer via `move`).
+- `:=`: Immovable binding (responsibility cannot transfer; `move` forbidden).
+- **Orthogonality**: Binding mutability is orthogonal to data permission (`unique`, `const`, etc.) and responsibility transferability. See **§3.4 The Binding Model**.
+- **Responsibility**: Both `=` and `:=` establish cleanup responsibility per **§3.4** and **§3.5**. The difference is whether that responsibility may be transferred.
 - **Pattern**: **MUST** be irrefutable (see §8.2).
 
 ##### Constraints & Legality
@@ -6199,7 +8861,7 @@ var_stmt ::= "var" pattern [ ":" type ] "=" expression
 
 ---
 
-### 8.8 Assignment Statements {Source: Draft 2 §25.3}
+### 11.8 Assignment Statements
 
 ##### Definition
 
@@ -6223,6 +8885,14 @@ Compound assignment `place op= expr` desugars to `place = place op expr`.
 3.  The place expression **MUST** be accessible via a `unique` or `partitioned` permission (NOT `const`).
 4.  The right-hand side expression **MUST** be type-compatible with the place.
 
+**Movability Preservation**
+
+The movability property of a `var` binding is determined at declaration and is preserved across reassignments:
+- A `var x = v` binding remains movable; reassignment does not change this.
+- A `var x := v` binding remains immovable; the new value is also immovable.
+
+Reassignment uses the plain `=` operator regardless of the binding's movability. The `:=` operator is only used at binding declaration.
+
 ##### Dynamic Semantics
 
 **Drop on Reassignment**
@@ -6238,7 +8908,7 @@ If the place expression refers to an initialized, responsible binding, the imple
 
 ---
 
-### 8.9 Control Flow Statements {Source: Draft 2 §25.6}
+### 11.9 Control Flow Statements
 
 ##### Definition
 
@@ -6280,7 +8950,7 @@ continue_stmt ::= "continue" [ label ]
 
 ---
 
-### 8.10 Defer Statement {Source: Draft 2 §25.5}
+### 11.10 Defer Statement
 
 ##### Definition
 
@@ -6310,54 +8980,7 @@ defer_stmt ::= "defer" block
 
 ---
 
-### 8.11 Diagnostics Summary
-
-*Note: The `partition` contract statement is NOT defined in Clause 8. It is fully specified in **§3.7 The Partitioning System** where its PRIMARY concern (aliasing proof) resides.*
-
----
-
-**Diagnostics Defined in Clause 8:**
-
-| Code         | Severity | Description                               |
-| :----------- | :------- | :---------------------------------------- |
-| `E-EXP-2501` | Error    | Type mismatch in expression.              |
-| `E-EXP-2502` | Error    | Value expression where place required.    |
-| `E-EXP-2511` | Error    | Identifier resolves to type/module.       |
-| `E-EXP-2531` | Error    | Invalid field/tuple index.                |
-| `E-EXP-2532` | Error    | Argument count mismatch.                  |
-| `E-EXP-2533` | Error    | Method call using `.` instead of `~>`.    |
-| `E-EXP-2535` | Error    | Pipeline RHS not callable.                |
-| `E-EXP-2541` | Error    | Logical operator on non-bool.             |
-| `E-EXP-2542` | Error    | Invalid types for arithmetic/bitwise.     |
-| `E-EXP-2545` | Error    | Address-of on non-place.                  |
-| `E-EXP-2561` | Error    | `if` without `else` in non-unit context.  |
-| `E-EXP-2571` | Error    | Match arms incompatible types.            |
-| `E-EXP-2582` | Error    | Break statements mismatched types.        |
-| `E-PAT-2711` | Error    | Refutable pattern in irrefutable context. |
-| `E-PAT-2741` | Error    | Match not exhaustive.                     |
-| `E-PAT-2751` | Error    | Match arm unreachable.                    |
-| `E-DEC-2401` | Error    | Reassignment of immutable binding.        |
-| `E-STM-2631` | Error    | Assignment target not a place.            |
-| `E-STM-2651` | Error    | Defer block non-unit.                     |
-| `E-STM-2652` | Error    | Non-local control in defer.               |
-| `E-STM-2661` | Error    | Return type mismatch.                     |
-| `E-STM-2662` | Error    | Break outside loop.                       |
-| `E-STM-2663` | Error    | Continue outside loop.                    |
-| `E-STM-2664` | Error    | Result type mismatch.                     |
-| `E-NAM-1305` | Error    | Ambiguous method resolution.              |
-
-**Diagnostics Referenced from Clause 3 (Memory Model):**
-
-| Code         | Source | Description                        |
-| :----------- | :----- | :--------------------------------- |
-| `E-MEM-3001` | §3.5   | Use of moved value.                |
-| `E-MEM-3012` | §3.8   | Partition verification failed.     |
-| `E-MEM-3021` | §3.9   | Region allocation outside region.  |
-| `E-MEM-3030` | §3.10  | Pointer arithmetic outside unsafe. |
-
----
-
-### Clause 8 Cross-Reference Notes
+### Clause 11 Cross-Reference Notes
 
 **Terms defined in Clause 8 that MUST NOT be redefined elsewhere:**
 
@@ -6406,11 +9029,11 @@ defer_stmt ::= "defer" block
 
 ---
 
-## Clause 9: Concurrency
+## Clause 12: Concurrency
 
 This clause defines the Cursive concurrency model, specifying two mutually exclusive paths for concurrent execution and the static rules that guarantee data-race freedom.
 
-### 9.1 Concurrency Model Foundations {Source: Draft 2 §31.1}
+### 12.1 Concurrency Model Foundations
 
 ##### Definition
 
@@ -6467,7 +9090,7 @@ $$
 
 ---
 
-### 9.2 Path 1: Data Parallelism (CREW) {Source: Draft 2 §31.2}
+### 12.2 Path 1: Data Parallelism (CREW)
 
 ##### Definition
 
@@ -6545,25 +9168,9 @@ Upon exit from the `parallel` block, outer bindings **MUST** be re-validated wit
 
 If any task within the epoch panics, the parent thread **MUST** panic upon reaching the synchronization barrier.
 
-##### Examples
-
-**Valid:** CREW parallel processing
-```cursive
-let buffer: unique [i32; 1000] = /* ... */
-
-parallel(buffer) {
-    // 'buffer' is 'const [i32; 1000]' inside
-    let h1 = fork { process_part(buffer, 0, 500) }
-    let h2 = fork { process_part(buffer, 500, 1000) }
-    h1.join()
-    h2.join()
-}
-// 'buffer' is 'unique' again
-```
-
 ---
 
-### 9.3 The `fork` Expression and `JobHandle<T>` {Source: Draft 2 §31.2.3–31.2.5}
+### 12.3 The `fork` Expression and `JobHandle<T>`
 
 ##### Definition
 
@@ -6623,19 +9230,9 @@ Every `JobHandle` produced by `fork` **MUST** be consumed by `.join()` within th
 | `E-CON-3202` | Error    | `JobHandle` not joined within `parallel` block.   |
 | `E-EXP-2592` | Error    | `parallel` result depends on invalidated binding. |
 
-##### Examples
-
-**Invalid:** Unjoined JobHandle
-```cursive
-parallel(data) {
-    let handle = fork { compute(data) }
-    // ERROR E-CON-3202: handle not joined
-}
-```
-
 ---
 
-### 9.4 Path 2: Stateful Coordination {Source: Draft 2 §31.3}
+### 12.4 Path 2: Stateful Coordination
 
 ##### Definition
 
@@ -6719,7 +9316,7 @@ $$
 
 **State-Specific Access**
 
-Data field `T` is accessible **only** in `@Locked` state. Attempting to access data on `Mutex<T>@Unlocked` is a compile-time error (`E-TYP-1912`).
+Data field `T` is accessible **only** in `@Locked` state. Attempting to access data on `Mutex<T>@Unlocked` is a compile-time error (`E-TYP-2052`).
 
 **Spawn Capture Constraints**
 
@@ -6748,23 +9345,11 @@ Deadlocks are permitted (safe but undesirable). Calling `lock()` on an already-l
 | Code         | Severity | Condition                                      |
 | :----------- | :------- | :--------------------------------------------- |
 | `E-CON-3203` | Error    | Invalid capture in `System.spawn`.             |
-| `E-TYP-1912` | Error    | Accessing `data` field on `Mutex<T>@Unlocked`. |
-
-##### Examples
-
-**Valid:** Thread spawning with mutex
-```cursive
-let counter: Mutex<i32>@Unlocked = Mutex::new(0)
-let handle = ctx.sys~>spawn(move || {
-    let locked = counter~>lock()   // Returns Mutex<i32>@Locked
-    locked.data = locked.data + 1  // Access data field in @Locked state
-})                                 // Drop transitions to @Unlocked
-handle~>join()
-```
+| `E-TYP-2052` | Error    | Accessing `data` field on `Mutex<T>@Unlocked`. |
 
 ---
 
-### 9.5 Diagnostics Summary {Source: Draft 2 §31.4}
+### 12.5 Diagnostics Summary
 
 | Code         | Severity | Description                                             |
 | :----------- | :------- | :------------------------------------------------------ |
@@ -6775,7 +9360,7 @@ handle~>join()
 
 ---
 
-### Clause 9: Concurrency Cross-Reference Notes
+### Clause 12: Concurrency Cross-Reference Notes
 
 **Terms defined in Clause 9 that MUST NOT be redefined elsewhere:**
 
@@ -6819,11 +9404,11 @@ handle~>join()
 
 ---
 
-## Clause 10: The Capability System
+## Clause 13: The Capability System
 
 This clause defines the Cursive Capability System, which governs all procedures that produce observable **external effects** (e.g., I/O, networking, threading, heap allocation) and enforces the security principle of **No Ambient Authority**.
 
-### 10.1 Foundational Principles {Source: Draft 2 §30.1}
+### 13.1 Foundational Principles
 
 ##### Definition
 
@@ -6868,7 +9453,7 @@ $$\frac{\Gamma \vdash c : \text{witness } T \quad e \in \text{Authority}(T)}{\Ga
 
 ---
 
-### 10.2 The Root of Authority {Source: Draft 2 §30.2}
+### 13.2 The Root of Authority
 
 ##### Definition
 
@@ -6876,7 +9461,7 @@ $$\frac{\Gamma \vdash c : \text{witness } T \quad e \in \text{Authority}(T)}{\Ga
 
 All system-level capabilities originate from the Cursive runtime and are injected into the program via the `Context` parameter at the entry point.
 
-**Cross-Reference**: The entry point signature `public procedure main(ctx: Context): i32` and the `Context` record structure are normatively defined in §5.6 (Program Entry Point).
+**Cross-Reference**: The entry point signature `public procedure main(ctx: Context) -> i32` and the `Context` record structure are normatively defined in §5.6 (Program Entry Point).
 
 **Runtime Injection**
 
@@ -6913,7 +9498,7 @@ Context (root)
 
 ---
 
-### 10.3 Capability Attenuation {Source: Draft 2 §30.4}
+### 13.3 Capability Attenuation
 
 ##### Definition
 
@@ -6952,25 +9537,9 @@ Attenuation preserves the capability trait:
 
 $$\frac{\Gamma \vdash c : \text{witness } T \quad \Gamma \vdash c.restrict(r) : \text{witness } T'}{\Gamma \vdash T' \equiv T}$$
 
-##### Examples
-
-```cursive
-// Attenuate filesystem capability to single directory
-let restricted_fs: witness FileSystem = ctx.fs~>restrict("/app/data")
-// restricted_fs can only access files under /app/data
-
-// Attenuate heap allocator with quota
-let limited_heap: witness HeapAllocator = ctx.heap~>with_quota(1024 * 1024)
-// limited_heap fails allocation if cumulative usage exceeds 1 MiB
-
-// Attenuate network capability to specific host
-let api_only: witness Network = ctx.net~>restrict_to_host("api.example.com")
-// api_only can only connect to api.example.com
-```
-
 ---
 
-### 10.4 Capability Propagation {Source: Draft 2 §30.5}
+### 13.4 Capability Propagation
 
 ##### Definition
 
@@ -7047,7 +9616,7 @@ A procedure **MUST NOT** access capabilities not explicitly provided as paramete
 
 ---
 
-### 10.5 System Capability Traits {Source: Draft 2 §30.3}
+### 13.5 System Capability Traits
 
 ##### Definition
 
@@ -7119,7 +9688,7 @@ Methods accepting `const` (`~`) receiver **MUST** guarantee **zero** logical sta
 
 ---
 
-### 10.6 User-Defined Capabilities {Source: Draft 2 §30.6}
+### 13.6 User-Defined Capabilities
 
 ##### Definition
 
@@ -7202,43 +9771,9 @@ record ReadOnlyPostgres <: DatabaseAccess {
 }
 ```
 
-##### Examples
-
-**Creating a User-Defined Capability**
-
-```cursive
-procedure create_db_connection(net: witness Network): PostgresConnection {
-    PostgresConnection {
-        net: net,
-        connection_string: "postgres://localhost/mydb"
-    }
-}
-```
-
-**Using the Capability Polymorphically**
-
-```cursive
-// Accepts any DatabaseAccess implementation
-procedure run_reports(db: witness DatabaseAccess) {
-    let results = db~>query("SELECT * FROM reports")
-    // Process results...
-}
-
-// Can be called with full or attenuated capability
-public procedure main(ctx: Context): i32 {
-    let db = create_db_connection(ctx.net)
-    let read_only_db = db~>restrict_to_read_only()
-
-    run_reports(db)           // Full access
-    run_reports(read_only_db) // Read-only access
-
-    result 0
-}
-```
-
 ---
 
-### Clause 10: The Capability System Cross-Reference Notes
+### Clause 13: The Capability System Cross-Reference Notes
 
 **Terms defined in Clause 10 that MUST NOT be redefined elsewhere:**
 
@@ -7277,11 +9812,11 @@ public procedure main(ctx: Context): i32 {
 
 ---
 
-## Clause 11: Metaprogramming
+## Clause 14: Metaprogramming
 
 This clause defines the Cursive metaprogramming system. Cursive provides a deterministic, declarative code generation mechanism based on **compile-time execution**, **type introspection**, **quasiquoting**, and **explicit AST emission**. This system adheres to the **Two-Phase Compilation Model** defined in §2.12. Metaprogramming occurs strictly between the **Parsing** and **Semantic Analysis** phases.
 
-### 11.1 The Metaprogramming Model {Source: Draft 2 §33.1.1}
+### 14.1 The Metaprogramming Model
 
 ##### Definition
 
@@ -7338,7 +9873,7 @@ Implementations **SHOULD** cache the result of `comptime` blocks and procedures 
 
 ---
 
-### 11.2 AST Representation {Source: Draft 2 §33.3, §33.5}
+### 14.2 AST Representation
 
 ##### Definition
 
@@ -7375,7 +9910,7 @@ The metaprogramming system operates on Abstract Syntax Tree (AST) node types. Th
 
 ---
 
-### 11.3 Type Introspection {Source: Draft 2 §33.2}
+### 14.3 Type Introspection
 
 ##### Definition
 
@@ -7449,7 +9984,7 @@ comptime procedure reflect_type<T>(): TypeInfo
 
 ---
 
-### 11.4 Compile-Time Procedures and Blocks {Source: Draft 2 §33.1.2, §33.1.3}
+### 14.4 Compile-Time Procedures and Blocks
 
 ##### Definition
 
@@ -7521,28 +10056,9 @@ let x = comptime { 1 + 1 }  // x = 2, computed at compile time
 | :----------- | :------- | :------------------------------------------------ |
 | `E-MET-3401` | Error    | `comptime` procedure called from runtime context. |
 
-##### Examples
-
-**Valid:**
-
-```cursive
-comptime procedure generate_table(size: i32): [i32] {
-    let table: [i32] = []
-    let i = 0
-    loop {
-        if i >= size { break }
-        table.push(i * i)
-        i = i + 1
-    }
-    result table
-}
-
-let SQUARES = comptime { generate_table(16) }
-```
-
 ---
 
-### 11.5 Quasiquoting and Interpolation {Source: Draft 2 §33.3, §33.4}
+### 14.5 Quasiquoting and Interpolation
 
 ##### Definition
 
@@ -7623,39 +10139,9 @@ A string used for identifier splicing **MUST** conform to the identifier grammar
 | `E-MET-3403` | Error    | Invalid identifier string in interpolation. |
 | `E-MET-3404` | Error    | Quote block contains syntax error.          |
 
-##### Examples
-
-**Value Splicing:**
-
-```cursive
-let limit = 100
-let check = quote {
-    if x > $(limit) { return; }  // Becomes: if x > 100 { return; }
-}
-```
-
-**Identifier Splicing:**
-
-```cursive
-let method_name = "get_value"
-let impl = quote {
-    procedure $(method_name)(): i32 { result 42 }
-    // Becomes: procedure get_value(): i32 { result 42 }
-}
-```
-
-**AST Splicing:**
-
-```cursive
-let inner = quote { x = x + 1; }
-let outer = quote {
-    loop { $(inner) }  // Injects body of 'inner'
-}
-```
-
 ---
 
-### 11.6 Code Emission {Source: Draft 2 §33.5}
+### 14.6 Code Emission
 
 ##### Definition
 
@@ -7701,36 +10187,9 @@ Type errors in emitted code **MUST** be reported with a diagnostic trace pointin
 | `E-MET-3405` | Error    | Emitted code failed type checking (includes trace).       |
 | `E-MET-3406` | Error    | `emit` called without valid `ComptimeCodegen` capability. |
 
-##### Examples
-
-```cursive
-comptime {
-    let cg = compiler.get_codegen()
-    let type_name = "DynamicRecord"
-
-    let ast = quote {
-        public record $(type_name) {
-            val: i32,
-        }
-
-        public procedure make_dynamic(): $(type_name) {
-            result $(type_name) { val: 0 }
-        }
-    }
-
-    cg.emit(ast)  // Injects definitions into module
-}
-
-// Runtime code uses generated types
-public procedure main(ctx: Context): i32 {
-    let d = make_dynamic()
-    result d.val
-}
-```
-
 ---
 
-### 11.7 Implementation Limits {Source: Draft 2 §33.6}
+### 14.7 Implementation Limits
 
 ##### Definition
 
@@ -7755,7 +10214,7 @@ Exceeding these limits **MUST** result in error `E-MET-3402`.
 
 ---
 
-### Clause 11: Metaprogramming Cross-Reference Notes
+### Clause 14: Metaprogramming Cross-Reference Notes
 
 **Terms defined in Clause 11 that MUST NOT be redefined elsewhere:**
 
@@ -7799,11 +10258,11 @@ Exceeding these limits **MUST** result in error `E-MET-3402`.
 
 ---
 
-## Clause 12: Interoperability
+## Clause 15: Interoperability
 
 This clause defines the Foreign Function Interface (FFI) mechanisms for interacting with code adhering to C-compatible Application Binary Interfaces (ABIs). It specifies extern declaration syntax, the safety boundary enforced by `unsafe` blocks, memory layout guarantees via representation attributes, and the strict categorization of types permitted across the language boundary.
 
-### 12.1 Foundational Definitions {Source: Draft 2 §32}
+### 15.1 Foundational Definitions
 
 ##### Definition
 
@@ -7845,7 +10304,7 @@ Implementations **MUST** support `"C"` and `"system"` ABI strings. Unknown ABI s
 
 ---
 
-### 12.2 FFI-Safe Types {Source: Draft 2 §32.4}
+### 15.2 FFI-Safe Types
 
 ##### Definition
 
@@ -7873,9 +10332,9 @@ Where $\mathcal{F}$ is the smallest set satisfying:
 
 5. **Extern Function Pointers**: If all parameter types $P_i$ and return type $R$ satisfy $\text{IsFFISafe}$, then `extern "ABI" ($P_1$, ..., $P_n$) -> $R$` $\in \mathcal{F}$
 
-6. **Repr-C Records**: If `record R` is annotated `[[repr(C)]]` and $\forall f \in \text{fields}(R), \text{IsFFISafe}(\text{type}(f))$, then $R \in \mathcal{F}$
+6. **Repr-C Records**: If `record R` is annotated `[[layout(C)]]` and $\forall f \in \text{fields}(R), \text{IsFFISafe}(\text{type}(f))$, then $R \in \mathcal{F}$
 
-7. **Repr-C Enums**: If `enum E` is annotated `[[repr(C)]]` or `[[repr(IntType)]]`, then $E \in \mathcal{F}$
+7. **Repr-C Enums**: If `enum E` is annotated `[[layout(C)]]` or `[[layout(IntType)]]`, then $E \in \mathcal{F}$
 
 **Explicit Exclusions**
 
@@ -7885,7 +10344,7 @@ The following types are expressly **excluded** from FFI signatures:
 - Slices (`[T]`)
 - Strings (`string`, `string@View`, `string@Owned`)
 - Closures (non-extern function types that capture environment)
-- Modal types not marked `[[repr(C)]]`
+- Modal types not marked `[[layout(C)]]`
 - Generic type parameters (must be monomorphized first)
 - Trait witness types (`witness Trait`)
 
@@ -7920,17 +10379,17 @@ $$
 
 ---
 
-### 12.3 Type Representation {Source: Draft 2 §32.3}
+### 15.3 Type Representation
 
 ##### Definition
 
 **Default Layout (Unspecified)**
 
-For any `record` or `enum` **not** annotated with `[[repr(C)]]`, the memory layout (field ordering, padding, size, alignment) is **Unspecified Behavior (USB)**. The implementation **MAY** reorder fields, insert arbitrary padding, or optimize layout.
+For any `record` or `enum` **not** annotated with `[[layout(C)]]`, the memory layout (field ordering, padding, size, alignment) is **Unspecified Behavior (USB)**. The implementation **MAY** reorder fields, insert arbitrary padding, or optimize layout.
 
 **C-Compatible Layout**
 
-The `[[repr(C)]]` attribute guarantees C ABI-compatible memory layout.
+The `[[layout(C)]]` attribute guarantees C ABI-compatible memory layout.
 
 ##### Syntax & Declaration
 
@@ -7946,21 +10405,21 @@ int_type       ::= "i8" | "i16" | "i32" | "i64" | "u8" | "u16" | "u32" | "u64"
 
 **Repr-C Record Layout**
 
-For a `record` marked `[[repr(C)]]`:
+For a `record` marked `[[layout(C)]]`:
 1. Fields **MUST** be laid out in declaration order
 2. Padding **MUST** be inserted only as required to satisfy alignment constraints per the target C ABI
 3. The overall size **MUST** be a multiple of the largest field alignment
 
 **Repr-C Enum Layout**
 
-For an `enum` marked `[[repr(C)]]`:
+For an `enum` marked `[[layout(C)]]`:
 1. The discriminant **MUST** be represented as a C-compatible integer tag
 2. Default tag type is implementation-defined (typically `i32`)
-3. `[[repr(IntType)]]` (e.g., `[[repr(u8)]]`) explicitly specifies the tag type
+3. `[[layout(IntType)]]` (e.g., `[[layout(u8)]]`) explicitly specifies the tag type
 
 **Layout Applicability**
 
-| Declaration   | `[[repr(C)]]` Effect                           |
+| Declaration   | `[[layout(C)]]` Effect                         |
 | :------------ | :--------------------------------------------- |
 | `record`      | C struct layout (declaration-order fields)     |
 | `enum`        | C union with integer discriminant              |
@@ -7969,13 +10428,13 @@ For an `enum` marked `[[repr(C)]]`:
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                                                     |
-| :----------- | :------- | :------------------------------------------------------------ |
-| `E-FFI-3303` | Error    | Invalid `[[repr(C)]]` on modal, generic, or unsupported type. |
+| Code         | Severity | Condition                                                       |
+| :----------- | :------- | :-------------------------------------------------------------- |
+| `E-FFI-3303` | Error    | Invalid `[[layout(C)]]` on modal, generic, or unsupported type. |
 
 ---
 
-### 12.4 Extern Declarations {Source: Draft 2 §32.1, §32.5.2}
+### 15.4 Extern Declarations
 
 ##### Definition
 
@@ -7994,7 +10453,7 @@ An **Extern Declaration** introduces a procedure whose implementation crosses th
 extern_decl    ::= attribute_list? visibility?
                    "extern" string_literal
                    "procedure" identifier
-                   "(" param_list? ")" (":" return_type)?
+                   "(" param_list? ")" ("->" return_type)?
                    (";" | block)
 ```
 
@@ -8059,31 +10518,9 @@ Procedures exported via FFI **MUST** satisfy:
 | `E-FFI-3306` | Error    | Exported extern procedure is not `public`.      |
 | `E-FFI-3307` | Error    | Exported extern procedure captures environment. |
 
-##### Examples
-
-**Valid Import:**
-```cursive
-extern "C" procedure printf(format: *imm i8): i32
-```
-
-**Valid Export:**
-```cursive
-[[no_mangle]]
-public extern "C" procedure my_callback(data: *mut (), len: usize): i32 {
-    // Safe wrapper around Cursive logic
-    result 0
-}
-```
-
-**Invalid (Non-FFI-Safe):**
-```cursive
-// ERROR E-FFI-3301: string is not FFI-Safe
-extern "C" procedure bad_sig(s: string): i32
-```
-
 ---
 
-### 12.5 FFI Safety Boundary {Source: Draft 2 §32.2}
+### 15.5 FFI Safety Boundary
 
 ##### Definition
 
@@ -8148,41 +10585,9 @@ When `[[unwind(catch)]]` is specified:
 | `E-FFI-3302` | Error    | Call to imported `extern` procedure outside `unsafe`.  |
 | `W-FFI-3301` | Warning  | `[[unwind(catch)]]` on non-error-representable return. |
 
-##### Examples
-
-**Correct FFI Call:**
-```cursive
-extern "C" procedure c_function(x: i32): i32
-
-procedure call_c(x: i32): i32 {
-    unsafe {
-        c_function(x)  // OK: inside unsafe block
-    }
-}
-```
-
-**Incorrect FFI Call:**
-```cursive
-extern "C" procedure c_function(x: i32): i32
-
-procedure call_c(x: i32): i32 {
-    c_function(x)  // ERROR E-FFI-3302: outside unsafe
-}
-```
-
-**Unwind Catch Example:**
-```cursive
-[[unwind(catch)]]
-public extern "C" procedure safe_callback(): i32 {
-    // If this panics, returns -1 instead of aborting
-    do_risky_operation()
-    result 0
-}
-```
-
 ---
 
-### Clause 12: Interoperability Cross-Reference Notes
+### Clause 15: Interoperability Cross-Reference Notes
 
 **Terms defined in Clause 12 that MUST NOT be redefined elsewhere:**
 
@@ -8195,7 +10600,7 @@ public extern "C" procedure safe_callback(): i32 {
 | FFI-Safe Type                      | §12.2   | Type with C ABI-compatible representation                            |
 | IsFFISafe(T)                       | §12.2   | Predicate determining FFI-safety of type T                           |
 | Extern Declaration                 | §12.4   | Declaration of imported or exported FFI procedure                    |
-| C-Compatible Layout                | §12.3   | Memory layout guaranteed by `[[repr(C)]]` attribute                  |
+| C-Compatible Layout                | §12.3   | Memory layout guaranteed by `[[layout(C)]]` attribute                |
 
 **Terms referenced from other clauses:**
 
@@ -8218,7 +10623,7 @@ public extern "C" procedure safe_callback(): i32 {
 ---
 
 ## Appendices
-### Appendix A: Formal Grammar (ANTLR) {Source: Draft 2 Appx A}
+### Appendix A: Formal Grammar (ANTLR)
 
   <u>Definition</u>
     Complete normative grammar for Cursive in ANTLR4 format. This grammar defines all lexical and syntactic productions required to parse valid Cursive source code.
@@ -8239,7 +10644,7 @@ public extern "C" procedure safe_callback(): i32 {
   <u>Examples</u>
     Complete ANTLR4 grammar suitable for parser generators. Includes all production rules from top-level `sourceFile` to terminal tokens.
 
-### Appendix B: Diagnostic Code Taxonomy {Source: Draft 2 Appx B}
+### Appendix B: Diagnostic Code Taxonomy
 
 This appendix defines the normative taxonomy for compiler diagnostics. All conforming implementations **MUST** use these codes when reporting the corresponding conditions to ensure consistent error reporting across toolchains.
 
@@ -8391,15 +10796,15 @@ The following tables list all diagnostic codes required by this specification, o
 | `E-TYP-1603` | Error    | Partitioning system violation.                          |
 | `W-TYP-1701` | Warning  | `f16` arithmetic may be emulated and slow.              |
 | `E-TYP-1801` | Error    | Tuple or Array index out of bounds.                     |
-| `E-TYP-1901` | Panic    | String slice boundary is not a valid `char` boundary.   |
-| `E-TYP-1902` | Error    | Direct indexing of `string` is forbidden.               |
-| `E-TYP-1910` | Error    | Modal type declares no states.                          |
-| `E-TYP-1911` | Error    | Duplicate state in modal declaration.                   |
-| `E-TYP-1912` | Error    | Accessing field existing only in specific modal state.  |
-| `E-TYP-1913` | Error    | Accessing method existing only in specific modal state. |
-| `E-TYP-1914` | Error    | Missing implementation for modal transition.            |
-| `E-TYP-1915` | Error    | Transition body does not return target state type.      |
-| `E-TYP-1920` | Error    | Non-exhaustive match on modal type.                     |
+| `E-TYP-2151` | Panic    | String slice boundary is not a valid `char` boundary.   |
+| `E-TYP-2152` | Error    | Direct indexing of `string` is forbidden.               |
+| `E-TYP-2050` | Error    | Modal type declares no states.                          |
+| `E-TYP-2051` | Error    | Duplicate state in modal declaration.                   |
+| `E-TYP-2052` | Error    | Accessing field existing only in specific modal state.  |
+| `E-TYP-2053` | Error    | Accessing method existing only in specific modal state. |
+| `E-TYP-2054` | Error    | Missing implementation for modal transition.            |
+| `E-TYP-2055` | Error    | Transition body does not return target state type.      |
+| `E-TYP-2060` | Error    | Non-exhaustive match on modal type.                     |
 | `E-TYP-2001` | Error    | Dereference of `Ptr<T>@Null`.                           |
 | `E-TYP-2002` | Error    | Dereference of `Ptr<T>@Expired`.                        |
 | `E-TYP-2003` | Error    | Dereference of raw pointer outside `unsafe`.            |
@@ -8479,17 +10884,23 @@ The following tables list all diagnostic codes required by this specification, o
 
 ##### B.3.9 MEM (Memory & Safety)
 
-| Code         | Severity | Description                                 |
-| :----------- | :------- | :------------------------------------------ |
-| `E-MEM-3001` | Error    | Use of moved value.                         |
-| `E-MEM-3005` | Error    | Explicit call to destructor.                |
-| `E-MEM-3010` | Error    | Static record partition conflict.           |
-| `E-MEM-3012` | Error    | Partition contract proof failed (Static).   |
-| `P-MEM-3013` | Panic    | Dynamic partition check failed (Runtime).   |
-| `E-MEM-3020` | Error    | Region pointer escape.                      |
-| `E-MEM-3021` | Error    | Region allocation `^` outside region scope. |
-| `E-MEM-3030` | Error    | Unsafe operation in safe code.              |
-| `E-MEM-3031` | Error    | `transmute` size mismatch.                  |
+| Code         | Severity | Description                                         |
+| :----------- | :------- | :-------------------------------------------------- |
+| `E-MEM-3001` | Error    | Use of moved value.                                 |
+| `E-MEM-3002` | Error    | Access to binding in Uninitialized state.           |
+| `E-MEM-3003` | Error    | Reassignment of immutable binding.                  |
+| `E-MEM-3004` | Error    | Partial move from `const` or `partitioned` binding. |
+| `E-MEM-3005` | Error    | Explicit call to destructor.                        |
+| `E-MEM-3006` | Error    | Attempt to move from immovable binding (`:=`).      |
+| `E-MEM-3010` | Error    | Static record partition conflict.                   |
+| `E-MEM-3012` | Error    | Partition contract proof failed (Static).           |
+| `P-MEM-3013` | Panic    | Dynamic partition check failed (Runtime).           |
+| `E-MEM-3014` | Error    | Expression not reducible to Canonical Linear Form.  |
+| `E-MEM-3020` | Error    | Region pointer escape.                              |
+| `E-MEM-3021` | Error    | Region allocation `^` outside region scope.         |
+| `E-MEM-3022` | Error    | Caret depth exceeds region nesting depth.           |
+| `E-MEM-3030` | Error    | Unsafe operation in safe code.                      |
+| `E-MEM-3031` | Error    | `transmute` size mismatch.                          |
 
 ##### B.3.10 FFI (Interoperability)
 
@@ -8497,7 +10908,7 @@ The following tables list all diagnostic codes required by this specification, o
 | :----------- | :------- | :------------------------------------------------- |
 | `E-FFI-3301` | Error    | Non-FFI-Safe type in `extern` signature.           |
 | `E-FFI-3302` | Error    | Call to `extern` procedure outside `unsafe` block. |
-| `E-FFI-3303` | Error    | Invalid application of `[[repr(C)]]`.              |
+| `E-FFI-3303` | Error    | Invalid application of `[[layout(C)]]`.            |
 | `E-FFI-3304` | Error    | Variadic arguments not supported.                  |
 
 ##### B.3.11 MET (Metaprogramming)
@@ -8511,7 +10922,7 @@ The following tables list all diagnostic codes required by this specification, o
 | `E-MET-3405` | Error    | Emitted AST failed type checking.                 |
 | `E-MET-3406` | Error    | `emit` called without capability.                 |
 
-### Appendix C: Conformance Dossier Schema {Source: Draft 2 Appx C}
+### Appendix C: Conformance Dossier Schema
 
 This appendix defines the normative JSON Schema for the Conformance Dossier. A conforming implementation **MUST** produce a JSON artifact matching this schema when the `dossier` emission phase is active.
 
@@ -8626,7 +11037,7 @@ The dossier **MUST** be a valid JSON document encoded in UTF-8.
 }
 ```
 
-### Appendix D: Standard Trait Catalog {Source: Draft 2 Appx D}
+### Appendix D: Standard Trait Catalog
 
 This appendix provides normative definitions for foundational traits and system capability traits built into Cursive or its core library.
 
@@ -8683,7 +11094,7 @@ This appendix provides normative definitions for foundational traits and system 
   <u>Examples</u>
     Complete trait signatures must be provided for: Drop, Copy, Clone, HeapAllocator, FileSystem, Network, Time, System (which implements Time and provides `exit`, `get_env`).
 
-### Appendix E: Core Library Specification {Source: Draft 2 Appx E}
+### Appendix E: Core Library Specification
 
   <u>Definition</u>
     Minimal normative definitions for core types assumed to be available by the language without explicit import.
@@ -8708,7 +11119,7 @@ This appendix provides normative definitions for foundational traits and system 
   
 
 
-### Appendix F: Implementation Guide (Informative) {Source: Draft 2 Appx G}
+### Appendix F: Implementation Guide (Informative)
 
 **Note**: This appendix provides non-normative guidance for compiler implementers.
 
@@ -8823,8 +11234,17 @@ This appendix provides normative definitions for foundational traits and system 
     *   **Import Ordering**: Alphabetically sorted
     *   **Declaration Ordering**: public declarations first, then internal, then private within each category
 
-### Appendix G: Behavior Classification Index (Normative) {Source: Draft 2 Appx H}
-**H.1 Unverifiable Behavior (UVB)**:
+#### F.4 Receiver Token Design Rationale
+
+  <u>Design Note</u>
+
+  The tilde (`~`) was chosen for receiver syntax based on its mnemonic association with "home" in Unix systems—representing the method's "home" (the receiver instance). The shorthand forms (`~!`, `~%`, `~|`) extend this metaphor while providing visual distinction for permission-qualified receivers.
+
+### Appendix G: Behavior Classification Index (Normative)
+
+This appendix provides an index of behaviors by classification. Definitions for each classification (Defined, IDB, USB, UVB) are in §1.2.
+
+**G.1 Unverifiable Behavior (UVB) Instances**:
 *   FFI Call (§32.2)
 *   Raw Deref (§29.6.2)
 *   Transmute (§29.6.3)
@@ -8832,33 +11252,33 @@ This appendix provides normative definitions for foundational traits and system 
 *   Trusted Contracts within `unsafe` (§7.4)
 *   Trusted Partitions (`[[verify(trusted)]]`)
 
-**H.2 Implementation-Defined Behavior (IDB)**:
+**G.2 Implementation-Defined Behavior (IDB) Instances**:
 *   Type Layout (non-C)
 *   Integer Overflow (Release)
 *   Pointer Width
 *   Resource Limits
 *   Panic Abort Mechanism
 
-### H.3 Unspecified Behavior (USB) {Source: Draft 2 Appx H.3}
-
-The following behaviors are bounded by the language safety guarantees but are not documented or consistent between executions.
+### G.3 Unspecified Behavior (USB) Instances
 
 *   **Map Iteration**: Order of iteration for hash-based collections.
-*   **Padding Bytes**: The values of padding bytes in non-`[[repr(C)]]` records.
+*   **Padding Bytes**: The values of padding bytes in non-`[[layout(C)]]` records.
 
-### H.4 Defined Runtime Failure (Panics)
+### G.4 Defined Runtime Panics
 
 *   Integer Overflow (Checked Mode)
 *   Array/Slice Bounds Check
 *   **Dynamic Partition Overlap** (`[[verify(dynamic)]]`)
 
-### Appendix H: Formal Core Semantics (Normative) {Source: Draft 2 Appx I}
+### Appendix H: Formal Core Semantics (Normative)
 
 This appendix defines the **Cursive Core Calculus**, a simplified formal model of the language's memory and permission system. Implementations **MUST** preserve the safety properties defined here.
 
+> **Scope Note:** This appendix formalizes the core memory and permission system for `unique`, `const`, and `partitioned` permissions. The `concurrent` permission and synchronization primitives (`Mutex`, `Atomic`) require additional formalization involving temporal logic and are not covered by this calculus. Implementations MUST preserve the safety properties defined here; the `concurrent` permission's safety properties are specified operationally in §4.5.3 and §10.
+
 #### H.1 Syntax of the Core
 
-$$\begin{aligned} v &::= \ell \mid \text{const } \ell \mid \text{null} \\ e &::= v \mid \text{let } x = e \text{ in } e \mid x \mid x.f \mid x.f \leftarrow v \mid \text{fork}(e) \\ \tau &::= \text{const } T \mid \text{unique } T \mid \text{partitioned } T \end{aligned}$$
+$$\begin{aligned} v &::= \ell \mid \text{const } \ell \mid \text{null} \\ e &::= v \mid \text{let } x = e \text{ in } e \mid x \mid x.f \mid x.f \leftarrow v \mid \text{fork}(e) \\ \tau &::= \text{const } T \mid \text{unique } T \mid \text{partitioned } T \quad \text{(concurrent omitted; see Scope Note)} \end{aligned}$$
 
 #### H.2 Operational Semantics (Small-Step)
 
@@ -8885,7 +11305,10 @@ Implication: Operations never violate the permission rules defined in Part 4\.
 If $\Gamma \vdash e : \text{well-formed}$, and $e$ contains fork, no two threads can access location $\ell$ simultaneously unless both accesses are Reads.  
 _Proof Sketch:_ The unique permission ($\ell$) cannot be duplicated. The const permission ($\text{const } \ell$) allows duplication but removes the Write Rule from the set of valid reductions for that value.
 
-### Appendix I: Implementation Limits {Source: Draft 2 §6.5, Appx F}
+### Appendix I: Implementation Limits (Normative)
+
+This appendix defines the minimum guaranteed capacities that all conforming implementations MUST support. Programs exceeding these limits are ill-formed (§1.4).
+
 **Minimum Guaranteed Limits**:
 *   **Source Size**: 1 MiB
 *   **Logical Lines**: 65,535
@@ -8895,3 +11318,115 @@ _Proof Sketch:_ The unique permission ($\ell$) cannot be duplicated. The const p
 *   **Parameters**: 255
 *   **Fields**: 1,024
 *   **Recursion Depth**: 256 (Comptime), Implementation-Defined (Runtime)
+
+---
+
+### Appendix J: Diagnostic Code Cross-Reference (Informative)
+
+This appendix provides a cross-reference of diagnostic codes that may be triggered by related or identical program violations across different specification clauses.
+
+#### J.1 Permission and Memory Model Diagnostics
+
+| Clauses 4-6 (Types) | Clause 3 (Memory)          | Violation Category                      |
+| :------------------ | :------------------------- | :-------------------------------------- |
+| `E-TYP-1601`        | `E-MEM-3003`               | Mutation through immutable binding/path |
+| `E-TYP-1602`        | `E-MEM-3040`               | Unique permission exclusion             |
+| `E-TYP-1603`        | `E-MEM-3010`, `E-MEM-3041` | Partition conflict/overlap              |
+| `E-TYP-1604`        | —                          | Concurrent direct field mutation        |
+| `E-TYP-1511`        | —                          | Implicit permission upgrade             |
+| `E-TYP-1512`        | `E-MEM-3042`               | Sibling permission coercion             |
+
+#### J.1.1 Modal Type Diagnostics
+
+| Clause 6 (Modal) | Related Diagnostic | Violation Category                  |
+| :--------------- | :----------------- | :---------------------------------- |
+| `E-TYP-2052`     | —                  | Invalid state field access          |
+| `E-TYP-2053`     | —                  | Invalid state method invocation     |
+| `E-TYP-2057`     | —                  | Direct access on general modal type |
+| `E-TYP-2060`     | —                  | Non-exhaustive modal match          |
+
+#### J.1.2 Pointer Type Diagnostics
+
+| Clause 6 (Pointers) | Related Diagnostic | Violation Category                     |
+| :------------------ | :----------------- | :------------------------------------- |
+| `E-TYP-2001`        | `E-MEM-3030`       | Dereference of non-Valid pointer       |
+| `E-TYP-2002`        | —                  | Raw pointer dereference outside unsafe |
+
+#### J.2 Move and Binding State Diagnostics
+
+| Clause 3 (Memory) | Clauses 4-7 (Types) | Violation Category                  |
+| :---------------- | :------------------ | :---------------------------------- |
+| `E-MEM-3001`      | —                   | Access to moved binding             |
+| `E-MEM-3006`      | —                   | Move from immovable binding         |
+| `E-MEM-3004`      | —                   | Partial move from const/partitioned |
+
+#### J.3 Implementation Guidance
+
+When multiple diagnostic codes apply to the same violation:
+
+1. Implementations MUST emit the **canonical** diagnostic. Type system diagnostics (`E-TYP-xxxx`) are canonical; memory model diagnostics (`E-MEM-xxxx`) are secondary and MAY be emitted in addition to, but not instead of, the canonical diagnostic.
+2. Implementations MAY additionally emit secondary diagnostics if they provide distinct information (e.g., different source location granularity).
+3. Implementations SHOULD prefer more specific diagnostics within a clause (e.g., `E-TYP-1604` over `E-TYP-1601` for concurrent field mutation).
+
+#### J.4 Diagnostic Severity Legend
+
+| Prefix | Severity | Effect               |
+| :----- | :------- | :------------------- |
+| `E-`   | Error    | Compilation rejected |
+| `W-`   | Warning  | Compilation proceeds |
+| `P-`   | Panic    | Runtime termination  |
+
+---
+
+### Appendix K: Diagnostic Code Registry (Normative)
+
+This appendix provides the authoritative allocation of diagnostic code ranges to prevent conflicts across specification clauses.
+
+#### K.1 Code Range Allocation
+
+| Prefix   | Range         | Clause/Domain                           |
+| :------- | :------------ | :-------------------------------------- |
+| `E-CNF-` | 0100–0299     | Clause 1: Conformance (general)         |
+| `E-CNF-` | 0300–0399     | Clause 1: Implementation Limits         |
+| `E-SRC-` | 0100–0399     | Clause 2: Source Text & Lexical         |
+| `E-SYN-` | 0100–0199     | Clause 2: Syntactic Nesting             |
+| `E-MEM-` | 3000–3099     | Clause 3: Memory Model                  |
+| `E-TYP-` | 1500–1599     | Clause 4: Type System Foundations       |
+| `E-TYP-` | 1600–1699     | Clause 4: Permission System             |
+| `E-TYP-` | 1700–1799     | Clause 5: Primitive Types               |
+| `E-TYP-` | 1800–1849     | Clause 5: Composite Types (Tuple/Array) |
+| `E-TYP-` | 1850–1899     | Clause 5: Composite Types (Slice/Range) |
+| `E-TYP-` | 1900–1949     | Clause 5: Records                       |
+| `E-TYP-` | 1950–1999     | Clause 5: Enums                         |
+| `E-TYP-` | 2000–2049     | Clause 5: Union Types                   |
+| `E-TYP-` | 2050–2099     | Clause 6: Modal Types                   |
+| `E-TYP-` | 2100–2149     | Clause 6: Pointer Types                 |
+| `E-TYP-` | 2150–2199     | Clause 6: String Type                   |
+| `E-TYP-` | 2200–2249     | Clause 6: Function Types                |
+| `E-TYP-` | 2300–2399     | Clause 7: Generics                      |
+| `E-DEC-` | 2400–2499     | Clause 8: Declarations                  |
+| `E-NAM-` | 1300–1399     | Clause 9: Name Resolution               |
+| `E-TRS-` | 2900–2999     | Clause 9: Traits                        |
+| `E-CON-` | 3200–3299     | Clause 12: Concurrency                  |
+| `P-`     | (same ranges) | Runtime Panics (use domain prefix)      |
+| `W-`     | (same ranges) | Warnings (use domain prefix)            |
+
+#### K.2 Reserved Ranges
+
+The following ranges are reserved for future specification expansion:
+
+| Range     | Reserved For            |
+| :-------- | :---------------------- |
+| 2500–2899 | Clauses 10–12           |
+| 4000–4999 | Standard Library        |
+| 5000–5999 | Implementation-Specific |
+
+#### K.3 Conflict Resolution
+
+When a program violation is detectable by multiple specification subsystems (e.g., both the type system and the memory model), the **canonical diagnostic** is determined by the following precedence:
+
+1. Type System diagnostics (`E-TYP-`) are canonical for permission and type violations
+2. Memory Model diagnostics (`E-MEM-`) are canonical for lifetime and move violations
+3. Source diagnostics (`E-SRC-`) are canonical for lexical violations
+
+Implementations MAY emit secondary diagnostics in addition to the canonical diagnostic when doing so provides distinct information.
