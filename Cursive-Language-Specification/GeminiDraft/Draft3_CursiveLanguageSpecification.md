@@ -908,9 +908,9 @@ Where:
 The Cursive memory model enforces safety through two orthogonal axes. A conforming implementation **MUST** enforce both:
 
 1.  **Liveness:** The property that a pointer or binding always refers to allocated, initialized storage ($\lambda$ is active). This is enforced via Responsibility (RAII), Modal Pointers (`Ptr<T>@State`), and Region Escape Analysis.
-2.  **Aliasing:** The property that concurrent or reentrant access to $\sigma$ does not violate data integrity. This is enforced via Permissions (`unique`, `partitioned`, `concurrent`, `const`) and the Partitioning System.
-      * **Spatial Disjointness:** Enforced by `partitioned`.
-      * **Temporal Synchronization:** Enforced by `concurrent` (requires `Sync`).
+2.  **Aliasing:** The property that concurrent or reentrant access to $\sigma$ does not violate data integrity. This is enforced via Permissions (`unique`, `concurrent`, `const`) and the Lens System (§12.6).
+      * **Spatial Disjointness:** Enforced by Linear Lenses (§12.6) and Static Field Lenses (§12.7).
+      * **Temporal Synchronization:** Enforced by `concurrent` (requires concurrent-safe type).
 
 **Architectural Constraints**
 
@@ -957,7 +957,7 @@ Every object has a storage duration that determines its lifetime $\lambda$ and p
 
 4.  **Dynamic Storage Duration (Heap)**:
 
-      * **Allocation**: Upon explicit invocation of an allocator capability (e.g., `heap.alloc`).
+      * **Allocation**: Upon explicit invocation of an allocator capability (e.g., `heap.alloc`). Requires `witness HeapAllocator`; unavailable in module initializers (§5.5).
       * **Deallocation**: Upon explicit invocation of `heap.free` or via RAII types managing the allocation.
       * **Provenance**: $\pi_{Heap}$.
       * **Applicability**: Objects managed by `HeapAllocator`.
@@ -1098,7 +1098,7 @@ Partial moves are permitted **IF AND ONLY IF** $b$ satisfies one of the followin
 1.  $b$ is a mutable binding (`var`).
 2.  $b$ has the `unique` permission type.
 
-Attempts to partially move from a `const`, `partitioned`, **or `concurrent`** binding **MUST** be rejected (`E-MEM-3001`), as this would violate the integrity of aliases.
+Attempts to partially move from a `const` **or `concurrent`** binding **MUST** be rejected (`E-MEM-3001`), as this would violate the integrity of aliases.
 
 Upon `move b.f`, the state transitions:
 
@@ -1291,6 +1291,39 @@ The compiler **MUST** maintain a partial order over provenances based on their l
 2.  **Hierarchy:** $\forall ID, \pi_{Region(ID)} < \pi_{Stack} < \pi_{Heap}$.
 3.  **Transitivity:** If $\pi_A < \pi_B$ and $\pi_B < \pi_C$, then $\pi_A < \pi_C$.
 
+**Non-strict Ordering ($\le$)**
+
+The provenances may have equivalent lifetimes in specific cases. Specifically, $\pi_{Heap} \le \pi_{Global}$ because heap-allocated storage with static lifetime (e.g., intentional memory leaks, process-lifetime allocations) may persist until program termination, matching global storage duration.
+
+**Heap Pointers in Global Bindings**
+
+Theoretically, a heap pointer stored in a global binding that is subsequently deallocated would create a dangling pointer—a soundness violation. However, this situation **cannot occur in safe Cursive code** due to the capability system:
+
+1.  **Heap allocation requires a capability**: All heap allocation operations require `witness HeapAllocator` (§3.1).
+2.  **Capabilities are injected at `main()`**: The `HeapAllocator` capability is provided exclusively through the `Context` record passed to `main()` (§5.6).
+3.  **Module initialization precedes `main()`**: Module-level binding initializers execute before `main()` is invoked (§5.5).
+4.  **No Ambient Authority**: There are no global functions for heap allocation; the capability must be explicitly passed (§5.6).
+
+**Conclusion:** Because `HeapAllocator` is unavailable during module initialization, heap allocation cannot occur in module-level initializers. Therefore, module-level bindings cannot contain heap pointers, and the dangling global problem cannot arise in safe code.
+
+**Static Enforcement:**
+
+| Context                               | HeapAllocator Available? | Heap Allocation Permitted? |
+| :------------------------------------ | :----------------------- | :------------------------- |
+| Module-level initializer              | No                       | No                         |
+| Procedure body (with capability)      | Yes                      | Yes                        |
+| `main()` body                         | Yes (from Context)       | Yes                        |
+
+**`unsafe` Code:**
+
+In `unsafe` code, the programmer may obtain pointers through mechanisms outside the capability system (e.g., FFI, raw memory manipulation). If such a pointer is:
+1.  Stored in a module-level binding, AND
+2.  Later deallocated
+
+This constitutes Unverifiable Behavior (UVB). The programmer assumes responsibility for ensuring heap pointers accessible via global bindings are not deallocated during program execution.
+
+> **Cross-Reference:** The No Ambient Authority principle (§5.6) and module initialization order (§5.5) together provide the static enforcement mechanism for this constraint.
+
 **Provenance Assignment**
 
   * The expression `^expr` evaluates to a value with provenance $\pi_{Region(Current)}$.
@@ -1367,135 +1400,13 @@ result &val
 }
 ```
 
-### 3.4 The Partitioning System
+### 3.4 [RESERVED]
 
-#### Definition
+This section is reserved.
 
-**Formal Definition**
-The **Partitioning System** is a static verification framework that enables safe, aliased mutability by proving the disjointness of memory access paths.
-Let $P$ be a set of access paths $\{p_1, p_2, \dots, p_n\}$ derived from a root object $\Omega$. The system permits simultaneous `unique` or `partitioned` access to these paths if and only if:
-$$\forall i, j \in \{1, \dots, n\}, i \neq j \implies \text{Intersection}(\text{Memory}(p_i), \text{Memory}(p_j)) = \emptyset$$
-
-**Verification Modes**
-For collection partitioning, the system supports two verification strategies controlled by the `[[verify(mode)]]` attribute:
-
-1.  **Static (Default):** Disjointness is proven at compile time using a linear constraint solver. There is zero runtime overhead for the disjointness check.
-2.  **Dynamic:** Disjointness is verified at runtime via intersection checks injected by the compiler.
-
-#### Syntax & Declaration
-
-**Record Partitioning**
-Defined within a `record` declaration.
-
-```ebnf
-partition_decl ::= "partition" identifier "{" field_decl+ "}"
-```
-
-**Collection Partitioning**
-Defined via the `partition` statement.
-
-```ebnf
-partition_stmt ::= 
-    [ "[[" "verify" "(" ( "static" | "dynamic" | "trusted" ) ")" "]]" ]
-    "partition" expression "by" "(" target_list ")"
-    [ "where" "(" proof_expr ")" ]
-    block
-
-target_list ::= target ("," target)*
-target ::= identifier | identifier ".." identifier
-```
-
-#### Static Semantics
-
-**1. Static Record Partitioning**
-Fields within a `record` are grouped into partitions.
-
-  * **Explicit Partitions:** Fields declared inside `partition Name { ... }` belong to partition `Name`.
-  * **Implicit Partitions:** Any field NOT declared within a named partition belongs to a unique, anonymous partition containing only that field.
-
-**Access Rule:**
-When accessing a record `r` via a `partitioned` binding (`~%`):
-
-1.  The compiler maintains a set of **Locked Partitions** $\mathcal{L}$ for `r` in the current scope.
-2.  Accessing a field $f \in \text{Partition}(P)$ requires acquiring the lock for $P$.
-3.  If $P \in \mathcal{L}$, the access is a compile-time error (`E-MEM-3010`).
-4.  If $P \notin \mathcal{L}$, then $\mathcal{L}' = \mathcal{L} \cup \{P\}$.
-
-**2. Collection Partitioning (Static Mode)**
-To validate `partition arr by (R1, R2)`, the compiler **MUST** prove disjointness using the **Canonical Linear Form**.
-
-**Abstract Domain:**
-Expressions are reduced to the form $E = C_{base} + \sum (C_i \times V_i)$, where $C$ are **arbitrary-precision** integer constants and $V$ are symbolic variables. (Overflow during the static proof verification **MUST** be treated as a proof failure).
-
-**Verification Algorithm:**
-
-1.  **Gather Facts:** Traverse the Control Flow Graph (dominator tree) to collect constraints (e.g., `i < N`) active at the partition statement.
-2.  **Reduction:** Reduce the range boundaries of targets $R_1, R_2$ to linear forms.
-3.  **Proof:** Prove that $\max(R_1) < \min(R_2) \lor \max(R_2) < \min(R_1)$ holds given the facts.
-4.  **Result:** If the proof fails, emit `E-MEM-3012`.
-
-#### Dynamic Semantics
-
-**Dynamic Collection Partitioning**
-If `[[verify(dynamic)]]` is specified:
-
-1.  **Runtime Check:** The compiler injects code to calculate the actual ranges of the targets at runtime.
-2.  **Intersection Test:** It verifies that the ranges do not overlap.
-3.  **Panic:** If an overlap is detected, the program **MUST** panic (`P-MEM-3013`).
-
-**Hybrid Enforcement**
-Even in `static` mode, bounds checks (verifying indices are within the array limits) and integer overflow checks are **Always Dynamic** unless value-range analysis proves them redundant. The Partitioning System strictly verifies *disjointness*, not *validity*.
-
-#### Constraints & Legality
-
-**Negative Constraints**
-
-  * **Capture:** Bindings created by a `partition` statement are `unique` paths. They **MUST NOT** be aliased or captured by closures that outlive the partition block.
-  * **Trusted Mode:** `[[verify(trusted)]]` disables verification. It is **Unverifiable Behavior (UVB)** and **MUST** be wrapped in an `unsafe` block.
-
-**Diagnostic Table**
-| Code         | Severity | Condition                                                         |
-| :----------- | :------- | :---------------------------------------------------------------- |
-| `E-MEM-3010` | Error    | Static record partition conflict (same partition accessed twice). |
-| `E-MEM-3012` | Error    | Partition contract proof failed (Static Mode).                    |
-| `P-MEM-3013` | Panic    | Dynamic partition check failed (Runtime Mode).                    |
-
-#### Examples
-
-**Valid: Static Record Partitioning**
-
-```cursive
-record Graph {
-    partition topology { nodes: [Node], edges: [Edge] }
-    partition data { weights: [f64] }
-}
-
-procedure update(g: partitioned Graph) {
-    // Valid: 'nodes' is in 'topology', 'weights' is in 'data'.
-    // Disjoint partitions.
-    let n = &g.nodes;
-    let w = &g.weights;
-    
-    // Invalid: 'edges' is in 'topology', which is already locked by 'n'.
-    // let e = &g.edges; // Error E-MEM-3010
-}
-```
-
-**Valid: Dynamic Collection Partitioning**
-
-```cursive
-let list = [1, 2, 3, 4, 5];
-let i = get_index();
-
-[[verify(dynamic)]]
-partition list by (0..i, i..5) {
-    // Runtime check ensures i is between 0 and 5.
-    // If i=6, Bounds Check Panic.
-    // If ranges overlapped (impossible here due to math), Overlap Panic (P-MEM-3013).
-    let left = &list[0..i];
-    let right = &list[i..5];
-}
-```
+> **Migration Note:** The Partitioning System has been superseded by the Lens system (§12.6 Linear Lenses, §12.7 Static Field Lenses), which provides simpler compile-time guarantees for spatial disjointness without requiring complex linear form analysis or the `partitioned` permission.
+>
+> Code using `partition` statements and the former `partitioned` permission should migrate to Linear Lenses. See Migration Guide (Appendix M).
 
 ### 3.5 Unsafe Semantics
 
@@ -1503,7 +1414,7 @@ partition list by (0..i, i..5) {
 
 **Formal Definition**
 **Unsafe Semantics** refers to the relaxation of specific static safety constraints within a bounded lexical scope.
-Let $C_{safe}$ be the set of static constraints enforced by the Cursive compiler (Liveness, Aliasing, Partitioning, Type Safety).
+Let $C_{safe}$ be the set of static constraints enforced by the Cursive compiler (Liveness, Aliasing, Type Safety).
 Let $C_{unsafe}$ be the subset of constraints enforced within an `unsafe` block.
 The relationship is strictly: $C_{unsafe} \subset C_{safe}$.
 
@@ -1898,14 +1809,15 @@ I will rewrite **Section 4.3** immediately to include the **Permission Projectio
 #### Definition
 
 **Formal Definition**
-The **Permission System** is a type qualification framework defined by the set $\mathcal{P} = \{ \texttt{unique}, \texttt{partitioned}, \texttt{concurrent}, \texttt{const} \}$.
+The **Permission System** is a type qualification framework defined by the set $\mathcal{P} = \{ \texttt{unique}, \texttt{concurrent}, \texttt{const} \}$.
 
 A permission $P \in \mathcal{P}$ is a modifier applied to a base type $T$, denoted $P~T$. It determines the **Aliasing XOR Mutation** invariant for that reference:
 
 1.  **`unique`**: **Exclusive Ownership.** $\text{Aliases} = 0$, $\text{Mutation} = \text{Allowed}$.
-2.  **`partitioned`**: **Disjoint Aliasing.** $\text{Aliases} > 0$ (must be disjoint), $\text{Mutation} = \text{Allowed}$.
-3.  **`concurrent`**: **Shared Aliasing.** $\text{Aliases} > 0$, $\text{Mutation} = \text{Allowed}$ (Synchronized only).
-4.  **`const`**: **Immutable Aliasing.** $\text{Aliases} > 0$, $\text{Mutation} = \text{Forbidden}$.
+2.  **`concurrent`**: **Shared Aliasing.** $\text{Aliases} > 0$, $\text{Mutation} = \text{Allowed}$ (Synchronized only).
+3.  **`const`**: **Immutable Aliasing.** $\text{Aliases} > 0$, $\text{Mutation} = \text{Forbidden}$.
+
+> **Note:** Spatial partitioning (formerly the `partitioned` permission) is now achieved through the Lens system (§12.6), which provides `unique` views of disjoint portions without requiring a separate permission.
 
 **The Permission Lattice**
 Permissions form a bounded partial order $(\mathcal{P}, \preceq)$ where $A \preceq B$ implies $A$ is a subtype of $B$ (can be coerced to $B$).
@@ -1919,7 +1831,7 @@ Permissions form a bounded partial order $(\mathcal{P}, \preceq)$ where $A \prec
 
 ```ebnf
 permission_type ::= permission type
-permission      ::= "unique" | "partitioned" | "concurrent" | "const"
+permission      ::= "unique" | "concurrent" | "const"
 ```
 
   * If the `permission` token is omitted from a type reference, it defaults to **`const`**.
@@ -1932,32 +1844,46 @@ Method parameters named `self` **MUST** support the following shorthands, which 
 | :-------- | :----------------------- | :--------------------------- |
 | `~`       | `self: const Self`       | Read-Only view.              |
 | `~!`      | `self: unique Self`      | Exclusive Read/Write view.   |
-| `~%`      | `self: partitioned Self` | Disjointly partitioned view. |
 | `~\|`     | `self: concurrent Self`  | Synchronized/Atomic view.    |
 
 #### Static Semantics
 
 **1. The Subtyping Lattice**
-The compiler **MUST** enforce the following coercion rules. A permission $P_1$ may be coerced to $P_2$ if and only if a path exists from $P_1$ to $P_2$ in the lattice graph:
+The compiler **MUST** enforce the following coercion rules. The three permissions form a **linear lattice**:
 
-$$
-\begin{aligned}
-\text{unique} &\preceq \text{partitioned} \\
-\text{unique} &\preceq \text{concurrent} \\
-\text{partitioned} &\preceq \text{const} \\
-\text{concurrent} &\preceq \text{const}
-\end{aligned}
-$$  
+$$\texttt{unique} \preceq \texttt{concurrent} \preceq \texttt{const}$$
+
+```
+    unique        (exclusive read-write)
+       |
+  concurrent      (synchronized shared mutable)
+       |
+     const        (shared read-only)
+```
+
 * **Transitivity:** $\text{unique} \preceq \text{const}$ holds by transitivity.
-* **Incompatibility:** $\text{partitioned} \npreceq \text{concurrent}$ and $\text{concurrent} \npreceq \text{partitioned}$.
+* The `unique` permission can be downgraded to `concurrent` (by wrapping in `Mutex`) or to `const` (by taking a read-only view).
 
-**2. The `Sync` Constraint**
-The `concurrent` permission is well-formed **if and only if** the base type $T$ implements the `Sync` trait (defined in Appx D).
+**2. The Concurrent-Safety Constraint**
+The `concurrent` permission is well-formed **if and only if** the base type $T$ is **concurrent-safe**.
 
 $$
-\frac{T \text{ implements } \text{Sync}}{\Gamma \vdash \text{concurrent } T : \text{Type}}
+\frac{T \text{ is concurrent-safe}}{\Gamma \vdash \text{concurrent } T : \text{Type}}
 $$
-Attempting to form `concurrent T` where $T: !\text{Sync}$ **MUST** trigger `E-TYP-1604`.
+
+**Concurrent-Safety Determination (Layered Verification):**
+
+A type $T$ is **concurrent-safe** if any of the following conditions hold:
+
+1.  **Primitive Types**: $T \in \{ \texttt{i8}, \texttt{i16}, \texttt{i32}, \texttt{i64}, \texttt{i128}, \texttt{isize}, \texttt{u8}, \texttt{u16}, \texttt{u32}, \texttt{u64}, \texttt{u128}, \texttt{usize}, \texttt{bool} \}$. These have built-in atomic intrinsics.
+
+2.  **Built-in Synchronization Types**: $T \in \{ \texttt{Mutex<U>}, \texttt{RwLock<U>}, \texttt{Condvar}, \texttt{Task<U>}, \texttt{Channel<U>} \}$. These are compiler-provided.
+
+3.  **User Types with Verified `~|` Methods**: $T$ has one or more methods with `~|` receiver, AND all such methods pass the `~|` Method Verification Rules (see §9.1.2).
+
+4.  **Transitive Safety**: $T$ has NO methods with `~|` receiver, AND all fields of $T$ are themselves concurrent-safe.
+
+Attempting to form `concurrent T` where $T$ is not concurrent-safe **MUST** trigger `E-TYP-1604`.
 
 **3. Permission Projection (Field Access)**
 Permissions are transitive. When accessing a field `f` of type $T_f$ from a parent object `p` with permission $P_p$, the resulting permission of the field access $P_{res}$ is determined by the **Projection Function** $\Phi(P_p, T_f)$:
@@ -1974,10 +1900,7 @@ The projection logic is defined as:
 2.  **Const Parent (`const`)**:
 * Fields inherit `const`.
 * $\Phi(\text{const}, T) = \text{const}$
-3.  **Partitioned Parent (`partitioned`)**:
-* Fields inherit `partitioned`.
-* $\Phi(\text{partitioned}, T) = \text{partitioned}$
-4.  **Concurrent Parent (`concurrent`)**:
+3.  **Concurrent Parent (`concurrent`)**:
 * **Constraint:** Direct field access on `concurrent` types typically yields `const` to prevent data races, **UNLESS** the field access is inside an `unsafe` block or the field is specifically marked safe for concurrent access (e.g., Atomic intrinsics).
 * Standard Rule: $\Phi(\text{concurrent}, T) = \text{const}$ (Conservative Default).
 * *Note: Interior mutability for concurrent types is handled via methods, not direct field assignment.*
@@ -1998,22 +1921,19 @@ $$\text{sizeof}(P~T) \equiv \text{sizeof}(T)$$
 **ABI Guarantees**
 For FFI purposes:
 
-* `unique T`, `const T`, `partitioned T`, and `concurrent T` are all ABI-equivalent to a standard pointer to $T$ (or value $T$ if represented directly).
+* `unique T`, `const T`, and `concurrent T` are all ABI-equivalent to a standard pointer to $T$ (or value $T$ if represented directly).
 
 #### Constraints & Legality
 
 **Negative Constraints**
 
 1.  **Mutation Restriction:**
-Assignment (`x = y`) or mutable binding (`var x = ...`) requires the target place to have `unique` or `partitioned` permission.
+Assignment (`x = y`) or mutable binding (`var x = ...`) requires the target place to have `unique` permission.
 $$\frac{\Gamma \vdash \text{place} : \text{const } T}{\Gamma \nvdash \text{place} = \text{val}}$$
 **Diagnostic:** `E-TYP-1601`.
 
 2.  **Concurrent Field Assignment:**
-Direct assignment to a field of a `concurrent` reference is **Forbidden** in safe code, even if the underlying type is mutable. Mutation of `concurrent` data **MUST** occur via methods that utilize `unsafe` internals (e.g., `Mutex.lock()`, `Atomic.store()`).
-
-3.  **Incompatible Casts:**
-Coercion between `partitioned` and `concurrent` permissions is **Forbidden**. Valid usage requires explicit re-borrowing or `unsafe`.
+Direct assignment to a field of a `concurrent` reference is **Forbidden** in safe code, even if the underlying type is mutable. Mutation of `concurrent` data **MUST** occur via methods with `~|` receiver (e.g., atomic intrinsics like `i64.fetch_add()`, or synchronization primitives like `Mutex.lock()`).
 
 **Diagnostic Table**
 
@@ -2021,8 +1941,7 @@ Coercion between `partitioned` and `concurrent` permissions is **Forbidden**. Va
 | :----------- | :------- | :------------------------------------------------------- |
 | `E-TYP-1601` | Error    | Attempt to mutate data via a `const` reference.          |
 | `E-TYP-1602` | Error    | Violation of `unique` exclusion (aliasing detected).     |
-| `E-TYP-1603` | Error    | Partitioning system violation (overlap detected).        |
-| `E-TYP-1604` | Error    | `concurrent` permission used on type that is not `Sync`. |
+| `E-TYP-1604` | Error    | `concurrent` permission used on type that is not concurrent-safe. |
 
 #### Examples
 
@@ -2046,13 +1965,12 @@ let c: const Point = u;
 } // 'c' expires, 'u' is valid again.
 ```
 
-**Invalid: Sibling Cast**
+**Invalid: Mutation via const**
 
 ```cursive
-procedure fail(p: partitioned Point) {
-// Error: partitioned and concurrent are incompatible.
-// Neither allows coercion to the other.
-// let c: concurrent Point = p; 
+procedure fail(p: const Point) {
+// Error: cannot mutate through const permission.
+// p.x = 10;  // E-TYP-1601
 }
 ```
 
@@ -2603,12 +2521,13 @@ Records are the primary mechanism for defining named, composite data structures.
 
 ```ebnf
 record_decl ::= [ visibility ] "record" identifier [ generic_params ]
-[ "<:" trait_implementations ]
-"{" record_body "}"
+                [ "<:" trait_implementations ]
+                "{" record_body "}"
+                [ "where" "{" predicate "}" ]
 
 record_body ::= partition_decl*
-field_decl*
-procedure_decl*
+                field_decl*
+                procedure_decl*
 
 field_decl  ::= [ visibility ] identifier ":" type
 ```
@@ -2617,6 +2536,49 @@ field_decl  ::= [ visibility ] identifier ":" type
 
 * **Visibility**: Fields default to `private` (module-local) unless marked `public` or `internal`.
 * **Partitions**: Defined in §3.4.
+
+**Type Invariants**
+
+Records may declare a **type invariant** using the `where` clause. The invariant predicate is evaluated on every instance of the record, and the compiler statically verifies that every constructor and method preserves the invariant.
+
+Within the predicate, the **record name** serves as the binding variable, allowing access to fields via dot notation.
+
+**Example**
+
+```cursive
+record Fraction {
+    numerator: i32,
+    denominator: i32
+} where { Fraction.denominator != 0 }
+```
+
+In this example, `Fraction` binds to the record instance being constrained. The invariant ensures `denominator` is never zero for any valid `Fraction` value.
+
+**Well-Formedness (WF-Type-Invariant)**
+
+$$
+\frac{
+  \Gamma, R : R \vdash P : \text{bool} \quad \text{pure}(P)
+}{
+  \Gamma \vdash \textbf{record } R\ \{\ \ldots\ \}\ \textbf{where}\ \{\ P\ \} \text{ wf}
+}
+$$
+
+**Invariant Preservation**
+
+For any constructor or method that produces a value of record type $R$ with invariant $P$:
+
+$$
+\frac{
+  \Gamma \vdash e : R \quad \text{invariant}(R) = P
+}{
+  \Gamma \vdash P[R \mapsto e]
+}
+$$
+
+The compiler must statically verify that the predicate holds for the constructed value.
+
+See §7.4 for complete refinement type semantics and predicate binding rules.
 
 #### Static Semantics
 
@@ -2683,11 +2645,55 @@ Enums represent a value that can be one of several distinct forms (variants). Th
 enum_decl ::= [ visibility ] "enum" identifier [ generic_params ]
               [ "<:" trait_implementations ]
               "{" variant_list "}"
+              [ "where" "{" predicate "}" ]
 
 variant_list ::= variant ( "," variant )* ","?
 variant      ::= identifier [ payload ] [ "=" integer_constant ]
 payload      ::= "(" type_list ")" | "{" field_list "}"
 ```
+
+**Type Invariants**
+
+Enums may declare a **type invariant** using the `where` clause. The invariant predicate constrains all valid instances of the enum type, and the compiler statically verifies that every constructor preserves the invariant.
+
+Within the predicate, the **enum name** serves as the binding variable. The predicate may use the method-call syntax `~>` to invoke pure methods on the enum value.
+
+**Example**
+
+```cursive
+enum Tree<T> {
+    Leaf(T),
+    Node { left: ^Tree<T>, right: ^Tree<T>, height: i32 }
+} where { Tree~>is_balanced() }
+```
+
+In this example, `Tree` binds to the enum instance being constrained. The invariant ensures that every `Tree` value satisfies the `is_balanced()` predicate.
+
+**Well-Formedness (WF-Type-Invariant)**
+
+$$
+\frac{
+  \Gamma, E : E \vdash P : \text{bool} \quad \text{pure}(E\texttt{\textasciitilde>}P)
+}{
+  \Gamma \vdash \textbf{enum } E\ \{\ \ldots\ \}\ \textbf{where}\ \{\ P\ \} \text{ wf}
+}
+$$
+
+**Invariant Preservation**
+
+For any constructor that produces a value of enum type $E$ with invariant $P$:
+
+$$
+\frac{
+  \Gamma \vdash e : E \quad \text{invariant}(E) = P
+}{
+  \Gamma \vdash P[E \mapsto e]
+}
+$$
+
+The compiler must statically verify that the predicate holds for every constructed variant.
+
+See §7.4 for complete refinement type semantics and predicate binding rules.
 
 #### Static Semantics
 
@@ -3242,17 +3248,55 @@ param_type ::= [ "move" ] type
   <u>Dynamic Semantics</u>
     *   **Graph**: Dependency graph of modules.
     *   **Cycles**: The subgraph of **Eager (Value-Level) edges** MUST be Acyclic (`E-MOD-1401`). Lazy (Type-Level) cycles are permitted.
-    *   **Execution**: 
+    *   **Execution**:
         1. **Inter-Module**: Topological sort of Eager graph.
         2. **Intra-Module**: Initializers executed in strictly sequential lexical order within the source file.
     *   **Failure**: Panic poisons module.
-  
+
+  <u>Capability Unavailability During Initialization</u>
+
+Because module initialization occurs before `main()` is invoked, system capabilities (`FileSystem`, `Network`, `HeapAllocator`, etc.) are **not available** during module-level initializer execution. Module-level initializers:
+
+*   **MUST NOT** perform heap allocation (requires `HeapAllocator`)
+*   **MUST NOT** perform file I/O (requires `FileSystem`)
+*   **MUST NOT** perform network operations (requires `Network`)
+*   **MUST NOT** invoke any procedure requiring a capability parameter
+
+Module-level initializers are restricted to:
+
+*   Literal values and constant expressions
+*   Pure computations on other module-level bindings (respecting initialization order)
+*   Construction of types that do not require capabilities
+
+This restriction is a direct consequence of the No Ambient Authority principle (§5.6): capabilities are injected exclusively through `main()`, which has not yet been called during module initialization.
+
+  <u>Constraints & Legality</u>
+
+| Code         | Severity | Condition                                              |
+| :----------- | :------- | :----------------------------------------------------- |
+| `E-MOD-1402` | Error    | Capability-requiring operation in module initializer   |
+
 
 ### 5.6 Program Entry Point {Source: Draft 2 §30.1, §30.2}
 
   <u>Definition</u>
-    No ambient authority.
-  
+
+**No Ambient Authority Principle**
+
+Cursive enforces the principle of **No Ambient Authority**: all procedures that produce observable external effects (I/O, networking, threading, heap allocation) **MUST** receive the required capability explicitly. There are no global functions for these operations.
+
+This principle has a critical consequence for program structure:
+
+1.  **Capabilities originate at `main()`**: The `Context` parameter to `main()` is the sole source of system capabilities in a Cursive program.
+2.  **Capabilities must be threaded explicitly**: Any procedure requiring a capability must receive it as a parameter from its caller, forming a capability chain rooted at `main()`.
+3.  **Module initialization is capability-free**: Because `main()` has not yet been invoked during module initialization (§5.5), no capabilities are available. Module-level bindings cannot perform capability-requiring operations such as heap allocation.
+
+This design ensures that:
+
+*   All effectful operations are traceable to explicit capability grants
+*   Module-level state cannot contain heap pointers (preventing dangling global pointers)
+*   The program's authority is fully determined by what capabilities `main()` propagates
+
   <u>Syntax & Declaration</u>
     `public procedure main(ctx: Context): i32`
     **Context Record**: The `Context` record MUST define the following fields:
@@ -3387,9 +3431,9 @@ param_type ::= [ "move" ] type
     *   **Type Invariants**: Desugared as postcondition conjunction: `EffectivePost(P) = Post ∧ Inv(self)`
     *   **Loop Invariants**: MUST hold at initialization, every iteration start, and termination.
     *   **Contract Intrinsics**:
-        - `@result`: Available in `will` clause. Refers to procedure's return value. Type matches return type. Cannot be shadowed.
+        - `@result`: Available in `will` clause and return type refinement constraints. Refers to procedure's return value. Type matches return type. Cannot be shadowed. For return type constraints (e.g., `-> i32 where { @result >= 0 }`), `@result` is the binding variable within the refinement predicate. See §7.4 for refinement type predicate binding rules.
         - `@entry(expr)`: Available in `will` clause. Evaluates `expr` at procedure entry (after param binding, before body). Expression MUST be pure, depend only on inputs, and evaluate to `Copy` or `Clone` type (`E-CON-2805`).
-        - Usage of `@result` outside `will` triggers `E-CON-2806`.
+        - Usage of `@result` outside `will` clause or return type constraint triggers `E-CON-2806`.
     *   **Liskov Substitution**: Implementations may weaken preconditions ($P_{trait} \implies P_{impl}$) and strengthen postconditions ($Q_{impl} \implies Q_{trait}$). Violations are errors (`E-CON-2803`, `E-CON-2804`).
   
 
@@ -3465,22 +3509,339 @@ param_type ::= [ "move" ] type
   ```
 
 
-### 7.4 Invariants and Refinements (where) {Source: Draft 2 §27.4}
+### 7.4 Refinement Types and Invariants {Source: Draft 2 §27.4}
 
-  <u>Definition</u>
-    Predicates that constrain the set of valid values for a type.
-    *   **Nominal Invariants**: Defined on `record`/`enum` declarations (as currently specified).
-    *   **Anonymous Invariants (Refinements)**: Defined on arbitrary type references (e.g., `usize`, `[T]`) in signatures or bindings.
+#### Definition
 
-  <u>Syntax & Declaration</u>
-    *   **Type Syntax**: `<type> "where" "{" <predicate> "}"`
-    *   **Example**: `procedure get(idx: usize where { self < len })`
-    *   **Self Reference**: The keyword `self` in an anonymous invariant refers to the value being constrained.
+**Formal Definition**
+A **Refinement Type** is a type $T$ paired with a predicate $P$ that constrains the set of valid values. A value $v$ inhabits the refinement type $(T \text{ where } \{P\})$ if and only if $v : T$ and $P[v]$ evaluates to `true`.
 
-  <u>Static Semantics</u>
-    *   **Invariant Subtyping**: Type `T where { P }` is a subtype of `T where { Q }` if and only if the compiler can prove $P \implies Q$.
-    *   **Intersection**: `(T where { P }) where { Q }` is equivalent to `T where { P && Q }`.
-    *   **Verification Obligation**: Passing a value to a binding with an anonymous invariant generates a verification requirement (handled via Static Proof or Dynamic Check per §27.6).
+**Prose Definition**
+Refinement types allow programmers to express constraints on values directly in the type system. This enables static verification of invariants that would otherwise require runtime checks or documentation.
+
+**Classification**
+*   **Nominal Invariants**: Defined on `record`/`enum` declarations via a `where` clause after the declaration body.
+*   **Type Alias Refinements**: Defined on type aliases via `type N = T where { P }`.
+*   **Parameter Constraints**: Defined inline on procedure parameters via `x: T where { P }`.
+*   **Return Constraints**: Defined inline on procedure return types via `-> T where { P }`.
+
+#### Syntax & Declaration
+
+**Grammar**
+
+```ebnf
+refinement_type       ::= type "where" "{" predicate "}"
+
+type_alias_refine     ::= "type" identifier "=" type "where" "{" predicate "}"
+
+param_with_constraint ::= identifier ":" type "where" "{" predicate "}"
+
+return_constraint     ::= "->" type "where" "{" predicate "}"
+
+predicate             ::= expression
+```
+
+**Predicate Binding**
+
+Within a refinement predicate, the **binding variable** refers to the value being constrained. The identity of the binding variable is determined by the syntactic context:
+
+| Context | Binding Variable | Example |
+| :------ | :--------------- | :------ |
+| Type alias `type N = T where { P }` | `N` (the declared name) | `type Positive = i32 where { Positive > 0 }` |
+| Record invariant `record R { ... } where { P }` | `R` (the record name) | `record Frac { n: i32, d: i32 } where { Frac.d != 0 }` |
+| Enum invariant `enum E { ... } where { P }` | `E` (the enum name) | `enum Tree { ... } where { Tree~>is_balanced() }` |
+| Parameter constraint `x : T where { P }` | `x` (the parameter name) | `procedure f(x: i32 where { x > 0 })` |
+| Return constraint `-> T where { P }` | `@result` (intrinsic) | `procedure abs(x: i32) -> i32 where { @result >= 0 }` |
+
+**Shadowing Rule**
+
+Within the predicate scope, the binding variable is bound as a **value** of the constrained type. In type alias and type invariant contexts, this shadows any type of the same name for the duration of the predicate.
+
+**Rationale**
+
+This design follows the principle: *if a name exists, use it; otherwise, use the standard intrinsic*. Type declarations introduce names (the declared identifier). Parameters have names. Return values use the `@result` intrinsic, consistent with procedure postconditions (§7.1). The implicit `self` keyword is eliminated to avoid overloading `self` (which elsewhere refers to the method receiver) and to make bindings syntactically visible.
+
+#### Static Semantics
+
+**Binding Variable Resolution**
+
+Let $\text{BindVar}(C)$ denote the binding variable for syntactic context $C$:
+
+$$\text{BindVar}(C) = \begin{cases}
+N & \text{if } C = \texttt{type } N = T \text{ where } \{P\} \\
+R & \text{if } C = \texttt{record } R\ \{\ldots\} \text{ where } \{P\} \\
+E & \text{if } C = \texttt{enum } E\ \{\ldots\} \text{ where } \{P\} \\
+x & \text{if } C = x : T \text{ where } \{P\} \text{ (parameter)} \\
+\texttt{@result} & \text{if } C = \to T \text{ where } \{P\} \text{ (return)}
+\end{cases}$$
+
+**Well-Formedness (WF-Refine-Type-Alias)**
+
+A type alias refinement `type N = T where { P }` is well-formed when the base type is well-formed and the predicate is a valid pure expression of type `bool` under a context extended with `N : T`:
+
+$$\frac{
+    \Gamma \vdash T\ \text{wf} \quad
+    \Gamma, N : T \vdash P : \texttt{bool} \quad
+    \text{Pure}(P)
+}{
+    \Gamma \vdash (\texttt{type } N = T \text{ where } \{P\})\ \text{wf}
+} \quad \text{(WF-Refine-Type-Alias)}$$
+
+**Well-Formedness (WF-Type-Invariant)**
+
+A type invariant `record R { ... } where { P }` or `enum E { ... } where { P }` is well-formed when the predicate is a valid pure expression of type `bool` under a context extended with the type name bound to the type:
+
+$$\frac{
+    \Gamma \vdash R\ \text{wf} \quad
+    \Gamma, R : R \vdash P : \texttt{bool} \quad
+    \text{Pure}(P)
+}{
+    \Gamma \vdash (\texttt{record } R\ \{\ldots\} \text{ where } \{P\})\ \text{wf}
+} \quad \text{(WF-Type-Invariant)}$$
+
+**Well-Formedness (WF-Param-Constraint)**
+
+A parameter constraint `x: T where { P }` is well-formed when the base type is well-formed and the predicate is a valid pure expression of type `bool` under a context extended with `x : T`:
+
+$$\frac{
+    \Gamma \vdash T\ \text{wf} \quad
+    \Gamma, x : T \vdash P : \texttt{bool} \quad
+    \text{Pure}(P)
+}{
+    \Gamma \vdash (x : T \text{ where } \{P\})\ \text{wf}
+} \quad \text{(WF-Param-Constraint)}$$
+
+**Well-Formedness (WF-Return-Constraint)**
+
+A return constraint `-> T where { P }` is well-formed when the return type is well-formed and the predicate is a valid pure expression of type `bool` under a context extended with `@result : T`:
+
+$$\frac{
+    \Gamma \vdash T\ \text{wf} \quad
+    \Gamma, \texttt{@result} : T \vdash P : \texttt{bool} \quad
+    \text{Pure}(P)
+}{
+    \Gamma \vdash (\to T \text{ where } \{P\})\ \text{wf}
+} \quad \text{(WF-Return-Constraint)}$$
+
+**Typing Rules**
+
+**(T-Refine-Intro)**
+
+A value of base type `T` has refinement type `T where { P }` when a Verification Fact (§7.2) establishes that `P` holds for that value. The binding variable $v$ is substituted with the expression $e$:
+
+$$\frac{
+    \Gamma \vdash e : T \quad
+    v = \text{BindVar}(C) \quad
+    \Gamma \vdash F(P[e/v], L) \quad
+    L \text{ dominates current location}
+}{
+    \Gamma \vdash e : T \text{ where } \{P\}
+} \quad \text{(T-Refine-Intro)}$$
+
+where $C$ is the syntactic context of the refinement and $P[e/v]$ denotes substitution of $e$ for $v$ in $P$.
+
+**(T-Refine-Elim)**
+
+A value of refinement type can always be used where the base type is expected:
+
+$$\frac{
+    \Gamma \vdash e : T \text{ where } \{P\}
+}{
+    \Gamma \vdash e : T
+} \quad \text{(T-Refine-Elim)}$$
+
+**Subtyping**
+
+*   **Invariant Subtyping**: Type `T where { P }` is a subtype of `T where { Q }` if and only if the compiler can prove $P \implies Q$.
+*   **Intersection**: `(T where { P }) where { Q }` is equivalent to `T where { P && Q }`.
+
+#### Parameter and Return Constraints
+
+**Parameter Constraint Syntax**
+
+When a refinement type constrains a **procedure parameter**, the predicate uses the **parameter name** as the binding variable. Other in-scope parameters declared earlier in the parameter list MAY be referenced, enabling dependent constraints between parameters.
+
+```cursive
+// Single parameter constraint
+procedure sqrt(x: f64 where { x >= 0.0 }) -> f64
+
+// Dependent constraint: 'idx' references earlier parameter 'arr'
+procedure get<T>(arr: [T], idx: usize where { idx < arr~>len() }) -> T
+
+// Multiple dependent constraints
+procedure copy_range<T>(
+    src: [T],
+    dst: ~! [T] where { dst~>len() >= src~>len() },
+    start: usize where { start <= src~>len() },
+    end: usize where { end >= start && end <= src~>len() }
+)
+```
+
+**Method Receiver Constraints**
+
+In methods, the receiver parameter is named `self`. Constraints on the receiver use `self` as the binding variable because `self` is the parameter name:
+
+```cursive
+record Buffer {
+    data: [u8],
+    capacity: usize
+
+    // 'self' is the parameter name, so 'self' is the binding variable
+    procedure push(self: ~! where { self.data~>len() < self.capacity }, byte: u8)
+}
+```
+
+This is consistent with the general rule: the binding variable is the parameter name.
+
+**Return Type Constraint Syntax**
+
+When a refinement type constrains a **return type**, the predicate uses `@result` as the binding variable. This is consistent with postcondition syntax (§7.1).
+
+```cursive
+// Return constraint using @result
+procedure abs(x: i32) -> i32 where { @result >= 0 }
+
+// Constraint referencing parameters and return value
+procedure clamp(x: i32, lo: i32, hi: i32) -> i32 where {
+    @result >= lo && @result <= hi
+}
+
+// Combined parameter and return constraints
+procedure divide(
+    a: i32,
+    b: i32 where { b != 0 }
+) -> i32 where { @result * b <= a && @result * b > a - b }
+```
+
+**Desugaring**
+
+A parameter with an inline constraint is semantically equivalent to an unrefined parameter with a procedure-level precondition. A return type with an inline constraint is semantically equivalent to a postcondition. The following declarations are equivalent:
+
+```cursive
+// Inline constraint forms
+procedure get<T>(arr: [T], idx: usize where { idx < arr~>len() }) -> T
+procedure abs(x: i32) -> i32 where { @result >= 0 }
+
+// Procedure where-clause forms (equivalent)
+procedure get<T>(arr: [T], idx: usize) -> T
+    [[ must => idx < arr~>len() ]]
+procedure abs(x: i32) -> i32
+    [[ will => @result >= 0 ]]
+```
+
+The inline form is preferred when the constraint concerns a single parameter or is a simple return constraint. The procedure contract clause (§7.1) is preferred for multi-parameter relationships, complex postconditions, or predicates that benefit from separate formatting.
+
+#### Type Alias Examples
+
+```cursive
+// The declared name 'Byte' is the binding variable
+type Byte = usize where { Byte < 256 }
+
+// The declared name 'Positive' is the binding variable
+type Positive = i32 where { Positive > 0 }
+
+// The declared name 'NonEmpty' is the binding variable
+type NonEmpty<T> = [T] where { NonEmpty~>len() > 0 }
+
+// Complex predicate with method calls
+type ValidEmail = string where {
+    ValidEmail~>contains("@") && ValidEmail~>len() <= 254
+}
+```
+
+**Inline Refinement Type Expressions**
+
+When a refinement type appears inline (not as a named type alias), it MUST be wrapped in a type alias or used as a parameter/return constraint. Standalone anonymous refinement types are not permitted because no binding variable exists.
+
+```cursive
+// INVALID: No binding variable for anonymous refinement
+let x: i32 where { ??? > 0 } = 5;  // ERROR: E-TYP-1960
+
+// VALID: Use a type alias
+type Positive = i32 where { Positive > 0 }
+let x: Positive = 5;
+
+// VALID: Use as parameter constraint (parameter name is binding)
+procedure f(x: i32 where { x > 0 })
+```
+
+#### Predicate Scope and Purity
+
+The predicate `P` in a refinement type `T where { P }`:
+
+1. MUST be a pure expression as defined in §7.1 (no side effects, no I/O, no allocation, no capability invocation).
+2. MUST evaluate to type `bool`.
+3. MUST use the binding variable determined by syntactic context (see Binding Variable Resolution above).
+4. In type alias and type invariant contexts, the binding variable (the declared name) shadows any type of the same name within the predicate scope.
+5. MAY reference other in-scope bindings, including earlier parameters in procedure signatures.
+6. In return constraints, MAY reference `@result` and all procedure parameters.
+
+#### Constraints & Legality
+
+**Negative Constraints**
+
+The following constraints apply to refinement types:
+
+1. A refinement predicate MUST be a pure expression. Impure expressions (those performing I/O, allocation, mutation, or capability invocation) are forbidden.
+
+2. A refinement predicate MUST evaluate to type `bool`. Predicates of other types are forbidden.
+
+3. The implicit `self` keyword MUST NOT appear in refinement predicates. Use the declared name (for type aliases and invariants), the parameter name (for parameter constraints), or `@result` (for return constraints).
+
+4. Anonymous inline refinement types (refinements not attached to a named declaration or parameter) are ill-formed. Refinement types require a binding variable, which is provided by the declaration context.
+
+5. The `@result` intrinsic MUST NOT appear in refinement predicates outside of return type constraints. In return constraints, `@result` is the only valid binding variable.
+
+6. Refinement predicates MUST NOT create circular type dependencies. A predicate that references a type alias containing the refinement being defined is ill-formed.
+
+7. For `static` verification mode, if the implementation's proof system cannot decide the predicate, the program is ill-formed. The programmer MAY use `dynamic` mode as a fallback.
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                                       | Detection    | Effect    |
+| :----------- | :------- | :-------------------------------------------------------------- | :----------- | :-------- |
+| `E-TYP-1950` | Error    | `self` used in refinement predicate (use declared name instead) | Compile-time | Rejection |
+| `E-TYP-1951` | Error    | Refinement predicate is not of type `bool`                      | Compile-time | Rejection |
+| `E-TYP-1952` | Error    | Circular type dependency in refinement predicate                | Compile-time | Rejection |
+| `E-TYP-1960` | Error    | Anonymous inline refinement type (no binding variable)          | Compile-time | Rejection |
+| `E-TYP-1961` | Error    | `@result` used outside return type constraint                   | Compile-time | Rejection |
+| `E-TYP-1962` | Error    | Binding variable does not match declared name                   | Compile-time | Rejection |
+| `E-CON-2801` | Error    | Static verification failed in `static` mode                     | Compile-time | Rejection |
+| `E-CON-2802` | Error    | Impure expression in refinement predicate                       | Compile-time | Rejection |
+| `P-TYP-1953` | Panic    | Refinement predicate evaluated to `false` at runtime            | Runtime      | Panic     |
+
+**Example Diagnostics**
+
+```
+error[E-TYP-1950]: `self` is not valid in refinement predicates
+  --> src/types.cursive:1:32
+   |
+ 1 | type Positive = i32 where { self > 0 }
+   |                             ^^^^ help: use the declared name: `Positive`
+   |
+   = note: refinement predicates use the declared name as the binding variable
+```
+
+```
+error[E-TYP-1960]: anonymous inline refinement types are not permitted
+  --> src/main.cursive:5:12
+   |
+ 5 |     let x: i32 where { ??? > 0 } = 5;
+   |            ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: refinement types require a binding variable from a named declaration
+   = help: define a type alias: `type Positive = i32 where { Positive > 0 }`
+```
+
+#### Cross-References
+
+| Term               | Section | Description                                                    |
+| :----------------- | :------ | :------------------------------------------------------------- |
+| Predicate          | §7.4    | Boolean expression constraining refinement type                |
+| Binding Variable   | §7.4    | Identifier bound to constrained value in predicate             |
+| Verification Fact  | §7.2    | Virtual record of proved predicates used by the verifier       |
+| Verification Mode  | §7.3    | Strategy for contract verification (static/dynamic/trusted)    |
+| Contract Intrinsic | §7.1    | Special identifiers in contracts (@result, @entry)             |
 
 
 ---
@@ -3699,70 +4060,1009 @@ param_type ::= [ "move" ] type
 ---
 
 ## Clause 9: Concurrency
-### 9.1 Path 1: Data Parallelism {Source: Draft 2 §31.2}
 
-  <u>Definition</u>
-    CREW Model. `parallel` epoch.
+This clause defines the Cursive concurrency model based on **Execution Regions**—a unified abstraction for memory management and parallel task execution.
 
-  <u>Syntax & Declaration</u>
-    *   **Parallel Block**: `parallel(binding_list) { ... }`.
-    *   **Fork Expression**: `fork closure_expr` (Returns `JobHandle<T>`).
-    *   **Binding List**: Explicit list of `unique`/`partitioned` bindings to capture.
+---
 
-  <u>Static Semantics</u>
-    *   **Invalidation**: Captured bindings are statically invalidated in the outer scope for the duration of the block.
-    *   **Capture Downgrading Rules**:
-        -   **Sync Types (`unique T` where `T: Sync`)**: Downgrades to **`concurrent T`**. Inner scope can perform synchronized operations.
-        -   **Non-Sync Types (`unique T` where `T: !Sync`)**: Downgrades to **`const T`**. Pure data becomes deeply immutable to prevent data races.
-    *   **JobHandle**: MUST NOT implement `Copy`, `Clone`, or `detach`.
-    *   **Linear Usage Analysis** (Static Join Requirement `E-CON-3202`):
-        - **Usage Count**: Compiler tracks usage of every `JobHandle` returned by `spawn`.
-        - **Consumption**: Calling `join()` consumes the handle (Usage count -> 0).
-        - **Invariant**: On exit of `parallel` block, Usage Count of all handles MUST be exactly 0.
-        - **Branching**: In conditional branches, handle MUST be joined in ALL paths or NO paths.
-  
-  <u>Dynamic Semantics</u>
-    *   **Fork-Join Model**: The `parallel` block suspends the current thread and spawns a logical task for the block body.
-    *   **Barrier**: The end of the `parallel` block acts as a strict synchronization barrier. Control returns to the parent thread only after all spawned tasks have completed.
-    *   **Panic Propagation**: If any task panics, the parent thread MUST panic upon synchronization.
-  
+### 9.1 Concurrency Model Foundations
 
-### 9.2 Path 2: Stateful Coordination {Source: Draft 2 §31.3}
+#### Definition
 
-  <u>Definition</u>
-    Threads and Locks via Capabilities.
+**The Unified Region Model**
 
-  <u>Static Semantics</u>
-    *   `System.spawn`: Requires thread-safe captures (no `partitioned`).
-    *   **Mutex & Atomic Signatures**:
-        -   **Mutex**: `procedure lock(~|): MutexGuard<T>` (Requires `concurrent` permission).
-        -   **Atomic**: `procedure fetch_add(~|, v: i32): i32` (Requires `concurrent` permission).
-    *   **Mutex<T> States**: 
-        *   `@Unlocked` (Empty).
-        *   `@Locked` (Contains `T`).
-        *   **Transitions**: `lock` (@Unlocked -> @Locked), `unlock` (@Locked -> @Unlocked).
-    *   **MutexGuard<T> RAII Pattern** (§31.3.3):
-        - `lock()` transition MUST return `MutexGuard<T>` (responsible binding)
-        - Guard holds `unique` reference to protected data `T`
-        - Guard implements `Drop`; destructor MUST invoke `unlock()` transition
-        - Prevents forgetting to unlock (automatic via RAII)
-    *   **Thread<T> States**: 
-        *   `@Spawned` (Running).
-        *   `@Joined` (Complete).
-        *   `@Detached` (Discarded).
-        *   **Transitions**: `join` (@Spawned -> @Joined), `detach` (@Spawned -> @Detached).
+Cursive provides a single unified model for concurrent execution based on **Execution Regions**. Regions serve as both memory arenas and execution scopes, eliminating the distinction between "data parallelism" and "stateful coordination."
+
+**Core Principles**
+
+1. **Structured Concurrency**: All tasks complete before their spawning region exits
+2. **No Ambient Authority**: All capabilities are explicit
+3. **Permission-Based Safety**: Data race freedom via the permission system
+4. **Zero-Cost Abstractions**: Compile-time enforcement, minimal runtime overhead
+
+**Formal Definition**
+
+Let $\mathcal{R}$ denote the set of region types:
+$$\mathcal{R} = \{\text{Sequential}, \text{Pool}(n), \text{Async}(r), \text{GPU}(d), \text{SIMD}, \text{Interrupt}\}$$
+
+A concurrent operation $op$ is valid if and only if:
+1. $op$ occurs within an appropriate region type
+2. $op$ respects the permission constraints of captured bindings
+
+**Thread Safety via Permissions**
+
+Thread safety is derived from the Permission System (§4.3):
+
+| Permission | Share Safety | Transfer Safety |
+|------------|--------------|-----------------|
+| `const` | Safe | Safe |
+| `unique` | Unsafe (exclusive) | Safe (via move) |
+| `concurrent` | Safe (synchronized) | Safe |
+
+#### Static Semantics
+
+**Typing Rules**
+
+**(Safe-Const):** A `const` binding is always safe to share.
+$$\frac{}{\Gamma \vdash \text{ShareSafe}(x : \text{const } T)}$$
+
+**(Safe-Unique-Transfer):** A `unique` binding may be transferred via move.
+$$\frac{}{\Gamma \vdash \text{TransferSafe}(\text{move } x : \text{unique } T)}$$
+
+**(Safe-Concurrent):** A `concurrent` binding is safe for synchronized sharing.
+$$\frac{}{\Gamma \vdash \text{ShareSafe}(x : \text{concurrent } T)}$$
+
+---
+
+### 9.2 Execution Regions
+
+#### Definition
+
+An **Execution Region** combines memory lifetime with task lifetime. The region modifier determines execution semantics.
+
+#### 9.2.1 Sequential Regions
+
+The default region provides sequential execution and arena allocation:
+
+```cursive
+region as r {
+    let data = r^make_data()
+    process(data)
+}  // data freed
+```
+
+Sequential regions do not support `spawn`.
+
+#### 9.2.2 Pool Regions
+
+Pool regions provide parallel execution via a thread pool:
+
+```cursive
+region pool(4) as r {
+    let data = r^load_data()
+    spawn { process_a(data) }
+    spawn { process_b(data) }
+}  // All tasks complete, then data freed
+```
+
+**Pool Configuration Options**
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `.stack_size(bytes)` | `usize` | Stack size per worker |
+| `.affinity(cores)` | `[CoreId]` | CPU affinity mask |
+| `.priority(p)` | `Priority` | Scheduling priority |
+| `.name(s)` | `string@View` | Thread name prefix |
+| `.collect_errors()` | — | Collect vs fail-fast |
+
+**Example:**
+```cursive
+region pool(2)
+    .stack_size(1024 * 1024)
+    .affinity([CoreId(0), CoreId(1)])
+    .priority(Priority::High)
+as r {
+    spawn { latency_critical() }
+}
+```
+
+**Priority Levels:**
+```cursive
+enum Priority {
+    Low,       // Background
+    Normal,    // Default
+    High,      // Elevated
+    Realtime,  // Requires RealtimeScheduling capability
+}
+```
+
+#### 9.2.3 Async Regions
+
+Async regions provide non-blocking I/O via an executor:
+
+```cursive
+region async(ctx.runtime) as r {
+    let response = fetch(url).await
+    spawn { cache.store(response).await }
+}
+```
+
+**The Suspend Capability**
+
+Async regions provide the `Suspend` capability authorizing suspension points:
+
+```cursive
+trait Suspend {
+    procedure suspend<T>(~, future: Future<T>) -> T
+}
+```
+
+The `await` keyword is sugar for `__suspend.suspend(future)`.
+
+**Async Functions:**
+```cursive
+async procedure fetch_data(url: Url) -> Data {
+    http_get(url).await
+}
+// Equivalent to:
+procedure fetch_data(url: Url, witness Suspend) -> Data { ... }
+```
+
+#### 9.2.4 GPU Regions
+
+GPU regions target compute devices:
+
+```cursive
+region gpu(ctx.gpu) as r {
+    let input = r^[0f32; 1_000_000]
+    input.copy_from_host(host_data)
+
+    dispatch idx in 0..input.len() {
+        output[idx] = input[idx] * 2.0
+    }
+
+    output.copy_to_host(result)
+}
+```
+
+#### 9.2.5 Interrupt Regions
+
+Interrupt regions enforce ISR-safe constraints:
+
+```cursive
+region interrupt {
+    // Allowed: stack variables, atomic ops, volatile access
+    // Forbidden: sync, ^, await, spawn, heap allocation
+}
+```
+
+**Constraints:**
+
+| Operation | Status | Error Code |
+|-----------|--------|------------|
+| Stack variables | Allowed | — |
+| `atomic match` | Allowed | — |
+| Volatile access | Allowed | — |
+| `#[interrupt_safe]` calls | Allowed | — |
+| `sync` blocks | Forbidden | E-REG-1210 |
+| `^` allocation | Forbidden | E-REG-1211 |
+| `.await` | Forbidden | E-REG-1212 |
+| `spawn` | Forbidden | E-REG-1213 |
+| Heap allocation | Forbidden | E-REG-1214 |
+
+**Interrupt-Safe Functions:**
+```cursive
+#[interrupt_safe]
+procedure acknowledge_irq(ctrl: Volatile<u32>) {
+    ctrl.write(EOI_BIT)
+}
+```
+
+The `#[interrupt_safe]` attribute is checked transitively.
+
+---
+
+### 9.3 The `spawn` Expression
+
+#### Definition
+
+The `spawn` keyword creates a task within a parallel region.
+
+#### Syntax
+
+```ebnf
+spawn_expr ::= "spawn" block_expr
+              | expr "." "spawn" "(" closure_expr ")"
+```
+
+#### Static Semantics
+
+**(T-Spawn)**
+$$\frac{\Gamma \vdash e : T \quad \text{InParallelRegion}(\Gamma) \quad \text{CapturesValid}(\Gamma, e)}{\Gamma \vdash \texttt{spawn } \{ e \} : \texttt{TaskHandle}<T>}$$
+
+**Capture Rules:**
+- `const` bindings: Captured by shared reference
+- `unique` bindings: MUST be explicitly moved
+- `concurrent` bindings: Captured by shared reference
+
+#### Constraints
+
+| Code | Severity | Condition |
+|------|----------|-----------|
+| `E-REG-1201` | Error | `spawn` outside parallel region |
+| `E-CON-3203` | Error | Invalid capture in spawn closure |
+
+---
+
+### 9.4 Mutex<T> and Synchronized Access
+
+#### Definition
+
+`Mutex<T>` is a modal type providing synchronized mutable access to shared data.
+Access to mutex-protected data occurs **exclusively** through `sync` blocks.
+
+#### Modal States
+
+| State | Description |
+|-------|-------------|
+| `@Unlocked` | Mutex free; data inaccessible |
+| `@Locked` | Mutex held; data accessible |
+
+#### Ranked Mutexes
+
+Mutexes may optionally have compile-time ranks for static deadlock prevention:
+
+```cursive
+// Unranked (dynamic ordering)
+type DynMutex<T> = Mutex<T>
+
+// Ranked (static deadlock prevention)
+const RANK_DB: u32 = 100
+const RANK_CACHE: u32 = 50
+let db: Mutex<Db, RANK_DB> = ...
+let cache: Mutex<Cache, RANK_CACHE> = ...
+```
+
+See §9.8.4 for lock rank rules.
+
+---
+
+### 9.5 Atomic<T> and Lock-Free Operations
+
+#### Definition
+
+`Atomic<T>` provides lock-free operations for types satisfying `AtomicCompatible`.
+
+#### AtomicCompatible Trait
+
+```cursive
+trait AtomicCompatible {
+    const SIZE: usize
+    const ALIGNMENT: usize
+    const LOCK_FREE: bool
+}
+```
+
+**Architecture Limits:**
+
+| Architecture | Native Size | Lock-Free Types |
+|--------------|-------------|-----------------|
+| 32-bit | 32 bits | bool, i8-i32, u8-u32 |
+| 64-bit | 64 bits | + i64, u64, usize |
+| 64-bit + CMPXCHG16B | 128 bits | + i128, u128 |
+
+Types exceeding native size produce `W-ATM-4010` (lock-based fallback) or
+`E-ATM-4005` (no fallback available).
+
+---
+
+### 9.6 Linear Lenses
+
+#### Definition
+
+A **Linear Lens** splits a `unique` resource into multiple disjoint `unique` views,
+using a **linear ticket** to track reconstruction rights.
+
+#### Core Mechanism
+
+```cursive
+// Split consumes 'data', returns views AND a linear ticket
+let (left, right, ticket) = data~>split_at(500)
+
+// Use views freely
+region pool(2) as r {
+    spawn { process(move left) }
+    spawn { process(move right) }
+}
+
+// Reconstruct OR discard
+let data = ticket~>rejoin(left, right)
+// OR: ticket~>discard()
+```
+
+#### Lens Traits
+
+```cursive
+modal LensTicket<Parent, const N: usize> {
+    @Valid { }
+    @Consumed { }
+}
+
+trait SplitAt {
+    type View
+    procedure split_at(self: unique Self, index: usize)
+        -> (unique Self::View, unique Self::View, linear LensTicket<Self, 2>)
+}
+
+trait Chunked {
+    procedure chunks(self: unique Self, size: usize)
+        -> (ChunkIter<Self::View>, linear LensTicket<Self, Dynamic>)
+}
+
+trait Strided {
+    procedure stride_split(self: unique Self, stride: usize, offsets: [usize])
+        -> ([unique StridedView<Self::Item>], linear LensTicket<Self, Dynamic>)
+}
+```
+
+#### Ticket Operations
+
+```cursive
+impl<P, const N: usize> LensTicket<P, N> {
+    transition rejoin(self: linear Self@Valid, views: ...) -> unique P
+    to Self@Consumed
+
+    transition discard(self: linear Self@Valid)
+    to Self@Consumed
+}
+```
+
+#### Constraints
+
+| Code | Severity | Condition |
+|------|----------|-----------|
+| `E-LEN-2001` | Error | Ticket not consumed |
+| `E-LEN-2002` | Error | View used after rejoin |
+| `E-LEN-2003` | Error | Rejoin with missing views |
+| `E-LEN-2004` | Error | Ticket consumed twice |
+
+---
+
+### 9.7 Static Field Lenses
+
+#### Definition
+
+Fields of a `unique` record are implicitly lensable. Moving a field into a
+parallel task creates a **static lens**—the compiler tracks which fields are
+"out" and restores the parent when all fields return.
+
+#### Syntax
+
+No new syntax required. Behavior emerges from structured regions:
+
+```cursive
+record Player {
+    pos: Vector3,
+    health: f32,
+    inventory: Inventory,
+}
+
+procedure update(p: unique Player) {
+    region pool(2) as r {
+        spawn { physics_step(move p.pos) }
+        spawn { sort_items(move p.inventory) }
+
+        // p.health still accessible (not moved)
+        p.health = 100.0
+    }
+    // p fully restored
+    log(p.pos)  // OK
+}
+```
+
+#### Partial Move Tracking
+
+| State | Accessible Fields | Parent Accessible |
+|-------|-------------------|-------------------|
+| `@Whole` | All | Yes |
+| `@PartiallyMoved{f1, f2}` | All except f1, f2 | No |
+
+#### Constraints
+
+| Code | Severity | Condition |
+|------|----------|-----------|
+| `E-FLD-3001` | Error | Union field projection (aliased memory) |
+| `E-FLD-3002` | Error | Packed record field projection |
+| `E-FLD-3003` | Error | Concurrent record field split |
+
+---
+
+### 9.8 Sync Blocks
+
+#### Definition
+
+A **sync block** provides temporary `unique` access to data protected by a `Mutex`,
+transforming `concurrent Mutex<T>` into `unique T`.
+
+#### 9.8.1 Basic Syntax
+
+```cursive
+sync (binding = mutex_expr) {
+    // binding has type `unique T`
+}
+```
+
+#### 9.8.2 Multiple Locks
+
+```cursive
+sync (a = mutex_a, b = mutex_b) {
+    transfer(a, b, amount)
+}
+```
+
+#### 9.8.3 Lock Ordering Options
+
+**Declaration Order (default):**
+```cursive
+sync (a = m1, b = m2) { ... }  // Acquires m1, then m2
+```
+
+**Explicit Ordering:**
+```cursive
+sync(ordered: a.id < b.id) (a = acc_a, b = acc_b) { ... }
+```
+
+**Address-Based Sorting:**
+```cursive
+sync(address_sorted) (a = m1, b = m2) { ... }  // Runtime sorts by address
+```
+
+#### 9.8.4 Lock Ranks
+
+Ranked mutexes enable static deadlock prevention:
+
+```cursive
+const RANK_DB: u32 = 100
+const RANK_CACHE: u32 = 50
+
+let db: Mutex<Db, RANK_DB> = ...
+let cache: Mutex<Cache, RANK_CACHE> = ...
+
+// Valid: higher rank first
+sync (d = db) {
+    sync (c = cache) { ... }  // OK: 50 < 100
+}
+
+// Invalid: rank violation
+sync (c = cache) {
+    sync (d = db) { ... }  // ERROR E-SYN-3010
+}
+```
+
+**Rules:**
+1. Can only acquire locks with rank **lower** than currently held
+2. Same-rank locks must be acquired together, not nested
+
+#### 9.8.5 Try-Sync
+
+```cursive
+if sync? (map = shared) {
+    map.insert(key, value)
+} else {
+    handle_contention()
+}
+
+if sync?(timeout: 100.ms) (map = shared) { ... }
+if sync?(spin: 1000) (map = shared) { ... }
+```
+
+#### 9.8.6 Condition Variables
+
+```cursive
+sync (queue = mutex, wait cond) {
+    cond~>wait_while(|| queue.is_empty())
+    let item = queue.pop()
+}
+
+sync (queue = mutex, notify cond) {
+    queue.push(item)
+    cond~>notify_one()
+}
+```
+
+**Permission Flow During Wait:**
+1. Before wait: `unique` permission held
+2. During wait: Permission suspended, lock released
+3. After wait: Lock re-acquired, permission restored
+
+#### Constraints
+
+| Code | Severity | Condition |
+|------|----------|-----------|
+| `E-SYN-3004` | Error | Nested sync on same mutex |
+| `W-SYN-3003` | Warning | Inconsistent lock ordering |
+| `E-SYN-3010` | Error | Lock rank violation |
+| `E-SYN-3011` | Error | Same-rank nested sync |
+
+---
+
+### 9.9 Atomic Matching
+
+#### Definition
+
+**Atomic matching** combines pattern matching with compare-and-swap, expressing
+lock-free state machines declaratively.
+
+#### Syntax
+
+```cursive
+atomic match status {
+    @Idle => set @Running { started: now() },
+    @Running { started } => { log("Running since {started}") },
+    @Error { code } => set @Idle,
+}
+```
+
+#### Compiled Form
+
+Transforms to CAS loop:
+```cursive
+loop {
+    let current = status.load(Acquire)
+    match current {
+        @Idle => {
+            if status.cas(current, @Running{...}, AcqRel).is_ok() { break }
+        }
+        ...
+    }
+}
+```
+
+#### Memory Ordering
+
+```cursive
+atomic(acquire_release) match counter { n => set n + 1 }
+```
+
+| Ordering | Load | Store | CAS |
+|----------|------|-------|-----|
+| `relaxed` | Relaxed | Relaxed | Relaxed |
+| `acquire` | Acquire | Relaxed | Acquire |
+| `release` | Relaxed | Release | Release |
+| `acquire_release` | Acquire | Release | AcqRel |
+| `sequential` (default) | SeqCst | SeqCst | SeqCst |
+
+#### Control Flow
+
+**Read-only arms:** May use any control flow.
+**Arms with `set`:** Early exit forbidden. Use `then` for post-CAS logic:
+
+```cursive
+atomic match status {
+    @Idle => set @Running then { return true },
+    _ => return false
+}
+```
+
+#### Constraints
+
+| Code | Severity | Condition |
+|------|----------|-----------|
+| `E-ATM-4001` | Error | Non-exhaustive atomic match |
+| `E-ATM-4006` | Error | Early exit from `set` arm |
+| `W-ATM-4003` | Warning | Side effects in `set` expression |
+
+---
+
+### 9.10 Dispatch
+
+#### Definition
+
+**Dispatch** is a high-level parallel iteration primitive.
+
+#### Syntax
+
+```cursive
+region pool(8) as r {
+    dispatch elem in data {
+        elem.process()
+    }
+}
+```
+
+#### Variants
+
+**Indexed:**
+```cursive
+dispatch (i, elem) in data.enumerate() {
+    output[i] = transform(elem)
+}
+```
+
+**Reduction:**
+```cursive
+let sum = dispatch elem in data reduce(0, |acc, x| acc + x)
+```
+
+**Filter:**
+```cursive
+let valid = dispatch elem in data filter(|e| e.is_valid())
+```
+
+#### Constraints
+
+| Code | Severity | Condition |
+|------|----------|-----------|
+| `E-DSP-6001` | Error | `dispatch` outside parallel region |
+| `E-DSP-6002` | Error | Cross-iteration dependency |
+
+---
+
+### 9.11 Select
+
+#### Definition
+
+**Select** waits on multiple concurrent events.
+
+#### Async Select
+
+```cursive
+region async(runtime) as r {
+    select {
+        val = t1.join() => handle(val),
+        _ = timeout(5.seconds) => handle_timeout(),
+    }
+}
+```
+
+#### Blocking Select
+
+```cursive
+select_blocking {
+    msg = chan_a.recv_blocking() => handle_a(msg),
+    msg = chan_b.recv_blocking() => handle_b(msg),
+}
+```
+
+#### Biased Select
+
+```cursive
+select_biased {
+    urgent = high_priority.recv() => ...,
+    normal = regular.recv() => ...,
+}
+```
+
+#### Default Arm
+
+```cursive
+select {
+    msg = channel.recv() => handle(msg),
+    default => no_message(),
+}
+```
+
+---
+
+### 9.12 Using Declarations
+
+#### Definition
+
+**Using** creates lexically-scoped aliases for capabilities.
+
+#### Syntax
+
+```cursive
+using <operator> = <expr> { <block> }
+```
+
+#### Examples
+
+```cursive
+procedure build_tree(r: witness Region) -> Tree {
+    using ^ = r {
+        let node = ^Node {
+            left: ^Node { value: 1 },
+            right: ^Node { value: 2 },
+        }
+        result node
+    }
+}
+```
+
+---
+
+### 9.13 Memory Model
+
+Cursive provides a **Sequential Consistency for Data-Race-Free programs (SC-DRF)** memory model.
+
+#### 9.13.1 Happens-Before Relationships
+
+| Operation A | Operation B | A happens-before B |
+|-------------|-------------|-------------------|
+| `sync` block exit | `sync` block entry (same mutex) | Yes |
+| `x.store(_, Release)` | `x.load(Acquire)` (same location) | Yes |
+| `spawn` expression | Spawned task begins | Yes |
+| Task ends | Region exit (structured concurrency) | Yes |
+| Region entry | All spawned tasks begin | Yes |
+| All tasks end | Region exit | Yes |
+
+#### 9.13.2 Data Race Freedom Guarantee
+
+**Guarantee:** A well-formed Cursive program **cannot have data races** because the permission system prevents unsynchronized concurrent access to shared mutable state.
+
+Specifically:
+*   `unique` permission → must be moved to share (transfer of ownership)
+*   `concurrent` permission → requires `~|` methods (verified synchronized)
+*   `const` permission → immutable (read-only)
+*   Linear Lenses → disjoint unique views (no overlap)
+
+---
+
+### 9.14 Diagnostics Summary
+
+| Code | Severity | Description |
+|------|----------|-------------|
+| `E-REG-1201` | Error | `spawn` outside parallel region |
+| `E-REG-1205` | Error | `^` with no named region |
+| `E-REG-1210` | Error | `sync` in interrupt region |
+| `E-REG-1211` | Error | `^` in interrupt region |
+| `E-REG-1212` | Error | `await` in interrupt region |
+| `E-REG-1213` | Error | `spawn` in interrupt region |
+| `E-REG-1214` | Error | Heap allocation in interrupt |
+| `E-REG-1215` | Error | Non-interrupt-safe call |
+| `E-LEN-2001` | Error | Ticket not consumed |
+| `E-LEN-2002` | Error | View used after rejoin |
+| `E-LEN-2003` | Error | Rejoin with missing views |
+| `E-LEN-2004` | Error | Ticket consumed twice |
+| `E-FLD-3001` | Error | Union field projection |
+| `E-FLD-3002` | Error | Packed record projection |
+| `E-FLD-3003` | Error | Concurrent record split |
+| `E-SYN-3004` | Error | Nested sync same mutex |
+| `W-SYN-3003` | Warning | Inconsistent lock order |
+| `E-SYN-3010` | Error | Lock rank violation |
+| `E-SYN-3011` | Error | Same-rank nested sync |
+| `E-ATM-4001` | Error | Non-exhaustive atomic match |
+| `E-ATM-4006` | Error | Early exit from `set` arm |
+| `W-ATM-4003` | Warning | Side effects in `set` |
+| `E-DSP-6001` | Error | `dispatch` outside parallel region |
+| `E-DSP-6002` | Error | Cross-iteration dependency |
+| `E-CON-3203` | Error | Invalid capture in spawn |
+| `E-ASY-5001` | Error | `await` outside async context |
+
+---
+
+## Clause 10TMP: The Capability System
+
+The `Mutex<T>` type provides exclusive access to protected data through a locking protocol. It is **compiler-provided** and automatically concurrent-safe.
+
+```cursive
+modal Mutex<T> {
+    @Unlocked {}
+    @Locked {}
+    @Poisoned {}
+
+    @Unlocked {
+        // Block until lock acquired, transition to Locked
+        transition lock(~|) -> Mutex<T>@Locked
+
+        // Attempt to acquire lock without blocking
+        transition try_lock(~|) -> Mutex<T>@Locked | Mutex<T>@Unlocked
+    }
+
+    @Locked {
+        // Read access to protected data
+        procedure get(~) -> const T
+
+        // Write access to protected data
+        procedure get_mut(~!) -> unique T
+
+        // Release the lock, transition back to Unlocked
+        transition unlock(self: unique Mutex<T>@Locked) -> Mutex<T>@Unlocked
+    }
+
+    @Poisoned {
+        // Recover from a poisoned mutex (thread panicked while holding lock)
+        transition recover(self: unique Mutex<T>@Poisoned) -> T
+    }
+}
+```
+
+  *   **Poisoning** (`E-CON-3213`): If a thread panics while holding a `Mutex<T>@Locked`, the mutex transitions to `@Poisoned`. Subsequent `lock()` calls MUST handle the `@Poisoned` state.
+  *   **RAII Pattern**: The `@Locked` state acts as a guard; dropping a `Mutex<T>@Locked` automatically invokes `unlock()`.
+
+#### 9.2.2 `RwLock<T>` — Reader-Writer Lock
+
+The `RwLock<T>` type allows multiple concurrent readers OR a single exclusive writer.
+
+```cursive
+modal RwLock<T> {
+    @Unlocked {}
+    @ReadLocked { reader_count: usize }
+    @WriteLocked {}
+
+    @Unlocked {
+        // Acquire shared read access (multiple readers allowed)
+        transition read_lock(~|) -> RwLock<T>@ReadLocked
+
+        // Acquire exclusive write access
+        transition write_lock(~|) -> RwLock<T>@WriteLocked
+    }
+
+    @ReadLocked {
+        // Read access to protected data
+        procedure get(~) -> const T
+
+        // Release read lock
+        transition read_unlock(self: unique RwLock<T>@ReadLocked) -> RwLock<T>@Unlocked | RwLock<T>@ReadLocked
+    }
+
+    @WriteLocked {
+        // Write access to protected data
+        procedure get_mut(~!) -> unique T
+
+        // Release write lock
+        transition write_unlock(self: unique RwLock<T>@WriteLocked) -> RwLock<T>@Unlocked
+    }
+}
+```
+
+  *   **Read Coalescing**: Multiple `read_lock()` calls on `@Unlocked` or `@ReadLocked` increment the reader count.
+  *   **Write Exclusivity**: `write_lock()` blocks until all readers release.
+
+#### 9.2.3 `Condvar` — Condition Variable
+
+The `Condvar` type enables threads to wait for a condition while releasing a held mutex.
+
+```cursive
+record Condvar {
+    // Wait on condition, atomically releasing mutex and blocking
+    procedure wait<T>(~|, guard: Mutex<T>@Locked) -> Mutex<T>@Locked
+
+    // Wake one waiting thread
+    procedure notify_one(~|)
+
+    // Wake all waiting threads
+    procedure notify_all(~|)
+}
+```
+
+  *   **Spurious Wakeups**: `wait()` may return spuriously; callers MUST re-check the condition in a loop.
+  *   **Atomic Release-Wait**: The mutex is atomically released before blocking and re-acquired before returning.
+
+#### 9.2.4 `Channel<T>` — Message Passing
+
+The `Channel<T>` type provides typed message passing between concurrent contexts.
+
+```cursive
+modal Channel<T> {
+    @Open {}
+    @Closed {}
+
+    @Open {
+        // Send a message (may block if bounded and full)
+        procedure send(~|, value: T)
+
+        // Receive a message (blocks until available)
+        transition recv(~|) -> T | Channel<T>@Closed
+
+        // Try to receive without blocking
+        procedure try_recv(~|) -> T?
+
+        // Close the channel
+        transition close(~|) -> Channel<T>@Closed
+    }
+}
+```
 
   <u>Concurrency & Safety</u>
     *   **Deadlocks**: Allowed (Safe). Accessing a locked Mutex blocks the thread.
     *   **Ordering**: `lock()` and `unlock()` imply release/acquire memory barriers.
-  
 
-### 9.3 Thread Safety Rules {Source: Draft 2 §31.1}
+### 9.3 Atomic Intrinsics
+
+Primitive integer types and `bool` have **compiler-provided atomic intrinsics** available via `~|` methods. These are the foundation for building concurrent-safe user types.
+
+#### 9.3.1 Memory Ordering
+
+```cursive
+enum Ordering {
+    Relaxed,   // No synchronization guarantees
+    Acquire,   // Subsequent reads see writes before matching Release
+    Release,   // Prior writes visible to threads with matching Acquire
+    AcqRel,    // Both Acquire and Release
+    SeqCst,    // Total ordering across all SeqCst operations
+}
+```
+
+#### 9.3.2 Integer Atomic Operations
+
+Available on `i8`, `i16`, `i32`, `i64`, `i128`, `isize`, `u8`, `u16`, `u32`, `u64`, `u128`, `usize`:
+
+```cursive
+// Atomic load
+procedure load(~|, order: Ordering) -> Self
+
+// Atomic store
+procedure store(~|, value: Self, order: Ordering)
+
+// Atomic swap, returns old value
+procedure swap(~|, value: Self, order: Ordering) -> Self
+
+// Atomic add, returns old value
+procedure fetch_add(~|, value: Self, order: Ordering) -> Self
+
+// Atomic subtract, returns old value
+procedure fetch_sub(~|, value: Self, order: Ordering) -> Self
+
+// Atomic bitwise AND, returns old value
+procedure fetch_and(~|, value: Self, order: Ordering) -> Self
+
+// Atomic bitwise OR, returns old value
+procedure fetch_or(~|, value: Self, order: Ordering) -> Self
+
+// Atomic bitwise XOR, returns old value
+procedure fetch_xor(~|, value: Self, order: Ordering) -> Self
+
+// Compare and exchange: if current == expected, set to desired
+// Returns (old_value, success)
+procedure compare_exchange(~|, expected: Self, desired: Self,
+                           success: Ordering, failure: Ordering) -> (Self, bool)
+```
+
+#### 9.3.3 Boolean Atomic Operations
+
+Available on `bool`:
+
+```cursive
+procedure load(~|, order: Ordering) -> bool
+procedure store(~|, value: bool, order: Ordering)
+procedure swap(~|, value: bool, order: Ordering) -> bool
+```
+
+**Example: Basic Atomic Counter**
+```cursive
+let counter: concurrent i64 = 0
+
+parallel {
+    fork || { counter.fetch_add(1, SeqCst) }
+    fork || { counter.fetch_add(1, SeqCst) }
+}
+// counter == 2
+```
+
+### 9.4 Memory Model
+
+Cursive provides a **Sequential Consistency for Data-Race-Free programs (SC-DRF)** memory model.
+
+#### 9.4.1 Happens-Before Relationships
+
+| Operation A | Operation B | A happens-before B |
+|-------------|-------------|-------------------|
+| `Mutex::unlock()` | `Mutex::lock()` (same mutex) | Yes |
+| `x.store(_, Release)` | `x.load(Acquire)` (same location) | Yes |
+| `fork` expression | Forked task begins | Yes |
+| Task ends | `Task::join()` returns | Yes |
+| `parallel` entry | All forked tasks begin | Yes |
+| All tasks end | `parallel` exit | Yes |
+
+#### 9.4.2 Data Race Freedom Guarantee
+
+**Guarantee:** A well-formed Cursive program **cannot have data races** because the permission system prevents unsynchronized concurrent access to shared mutable state.
+
+Specifically:
+*   `unique` permission → downgraded to `const` in parallel contexts (no mutation)
+*   `concurrent` permission → requires `~|` methods (verified synchronized)
+*   `partitioned` permission → disjoint regions (no overlap)
+*   `const` permission → immutable (read-only)
+
+### 9.5 Thread Safety Rules
 
   <u>Constraints & Legality</u>
-    *   `const`: Safe to share.
-    *   `unique`: Safe to transfer.
-    *   `partitioned`: Unsafe to share or transfer (`E-CON-3201`).
+    *   `const`: Safe to share across threads.
+    *   `unique`: Safe to transfer between threads (becomes `const` in parallel).
+    *   `concurrent`: Safe to share with synchronized access.
+    *   `partitioned`: Safe to share when partitions are thread-local.
   
 
 ---
@@ -3787,8 +5087,8 @@ param_type ::= [ "move" ] type
     *   **System Record**: Must provide `exit(code)` and `get_env(key)`.
 
   <u>Constraints & Legality</u>
-    *   **Sync Implementation**: All System Capability traits (`FileSystem`, `Network`, `HeapAllocator`) MUST implement the `Sync` marker trait.
-    *   **Method Signatures**: Methods on these traits that perform side effects (IO, allocation) MUST accept `self` as **`concurrent`** (or `witness concurrent`).
+    *   **Concurrent-Safety**: All System Capability traits (`FileSystem`, `Network`, `HeapAllocator`) MUST be concurrent-safe (all mutating methods use `~|` receiver).
+    *   **Method Signatures**: Methods on these traits that perform side effects (IO, allocation) MUST accept `self` as **`concurrent`** (`~|`).
     *   **Const Purity**: Methods accepting `const` (`~`) MUST guarantee ZERO logical state changes to the resource (e.g., `time.now()` is const, but `file.write()` is concurrent).
   
 
@@ -4085,6 +5385,7 @@ The following tables list all diagnostic codes required by this specification, o
 | `E-MOD-1206` | Error    | Duplicate item in `use` list.                         |
 | `E-MOD-1207` | Error    | Access to `protected` item denied.                    |
 | `E-MOD-1401` | Error    | Cyclic dependency in eager module initialization.     |
+| `E-MOD-1402` | Error    | Capability-requiring operation in module initializer. Capabilities are unavailable during module initialization because `main()` has not yet been invoked. |
 | `W-MOD-1101` | Warning  | Potential module path collision (case-sensitivity).   |
 | `W-MOD-1201` | Warning  | Wildcard `use` (`*`) usage.                           |
 | `E-NAM-1301` | Error    | Unresolved name.                                      |
@@ -4176,8 +5477,15 @@ The following tables list all diagnostic codes required by this specification, o
 | `E-CON-2805` | Error    | `@entry` applied to non-Copy/Clone type.                                 |
 | `E-CON-2806` | Error    | `@result` used outside `will` clause.                                    |
 | `E-CON-3201` | Error    | Thread Safety: Capturing `partitioned` binding in concurrency primitive. |
-| `E-CON-3202` | Error    | Static Join violation: `JobHandle` not joined in `parallel`.             |
+| `E-CON-3202` | Error    | Static Join violation: `Task` not joined in `parallel`.                  |
 | `E-CON-3203` | Error    | Spawn capture violation (e.g. `unique` not moved).                       |
+| `E-CON-3211` | Error    | `Task<T>@Pending` escapes `parallel` scope.                              |
+| `E-CON-3212` | Warning  | Task dropped without explicit join (implicit join occurs).               |
+| `E-CON-3213` | Error    | Mutex poisoned; must handle `@Poisoned` state.                           |
+| `E-CON-3220` | Error    | Direct field assignment in `~\|` method. Use atomic intrinsics.          |
+| `E-CON-3221` | Error    | Exclusive access (`~!`) to self in `~\|` method body.                    |
+| `E-CON-3222` | Error    | Call to non-`~\|` mutating method in `~\|` method body.                  |
+| `E-CON-3223` | Error    | Type is not concurrent-safe; cannot use `concurrent` permission.         |
 
 ##### B.3.8 TRS (Traits)
 
@@ -4387,14 +5695,20 @@ This appendix provides normative definitions for foundational traits and system 
     *   `Drop`: `procedure drop(~!)` - RAII cleanup, compiler-invoked only
     *   `Copy`: Marker trait for implicit bitwise duplication
     *   `Clone`: `procedure clone(~): Self` - explicit deep copy
-    *   `Sync`: Marker trait (`public trait Sync {}`)
-        -   **Semantics**: Safe to access concurrently (`concurrent` permission).
-        -   **Auto-Derive**:
-            -   Primitives (`i32`, `bool`) are `Sync`.
-            -   Records/Enums are `Sync` if ALL fields are `Sync`.
-            -   `Mutex<T>`, `Atomic<T>` are explicitly `Sync`.
-            -   `Cell<T>` (interior mutability without locks) is `!Sync`.
-    
+
+    **Concurrent-Safety Determination** (§D.1.1):
+    A type is **concurrent-safe** (can be used with `concurrent` permission) based on layered verification:
+
+    | Layer | Condition | Examples |
+    |-------|-----------|----------|
+    | 1. Primitives | Built-in atomic intrinsics | `i64`, `u32`, `bool` |
+    | 2. Built-in Sync Types | Compiler-provided | `Mutex<T>`, `RwLock<T>`, `Condvar`, `Task<T>`, `Channel<T>` |
+    | 3. Verified `~\|` Methods | All `~\|` methods pass verification rules (§9.1.2) | User-defined concurrent types |
+    | 4. Transitive Safety | No `~\|` methods AND all fields are concurrent-safe | Container types |
+    | 5. Unsafe Escape | `~\|` method contains `unsafe` block | Lock-free structures |
+
+    **Note**: There is NO `Sync` marker trait. Concurrent-safety is **verified** by the compiler, not declared.
+
     **System Capability Traits** (§D.2):
     *   `FileSystem`:
         -   `open(path: string@View, mode: FileMode): FileHandle | IoError`
@@ -4501,6 +5815,7 @@ This appendix provides normative definitions for foundational traits and system 
 *   Pointer Arithmetic (§24.4.2)
 *   Trusted Contracts (§27.6.3)
 *   Trusted Partitions (`[[verify(trusted)]]`)
+*   Heap-in-Global Deallocation (`unsafe` only): In `unsafe` code, deallocating heap storage whose address was stored in a global binding via mechanisms outside the capability system (e.g., FFI). Cannot occur in safe code due to capability restrictions (§3.3, §5.5).
 
 **H.2 Implementation-Defined Behavior (IDB)**:
 *   Type Layout (non-C)

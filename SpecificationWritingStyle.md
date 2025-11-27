@@ -530,7 +530,7 @@ Draft2_CursiveLanguageSpecfication.md
 
 Read the *entire* contents of Draft3_CursiveLanguageSpecification.md to deeply familiarize yourself with the current designs. If you need additional information for unspecified design content, reference Draft2_CursiveLanguageSpecification.md. Where Draft3 and Draft2 diverge, Draft3's design takes precedence. 
 
-After you have internalized the design and current structure of the Cursive Programming Language, draft the full, release-ready specification content for Clause 8 such that it:
+After you have internalized the design and current structure of the Cursive Programming Language, draft the full, release-ready specification content for Clause 9 such that it:
 
 ### Drafting
 

@@ -674,7 +674,7 @@ move        mut         override    parallel    partitioned private
 procedure   protected   public      quote       record      region
 result      return      self        Self        shadow      true
 trait       type        unique      unsafe      use
-var         witness     where
+var         widen       witness     where
 ```
 
 Implementations MUST tokenize these as `<keyword>`, not `<identifier>`. The keyword set MUST be identical across conforming implementations for a given language version.
@@ -701,7 +701,7 @@ An **Operator** is a symbol or symbol sequence denoting an operation. A **Punctu
 
 **Formal Definition**
 
-$$\mathcal{O}_\text{multi} = \{\texttt{==}, \texttt{!=}, \texttt{<=}, \texttt{>=}, \texttt{\&\&}, \texttt{||}, \texttt{<<}, \texttt{>>}, \texttt{..}, \texttt{..=}, \texttt{=>}, \texttt{->}, \texttt{**}, \texttt{::}, \texttt{:=}, \texttt{\~>}, \texttt{\~!}, \texttt{\~\%}, \texttt{\~|}\}$$
+$$\mathcal{O}_\text{multi} = \{\texttt{==}, \texttt{!=}, \texttt{<=}, \texttt{>=}, \texttt{\&\&}, \texttt{||}, \texttt{<<}, \texttt{>>}, \texttt{..}, \texttt{..=}, \texttt{=>}, \texttt{->}, \texttt{**}, \texttt{::}, \texttt{:=}, \texttt{|=}, \texttt{\~>}, \texttt{\~!}, \texttt{\~\%}, \texttt{\~|}\}$$
 
 $$\mathcal{O}_\text{single} = \{+, -, *, /, \%, <, >, =, !, \&, |, \hat{}, \sim, .\}$$
 
@@ -719,6 +719,7 @@ $$\mathcal{P} = \{(, ), [, ], \{, \}, ,, :, ;\}$$
 | Range             | `..`, `..=`                  |
 | Arrow             | `=>`, `->`                   |
 | Binding           | `:=`                         |
+| Contract          | `\|=`                        |
 | Other             | `**`, `::`                   |
 | Receiver/Dispatch | `~`, `~>`, `~!`, `~%`, `~\|` |
 
@@ -746,6 +747,12 @@ $$\mathcal{P} = \{(, ), [, ], \{, \}, ,, :, ;\}$$
 | :---- | :--------------------------------------------------------------------- |
 | `=`   | Establishes movable responsibility (ownership may transfer via `move`) |
 | `:=`  | Establishes immovable responsibility (ownership cannot transfer)       |
+
+**Contract Operator Semantics**
+
+| Token | Semantic Meaning                                                  |
+| :---- | :---------------------------------------------------------------- |
+| `\|=` | Introduces procedure contract clause (semantic entailment symbol) |
 
 ##### Static Semantics
 
@@ -1155,23 +1162,26 @@ Conforming implementations MUST NOT insert reference counting, garbage collectio
 
 ##### Definition
 
-The **Exclusion Principle** governs which permission-qualified paths (§4.5) may coexist for the same object at any given program point. A **path** is an expression denoting a location in memory (a binding, field access chain, or pointer dereference).
+The **Exclusion Principle** governs which permission-qualified paths may coexist for the same object at any given program point. A **path** is an expression denoting a location in memory (a binding, field access chain, or pointer dereference).
 
 ##### Static Semantics
 
 **Coexistence Rules**
 
-The rules governing which permission-qualified paths may simultaneously exist for the same object are defined normatively in **§4.5.4 (Exclusion Principle)**. This section provides a summary; §4.5.4 is authoritative.
+The complete permission system—including the coexistence matrix, subtyping lattice, and method receiver compatibility—is defined normatively in **§4.5 (Permission Types)**.
 
 **Summary:**
-- `unique` paths exclude all other paths to the same object
-- `partitioned` paths may coexist if they access disjoint regions (§3.7)
-- `concurrent` paths may coexist with each other and with `const` paths
-- `const` paths may coexist freely with each other
 
-See §4.5.4 for the formal coexistence matrix and §4.5.5 for the subtyping lattice.
+| Permission    | Permits Aliasing? | Permits Mutation?  | Coexistence                                 |
+| :------------ | :---------------- | :----------------- | :------------------------------------------ |
+| `const`       | Yes               | No                 | Any number of `const` paths                 |
+| `unique`      | No                | Yes                | Excludes all other paths                    |
+| `partitioned` | Yes (disjoint)    | Yes                | Only with disjoint `partitioned` or `const` |
+| `concurrent`  | Yes               | Yes (synchronized) | With `concurrent` or `const`                |
 
-> **Cross-Reference Note:** Type system diagnostics `E-TYP-1602` and `E-TYP-1603` (§4.5) are canonical for permission violations. Memory model diagnostics below are secondary codes per Appendix K.
+See §4.5 for formal definitions, the coexistence matrix, subtyping rules, and method receiver compatibility.
+
+> **Canonical Diagnostics:** Type system diagnostics (`E-TYP-16xx`) in §4.5 are authoritative for permission violations. Memory model diagnostics (`E-MEM-30xx`) in this section are secondary per Appendix K.
 
 **Temporal Permission Transitions**
 
@@ -2060,7 +2070,7 @@ A concrete type that implements a trait is a subtype of that trait. See §6.3 fo
 
 The following subtyping relationships are defined in their respective sections:
 
-- Modal widening ($M@S <: M$, where $M$ is the general modal type): §4.11
+- Modal widening ($M@S <: M$, where $M$ is the general modal type): §6.1 (includes storage cost documentation)
 - Union member subtyping: §4.10
 - Refinement type subtyping: §4.19
 - Permission subtyping: §4.5
@@ -2247,22 +2257,37 @@ This section defines the permission system that governs data access, mutation, a
 
 #### 4.5.0 Permission System Overview
 
-The permission system governs data access through two complementary mechanisms:
+The permission system governs data access through three complementary mechanisms:
 
-1. **Coexistence Rules (§3.1.1):** Specify which permission-qualified paths may exist *simultaneously* for the same object. These rules prevent aliasing violations at any program point.
+1. **Coexistence Rules (§4.5.4):** Specify which permission-qualified paths may exist *simultaneously* for the same object. These rules prevent aliasing violations at any program point.
 
 2. **Subtyping Rules (§4.5.5):** Specify which permissions may be *implicitly converted* to other permissions. These rules govern type compatibility in assignment, argument passing, and return contexts.
 
+3. **Receiver Compatibility (§4.5.6):** Specify which methods are callable through a path of a given permission. These rules ensure that method calls respect permission constraints.
+
 **Quick Reference:**
 
-| Question                                             | Governing Rule | Location |
-| :--------------------------------------------------- | :------------- | :------- |
-| Can I have both a `const` and `unique` path to X?    | Coexistence    | §3.1.1   |
-| Can I pass a `unique T` where `const T` is expected? | Subtyping      | §4.5.5   |
-| Can I have two `partitioned` paths to X?             | Coexistence    | §3.1.1   |
-| Can I convert `const T` to `unique T`?               | Subtyping (no) | §4.5.5   |
+| Question                                             | Answer           | Rule        | Section |
+| :--------------------------------------------------- | :--------------- | :---------- | :------ |
+| Can I have both a `const` and `unique` path to X?    | No               | Coexistence | §4.5.4  |
+| Can I pass a `unique T` where `const T` is expected? | Yes              | Subtyping   | §4.5.5  |
+| Can I have two `partitioned` paths to X?             | Yes, if disjoint | Coexistence | §4.5.4  |
+| Can I convert `const T` to `unique T`?               | No               | Subtyping   | §4.5.5  |
+| Can I call a `~!` method through a `const` path?     | No               | Receiver    | §4.5.6  |
+| Can I call a `~` method through a `unique` path?     | Yes              | Receiver    | §4.5.6  |
+| Can `partitioned` and `concurrent` paths coexist?    | No               | Coexistence | §4.5.4  |
 
-See §3.1.1 for the full coexistence matrix and §4.5.5 for the subtyping lattice.
+**Permission Lattice (Visual Summary):**
+
+```
+        unique          (strongest: exclusive read-write)
+       /      \
+partitioned  concurrent  (siblings: incompatible with each other)
+       \      /
+        const           (weakest: shared read-only)
+```
+
+All formal rules are defined in the subsections below. §3.1.1 provides memory model context.
 
 ---
 
@@ -2351,14 +2376,16 @@ The `concurrent` permission grants access to data through synchronized operation
 
 The following table specifies which operations are permitted through a `concurrent` path:
 
-| Operation                                             | Permitted |
-| :---------------------------------------------------- | :-------- |
-| Field read                                            | Yes       |
-| Field mutation                                        | No        |
-| Method call (receiver accepts `concurrent` or `~\|`)  | Yes       |
-| Method call (receiver accepts `const` or `~`)         | Yes       |
-| Method call (receiver requires `unique` or `~!`)      | No        |
-| Method call (receiver requires `partitioned` or `~%`) | No        |
+| Operation                    | Permitted | Rationale                                |
+| :--------------------------- | :-------- | :--------------------------------------- |
+| Field read                   | Yes       | Reading is always safe                   |
+| Field mutation               | No        | Direct mutation requires synchronization |
+| Method call (`~` receiver)   | Yes       | `concurrent <: const`                    |
+| Method call (`~\|` receiver) | Yes       | Permission match                         |
+| Method call (`~!` receiver)  | No        | `concurrent` is not `<: unique`          |
+| Method call (`~%` receiver)  | No        | Sibling incompatibility                  |
+
+See §4.5.6 for the complete receiver compatibility matrix covering all permission combinations.
 
 > **Rationale:** Thread safety is visible in API signatures via method receiver permissions, not marker traits.
 
@@ -2376,7 +2403,17 @@ The rules governing which permission-qualified paths may coexist for the same ob
 
 The permissions `partitioned` and `concurrent` are **siblings** in the permission lattice—neither is a subtype of the other. Paths with `partitioned` permission and paths with `concurrent` permission to the same object MUST NOT coexist.
 
-> **Cross-Reference:** See §3.1.1 for memory model context and enforcement diagnostics.
+> **Cross-Reference:** See §3.1.1 for memory model context (temporal transitions, non-overlapping windows). Diagnostics `E-TYP-1602` and `E-TYP-1603` are canonical for coexistence violations.
+
+**Complete Permission Reference:**
+
+This section (§4.5) is the authoritative source for all permission rules:
+- **§4.5.1:** Permission definitions
+- **§4.5.2:** Permission lattice structure
+- **§4.5.3:** Orthogonality with binding mutability and responsibility
+- **§4.5.4:** Coexistence rules (this section)
+- **§4.5.5:** Subtyping rules
+- **§4.5.6:** Method receiver compatibility
 
 ##### Syntax & Declaration
 
@@ -2479,6 +2516,69 @@ let timeout = config.timeout_ms    // OK: field read
 
 #### 4.5.6 Method Receiver Permissions
 
+**Receiver Compatibility Matrix**
+
+A method with receiver permission $P_{\text{method}}$ is callable through a path with permission $P_{\text{caller}}$ if and only if $P_{\text{caller}} <: P_{\text{method}}$ in the permission subtyping lattice (§4.5.5).
+
+| Caller's Permission | `~` (const) | `~!` (unique) | `~%` (partitioned) | `~\|` (concurrent) |
+| :------------------ | :---------: | :-----------: | :----------------: | :----------------: |
+| `const`             |      ✓      |       ✗       |         ✗          |         ✗          |
+| `unique`            |      ✓      |       ✓       |         ✓          |         ✓          |
+| `partitioned`       |      ✓      |       ✗       |         ✓          |         ✗          |
+| `concurrent`        |      ✓      |       ✗       |         ✗          |         ✓          |
+
+**Reading the matrix:** Row = permission of the caller's path to the receiver. Column = permission required by the method's receiver parameter. ✓ = method is callable. ✗ = method is not callable (error `E-TYP-1605`).
+
+**Key observations:**
+
+1. **`unique` callers can call any method.** The `unique` permission is the lattice top and subtypes all other permissions.
+
+2. **`const` callers can only call `const` methods.** The `const` permission is the lattice bottom; it cannot be upgraded.
+
+3. **Sibling permissions cannot access each other's methods.** A `partitioned` path cannot call `~|` methods, and a `concurrent` path cannot call `~%` methods. This reflects the incompatibility of spatial and temporal concurrency models.
+
+4. **All callers can call `const` methods.** Every permission subtypes `const`, so `~` methods are universally accessible.
+
+**Formal Rule (Receiver-Compat):**
+
+$$\frac{
+    \Gamma \vdash e : P_{\text{caller}}\ T \quad
+    m \in \text{Methods}(T) \quad
+    m.\text{receiver} = P_{\text{method}}\ \texttt{Self} \quad
+    \Gamma \vdash P_{\text{caller}}\ T <: P_{\text{method}}\ T
+}{
+    \Gamma \vdash e.m(\ldots)\ \text{well-typed}
+} \quad \text{(Receiver-Compat)}$$
+
+**Examples:**
+
+```cursive
+record Counter {
+    value: i32
+
+    procedure get(~) -> i32 { self.value }           // const receiver
+    procedure set(~!, new_value: i32) { self.value = new_value }  // unique receiver
+    procedure increment(~|) { /* atomic increment */ }  // concurrent receiver
+}
+
+let c1: const Counter = Counter { value: 0 }
+c1.get()           // OK: const caller, const method
+// c1.set(5)       // ERROR E-TYP-1605: const caller, unique method
+// c1.increment()  // ERROR E-TYP-1605: const caller, concurrent method
+
+let c2: unique Counter = Counter { value: 0 }
+c2.get()           // OK: unique caller, const method (unique <: const)
+c2.set(5)          // OK: unique caller, unique method
+c2.increment()     // OK: unique caller, concurrent method (unique <: concurrent)
+
+let c3: concurrent Counter = Counter { value: 0 }
+c3.get()           // OK: concurrent caller, const method (concurrent <: const)
+// c3.set(5)       // ERROR E-TYP-1605: concurrent caller, unique method
+c3.increment()     // OK: concurrent caller, concurrent method
+```
+
+---
+
 **Downgrading Scope and Inactive Bindings**
 
 A binding is **inactive** when its permission has been temporarily downgraded for a bounded scope.
@@ -2538,13 +2638,13 @@ The following constraints apply to permission-qualified types:
 
 **Diagnostic Table**
 
-| Code         | Severity | Condition                                                            | Detection    | Effect    |
-| :----------- | :------- | :------------------------------------------------------------------- | :----------- | :-------- |
-| `E-TYP-1601` | Error    | Attempt to mutate data via a `const` path.                           | Compile-time | Rejection |
-| `E-TYP-1602` | Error    | Violation of `unique` exclusion (aliasing detected or inactive use). | Compile-time | Rejection |
-| `E-TYP-1603` | Error    | Partitioning system violation (non-disjoint `partitioned` access).   | Compile-time | Rejection |
-| `E-TYP-1604` | Error    | Direct field mutation through `concurrent` path.                     | Compile-time | Rejection |
-| `E-TYP-1605` | Error    | Method requires stronger permission than `concurrent` provides.      | Compile-time | Rejection |
+| Code         | Severity | Condition                                                                             | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------------------------------------------ | :----------- | :-------- |
+| `E-TYP-1601` | Error    | Attempt to mutate data via a `const` path.                                            | Compile-time | Rejection |
+| `E-TYP-1602` | Error    | Violation of `unique` exclusion (aliasing detected or inactive use).                  | Compile-time | Rejection |
+| `E-TYP-1603` | Error    | Partitioning system violation (non-disjoint `partitioned` access).                    | Compile-time | Rejection |
+| `E-TYP-1604` | Error    | Direct field mutation through `concurrent` path.                                      | Compile-time | Rejection |
+| `E-TYP-1605` | Error    | Method receiver permission incompatible with caller's permission (see §4.5.6 matrix). | Compile-time | Rejection |
 
 **Canonical Diagnostic Codes**
 
@@ -3868,44 +3968,6 @@ The following constraints apply to enum declarations and values:
 
 ---
 
-### Section 4.9 Cross-Reference Notes
-
-**Terms Defined in Section 4.9:**
-
-| Term                | Section | Description                                        |
-| :------------------ | :------ | :------------------------------------------------- |
-| Enum                | §4.9    | Nominal sum type with named variants               |
-| Variant             | §4.9    | Named alternative within an enum                   |
-| Discriminant        | §4.9    | Integer value identifying active variant           |
-| Unit-like variant   | §4.9    | Variant with no associated data                    |
-| Tuple-like variant  | §4.9    | Variant with positional payload fields             |
-| Record-like variant | §4.9    | Variant with named payload fields                  |
-| Niche optimization  | §4.9    | Elision of discriminant using invalid bit patterns |
-
-**Terms Referenced from Other Sections:**
-
-| Term                 | Source | Usage in Section 4.9                  |
-| :------------------- | :----- | :------------------------------------ |
-| Nominal Equivalence  | §4.1   | Enums use nominal type equivalence    |
-| Union Types          | §4.10  | Contrasted with nominal enums         |
-| Pattern Matching     | §8.4   | Required for variant data access      |
-| Trait Implementation | §6.3   | Mechanism for `<:` clause             |
-| Type Invariant       | §7.3   | Enforcement modes for `where` clause  |
-| Visibility           | §5.5   | Access control for enum and variants  |
-| `[[layout(C)]]`      | §4.17  | Attribute for C-compatible layout     |
-| Generic Parameters   | §4.15  | Type parameterization for enums       |
-| Exhaustiveness       | §8.4   | Match expression coverage requirement |
-
-**Terms Deferred to Later Sections:**
-
-| Term         | Deferred To | Reason                                |
-| :----------- | :---------- | :------------------------------------ |
-| Enum Pattern | §8.4        | Pattern matching syntax for enums     |
-| FFI Layout   | §9.4        | Full C ABI compatibility rules        |
-| Drop Trait   | §9.7        | Destructor mechanism for enum cleanup |
-
----
-
 ### 5.5 Union Types
 
 ##### Definition
@@ -4311,11 +4373,31 @@ This rule prohibits implicit conversion between states; state changes MUST occur
 
 **Modal Widening**
 
-A state-specific type is a subtype of its general modal type. This coercion is called **modal widening**:
+Modal widening converts a state-specific type `M@S` to the general modal type `M`. This operation is **explicit only**; the `widen` keyword MUST be used at every widening site:
 
-$$\frac{S \in \text{States}(M)}{\Gamma \vdash M@S <: M} \quad \text{(Sub-Modal-Widen)}$$
+$$\frac{\Gamma \vdash e : M@S \quad S \in \text{States}(M)}{\Gamma \vdash \texttt{widen } e : M} \quad \text{(T-Modal-Widen)}$$
 
-Modal widening is an implicit coercion permitted at assignment, argument passing, and return positions. The converse does not hold: the general type $M$ is not a subtype of any state-specific type $M@S$.
+**No Implicit Subtyping:** State-specific types are NOT subtypes of general modal types. The following does NOT hold:
+
+$$M@S \not<: M$$
+
+Implicit coercion from `M@S` to `M` is prohibited. The `widen` keyword MUST appear at every site where a state-specific value is used in a context expecting the general modal type. The converse also does not hold: the general type `M` is not a subtype of any state-specific type `M@S`.
+
+**Widen Expression Constraints:**
+
+1. The operand of `widen` MUST have a state-specific modal type `M@S` (diagnostic `E-TYP-2071` if non-modal).
+2. The result type is the general modal type `M`.
+3. Applying `widen` to an already-general modal type is ill-formed (diagnostic `E-TYP-2072`).
+4. The `widen` keyword is required regardless of whether niche optimization eliminates runtime cost.
+
+**Usage Contexts:**
+
+| Context | Syntax |
+|---------|--------|
+| Variable binding | `let conn: Connection = widen specific` |
+| Procedure argument | `process_connection(widen specific)` |
+| Return value | `result widen specific` |
+| Expression position | `match widen specific { ... }` |
 
 **Transition Typing**
 
@@ -4428,12 +4510,143 @@ The general `Ptr<T>` type MUST occupy one machine word (the size of `Ptr<T>@Vali
 
 **Modal Widening Operation**
 
-When a state-specific value $v : M@S$ is coerced to the general type $M$:
+Modal widening converts a state-specific type $M@S$ to the general modal type $M$ via the **explicit `widen` keyword**. This section specifies the semantic operation, storage implications, and optimization requirements.
 
-1. The payload from $v$ is moved into the corresponding storage region of the general representation.
-2. The discriminant (or niche encoding) for state $@S$ is written.
+**Semantic Operation**
 
-This operation has complexity $O(\text{sizeof}(\text{Payload}(S)))$—that is, linear in the payload size.
+When `widen e` is evaluated where $e : M@S$:
+
+1. Storage for the general representation is allocated (stack or destination).
+2. The payload from $e$ is moved into the corresponding storage region of the general representation.
+3. The discriminant (or niche encoding) for state $@S$ is written.
+4. The resulting value has type $M$.
+
+**Storage Cost Classification**
+
+| Expression | Result Type | Storage Change | Runtime Cost                                 |
+| :--------- | :---------- | :------------- | :------------------------------------------- |
+| `e : M@S`  | `M@S`       | None           | Zero (no conversion)                         |
+| `widen e` where `e : M@S` | `M` | May increase | Payload copy + discriminant write |
+| `match e` where `e : M` | `M@S` | N/A        | Requires pattern match (narrowing)           |
+| `M@S₁` to `M@S₂` | N/A   | N/A            | Requires explicit transition (not permitted) |
+
+**Size Relationships:**
+
+$\text{sizeof}(M@S) \leq \text{sizeof}(M)$
+
+The inequality is strict when:
+- Multiple states exist with different payload sizes, AND
+- Niche optimization does not fully eliminate the discriminant
+
+The inequality is an equality when:
+- Only one state exists, OR
+- Niche optimization fully absorbs the discriminant into payload bits
+
+**Widening Cost Formula:**
+
+$\text{Cost}_{\text{widen}}(M@S \to M) = \begin{cases}
+0 & \text{if } \text{sizeof}(M@S) = \text{sizeof}(M) \text{ and layout-compatible} \\
+O(\text{sizeof}(M@S)) & \text{otherwise (payload copy + discriminant write)}
+\end{cases}$
+
+**Optimization Requirements**
+
+Implementations MUST apply the following optimizations to `widen` expressions:
+
+1. **In-Place Widening at Call Sites:** When `widen e` appears as a procedure argument and the source binding is not used after the call, the implementation SHOULD perform widening in-place at the callee's stack frame rather than creating an intermediate copy in the caller.
+
+2. **Elision for Niche-Optimized Types:** When niche optimization results in $\text{sizeof}(M) = \text{sizeof}(M@S)$ and layout compatibility, the `widen` operation MUST be a no-op (zero cost). The discriminant is implicit in the payload bits.
+
+3. **Return Value Optimization:** When `result widen e` appears in a procedure, the implementation SHOULD construct the widened representation directly in the return slot.
+
+**Example — Widening Costs:**
+
+```cursive
+modal Connection {
+    @Disconnected { }                     // sizeof = 0 (ZST)
+    @Connecting { timeout: Duration }     // sizeof = 8
+    @Connected { socket: Socket }         // sizeof = 16
+}
+
+// sizeof(Connection) = 1 (discriminant) + 16 (max payload) + padding
+// sizeof(Connection@Disconnected) = 0
+// sizeof(Connection@Connecting) = 8
+// sizeof(Connection@Connected) = 16
+
+let c1: Connection@Disconnected = Connection@Disconnected {}
+let c2: Connection = widen c1  // Widening: 0 bytes copied, discriminant written
+                               // Cost: O(1) — discriminant write only
+
+let c3: Connection@Connected = establish_connection()
+let c4: Connection = widen c3  // Widening: 16 bytes copied, discriminant written
+                               // Cost: O(sizeof(Socket))
+```
+
+**Example — Niche-Optimized Type (Zero-Cost Widening):**
+
+```cursive
+modal Ptr<T> {
+    @Null { }                    // sizeof = 0, represented by address 0x0
+    @Valid { address: usize }    // sizeof = 8 (pointer-sized)
+}
+
+// sizeof(Ptr<T>) = 8 (niche optimization: null address is discriminant)
+// sizeof(Ptr<T>@Null) = 0
+// sizeof(Ptr<T>@Valid) = 8
+
+let p1: Ptr<Buffer>@Valid = allocate_buffer()
+let p2: Ptr<Buffer> = widen p1  // Widening: ZERO COST (niche-optimized)
+                                // No copy, no discriminant write — layout identical
+                                // `widen` keyword still required for consistency
+```
+
+**Narrowing via Pattern Match**
+
+The converse of widening—narrowing from $M$ to $M@S$—is **not** an implicit coercion. Narrowing requires explicit pattern matching, which performs a runtime discriminant check:
+
+```cursive
+let conn: Connection = get_connection()
+
+// Narrowing requires pattern match
+match conn {
+    @Connected { socket } => {
+        // Here: socket has type Socket
+        // Type of matched value: Connection@Connected
+        socket.send(data)
+    }
+    @Connecting { timeout } => { /* ... */ }
+    @Disconnected => { /* ... */ }
+}
+```
+
+**Diagnostic Table Addition:**
+
+| Code         | Severity | Condition                                                | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------------- | :----------- | :-------- |
+| `E-TYP-2070` | Error    | Implicit modal widening (missing `widen` keyword)        | Compile-time | Rejection |
+| `E-TYP-2071` | Error    | `widen` applied to non-modal type                        | Compile-time | Rejection |
+| `E-TYP-2072` | Error    | `widen` applied to already-general modal type            | Compile-time | Rejection |
+| `W-OPT-4010` | Warning  | Modal widening involves large payload copy (> threshold) | Compile-time | Advisory  |
+
+**Error Message Format (E-TYP-2070):**
+
+```
+error[E-TYP-2070]: implicit modal widening prohibited
+
+  --> src/main.cursive:15:5
+   |
+15 |     let conn: Connection = specific_conn
+   |                            ^^^^^^^^^^^^^
+
+   State-specific type `Connection@Connected` cannot implicitly convert to
+   general type `Connection`.
+
+   Use explicit `widen` to perform this conversion:
+
+       let conn: Connection = widen specific_conn
+```
+
+> **Note:** The threshold for `W-OPT-4010` is Implementation-Defined but SHOULD be configurable. A reasonable default is 256 bytes.
 
 **Layout Classification**
 
@@ -4489,7 +4702,7 @@ The following access constraints apply to modal values:
 
 ---
 
-### 5.6 String Types
+### 6.2 String Types
 
 ##### Definition
 
@@ -4749,7 +4962,7 @@ The `string@Managed` state follows standard responsibility semantics (§3.5):
 
 ---
 
-### 6.2 Pointer Types
+### 6.3 Pointer Types
 
 ##### Definition
 
@@ -5072,7 +5285,7 @@ Raw pointers are the only FFI-safe (Clause 12) pointer types:
 ---
 
 
-### 6.3 Function Types
+### 6.4 Function Types
 
 ##### Definition
 
@@ -5815,7 +6028,7 @@ An implementation encountering an unknown attribute (one not in $\mathcal{R}$) M
 
 ---
 
-#### 4.16.1 The `[[layout(...)]]` Attribute
+#### 7.2.1 The `[[layout(...)]]` Attribute
 
 ##### Definition
 
@@ -5907,7 +6120,7 @@ Applying `[[layout(...)]]` to a `modal` type or an unmonomorphized generic type 
 
 ---
 
-#### 4.16.2 The `[[inline(...)]]` Attribute
+#### 7.2.2 The `[[inline(...)]]` Attribute
 
 ##### Definition
 
@@ -5933,7 +6146,7 @@ When no `[[inline(...)]]` attribute is present, the implementation MAY inline or
 
 ---
 
-#### 4.16.3 The `[[cold]]` Attribute
+#### 7.2.3 The `[[cold]]` Attribute
 
 ##### Definition
 
@@ -5951,7 +6164,7 @@ The attribute is a hint; implementations MAY ignore it without diagnostic.
 
 ---
 
-#### 4.16.4 The `[[deprecated(...)]]` Attribute
+#### 7.2.4 The `[[deprecated(...)]]` Attribute
 
 ##### Definition
 
@@ -5975,7 +6188,7 @@ When a program references a declaration marked `[[deprecated(...)]]`:
 
 ---
 
-#### 4.16.5 The `[[reflect]]` Attribute
+#### 7.2.5 The `[[reflect]]` Attribute
 
 ##### Definition
 
@@ -5990,7 +6203,7 @@ The `[[reflect]]` attribute enables compile-time introspection for a type declar
 
 ---
 
-#### 4.16.6 FFI Attributes
+#### 7.2.6 FFI Attributes
 
 ##### Definition
 
@@ -6010,7 +6223,7 @@ These attributes are valid only on `extern` procedure declarations.
 
 ---
 
-#### 4.16.7 The `[[verify(...)]]` Attribute
+#### 7.2.7 The `[[verify(...)]]` Attribute
 
 ##### Definition
 
@@ -6030,7 +6243,7 @@ This attribute is valid only on contract clauses (`where`, `must`, `ensure`).
 
 ---
 
-#### 4.16.8 Consolidated Constraints and Diagnostics
+#### 7.2.8 Consolidated Constraints and Diagnostics
 
 ##### Constraints & Legality
 
@@ -6119,17 +6332,17 @@ Within the predicate of a parameter constraint, the **parameter name** refers to
 A parameter with an inline constraint is semantically equivalent to an unrefined parameter with a procedure-level precondition. The following declarations are equivalent:
 
 ```cursive
-// Inline constraint form
+// Inline constraint form (type refinement)
 procedure get<T>(arr: [T], idx: usize where { idx < arr~>len() }) -> T
 
-// Procedure where-clause form (equivalent)
+// Procedure contract form (equivalent)
 procedure get<T>(arr: [T], idx: usize) -> T
-    where { idx < arr~>len() }
+    |= idx < arr~>len()
 ```
 
-The inline form is preferred when the constraint concerns a single parameter. The procedure `where` clause (§7.2) is preferred for multi-parameter relationships, postconditions, or complex predicates that benefit from separate formatting.
+The inline form is preferred when the constraint concerns a single parameter. The procedure contract clause (`|=`) is preferred for multi-parameter relationships, postconditions, or complex predicates that benefit from separate formatting.
 
-> **Rationale:** Using the parameter name (instead of `self`) in inline parameter constraints provides consistency (the same identifier appears in the signature and predicate), enables dependent typing (later parameters can reference earlier parameters by name), unifies inline constraints with procedure `where` clause syntax, and improves readability (`idx < arr~>len()` reads more naturally than `self < arr~>len()`). The `self` keyword is reserved for contexts where no parameter name exists: type aliases (`type Positive = i32 where { self > 0 }`) and record/enum invariants (`record R { x: i32 } where { self.x > 0 }`).
+> **Rationale:** Using the parameter name (instead of `self`) in inline parameter constraints provides consistency (the same identifier appears in the signature and predicate), enables dependent typing (later parameters can reference earlier parameters by name), unifies inline constraints with procedure contract clause syntax, and improves readability (`idx < arr~>len()` reads more naturally than `self < arr~>len()`). The `self` keyword is reserved for contexts where no parameter name exists: type aliases (`type Positive = i32 where { self > 0 }`) and record/enum invariants (`record R { x: i32 } where { self.x > 0 }`).
 
 ##### Static Semantics
 
@@ -6347,6 +6560,15 @@ A **Compilation Unit** is the set of all source files constituting a single modu
 
 Each directory within a declared source root that contains one or more `.cursive` files **MUST** be treated as a single module. All `.cursive` files located directly within that directory contribute their top-level declarations to that single module's namespace.
 
+**Multi-File Processing Order**
+
+When a module comprises multiple `.cursive` files, the order in which files are processed is **Implementation-Defined Behavior (IDB)**. Implementations **MUST** document the file processing order in the Conformance Dossier.
+
+Regardless of file processing order:
+1. All files in the directory contribute to a single unified namespace
+2. Identifier uniqueness constraints apply across all files
+3. The resulting module semantics **MUST** be independent of file processing order for well-formed programs
+
 ##### Syntax & Declaration
 
 **Top-Level Item Grammar**
@@ -6399,7 +6621,7 @@ A module is well-formed if:
 
 **Visibility Default**: Top-level items without an explicit visibility modifier default to `internal`.
 
-**Identifier Uniqueness**: Each identifier **MUST** be unique within module scope. Because Cursive uses a unified namespace (§5.4), a type declaration and a term declaration **MUST NOT** share the same identifier.
+**Identifier Uniqueness**: Each identifier **MUST** be unique within module scope. Because Cursive uses a unified namespace (§8.4), a type declaration and a term declaration **MUST NOT** share the same identifier.
 
 **Forbidden Constructs**: Control-flow constructs (`if`, `loop`, `match`) and expression statements **MUST NOT** appear at top level.
 
@@ -6742,10 +6964,13 @@ $$
 
 **Intra-Assembly Access**: Modules within the same assembly are automatically available for qualified name access without requiring an `import` declaration. A declaration `item` in module `mod` within assembly `A` is accessible from another module in assembly `A` via the qualified path `mod::item` if and only if the visibility of `item` is `public` or `internal`.
 
-| Code         | Severity | Condition                                             |
-| :----------- | :------- | :---------------------------------------------------- |
-| `E-NAM-1305` | Error    | Inaccessible item: visibility does not permit access. |
-| `E-DEC-2440` | Error    | `protected` used on top-level declaration.            |
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                             | Detection    | Effect    |
+| :----------- | :------- | :---------------------------------------------------- | :----------- | :-------- |
+| `E-NAM-1305` | Error    | Inaccessible item: visibility does not permit access. | Compile-time | Rejection |
+| `E-DEC-2440` | Error    | `protected` used on top-level declaration.            | Compile-time | Rejection |
+| `E-MOD-1207` | Error    | Cannot access a `protected` item from this scope.     | Compile-time | Rejection |
 
 ---
 
@@ -6770,12 +6995,17 @@ A `public use` declaration **re-exports** an imported item, making it available 
 **Grammar:**
 
 ```ebnf
-import_decl ::= "import" module_path
+import_decl ::= "import" module_path ("as" identifier)?
 
-use_decl    ::= "use" use_path ("as" identifier)?
-use_path    ::= module_path ("::" item_name)?
+use_decl    ::= visibility? "use" use_clause
+use_clause  ::= use_path ("as" identifier)?
+              | use_path "::" use_list
+              | use_path "::" "*"
 
-item_name   ::= identifier | "{" identifier ("," identifier)* "}"
+use_path    ::= module_path ("::" identifier)?
+use_list    ::= "{" use_specifier ("," use_specifier)* ","? "}"
+use_specifier ::= identifier ("as" identifier)?
+                | "self" ("as" identifier)?
 ```
 
 **Examples:**
@@ -6784,11 +7014,27 @@ item_name   ::= identifier | "{" identifier ("," identifier)* "}"
 // Import external assembly module
 import core::io
 
+// Import with alias
+import core::collections as col
+
+// Use single item
+use core::io::File
+
 // Use with alias
 use core::io::File as FileHandle
 
-// Use multiple items
+// Use multiple items (list form)
 use core::collections::{Vec, HashMap}
+
+// Use with self (brings module AND items into scope)
+use core::io::{self, File, Reader}
+// After this: `io::write()` and `File` both work
+
+// Use with aliased self
+use core::collections::{self as col, Vec}
+
+// Wildcard use (brings all accessible items into scope)
+use core::prelude::*
 
 // Re-export
 public use core::io::File
@@ -6799,35 +7045,94 @@ public use core::io::File
 **Import Semantics**
 
 An `import` declaration:
+
 1. Establishes a dependency edge from the current assembly to the imported assembly
 2. Makes the imported module's namespace available for qualified access
 3. Does **NOT** introduce any names into the current scope's unqualified namespace
+4. If `as alias` is specified, the alias becomes the local name for the module; otherwise, the last component of the module path is used
+
+**Import Requirement for External Access**
+
+For modules in **external assemblies**, an `import` declaration **MUST** precede any `use` declaration that references items from that assembly. The `import` declaration establishes the inter-assembly dependency; the `use` declaration then brings specific items into scope.
+
+For modules in the **same assembly** (intra-assembly access), `use` declarations **MAY** directly reference module paths without a preceding `import`.
 
 **Use Semantics**
 
-A `use` declaration:
-1. Resolves the specified path to an entity
-2. Introduces a binding in the current module's scope
-3. If `as alias` is specified, the alias becomes the local name; otherwise, the item's original name is used
+A `use` declaration resolves a path and introduces bindings into the current scope:
+
+1. **Item Use** (`use path::Item`): Resolves `Item` and introduces a binding with its original name (or the alias if `as alias` is specified).
+
+2. **List Use** (`use path::{A, B, C}`): Resolves each item in the list and introduces bindings for all of them. Each item in the list **MUST** be unique.
+
+3. **Self Use** (`use path::{self, A}`): The special specifier `self` in a use list introduces a binding for the module path itself, enabling qualified access via the module name alongside unqualified access to other items.
+
+4. **Wildcard Use** (`use path::*`): Brings all accessible (public or internal, depending on assembly relationship) items from the target module into the current scope. Each item retains its original name.
+
+**Formal Rule (WF-Use-Item):**
+
+$$
+\frac{
+    \Gamma \vdash \text{resolve\_item}(\text{path}::i) \Rightarrow \text{item} \quad \Gamma \vdash \text{can\_access}(\text{item}) \quad \text{name} \notin \text{dom}(\Gamma)
+}{
+    \Gamma \vdash \text{use path}::i \text{ as name;}: WF
+}
+$$
+
+**Formal Rule (WF-Use-Wildcard):**
+
+$$
+\frac{
+    \Gamma \vdash \text{resolve\_module}(\text{path}) \Rightarrow m \quad \forall i \in \text{accessible}(m), \text{name}(i) \notin \text{dom}(\Gamma)
+}{
+    \Gamma \vdash \text{use path}::*: WF
+}
+$$
 
 **Re-export Semantics**
 
-A `public use` declaration:
+A `public use` declaration re-exports an item, making it part of the current module's public API:
+
 1. Performs the same resolution as a regular `use`
 2. Additionally marks the introduced binding as `public`, making it visible to external dependents
+3. The source item **MUST** itself be `public`; re-exporting `internal` or `private` items is forbidden
+
+**Formal Rule (WF-Use-Public):**
+
+$$
+\frac{
+    \Gamma \vdash \text{use path}::i \text{ as name;}: WF \quad \text{visibility}(\text{item}) = \text{public}
+}{
+    \Gamma \vdash \text{public use path}::i \text{ as name;}: WF
+}
+$$
 
 ##### Constraints & Legality
 
 **Import Cycle Detection**: The compiler **MUST** detect and reject cyclic import dependencies between assemblies.
 
-**Visibility Enforcement**: Re-exported items **MUST NOT** expose items with more restrictive visibility than the re-export itself. Re-exporting a `private` item via `public use` is forbidden.
+**Import Requirement**: For external assemblies, an `import` declaration **MUST** precede any `use` that references that assembly. Attempting to `use` an item from an external assembly without a prior `import` **MUST** be diagnosed as an error.
 
-| Code         | Severity | Condition                                            |
-| :----------- | :------- | :--------------------------------------------------- |
-| `E-MOD-1201` | Error    | Circular import dependency between assemblies.       |
-| `E-MOD-1202` | Error    | Import of non-existent assembly or module.           |
-| `E-NAM-1305` | Error    | Use of inaccessible item (visibility violation).     |
-| `E-NAM-1307` | Error    | Re-export exposes item with incompatible visibility. |
+**Visibility Enforcement**: Re-exported items **MUST NOT** expose items with more restrictive visibility than the re-export itself. Re-exporting a `private` or `internal` item via `public use` is forbidden.
+
+**Uniqueness in Use Lists**: Each identifier in a use list **MUST** be unique. Duplicate items in a single `use` declaration **MUST** be diagnosed as an error.
+
+**Name Conflict Prevention**: Names introduced by `import as` or `use` declarations **MUST NOT** conflict with existing names in the same scope.
+
+**Wildcard Use Warning**: Wildcard use declarations (`use path::*`) in modules that expose a `public` API **SHOULD** trigger a warning. This warning is informational and does not affect program validity.
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                                        | Detection    | Effect    |
+| :----------- | :------- | :--------------------------------------------------------------- | :----------- | :-------- |
+| `E-MOD-1201` | Error    | Circular import dependency between assemblies.                   | Compile-time | Rejection |
+| `E-MOD-1202` | Error    | Import of non-existent assembly or module.                       | Compile-time | Rejection |
+| `E-MOD-1203` | Error    | Name introduced by `use` or `import as` conflicts with existing. | Compile-time | Rejection |
+| `E-MOD-1204` | Error    | Item in `use` path not found or not accessible.                  | Compile-time | Rejection |
+| `E-MOD-1205` | Error    | Attempt to `public use` a non-public item.                       | Compile-time | Rejection |
+| `E-MOD-1206` | Error    | Duplicate item in a `use` list.                                  | Compile-time | Rejection |
+| `E-NAM-1305` | Error    | Use of inaccessible item (visibility violation).                 | Compile-time | Rejection |
+| `W-MOD-1201` | Warning  | Wildcard `use` (`*`) in a module exposing public API.            | Compile-time | N/A       |
 
 ---
 
@@ -6916,7 +7221,7 @@ $$
 To resolve a path `p::i`:
 1. The prefix `p` must first resolve to a module `m`
 2. The identifier `i` must resolve to a member of `m`
-3. That member must be accessible from the current scope (§5.5)
+3. That member must be accessible from the current scope (§8.5)
 
 ##### Constraints & Legality
 
@@ -7003,7 +7308,7 @@ Before the program's `main` procedure is invoked, the runtime **MUST**:
 1. Compute a valid topological sort of modules based on the eager dependency graph $G_e$
 2. For each module in the sorted list, execute the initializers for all module-level bindings in the order they appear within that module's source files
 
-**Intra-Module Order**: Within a module, initializers **MUST** execute in strictly sequential lexical order.
+**Intra-Module Order**: Within a module, initializers **MUST** execute in strictly sequential lexical order within each source file. When a module comprises multiple source files, the order in which files are processed for initialization is **Implementation-Defined Behavior (IDB)** consistent with the file processing order documented per §8.1. Within each file, lexical order is preserved.
 
 **Failure Semantics**
 
@@ -7088,38 +7393,38 @@ record Context {
 
 ### Clause 8: Modules and Resolution Cross-Reference Notes
 
-**Terms defined in Clause 5 that MUST NOT be redefined elsewhere:**
+**Terms defined in Clause 8 that MUST NOT be redefined elsewhere:**
 
 | Term                    | Section | Description                                                       |
 | :---------------------- | :------ | :---------------------------------------------------------------- |
-| Project                 | §5.1    | Top-level organizational unit with manifest and assemblies        |
-| Assembly                | §5.1    | Collection of modules compiled as a single distributable unit     |
-| Module                  | §5.1    | Fundamental unit of code organization (folder-as-module)          |
-| Compilation Unit        | §5.1    | Source files constituting a single module                         |
-| Module Path             | §5.1    | Unique identifier derived from filesystem path                    |
-| Folder-as-Module        | §5.1    | Principle: directory = module, files contribute to namespace      |
-| Scope                   | §5.4    | Region of source text where a set of names is valid               |
-| Scope Context           | §5.4    | Ordered list of scope mappings ($\Gamma$)                         |
-| Universe Scope          | §5.4    | Implicit scope containing primitive types and cursive.* namespace |
-| Unified Namespace       | §5.4    | Single namespace shared by terms, types, and modules              |
-| Visibility              | §5.5    | Access level: public, internal, private, protected                |
-| Accessibility           | §5.5    | Whether an item can be referenced from a given context            |
-| Import Declaration      | §5.6    | Inter-assembly dependency declaration                             |
-| Use Declaration         | §5.6    | Scope alias for qualified paths                                   |
-| Re-export               | §5.6    | Making imported items available to dependents via public use      |
-| Name Introduction       | §5.7    | Adding a binding to a scope's namespace                           |
-| Shadowing               | §5.7    | Inner scope binding obscuring outer scope binding                 |
-| Name Lookup             | §5.7    | Process of finding the entity for an identifier                   |
-| Module Dependency Graph | §5.8    | Directed graph representing inter-module dependencies             |
-| Eager Dependency        | §5.8    | Value-level edge from module initializer                          |
-| Lazy Dependency         | §5.8    | Type-level edge or value-level edge only within procedure bodies  |
-| Entry Point             | §5.9    | The main procedure receiving root capabilities                    |
-| Context Record          | §5.9    | Container for system capabilities passed to main                  |
-| No Ambient Authority    | §5.9    | Principle: all effects require explicit capability                |
+| Project                 | §8.1    | Top-level organizational unit with manifest and assemblies        |
+| Assembly                | §8.1    | Collection of modules compiled as a single distributable unit     |
+| Module                  | §8.1    | Fundamental unit of code organization (folder-as-module)          |
+| Compilation Unit        | §8.1    | Source files constituting a single module                         |
+| Module Path             | §8.3    | Unique identifier derived from filesystem path                    |
+| Folder-as-Module        | §8.1    | Principle: directory = module, files contribute to namespace      |
+| Scope                   | §8.4    | Region of source text where a set of names is valid               |
+| Scope Context           | §8.4    | Ordered list of scope mappings ($\Gamma$)                         |
+| Universe Scope          | §8.4    | Implicit scope containing primitive types and cursive.* namespace |
+| Unified Namespace       | §8.4    | Single namespace shared by terms, types, and modules              |
+| Visibility              | §8.5    | Access level: public, internal, private, protected                |
+| Accessibility           | §8.5    | Whether an item can be referenced from a given context            |
+| Import Declaration      | §8.6    | Inter-assembly dependency declaration                             |
+| Use Declaration         | §8.6    | Scope alias for qualified paths                                   |
+| Re-export               | §8.6    | Making imported items available to dependents via public use      |
+| Name Introduction       | §8.7    | Adding a binding to a scope's namespace                           |
+| Shadowing               | §8.7    | Inner scope binding obscuring outer scope binding                 |
+| Name Lookup             | §8.7    | Process of finding the entity for an identifier                   |
+| Module Dependency Graph | §8.8    | Directed graph representing inter-module dependencies             |
+| Eager Dependency        | §8.8    | Value-level edge from module initializer                          |
+| Lazy Dependency         | §8.8    | Type-level edge or value-level edge only within procedure bodies  |
+| Entry Point             | §8.9    | The main procedure receiving root capabilities                    |
+| Context Record          | §8.9    | Container for system capabilities passed to main                  |
+| No Ambient Authority    | §8.9    | Principle: all effects require explicit capability                |
 
 **Terms referenced from other clauses:**
 
-| Term             | Source             | Usage in Clause 5                                   |
+| Term             | Source             | Usage in Clause 8                                   |
 | :--------------- | :----------------- | :-------------------------------------------------- |
 | Identifier       | §2.2               | Module paths composed of identifiers                |
 | Keyword          | §2.3               | Keywords forbidden in module path components        |
@@ -7152,15 +7457,35 @@ This clause defines the Cursive trait system: the unified mechanism for defining
 
 ##### Definition
 
-**Trait**
+A **trait** is a named declaration that defines an abstract interface consisting of procedure signatures and associated type declarations. Traits establish behavioral contracts that implementing types MUST satisfy.
 
-A **trait** is a declaration that defines an abstract interface consisting of:
-- A set of procedure signatures (abstract or concrete)
-- A set of associated type declarations (abstract or concrete)
+**Formal Definition**
 
-A trait establishes a behavioral contract that implementing types **MUST** satisfy.
+A trait $Tr$ is defined as a tuple:
 
-**Polymorphism Paths**
+$$Tr = (N, G, S, P_{abs}, P_{con}, A_{abs}, A_{con})$$
+
+where:
+
+- $N$ is the trait name (an identifier)
+- $G$ is the (possibly empty) set of generic type parameters
+- $S$ is the (possibly empty) set of supertrait bounds
+- $P_{abs}$ is the set of abstract procedure signatures
+- $P_{con}$ is the set of concrete procedure definitions (default implementations)
+- $A_{abs}$ is the set of abstract associated type declarations
+- $A_{con}$ is the set of concrete associated type bindings (defaults)
+
+The **interface** of trait $Tr$ is defined as:
+
+$$\text{interface}(Tr) = P_{abs} \cup P_{con} \cup A_{abs} \cup A_{con}$$
+
+A type $T$ **implements** trait $Tr$ (written $T <: Tr$) when $T$ provides concrete definitions for all abstract members:
+
+$$T <: Tr \iff \forall p \in P_{abs}.\ T \text{ defines } p\ \land\ \forall a \in A_{abs}.\ T \text{ binds } a$$
+
+##### Static Semantics
+
+**Polymorphism Dispatch Classification**
 
 Cursive provides three distinct mechanisms for polymorphism, each with different dispatch semantics, performance characteristics, and use cases:
 
@@ -7170,41 +7495,51 @@ Cursive provides three distinct mechanisms for polymorphism, each with different
 | 2    | Dynamic Polymorphism | Runtime (vtable)                | One indirect call | Heterogeneous collections |
 | 3    | Opaque Polymorphism  | Compile-time (type erasure)     | Zero              | Hidden return types       |
 
+**Path Selection**
+
+The polymorphism path is determined by usage context:
+
+1. **Static (Path 1):** Selected when a generic parameter `T <: Tr` is used in a procedure signature. The compiler monomorphizes the procedure for each concrete type argument.
+
+2. **Dynamic (Path 2):** Selected when `witness Tr` is used as a type. A vtable-based dense pointer enables runtime dispatch.
+
+3. **Opaque (Path 3):** Selected when `opaque Tr` is used as a return type. The concrete type is hidden from callers while maintaining zero-cost dispatch within the defining module.
+
 ---
 
 ### 9.2 Trait Declarations
 
 ##### Definition
 
-A trait declaration introduces a named interface that types **MAY** implement. Traits define requirements through abstract procedures and **MAY** provide default implementations through concrete procedures.
+A trait declaration introduces a named interface that types MAY implement. Traits define requirements through abstract procedures and MAY provide default implementations through concrete procedures.
 
 **Abstract Procedure**
 
-An **abstract procedure** is a procedure signature within a trait that lacks a body. Implementing types **MUST** provide a concrete implementation.
+An **abstract procedure** is a procedure signature within a trait that lacks a body. Implementing types MUST provide a concrete implementation.
 
 **Concrete Procedure (Default Implementation)**
 
-A **concrete procedure** is a procedure definition within a trait that includes a body. Implementing types automatically inherit this procedure but **MAY** override it using the `override` keyword.
+A **concrete procedure** is a procedure definition within a trait that includes a body. Implementing types automatically inherit this procedure but MAY override it using the `override` keyword.
 
 **Associated Type**
 
 An **associated type** is a type declaration within a trait:
-- If abstract (no `= T`): implementing types **MUST** provide a concrete type binding
-- If concrete (`= T`): provides a default type that **MAY** be overridden
+- If abstract (no `= T`): implementing types MUST provide a concrete type binding
+- If concrete (`= T`): provides a default type that MAY be overridden
 
 **The `Self` Type**
 
-Within a trait declaration, the identifier `Self` denotes the (unknown) implementing type. `Self` **MUST** be used for the receiver parameter and **MAY** be used in any other type position.
+Within a trait declaration, the identifier `Self` denotes the (unknown) implementing type. `Self` MUST be used for the receiver parameter and MAY be used in any other type position.
 
 **Generic Trait Parameters**
 
-A trait **MAY** declare generic type parameters that parameterize the entire trait definition. These parameters are distinct from associated types:
+A trait MAY declare generic type parameters that parameterize the entire trait definition. These parameters are distinct from associated types:
 - Generic parameters (`trait Foo<T>`) are specified at use-site by the implementer/consumer
 - Associated types are specified by the implementer within the type body
 
 **Supertrait (Trait Bounds)**
 
-A trait **MAY** extend one or more supertraits using the `<:` operator. A type implementing a subtrait **MUST** also implement all of its supertraits.
+A trait MAY extend one or more supertraits using the `<:` operator. A type implementing a subtrait MUST also implement all of its supertraits.
 
 **Trait Alias**
 
@@ -7233,12 +7568,12 @@ trait_item ::=
   | <associated_type>
 
 abstract_procedure ::=
-    "procedure" <identifier> <signature> [ <procedure_constraint> ] ";"
+    "procedure" <identifier> <signature> [ <contract_clause> ] ";"
 
 concrete_procedure ::=
-    "procedure" <identifier> <signature> [ <procedure_constraint> ] <block>
+    "procedure" <identifier> <signature> [ <contract_clause> ] <block>
 
-procedure_constraint ::= "where" "{" <precondition_expr> [ "=>" <postcondition_expr> ] "}"
+contract_clause ::= "|=" <precondition_expr> [ "=>" <postcondition_expr> ]
 
 associated_type ::=
     "type" <identifier> [ "=" <type> ] ";"
@@ -7259,6 +7594,23 @@ A trait declaration is well-formed if:
 4. No procedure name conflicts with an associated type name
 5. All supertrait bounds refer to valid traits
 6. No cyclic supertrait dependencies exist
+
+**Formal Well-Formedness Rule**
+
+$$\frac{
+  \text{unique}(N) \quad
+  \forall p \in P.\ \Gamma, \text{Self} : \text{Type} \vdash p\ \text{wf} \quad
+  \forall a \in A.\ \Gamma \vdash a\ \text{wf} \quad
+  \neg\text{cyclic}(S)
+}{
+  \Gamma \vdash \text{trait } N\ [<: S]\ \{P, A\}\ \text{wf}
+} \quad \text{(WF-Trait)}$$
+
+where:
+- $N$ is the trait name
+- $P$ is the set of procedure declarations
+- $A$ is the set of associated type declarations
+- $S$ is the set of supertrait bounds
 
 **Typing Rule for Self**
 
@@ -7285,13 +7637,15 @@ $$\frac{\text{type } Alias = A + B}{\Gamma \vdash T <: Alias \iff \Gamma \vdash 
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                                      |
-| :----------- | :------- | :--------------------------------------------- |
-| `E-TRS-2900` | Error    | Duplicate procedure name in trait.             |
-| `E-TRS-2904` | Error    | Duplicate associated type name in trait.       |
-| `E-TRS-2905` | Error    | Procedure name conflicts with associated type. |
-| `E-TRS-2908` | Error    | Cyclic supertrait dependency detected.         |
-| `E-TRS-2909` | Error    | Supertrait bound refers to undefined trait.    |
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                      | Detection    | Effect    |
+| :----------- | :------- | :--------------------------------------------- | :----------- | :-------- |
+| `E-TRS-2900` | Error    | Duplicate procedure name in trait.             | Compile-time | Rejection |
+| `E-TRS-2904` | Error    | Duplicate associated type name in trait.       | Compile-time | Rejection |
+| `E-TRS-2905` | Error    | Procedure name conflicts with associated type. | Compile-time | Rejection |
+| `E-TRS-2908` | Error    | Cyclic supertrait dependency detected.         | Compile-time | Rejection |
+| `E-TRS-2909` | Error    | Supertrait bound refers to undefined trait.    | Compile-time | Rejection |
 
 ---
 
@@ -7308,7 +7662,7 @@ A type implements a trait by:
 
 **Implementation Site**
 
-Trait implementation **MUST** occur at the type's definition site. Extension implementations (implementing a trait for a type defined elsewhere) are **PROHIBITED**.
+Trait implementation MUST occur at the type's definition site. Extension implementations (implementing a trait for a type defined elsewhere) are PROHIBITED.
 
 ##### Syntax & Declaration
 
@@ -7340,18 +7694,31 @@ trait_list ::= <type_path> ( "," <type_path> )*
 $$\frac{T <: Tr \quad \forall p \in \text{abstract\_procs}(Tr),\ T \text{ defines } p}{\Gamma \vdash T \text{ implements } Tr}$$
 \tag{T-Impl-Complete}
 
+**Implementation Well-Formedness (WF-Impl)**
+
+A trait implementation `T <: Tr` is well-formed if:
+
+$$\frac{
+  \Gamma \vdash T\ \text{wf} \quad
+  \Gamma \vdash Tr\ \text{wf} \quad
+  \forall p \in \text{abstract}(Tr).\ T \vdash p\ \text{implemented} \quad
+  \forall a \in \text{abstract\_types}(Tr).\ T \vdash a\ \text{bound}
+}{
+  \Gamma \vdash T <: Tr\ \text{wf}
+} \quad \text{(WF-Impl)}$$
+
 **Override Semantics**
 
-- **Abstract procedures**: implementation **MUST NOT** use the `override` keyword
-- **Concrete procedures**: replacement **MUST** use the `override` keyword
+- **Abstract procedures**: implementation MUST NOT use the `override` keyword
+- **Concrete procedures**: replacement MUST use the `override` keyword
 
 **Coherence Rule**
 
-A type `T` **MAY** implement a trait `Tr` at most once. Multiple implementations of the same trait for the same type are **forbidden**.
+A type `T` MAY implement a trait `Tr` at most once. Multiple implementations of the same trait for the same type are forbidden.
 
 **Orphan Rule**
 
-For `T <: Tr`, at least one of the following **MUST** be true:
+For `T <: Tr`, at least one of the following MUST be true:
 - `T` is defined in the current assembly
 - `Tr` is defined in the current assembly
 
@@ -7359,13 +7726,15 @@ This rule prevents external code from creating conflicting implementations.
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                                               |
-| :----------- | :------- | :------------------------------------------------------ |
-| `E-TRS-2901` | Error    | `override` used on abstract procedure implementation.   |
-| `E-TRS-2902` | Error    | Missing `override` on concrete procedure replacement.   |
-| `E-TRS-2903` | Error    | Type does not implement required procedure from trait.  |
-| `E-TRS-2906` | Error    | Coherence violation: duplicate trait implementation.    |
-| `E-TRS-2907` | Error    | Orphan rule violation: neither type nor trait is local. |
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                               | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------------ | :----------- | :-------- |
+| `E-TRS-2901` | Error    | `override` used on abstract procedure implementation.   | Compile-time | Rejection |
+| `E-TRS-2902` | Error    | Missing `override` on concrete procedure replacement.   | Compile-time | Rejection |
+| `E-TRS-2903` | Error    | Type does not implement required procedure from trait.  | Compile-time | Rejection |
+| `E-TRS-2906` | Error    | Coherence violation: duplicate trait implementation.    | Compile-time | Rejection |
+| `E-TRS-2907` | Error    | Orphan rule violation: neither type nor trait is local. | Compile-time | Rejection |
 
 ---
 
@@ -7403,6 +7772,33 @@ A call `f<T>(x)` where `f` requires `T <: Tr` is valid if and only if:
 $$\frac{\Gamma \vdash T \text{ implements } Tr}{\Gamma \vdash f\langle T \rangle(x) : \text{valid}}$$
 \tag{T-Constraint}
 
+**Generic Instantiation (T-Generic-Inst)**
+
+When a generic procedure is instantiated with a concrete type argument, the type of the instantiated procedure is derived by substituting the concrete type for the type parameter:
+
+$$\frac{
+  \Gamma \vdash f : \forall T <: Tr.\ (T, P_1, \ldots, P_n) \to R \quad
+  \Gamma \vdash C <: Tr
+}{
+  \Gamma \vdash f\langle C \rangle : (C, P_1, \ldots, P_n) \to R[C/T]
+} \quad \text{(T-Generic-Inst)}$$
+
+Where:
+- $f$ is a generic procedure with type parameter $T$ constrained by trait $Tr$
+- $C$ is a concrete type satisfying the constraint $C <: Tr$
+- $R[C/T]$ denotes the return type with all occurrences of $T$ substituted by $C$
+
+**Multiple Constraints (T-Multi-Constraint)**
+
+When a type parameter has multiple trait bounds, all constraints MUST be satisfied:
+
+$$\frac{
+  \Gamma \vdash f : \forall T <: Tr_1, Tr_2, \ldots, Tr_n.\ (T) \to R \quad
+  \forall i \in 1..n.\ \Gamma \vdash C <: Tr_i
+}{
+  \Gamma \vdash f\langle C \rangle : (C) \to R[C/T]
+} \quad \text{(T-Multi-Constraint)}$$
+
 **Monomorphization Semantics**
 
 For a generic procedure:
@@ -7410,21 +7806,23 @@ For a generic procedure:
 procedure process<T <: Trait>(item: T) { item~>method() }
 ```
 
-A call `process<Point>(p)` **MUST** be compiled as:
+A call `process<Point>(p)` MUST be compiled as:
 1. Generate specialized function `process_Point`
 2. Replace `item~>method()` with direct call `Point::method(item)`
 3. No vtable lookup; direct static dispatch
 
 **Zero Runtime Overhead**
 
-Static polymorphism **MUST** incur zero runtime overhead compared to non-generic code. The monomorphized code **MUST** be equivalent in performance to hand-written specialized code.
+Static polymorphism MUST incur zero runtime overhead compared to non-generic code. The monomorphized code MUST be equivalent in performance to hand-written specialized code.
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                                          |
-| :----------- | :------- | :------------------------------------------------- |
-| `E-TRS-2930` | Error    | Type argument does not satisfy trait constraint.   |
-| `E-TRS-2931` | Error    | Unconstrained type parameter used in trait method. |
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                          | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------- | :----------- | :-------- |
+| `E-TRS-2930` | Error    | Type argument does not satisfy trait constraint.   | Compile-time | Rejection |
+| `E-TRS-2931` | Error    | Unconstrained type parameter used in trait method. | Compile-time | Rejection |
 
 ---
 
@@ -7466,17 +7864,52 @@ witness_type ::= "witness" <trait_path>
 
 **Witness Formation (T-Witness-Form)**
 
-A value of concrete type `T` implementing witness-safe trait `Tr` **MAY** be coerced to `witness Tr`:
+A value of concrete type `T` implementing witness-safe trait `Tr` MAY be coerced to `witness Tr`:
 
 $$\frac{\Gamma \vdash v : T \quad \Gamma \vdash T <: Tr \quad \text{witness\_safe}(Tr)}{\Gamma \vdash v : \text{witness } Tr}$$
 \tag{T-Witness-Form}
 
-**Dynamic Dispatch Semantics**
+##### Dynamic Semantics
 
-A call `w~>method(args)` on witness `w: witness Tr` **MUST**:
-1. Load vtable pointer from `w`
-2. Load function pointer for `method` from vtable
-3. Call function pointer, passing data pointer as `self`
+**Evaluation**
+
+**Witness Creation**
+
+Formation of a witness from a concrete value proceeds as follows:
+
+1. Let `v` be a value of concrete type `T` where `T <: Tr` and `witness_safe(Tr)`.
+2. Let `dp` be a pointer to the storage of `v`.
+3. Let `vt` be the static vtable for the `(T, Tr)` type-trait pair.
+4. Construct the witness value as the pair `(dp, vt)`.
+
+**Formal Witness Formation Rule**
+
+$$\frac{
+  \Gamma \vdash v : T \quad
+  T <: Tr \quad
+  \text{witness\_safe}(Tr)
+}{
+  v \Rightarrow_{\text{witness}} (\text{ptr}(v), \text{vtable}(T, Tr))
+} \quad \text{(E-Witness-Form)}$$
+
+**VTable Dispatch Algorithm**
+
+A procedure call `w~>method(args)` on witness `w: witness Tr` executes as follows:
+
+1. Let `(dp, vt)` be the data pointer and vtable pointer components of `w`.
+2. Let `offset` be the vtable offset for `method` (determined at compile time from trait declaration order, offset by header size).
+3. Let `fp` be the function pointer at `vt + 3 * sizeof(usize) + offset * sizeof(usize)`.
+4. Return the result of calling `fp(dp, args)`.
+
+**Formal Dispatch Rule**
+
+$$\frac{
+  w = (dp, vt) \quad
+  \text{method} \in \text{interface}(Tr) \quad
+  vt[\text{offset}(\text{method})] = fp
+}{
+  w\text{\textasciitilde>method}(args) \to fp(dp, args)
+} \quad \text{(E-Witness-Dispatch)}$$
 
 ##### Memory & Layout
 
@@ -7496,21 +7929,23 @@ struct WitnessRepr {
 
 **VTable Layout (Stable ABI)**
 
-VTable entries **MUST** appear in this exact order:
+VTable entries MUST appear in this exact order:
 1. `size: usize` — Size of concrete type in bytes
 2. `align: usize` — Alignment requirement of concrete type
 3. `drop: *imm fn` — Destructor function pointer (null if no `Drop`)
 4. `methods[..]` — Function pointers in trait declaration order
 
-**Rationale**: Fixed layout enables separate compilation and FFI vtable compatibility.
+> **Rationale:** Fixed layout enables separate compilation and FFI vtable compatibility.
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                                                |
-| :----------- | :------- | :------------------------------------------------------- |
-| `E-TRS-2940` | Error    | Procedure with `where Self: Sized` called on witness.    |
-| `E-TRS-2941` | Error    | Witness created from non-witness-safe trait.             |
-| `E-TRS-2942` | Error    | Generic procedure in trait without `Self: Sized` clause. |
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                                | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------------- | :----------- | :-------- |
+| `E-TRS-2940` | Error    | Procedure with `where Self: Sized` called on witness.    | Compile-time | Rejection |
+| `E-TRS-2941` | Error    | Witness created from non-witness-safe trait.             | Compile-time | Rejection |
+| `E-TRS-2942` | Error    | Generic procedure in trait without `Self: Sized` clause. | Compile-time | Rejection |
 
 ---
 
@@ -7541,18 +7976,67 @@ return_type ::= ... | "opaque" <trait_path>
 For a procedure returning `opaque Trait`:
 - The callee returns a concrete type implementing `Trait`
 - The caller observes only `Trait` members
-- Access to concrete type members is **forbidden**
+- Access to concrete type members is forbidden
+
+**Opaque Return Typing (T-Opaque-Return)**
+
+A procedure body returning a concrete type is well-typed against an opaque return type declaration:
+
+$$\frac{
+  \Gamma \vdash \text{body} : T \quad
+  \Gamma \vdash T <: Tr \quad
+  \text{return\_type}(f) = \text{opaque } Tr
+}{
+  \Gamma \vdash f : () \to \text{opaque } Tr
+} \quad \text{(T-Opaque-Return)}$$
+
+Where:
+- The procedure body evaluates to a value of concrete type $T$
+- The concrete type $T$ implements trait $Tr$
+- The declared return type is `opaque Tr`
+
+**Opaque Type Projection (T-Opaque-Project)**
+
+At call sites, the opaque type is treated as an existential; callers may invoke only trait methods:
+
+$$\frac{
+  \Gamma \vdash f() : \text{opaque } Tr \quad
+  m \in \text{interface}(Tr) \quad
+  \text{signature}(Tr.m) = (S_1, \ldots, S_n) \to R_m
+}{
+  \Gamma \vdash f().\text{~>}m(a_1, \ldots, a_n) : R_m
+} \quad \text{(T-Opaque-Project)}$$
+
+Where:
+- $f()$ returns an opaque type with trait bound $Tr$
+- $m$ is a procedure declared in trait $Tr$ (or its supertraits)
+- The call is well-typed if arguments match the procedure signature
+
+**Opaque Type Equality**
+
+Two opaque types `opaque Tr` are considered equivalent types if and only if they originate from the same procedure definition. Different procedures returning `opaque Tr` produce distinct, incompatible types:
+
+$$\frac{
+  \Gamma \vdash f : () \to \text{opaque } Tr \quad
+  \Gamma \vdash g : () \to \text{opaque } Tr \quad
+  f \neq g
+}{
+  \text{typeof}(f()) \neq \text{typeof}(g())
+} \quad \text{(T-Opaque-Distinct)}$$
 
 **Zero Overhead**
 
-Opaque types **MUST** incur zero runtime overhead. The returned value is the concrete type, not a dense pointer. Type encapsulation is enforced statically.
+Opaque types MUST incur zero runtime overhead. The returned value is the concrete type, not a dense pointer. Type encapsulation is enforced statically.
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                                             |
-| :----------- | :------- | :---------------------------------------------------- |
-| `E-TRS-2910` | Error    | Accessing member not defined on opaque type's trait.  |
-| `E-TRS-2911` | Error    | Opaque return type does not implement required trait. |
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                             | Detection    | Effect    |
+| :----------- | :------- | :---------------------------------------------------- | :----------- | :-------- |
+| `E-TRS-2910` | Error    | Accessing member not defined on opaque type's trait.  | Compile-time | Rejection |
+| `E-TRS-2911` | Error    | Opaque return type does not implement required trait. | Compile-time | Rejection |
+| `E-TRS-2912` | Error    | Attempting to assign incompatible opaque types.       | Compile-time | Rejection |
 
 ---
 
@@ -7577,20 +8061,20 @@ Foundational traits are traits fundamental to language semantics. The normative 
 
 - **Signature**: `procedure drop(~!)`
 - The compiler automatically invokes `Drop::drop` on responsible bindings at scope exit
-- Direct calls to `Drop::drop` are **FORBIDDEN**
+- Direct calls to `Drop::drop` are FORBIDDEN
 
 **Copy Semantics (Summary)**
 
 - Marker trait (no procedures)
 - Enables implicit bitwise duplication instead of move
-- A type **MUST NOT** implement both `Copy` and `Drop`
-- All fields of a `Copy` type **MUST** also be `Copy`
+- A type MUST NOT implement both `Copy` and `Drop`
+- All fields of a `Copy` type MUST also be `Copy`
 
 **Clone Semantics (Summary)**
 
 - **Signature**: `procedure clone(~) -> Self`
 - Explicit duplication (deep copy)
-- `Copy` types **SHOULD** also implement `Clone`
+- `Copy` types SHOULD also implement `Clone`
 
 **Iterator Semantics (Summary)**
 
@@ -7600,40 +8084,42 @@ Foundational traits are traits fundamental to language semantics. The normative 
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                               |
-| :----------- | :------- | :-------------------------------------- |
-| `E-TRS-2920` | Error    | Direct call to `Drop::drop`.            |
-| `E-TRS-2921` | Error    | Type implements both `Copy` and `Drop`. |
-| `E-TRS-2922` | Error    | `Copy` type contains non-`Copy` field.  |
+**Diagnostic Table**
+
+| Code         | Severity | Condition                               | Detection    | Effect    |
+| :----------- | :------- | :-------------------------------------- | :----------- | :-------- |
+| `E-TRS-2920` | Error    | Direct call to `Drop::drop`.            | Compile-time | Rejection |
+| `E-TRS-2921` | Error    | Type implements both `Copy` and `Drop`. | Compile-time | Rejection |
+| `E-TRS-2922` | Error    | `Copy` type contains non-`Copy` field.  | Compile-time | Rejection |
 
 ---
 
 ### Clause 9: Traits and Polymorphism Cross-Reference Notes
 
-**Terms defined in Clause 6 that MUST NOT be redefined elsewhere:**
+**Terms defined in Clause 9 that MUST NOT be redefined elsewhere:**
 
 | Term                    | Section | Description                                                                |
 | :---------------------- | :------ | :------------------------------------------------------------------------- |
-| Trait                   | §6.1    | A declaration defining an abstract interface of procedures and types.      |
-| Abstract Procedure      | §6.2    | A procedure signature in a trait without a body.                           |
-| Concrete Procedure      | §6.2    | A procedure definition in a trait with a body (default implementation).    |
-| Associated Type         | §6.2    | A type declaration within a trait, either abstract or with a default.      |
-| Generic Trait Parameter | §6.2    | Type parameters declared on a trait, specified at use-site.                |
-| Supertrait              | §6.2    | A trait required by another trait via `<:` in trait declaration.           |
-| Trait Alias             | §6.2    | A named alias for a combination of trait bounds.                           |
-| Trait Implementation    | §6.3    | The act of a type satisfying a trait's requirements via `<:`.              |
-| Coherence Rule          | §6.3    | A type MAY implement a trait at most once.                                 |
-| Orphan Rule             | §6.3    | Trait impl requires locality of type or trait to current assembly.         |
-| Monomorphization        | §6.4    | Compile-time specialization of generic code for concrete types.            |
-| Constrained Generic     | §6.4    | A generic parameter bounded by one or more traits.                         |
-| Witness                 | §6.5    | A dense pointer type enabling runtime polymorphism over a trait.           |
-| Witness Safety          | §6.5    | Property of a trait permitting witness creation.                           |
-| VTable Eligibility      | §6.5    | Criteria for procedure inclusion in a witness vtable.                      |
-| Opaque Type             | §6.6    | A return type hiding the concrete implementation behind a trait interface. |
+| Trait                   | §9.1    | A declaration defining an abstract interface of procedures and types.      |
+| Abstract Procedure      | §9.2    | A procedure signature in a trait without a body.                           |
+| Concrete Procedure      | §9.2    | A procedure definition in a trait with a body (default implementation).    |
+| Associated Type         | §9.2    | A type declaration within a trait, either abstract or with a default.      |
+| Generic Trait Parameter | §9.2    | Type parameters declared on a trait, specified at use-site.                |
+| Supertrait              | §9.2    | A trait required by another trait via `<:` in trait declaration.           |
+| Trait Alias             | §9.2    | A named alias for a combination of trait bounds.                           |
+| Trait Implementation    | §9.3    | The act of a type satisfying a trait's requirements via `<:`.              |
+| Coherence Rule          | §9.3    | A type MAY implement a trait at most once.                                 |
+| Orphan Rule             | §9.3    | Trait impl requires locality of type or trait to current assembly.         |
+| Monomorphization        | §9.4    | Compile-time specialization of generic code for concrete types.            |
+| Constrained Generic     | §9.4    | A generic parameter bounded by one or more traits.                         |
+| Witness                 | §9.5    | A dense pointer type enabling runtime polymorphism over a trait.           |
+| Witness Safety          | §9.5    | Property of a trait permitting witness creation.                           |
+| VTable Eligibility      | §9.5    | Criteria for procedure inclusion in a witness vtable.                      |
+| Opaque Type             | §9.6    | A return type hiding the concrete implementation behind a trait interface. |
 
 **Terms referenced:**
 
-| Term                    | Source | Usage in Clause 6                                        |
+| Term                    | Source | Usage in Clause 9                                        |
 | :---------------------- | :----- | :------------------------------------------------------- |
 | Type Context ($\Gamma$) | §4.1   | Used in typing judgments for trait bounds.               |
 | Subtype Relation ($<:$) | §4.2   | Trait implementation creates subtype relationship.       |
@@ -7662,161 +8148,376 @@ Foundational traits are traits fundamental to language semantics. The normative 
 
 This clause defines the formal semantics, syntax, and verification rules for Contracts in Cursive. Contracts are the primary mechanism for specifying behavioral properties of code beyond the type system. They govern the logical validity of procedures, types, and loops through preconditions, postconditions, and invariants.
 
+---
+
 ### 10.1 Contract Fundamentals
 
 ##### Definition
 
 A **Contract** is a specification attached to a procedure declaration that asserts logical predicates over program state. Contracts govern the logical validity of procedures through preconditions (caller obligations) and postconditions (callee guarantees).
 
-**Formal Definition:**
+**Formal Definition**
 
-A contract $C$ is a pair $(P_{must}, P_{will})$ where:
-- $P_{must}$ is a conjunction of boolean predicates representing preconditions
-- $P_{will}$ is a conjunction of boolean predicates representing postconditions
+A contract $C$ is a pair $(P_{pre}, P_{post})$ where:
+- $P_{pre}$ is a conjunction of boolean predicates representing preconditions
+- $P_{post}$ is a conjunction of boolean predicates representing postconditions
 
-**Distinguished from Capabilities:** Contracts control *logical validity* of data; Capabilities (Clause 10) control *authority* to perform effects.
+$$C = (P_{pre}, P_{post}) \quad \text{where} \quad P_{pre}, P_{post} \in \text{Predicate}^*$$
 
-A **Predicate** is a pure boolean expression evaluated in a specific context (see Static Semantics below).
+A **Predicate** is a pure boolean expression evaluated in a specific evaluation context (see §10.1.2).
 
-A **Verification Fact** is a compiler-internal guarantee that a predicate $P$ holds at program location $L$. Verification Facts have zero runtime representation and are used solely for static analysis and optimization.
+**Distinguished from Capabilities**
 
-A **Verification Mode** is a strategy for discharging contract obligations. Cursive supports three modes: `static`, `dynamic`, and `trusted`, plus a hybrid default.
+Contracts and Capabilities (Clause 13) serve orthogonal purposes:
+- **Contracts** control the *logical validity* of data and operations
+- **Capabilities** control the *authority* to perform external effects
+
+A procedure may have both contracts (specifying what values are valid) and capability requirements (specifying what effects it may perform).
 
 ##### Syntax & Declaration
 
-**Grammar:**
+**Grammar**
 
 ```ebnf
-procedure_constraint ::= "where" "{" precondition_expr [ "=>" postcondition_expr ] "}"
+contract_clause
+    ::= "|=" contract_body
 
-precondition_expr  ::= logical_expr
-postcondition_expr ::= logical_expr
+contract_body
+    ::= precondition_expr
+      | precondition_expr "=>" postcondition_expr
+      | "=>" postcondition_expr
 
-logical_expr ::=
-    comparison_expr
-  | logical_expr "&&" logical_expr
-  | logical_expr "||" logical_expr
-  | "!" logical_expr
-  | "(" logical_expr ")"
-  | match_expr
-  | procedure_call
+precondition_expr
+    ::= predicate_expr
+
+postcondition_expr
+    ::= predicate_expr
+
+predicate_expr
+    ::= logical_or_expr
+
+logical_or_expr
+    ::= logical_and_expr
+      | logical_or_expr "||" logical_and_expr
+
+logical_and_expr
+    ::= logical_not_expr
+      | logical_and_expr "&&" logical_not_expr
+
+logical_not_expr
+    ::= "!" logical_not_expr
+      | primary_predicate
+
+primary_predicate
+    ::= comparison_expr
+      | "(" predicate_expr ")"
+      | identifier
+      | procedure_call
+      | field_access
+      | contract_intrinsic
+
+contract_intrinsic
+    ::= "@result"
+      | "@entry" "(" expression ")"
 ```
 
-**Positioning:** A `where` clause **MUST** appear after the return type (or parameter list if no return type) and before the procedure body or terminating semicolon.
+**Positioning**
 
-**Relation to Inline Parameter Constraints:**
-
-Inline parameter constraints (§4.19) and procedure `where` clauses use identical predicate syntax and are semantically interchangeable for preconditions. The choice is stylistic:
-
-| Style             | Best For                                      |
-| :---------------- | :-------------------------------------------- |
-| Inline constraint | Single-parameter preconditions                |
-| Procedure `where` | Multi-parameter relationships, postconditions |
-
-**Combining Inline and Procedure Constraints:**
-
-When both forms are present, the effective precondition is their conjunction:
+A contract clause (introduced by `|=`) MUST appear after the return type annotation (or after the parameter list if no return type is specified) and before the procedure body or terminating semicolon.
 
 ```cursive
-procedure example(
-    x: i32 where { x > 0 },     // Inline constraint
-    y: i32
-)
-    where { x + y < 100 }       // Procedure constraint
+// Contract after return type, before body
+procedure divide(a: i32, b: i32) -> i32
+    |= b != 0 => @result * b == a
 {
-    // Effective precondition: x > 0 && x + y < 100
+    a / b
+}
+
+// Contract on procedure without return type annotation
+procedure assert_positive(x: i32)
+    |= x > 0
+{
+    // ...
 }
 ```
 
+**Rationale: The `|=` Symbol**
+
+The `|=` symbol (semantic entailment) is borrowed from mathematical logic, where $\Gamma \models P$ means "in all models where $\Gamma$ holds, $P$ also holds." For procedure contracts:
+
+- The procedure signature and precondition form the context $\Gamma$
+- The postcondition is the entailed proposition $P$
+- The contract asserts: "in all executions satisfying the precondition, the postcondition holds"
+
+This symbol was chosen to distinguish **contractual assertions** (obligations about program behavior) from **definitional constraints** (restrictions on value sets), which use `where`. The distinction clarifies:
+
+| Syntax          | Keyword | Meaning                         | Semantic Category |
+| :-------------- | :------ | :------------------------------ | :---------------- |
+| `T where { P }` | `where` | "values of T such that P"       | Definitional      |
+| `\|= P => Q`    | `\|=`   | "if P at entry, then Q at exit" | Contractual       |
+
 ##### Static Semantics
 
-**Predicate Evaluation Context:**
+**Well-Formedness Rule (WF-Contract)**
 
-The `where` clause contains two parts separated by `=>`:
-
-1. **Precondition Expression (left of `=>`):**
-   - Contains procedure parameters at entry state
-   - Receiver shorthand (`~`, `~!`, etc.) if present
-   - **MUST NOT** reference `@result` or `@entry()`
-
-2. **Postcondition Expression (right of `=>`):**
-   - Contains procedure parameters (post-state for mutable parameters)
-   - `@result`: The procedure's return value
-   - `@entry(expr)`: Entry-state capture for any expression
-   - Mutable parameters refer to post-state unless wrapped in `@entry()`
-
-**Omission:**
-- If no `=>` appears, the entire expression is a precondition
-- If `=>` appears with no left side, there is no precondition (always `true`)
-
-**Well-Formedness Rule:**
+A contract clause is well-formed if and only if both its precondition and postcondition expressions are well-formed predicates:
 
 $$
 \frac{
-    \Gamma_{pre} \vdash P_{pre} : \text{bool} \land \text{pure}(P_{pre}) \\
-    \Gamma_{post} \vdash P_{post} : \text{bool} \land \text{pure}(P_{post})
+    \Gamma_{pre} \vdash P_{pre} : \texttt{bool} \quad \text{pure}(P_{pre}) \\
+    \Gamma_{post} \vdash P_{post} : \texttt{bool} \quad \text{pure}(P_{post})
 }{
-    \Gamma \vdash \text{where } \{ P_{pre} \Rightarrow P_{post} \} : \text{WF}
+    \Gamma \vdash \texttt{|=}\ P_{pre} \Rightarrow P_{post} : \text{WF}
 }
 \tag{WF-Contract}
 $$
 
-**Logical Operators:** Predicates use standard boolean operators (`&&`, `||`, `!`). Multiple conditions are combined using these operators rather than comma-separated lists.
+where:
+- $\Gamma_{pre}$ is the precondition evaluation context (§10.1.2)
+- $\Gamma_{post}$ is the postcondition evaluation context (§10.1.2)
+- $\text{pure}(e)$ holds iff $e$ satisfies all purity constraints (§10.1.1)
+
+**Logical Operators**
+
+Predicates use standard boolean operators with the following precedence (highest to lowest):
+1. `!` (logical NOT) — right-associative
+2. `&&` (logical AND) — left-associative
+3. `||` (logical OR) — left-associative
+
+Short-circuit evaluation applies: `&&` does not evaluate its right operand if the left is `false`; `||` does not evaluate its right operand if the left is `true`.
 
 ##### Constraints & Legality
 
-**Purity Constraint:** All expressions within a contract **MUST** be pure:
-- **MUST NOT** perform I/O
-- **MUST NOT** mutate state
-- **MUST NOT** allocate memory
-- **MUST NOT** invoke procedures unless marked `pure` or `const`
+A syntactically malformed contract clause causes the program to be ill-formed; the implementation issues a diagnostic per §2.12 (grammar enforcement).
 
-**Type Constraint:** Every predicate expression **MUST** evaluate to type `bool`.
+---
 
-**Memory Safety:** Contract expressions **MUST** adhere to the permission system (Clause 3). Accessing `partitioned` fields is forbidden unless within a context guaranteeing exclusive access.
+#### 10.1.1 Purity Constraints
 
-| Code         | Severity | Condition                                              |
-| :----------- | :------- | :----------------------------------------------------- |
-| `E-CON-2802` | Error    | Impure or unsafe expression used in contract predicate |
+##### Definition
+
+A **pure expression** is an expression whose evaluation produces no observable side effects. All expressions within a contract MUST be pure.
+
+##### Static Semantics
+
+**Purity via the Capability System**
+
+In Cursive, procedures are **pure by default**. A procedure becomes impure only when it accepts capability parameters (Clause 13). This design means that purity is not a separate annotation but a natural consequence of the capability system.
+
+An expression $e$ satisfies $\text{pure}(e)$ if and only if all of the following hold:
+
+1. **No Capability Use**: $e$ MUST NOT invoke any procedure that accepts capability parameters. Procedures without capability parameters are inherently pure.
+
+2. **No Mutation Through Effects**: $e$ MUST NOT mutate state observable outside the expression's evaluation.
+
+3. **Built-in Operations**: Built-in operators on primitive types are always pure.
+
+4. **Compile-Time Procedures**: `comptime` procedures are pure by construction (they cannot access capabilities).
+
+**Determining Purity**
+
+A procedure call in a contract predicate is valid if and only if the callee's signature contains no capability parameters (`witness` bindings):
+
+```cursive
+// Pure: no capability parameters
+procedure len(~) -> usize { /* ... */ }
+
+// Impure: requires FileSystem capability
+procedure read_file(path: string, fs: witness FileSystem) -> string { /* ... */ }
+```
+
+The first procedure may be called in contracts; the second may not.
+
+##### Constraints & Legality
+
+| Code         | Severity | Condition                                     | Detection    | Effect    |
+| :----------- | :------- | :-------------------------------------------- | :----------- | :-------- |
+| `E-CON-2802` | Error    | Impure expression used in contract predicate. | Compile-time | Rejection |
+
+---
+
+#### 10.1.2 Evaluation Contexts
+
+##### Definition
+
+An **Evaluation Context** defines the set of bindings available for reference within a predicate expression. Preconditions and postconditions have distinct evaluation contexts.
+
+##### Static Semantics
+
+**Precondition Evaluation Context ($\Gamma_{pre}$)**
+
+The precondition evaluation context includes:
+- All procedure parameters at their entry state
+- The receiver binding (if present), accessible via receiver shorthand (`~`, `~!`, `~%`, `~|`)
+- All bindings visible in the enclosing scope that are accessible without side effects
+
+The precondition context MUST NOT include:
+- The `@result` intrinsic
+- The `@entry` operator
+- Any binding introduced within the procedure body
+
+**Postcondition Evaluation Context ($\Gamma_{post}$)**
+
+The postcondition evaluation context includes:
+- All procedure parameters:
+  - Immutable parameters (`const`, `~`): same value as at entry
+  - Mutable parameters (`unique`, `partitioned`, `concurrent`): post-state value
+- The receiver binding (post-state for mutable receivers)
+- The `@result` intrinsic (§10.2.2)
+- The `@entry` operator (§10.2.2)
+- All bindings visible in the enclosing scope
+
+**Mutable Parameter State Semantics**
+
+For parameters with mutable permission (`~!`, `~%`, `~|`):
+
+| Location in Contract          | State Referenced |
+| :---------------------------- | :--------------- |
+| Left of `=>`                  | Entry state      |
+| Right of `=>` (bare)          | Post-state       |
+| Right of `=>` with `@entry()` | Entry state      |
+
+```cursive
+record Counter {
+    value: i32,
+
+    procedure increment(~!)
+        |= self.value >= 0 => self.value == @entry(self.value) + 1
+    {
+        self.value += 1;
+    }
+}
+```
+
+In this example:
+- `self.value >= 0` (left of `=>`) references the entry state (precondition)
+- `self.value == @entry(self.value) + 1` (right of `=>`) asserts post-state equals entry + 1
+
+---
+
+#### 10.1.3 Inline Parameter Constraints
+
+##### Definition
+
+An **Inline Parameter Constraint** is a `where` clause attached directly to a parameter declaration, specifying a precondition on that parameter.
+
+##### Syntax & Declaration
+
+```ebnf
+parameter_with_constraint
+    ::= identifier ":" type_expr "where" "{" predicate_expr "}"
+```
+
+**Example**
+
+```cursive
+procedure sqrt(x: f64 where { x >= 0.0 }) -> f64
+    |= => @result >= 0.0 && @result * @result == x
+{
+    // ...
+}
+```
+
+Note: The inline `where` on the parameter is **type refinement** (definitional), while the procedure contract uses `|=` (contractual).
+
+##### Static Semantics
+
+**Semantic Equivalence**
+
+Inline parameter constraints are semantically equivalent to procedure-level preconditions. Given:
+- Inline constraints $\{P_1, P_2, \ldots, P_n\}$ on parameters
+- Procedure-level precondition $P_{proc}$
+
+The **effective precondition** is:
+
+$$P_{eff} = P_1 \land P_2 \land \cdots \land P_n \land P_{proc}$$
+
+**Evaluation Order**
+
+Inline constraints are evaluated left-to-right in parameter declaration order, followed by the procedure-level precondition. Short-circuit semantics apply within each predicate but not across the conjunction of predicates.
+
+**Scope Within Inline Constraints**
+
+An inline constraint on parameter $p_i$ MAY reference:
+- Parameters $p_1, \ldots, p_{i-1}$ (earlier parameters)
+- The parameter $p_i$ itself (via `self` within the constraint)
+
+An inline constraint MUST NOT reference parameters declared after it.
+
+```cursive
+// Valid: y's constraint references x
+procedure example(
+    x: i32 where { x > 0 },
+    y: i32 where { y > x }   // References earlier parameter x
+) { /* ... */ }
+
+// Invalid: x's constraint references y (declared later)
+procedure invalid(
+    x: i32 where { x < y },  // Error: y not yet in scope
+    y: i32
+) { /* ... */ }
+```
+
+##### Constraints & Legality
+
+An inline constraint MUST reference only parameters declared to its left. Referencing a parameter not yet in scope causes the program to be ill-formed (standard name resolution rules apply per §8.3).
 
 ---
 
 ### 10.2 Contract Clauses
 
-This section defines preconditions and postconditions within the unified `where` clause syntax.
+This section defines the semantics of preconditions and postconditions within the `|=` contract clause syntax.
+
+---
 
 #### 10.2.1 Preconditions
 
 ##### Definition
 
-A **Precondition** is the logical expression appearing to the left of `=>` in a `where` clause. The caller **MUST** ensure this expression evaluates to `true` at the call site, prior to transfer of control to the callee.
-
-**Inline Parameter Constraints as Preconditions:**
-
-An inline parameter constraint `param: T where { P }` is semantically a precondition on that parameter. It is unified with the procedure's `where` clause during semantic analysis.
+A **Precondition** is the logical expression appearing to the left of `=>` in a `|=` contract clause, or the entire expression if `=>` is absent. The caller MUST ensure this expression evaluates to `true` at the call site prior to transfer of control to the callee.
 
 ##### Static Semantics
 
-**Caller Obligation:** When a procedure $f$ with contract `where { P_{pre} => P_{post} }` is called at site $S$, the implementation **MUST** verify that a Verification Fact $F(P_{pre}, L)$ exists where $L$ dominates $S$ in the Control Flow Graph.
+**Caller Obligation Rule**
 
-**Unified Precondition:** Given:
-- Inline parameter constraints $\{P_1, P_2, \ldots, P_n\}$
-- Procedure-level precondition $P_{proc}$
+When a procedure $f$ with precondition $P_{pre}$ is called at site $S$, the implementation MUST verify that a Verification Fact (§10.5) $F(P_{pre}, L)$ exists where $L$ dominates $S$ in the Control Flow Graph.
 
-The effective precondition is:
-$P_{eff} = P_1 \land P_2 \land \cdots \land P_n \land P_{proc}$
+$$
+\frac{
+    \Gamma \vdash f : (T_1, \ldots, T_n) \to R \quad
+    \text{precondition}(f) = P_{pre} \quad
+    \exists L.\ F(P_{pre}, L) \land L \text{ dom } S
+}{
+    \Gamma \vdash f(a_1, \ldots, a_n) @ S : \text{valid}
+}
+\tag{Pre-Satisfied}
+$$
 
-**Attribution:** Failure to satisfy a precondition is a critical error attributed to the **caller**.
+**Attribution**
 
-**Elision:** If no `=>` is present, the entire expression is treated as a precondition. If `=>` appears with nothing to its left (e.g., `where { => post }`), the precondition defaults to `true`.
+Failure to satisfy a precondition is attributed to the **caller**. The diagnostic MUST identify the call site, not the callee's declaration.
+
+**Elision Rules**
+
+| Contract Form        | Precondition              |
+| :------------------- | :------------------------ |
+| `\|= P`              | $P$                       |
+| `\|= P => Q`         | $P$                       |
+| `\|= => Q`           | `true` (always satisfied) |
+| (no contract clause) | `true` (always satisfied) |
 
 ##### Constraints & Legality
 
-**Scope:** Precondition expressions **MAY** reference:
-- All procedure parameters (at entry state)
-- Receiver shorthand (`~`, `~!`, etc.)
+**Scope Restrictions**
 
-Precondition expressions **MUST NOT** reference `@result` or `@entry()`.
+Precondition expressions:
+- MAY reference all procedure parameters (at entry state)
+- MAY reference receiver shorthand (`~`, `~!`, etc.)
+- MUST NOT reference `@result` (diagnosed as `E-CON-2806`)
+- MUST NOT reference `@entry()` (no entry state exists to compare against)
+- MUST NOT reference bindings introduced in the procedure body
+
+Precondition verification follows the strategy specified by `[[verify(...)]]` (§10.4). A precondition that cannot be statically verified in `static` mode is diagnosed as `E-CON-2801`. In `dynamic` mode, a runtime check is inserted; failure causes a panic.
 
 ---
 
@@ -7824,113 +8525,320 @@ Precondition expressions **MUST NOT** reference `@result` or `@entry()`.
 
 ##### Definition
 
-A **Postcondition** is the logical expression appearing to the right of `=>` in a `where` clause. The callee **MUST** ensure this expression evaluates to `true` immediately before returning control to the caller.
+A **Postcondition** is the logical expression appearing to the right of `=>` in a `|=` contract clause. The callee MUST ensure this expression evaluates to `true` immediately before returning control to the caller.
 
 ##### Static Semantics
 
-**Callee Obligation:** The procedure implementation **MUST** ensure the postcondition holds at every return point.
+**Callee Obligation Rule**
 
-**Attribution:** Failure to satisfy a postcondition is a critical error attributed to the **callee**.
+The procedure implementation MUST ensure the postcondition holds at every return point:
 
-**Elision:** If no `=>` is present in the `where` clause, there is no postcondition (defaults to `true`).
+$$
+\frac{
+    \text{postcondition}(f) = P_{post} \quad
+    \forall r \in \text{ReturnPoints}(f).\ \Gamma_r \vdash P_{post} : \text{satisfied}
+}{
+    f : \text{postcondition-valid}
+}
+\tag{Post-Valid}
+$$
+
+**Attribution**
+
+Failure to satisfy a postcondition is attributed to the **callee**. The diagnostic MUST identify the return point within the procedure body.
+
+**Elision Rules**
+
+| Contract Form        | Postcondition             |
+| :------------------- | :------------------------ |
+| `\|= P`              | `true` (no postcondition) |
+| `\|= P => Q`         | $Q$                       |
+| `\|= => Q`           | $Q$                       |
+| (no contract clause) | `true` (no postcondition) |
 
 ##### Dynamic Semantics
 
-**Contract Intrinsics:**
+**Contract Intrinsics**
 
-1. **`@result`**
-   - Available exclusively in postcondition expressions (right of `=>`)
-   - Type: The return type of the procedure
-   - Value: The value being returned
-   - If procedure returns `()`, `@result` has value `()`
-   - **MUST NOT** be shadowed (intrinsic, not identifier)
+Two intrinsics are available exclusively in postcondition expressions:
 
-2. **`@entry(expr)`**
-   - Available exclusively in postcondition expressions (right of `=>`)
-   - Evaluates `expr` in the entry state (after parameter binding, before body execution)
-   - Expression `expr` **MUST** be pure
-   - Expression `expr` **MUST** depend only on inputs (parameters, receiver)
-   - Result type **MUST** implement `Copy` or `Clone`
-   - The implementation captures this value at procedure entry
+**1. `@result` Intrinsic**
 
-**Mutable Parameter Semantics:**
+| Property     | Specification                                                             |
+| :----------- | :------------------------------------------------------------------------ |
+| Availability | Postcondition expressions only (right of `=>`)                            |
+| Type         | The return type of the enclosing procedure                                |
+| Value        | The value being returned from the procedure                               |
+| Unit Returns | If procedure returns `()`, `@result` has value `()`                       |
+| Shadowing    | `@result` is an intrinsic keyword; it MUST NOT be shadowed by any binding |
 
-For mutable parameters (those with `~!` or `~%` receiver):
-- On the **left of `=>`** (precondition): refers to **entry state**
-- On the **right of `=>`** (postcondition) **without** `@entry()`: refers to **post-state**
-- On the **right of `=>`** (postcondition) **with** `@entry()`: refers to **entry state**
+```cursive
+procedure abs(x: i32) -> i32
+    |= => @result >= 0 && (@result == x || @result == -x)
+{
+    if x >= 0 { x } else { -x }
+}
+```
+
+**2. `@entry(expr)` Operator**
+
+| Property              | Specification                                          |
+| :-------------------- | :----------------------------------------------------- |
+| Availability          | Postcondition expressions only (right of `=>`)         |
+| Semantics             | Evaluates `expr` in the entry state of the procedure   |
+| Evaluation Point      | After parameter binding, before body execution         |
+| Expression Constraint | `expr` MUST be pure                                    |
+| Expression Scope      | `expr` MUST reference only parameters and receiver     |
+| Type Constraint       | Result type of `expr` MUST implement `Copy` or `Clone` |
+| Capture Mechanism     | Implementation captures the value at procedure entry   |
+
+**Capture Semantics**
+
+When `@entry(expr)` appears in a postcondition:
+1. The implementation evaluates `expr` immediately after parameter binding
+2. The result is captured (copied or cloned) and stored
+3. In the postcondition, `@entry(expr)` refers to this captured value
+
+```cursive
+record Vec<T> {
+    // ...
+
+    procedure push<T: Copy>(~!, item: T)
+        |= => self.len() == @entry(self.len()) + 1
+    {
+        // Implementation...
+    }
+}
+```
+
+**Non-Copyable Resources**
+
+Direct capture of non-copyable resources is prohibited. To reference properties of non-copyable resources, capture a copyable projection:
+
+```cursive
+// Invalid: Buffer is not Copy
+procedure process(buf: unique Buffer)
+    |= => buf == @entry(buf)  // Error: Buffer does not implement Copy
+
+// Valid: Capture the length (usize is Copy)
+procedure process(buf: unique Buffer)
+    |= => buf.len() == @entry(buf.len())  // OK
+```
 
 ##### Constraints & Legality
 
-**Scope:** Postcondition expressions **MAY** reference:
-- All procedure parameters (post-state for mutable parameters)
-- Receiver shorthand (`~`, `~!`, etc.)
-- `@result` intrinsic
-- `@entry(expr)` operator
+**Scope Permissions**
 
-| Code         | Severity | Condition                                                         |
-| :----------- | :------- | :---------------------------------------------------------------- |
-| `E-CON-2805` | Error    | `@entry` operator used with non-Copy/Clone result type            |
-| `E-CON-2806` | Error    | `@result` intrinsic used outside of postcondition (right of `=>`) |
+Postcondition expressions:
+- MAY reference all procedure parameters (post-state for mutable)
+- MAY reference receiver shorthand (`~`, `~!`, etc.)
+- MAY reference `@result`
+- MAY reference `@entry(expr)` where `expr` references only parameters/receiver
+
+| Code         | Severity | Condition                                             | Detection    | Effect    |
+| :----------- | :------- | :---------------------------------------------------- | :----------- | :-------- |
+| `E-CON-2805` | Error    | `@entry()` result type does not implement Copy/Clone. | Compile-time | Rejection |
+| `E-CON-2806` | Error    | `@result` used outside postcondition context.         | Compile-time | Rejection |
+
+Postcondition verification follows the strategy specified by `[[verify(...)]]` (§10.4). A postcondition that cannot be statically verified in `static` mode is diagnosed as `E-CON-2801`. In `dynamic` mode, a runtime check is inserted; failure causes a panic.
 
 ---
 
-### 10.3 Invariants (`where`)
+### 10.3 Invariants
 
 ##### Definition
 
-An **Invariant** is a predicate that **MUST** hold true over a defined scope or lifetime. Cursive uses the `where` keyword for invariants. Two forms are defined in this clause:
+An **Invariant** is a predicate that MUST hold true over a defined scope or lifetime. Cursive defines two forms of invariants: Type Invariants and Loop Invariants.
 
-1. **Type Invariant:** Attached to `record`, `enum`, or `modal` declarations; constrains all instances
-2. **Loop Invariant:** Attached to `loop` expressions; maintained across iterations
+> **Cross-Reference:** Refinement Types (§4.19) provide anonymous invariants attached to type references (e.g., `usize where { self < len }`). Refinement types are defined in Clause 4 as they constitute a subtype form. Verification of refinement type predicates uses the mechanisms defined in §10.4 and §10.5.
 
-> **Note:** Refinement Types (anonymous invariants attached to type references, e.g., `usize where { self < len }`) are defined in Clause 4 §4.19 as they constitute a subtype form with type-theoretic semantics. Verification of refinement type predicates uses the mechanisms defined in §7.4 and §7.5.
+---
+
+#### 10.3.1 Type Invariants
+
+##### Definition
+
+A **Type Invariant** is a `where` clause attached to a `record`, `enum`, or `modal` type declaration. The invariant constrains all instances of the type: every instance MUST satisfy the invariant at designated enforcement points.
 
 ##### Syntax & Declaration
 
-**Type Invariant:**
-
-Type invariants are expressed as `where` clauses that follow the record/enum body:
+**Grammar**
 
 ```ebnf
-record_with_invariant ::= "record" identifier [generic_params] "{" field_list "}" "where" "{" predicate "}"
-enum_with_invariant   ::= "enum" identifier [generic_params] "{" variant_list "}" "where" "{" predicate "}"
+record_declaration
+    ::= [ visibility ] "record" identifier [ generic_params ] 
+        "{" field_list "}" [ type_invariant ]
+
+enum_declaration
+    ::= [ visibility ] "enum" identifier [ generic_params ]
+        "{" variant_list "}" [ type_invariant ]
+
+modal_declaration
+    ::= [ visibility ] "modal" identifier [ generic_params ]
+        "{" state_list "}" [ type_invariant ]
+
+type_invariant
+    ::= "where" "{" predicate_expr "}"
 ```
 
-This is syntactically consistent with refinement types: the `where` clause always follows the type expression it refines.
+**Example**
 
-**Loop Invariant:**
+```cursive
+record NonEmptyList<T> {
+    head: T,
+    tail: Vec<T>,
+}
+where { self.len() >= 1 }
 
-```ebnf
-loop_expr ::= "loop" [condition] "where" "{" predicate "}" block
+record BoundedCounter {
+    value: u32,
+    max: u32,
+}
+where { self.value <= self.max }
 ```
 
 ##### Static Semantics
 
-**Type Invariant Enforcement Points (Boundary Points):**
+**Invariant Predicate Context**
 
-1. **Post-Construction:** Immediately after constructor or literal initialization completes
-2. **Pre-Call (Public):** Before any public method is invoked on the instance
-3. **Post-Call (Mutator):** Before any method taking `unique` or `partitioned` `self` returns
+Within a type invariant predicate:
+- `self` refers to an instance of the type being defined
+- Field access on `self` is permitted
+- Method calls on `self` are permitted if the method accepts no capability parameters (i.e., is pure)
 
-**Effective Postcondition Desugaring:**
+**Enforcement Points (Boundary Points)**
 
-For a mutator procedure $P$ on type $T$ with invariant $Inv$ and explicit postcondition $Post$:
-$$
-\text{EffectivePost}(P) = Post \land Inv(self)
-$$
+A type invariant MUST be verified at the following program points:
 
-**Loop Invariant Enforcement:**
+| Enforcement Point   | Description                                                          |
+| :------------------ | :------------------------------------------------------------------- |
+| Post-Construction   | Immediately after a constructor or literal initialization completes  |
+| Pre-Call (Public)   | Before any public procedure is invoked with the instance as receiver |
+| Post-Call (Mutator) | Before any procedure taking `unique` or `partitioned` `self` returns |
 
-1. **Initialization:** Before the first iteration
-2. **Maintenance:** At the start of every subsequent iteration
-3. **Termination:** Immediately after loop terminates
+**Effective Postcondition Desugaring**
+
+For a procedure $P$ on type $T$ with:
+- Type invariant $Inv$
+- Explicit postcondition $Post$
+- Mutable receiver (`unique` or `partitioned`)
+
+The **effective postcondition** is:
+
+$$\text{EffectivePost}(P) = Post \land Inv(\texttt{self})$$
+
+The implementation MUST verify both the explicit postcondition and the type invariant before return.
+
+**Private Procedure Exemption**
+
+Private procedures (visibility `internal` or less) are exempt from the Pre-Call enforcement point. This permits temporary invariant violations during internal state transitions:
+
+```cursive
+record Counter {
+    value: u32,
+    max: u32,
+
+    // Public: invariant checked before entry
+    public procedure increment(~!) {
+        self.unsafe_increment();  // May temporarily violate
+        self.clamp();             // Restores invariant
+    }  // Invariant checked at return (Post-Call)
+
+    // Private: invariant NOT checked before entry
+    internal procedure unsafe_increment(~!) {
+        self.value += 1;  // May violate: value > max
+    }
+
+    internal procedure clamp(~!) {
+        if self.value > self.max {
+            self.value = self.max;
+        }
+    }
+}
+where { self.value <= self.max }
+```
 
 ##### Constraints & Legality
 
-**Purity:** Invariant predicates **MUST** satisfy the same purity constraints as contract predicates (§7.1).
+| Code         | Severity | Condition                                            | Detection | Effect    |
+| :----------- | :------- | :--------------------------------------------------- | :-------- | :-------- |
+| `E-CON-2820` | Error    | Type invariant violated at construction.             | See §10.4 | See §10.4 |
+| `E-CON-2821` | Error    | Type invariant violated at public procedure entry.   | See §10.4 | See §10.4 |
+| `E-CON-2822` | Error    | Type invariant violated at mutator procedure return. | See §10.4 | See §10.4 |
 
-**Type:** Invariant predicates **MUST** evaluate to type `bool`.
+---
+
+#### 10.3.2 Loop Invariants
+
+##### Definition
+
+A **Loop Invariant** is a `where` clause attached to a `loop` expression. The invariant specifies a predicate that MUST hold at the beginning of every iteration and after the loop terminates.
+
+##### Syntax & Declaration
+
+**Grammar**
+
+```ebnf
+loop_expression
+    ::= "loop" [ loop_condition ] [ loop_invariant ] block
+
+loop_invariant
+    ::= "where" "{" predicate_expr "}"
+
+loop_condition
+    ::= expression
+```
+
+**Example**
+
+```cursive
+var sum = 0;
+var i = 0;
+
+loop i < n
+    where { sum == i * (i - 1) / 2 && i <= n }
+{
+    sum += i;
+    i += 1;
+}
+// After loop: sum == n * (n - 1) / 2
+```
+
+##### Static Semantics
+
+**Enforcement Points**
+
+A loop invariant $Inv$ MUST be verified at three points:
+
+| Point          | Description                               | Formal                                                 |
+| :------------- | :---------------------------------------- | :----------------------------------------------------- |
+| Initialization | Before the first iteration begins         | $\Gamma_0 \vdash Inv$                                  |
+| Maintenance    | At the start of each subsequent iteration | $\Gamma_i \vdash Inv \implies \Gamma_{i+1} \vdash Inv$ |
+| Termination    | Immediately after loop terminates         | $\Gamma_{exit} \vdash Inv$                             |
+
+**Verification Fact Generation**
+
+Upon successful verification of a loop invariant at the Termination point, the implementation MUST generate a Verification Fact $F(Inv, L_{exit})$ where $L_{exit}$ is the program location immediately after the loop.
+
+This enables the invariant to be used as a postcondition of the loop construct:
+
+```cursive
+var i = 0;
+loop i < 10
+    where { i >= 0 && i <= 10 }
+{
+    i += 1;
+}
+// Fact available: i >= 0 && i <= 10
+// Combined with loop exit condition !(i < 10): i == 10
+```
+
+##### Constraints & Legality
+
+| Code         | Severity | Condition                                         | Detection | Effect    |
+| :----------- | :------- | :------------------------------------------------ | :-------- | :-------- |
+| `E-CON-2830` | Error    | Loop invariant not established at initialization. | See §10.4 | See §10.4 |
+| `E-CON-2831` | Error    | Loop invariant not maintained across iteration.   | See §10.4 | See §10.4 |
 
 ---
 
@@ -7938,107 +8846,265 @@ $$
 
 ##### Definition
 
-A **Verification Mode** specifies the strategy for discharging contract obligations. The mode is selected via the `[[verify(mode)]]` attribute.
-
-**Mode Enumeration:**
-
-| Mode      | Static Proof | Runtime Check | On Failure | Context Required |
-| :-------- | :----------- | :------------ | :--------- | :--------------- |
-| `static`  | Required     | None          | Ill-formed | Any              |
-| `dynamic` | Elision only | Required      | Panic      | Any              |
-| `trusted` | None         | None          | UVB        | `unsafe` block   |
-| (default) | Elision only | Required      | Panic      | Any              |
-
-**Default Behavior:**
-
-The default verification strategy (when no `[[verify(...)]]` attribute is present) is **dynamic verification with static elision**:
-
-1. Runtime checks are generated for all contract predicates
-2. The compiler **MAY** elide checks that are statically proven to always succeed
-3. Failed runtime checks trigger a **Panic**
-
-This default prioritizes safety (contracts are always enforced) while allowing optimization (unnecessary checks are removed).
+A **Verification Mode** specifies the strategy for discharging contract obligations. The mode determines whether contracts are verified statically, dynamically, or assumed without verification.
 
 ##### Syntax & Declaration
 
+**Grammar**
+
 ```ebnf
-verify_attribute ::= "[[" "verify" "(" mode ")" "]]"
-mode             ::= "static" | "dynamic" | "trusted"
+verify_attribute
+    ::= "[[" "verify" "(" verification_mode ")" "]]"
+
+verification_mode
+    ::= "static"
+      | "dynamic"
+      | "trusted"
 ```
+
+**Attribute Placement**
+
+The `[[verify(...)]]` attribute MAY be placed on:
+- Procedure declarations (applies to that procedure's contracts)
+- Module declarations (applies to all contracts in the module)
+- Crate root (applies to all contracts in the crate)
+
+More specific placements override less specific ones.
 
 ##### Static Semantics
 
-**`static` Mode:**
+**Mode Enumeration**
 
-- The implementation **MUST** mathematically prove contract satisfaction via static analysis
-- If proof succeeds: no runtime code generated
-- If proof fails or is inconclusive: program is **ill-formed**
-- **Use Case:** Performance-critical code where runtime checks are unacceptable and predicates are statically decidable
+| Mode      | Static Proof | Runtime Check | On Failure | Context Restriction |
+| :-------- | :----------- | :------------ | :--------- | :------------------ |
+| `static`  | Required     | None          | Ill-formed | Any                 |
+| `dynamic` | Elision only | Required      | Panic      | Any                 |
+| `trusted` | None         | None          | UVB        | `unsafe` only       |
+| (default) | Elision only | Required      | Panic      | Any                 |
 
-**`dynamic` Mode:**
+---
 
-- The implementation **MUST** generate runtime checks at procedure boundaries
-- Preconditions checked at procedure prologue
-- Postconditions checked at procedure epilogue
-- Purity requirements still apply (no side-effects in predicates)
-- Implementation **MAY** elide checks statically proven to always succeed
-- **Note:** This is the same as default behavior; `[[verify(dynamic)]]` serves as explicit documentation
+#### 10.4.1 Static Verification Mode
 
-**`trusted` Mode:**
+##### Definition
 
-- No static proofs attempted
-- No runtime checks generated
-- Violations produce **Unverifiable Behavior (UVB)**
-- **MUST** appear within an `unsafe` block or on an `unsafe` procedure
-- Usage outside `unsafe` context triggers error `E-CON-2807`
-- Shifts responsibility entirely to programmer
-- **Use Case:** FFI boundaries where predicates reference external state that cannot be checked
+In `static` mode, the implementation MUST mathematically prove that the contract holds using static analysis techniques.
 
-**Default (No Attribute):**
+##### Static Semantics
 
-1. Runtime checks are generated for all predicates
-2. Compiler analyzes each check site
-3. If static proof succeeds for a check: that check is elided (zero overhead)
-4. If static proof fails or is inconclusive: runtime check remains
+**Proof Obligation**
 
-This is equivalent to `[[verify(dynamic)]]` but the attribute is unnecessary for default behavior.
+For a contract predicate $P$ in `static` mode:
 
-##### Dynamic Semantics
+$$
+\frac{
+    \text{mode}(P) = \texttt{static} \quad
+    \text{StaticProof}(\Gamma, P)
+}{
+    P : \text{verified}
+}
+\tag{Static-OK}
+$$
 
-**Runtime Check Failure:**
+$$
+\frac{
+    \text{mode}(P) = \texttt{static} \quad
+    \neg\text{StaticProof}(\Gamma, P)
+}{
+    \text{program is ill-formed}
+}
+\tag{Static-Fail}
+$$
 
-1. Trigger panic in current thread
-2. Poison the current task state
-3. Prevent further execution of verified code region
+**Proof Requirements**
 
-**Fact Injection:** Successful runtime checks synthesize Verification Facts:
-- Facts inserted at check location in CFG
-- Facts dominate all program points reachable from check
-- Enables optimizer assumptions (e.g., dead code elimination)
+- If proof succeeds: no runtime code is generated for the contract
+- If proof fails or is inconclusive: the program is **ill-formed** with diagnostic `E-CON-2801`
+
+**Use Case**
+
+Static mode is appropriate when:
+- Runtime overhead is unacceptable
+- The predicate is decidable with available static analysis
+- Formal verification is required for certification
+
+```cursive
+[[verify(static)]]
+procedure array_access(arr: const [i32; 10], idx: usize) -> i32
+    |= idx < 10
+{
+    arr[idx]
+}
+```
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                                           |
-| :----------- | :------- | :-------------------------------------------------- |
-| `E-CON-2801` | Error    | Static verification failed in `static` mode         |
-| `E-CON-2807` | Error    | `[[verify(trusted)]]` used outside `unsafe` context |
+| Code         | Severity | Condition                                             | Detection    | Effect    |
+| :----------- | :------- | :---------------------------------------------------- | :----------- | :-------- |
+| `E-CON-2801` | Error    | Static verification failed: unable to prove contract. | Compile-time | Rejection |
 
+---
+
+#### 10.4.2 Dynamic Verification Mode
+
+##### Definition
+
+In `dynamic` mode, the implementation MUST generate executable code to evaluate contract predicates at runtime.
+
+##### Static Semantics
+
+**Static Elision**
+
+The implementation MAY elide a runtime check for predicate $P$ if and only if the implementation can statically prove that $P$ always holds at the check site:
+
+$$
+\frac{
+    \text{mode}(P) = \texttt{dynamic} \quad
+    \text{StaticProof}(\Gamma, P)
+}{
+    \text{check elided (zero overhead)}
+}
+\tag{Dynamic-Elide}
+$$
+
+When static proof is not possible, a runtime check MUST be generated.
+
+##### Dynamic Semantics
+
+**Check Insertion Points**
+
+| Contract Type  | Check Location                                            |
+| :------------- | :-------------------------------------------------------- |
+| Precondition   | Procedure prologue (after parameter binding, before body) |
+| Postcondition  | Procedure epilogue (after body, before return)            |
+| Type Invariant | At each enforcement point (§10.3.1)                       |
+| Loop Invariant | At each enforcement point (§10.3.2)                       |
+
+**Runtime Check Failure**
+
+When a dynamically checked predicate evaluates to `false`:
+
+1. The runtime MUST trigger a **Panic** in the current thread
+2. The panic payload MUST include:
+   - The predicate text (if available)
+   - Source location of the contract
+   - Whether it was a precondition or postcondition failure
+3. Normal panic propagation rules apply (Clause 3)
+
+**Explicit Dynamic Mode**
+
+`[[verify(dynamic)]]` is equivalent to default behavior. Its purpose is documentation:
+
+```cursive
+[[verify(dynamic)]]  // Explicit: "this contract is runtime-checked"
+procedure user_input(s: string) -> i32
+    |= s.len() > 0 => @result >= 0
+```
+
+---
+
+#### 10.4.3 Trusted Verification Mode
+
+##### Definition
+
+In `trusted` mode, the implementation assumes the contract holds without generating any verification code. Violation of a trusted contract produces **Unverifiable Behavior (UVB)**.
+
+##### Static Semantics
+
+**Context Restriction**
+
+`[[verify(trusted)]]` MUST appear within one of the following contexts:
+- Inside an `unsafe` block
+- On an `unsafe` procedure declaration
+
+Use of `[[verify(trusted)]]` outside an `unsafe` context MUST be diagnosed as error `E-CON-2807`.
+
+**UVB Classification**
+
+Violation of a trusted contract is classified as Unverifiable Behavior (§1.2). The safety guarantees of this specification do not apply to programs that violate trusted contracts.
+
+##### Dynamic Semantics
+
+**No Code Generation**
+
+For a predicate $P$ in `trusted` mode:
+- No static proofs are attempted
+- No runtime checks are generated
+- The optimizer MAY assume $P$ holds (equivalent to `llvm.assume`)
+
+**Responsibility Transfer**
+
+By using `[[verify(trusted)]]`, the programmer asserts:
+1. The contract will be satisfied by external means
+2. Responsibility for correctness is transferred from the language to the programmer
+3. Standard safety guarantees do not apply to violation
+
+**Use Case**
+
+Trusted mode is appropriate for:
+- FFI boundaries where predicates reference external state
+- Performance-critical code where checks are prohibitive and correctness is assured by external analysis
+- Interfacing with formally verified components
+
+```cursive
+// FFI: external C function guarantees non-null return
+unsafe {
+    [[verify(trusted)]]
+    let ptr = external_alloc(size);
+    // Contract: ptr != null is trusted, not checked
+}
+```
+
+##### Constraints & Legality
+
+| Code         | Severity | Condition                                            | Detection    | Effect    |
+| :----------- | :------- | :--------------------------------------------------- | :----------- | :-------- |
+| `E-CON-2807` | Error    | `[[verify(trusted)]]` used outside `unsafe` context. | Compile-time | Rejection |
+
+---
+
+#### 10.4.4 Default Verification Strategy
+
+##### Definition
+
+When no `[[verify(...)]]` attribute is present, the implementation MUST apply the **default verification strategy**: dynamic verification with static elision.
+
+##### Static Semantics
+
+**Default Strategy Algorithm**
+
+For each contract predicate $P$ without an explicit verification mode:
+
+1. **Generate Runtime Check**: The implementation initially plans to emit a runtime check for $P$
+
+2. **Attempt Static Proof**: The implementation analyzes whether $P$ can be statically proven at the check site
+
+3. **Elision Decision**:
+   - If static proof succeeds: the runtime check is elided (zero overhead)
+   - If static proof fails or is inconclusive: the runtime check is retained
+
+4. **Runtime Failure**: If the check executes and $P$ evaluates to `false`, trigger Panic
+
+**Equivalence**
+
+The default strategy is semantically equivalent to `[[verify(dynamic)]]`. The attribute is unnecessary for default behavior but serves as explicit documentation.
 
 ##### Rationale
 
 **Why Dynamic Default?**
 
-The "dynamic with static elision" default provides:
-- Predictable safety: contracts are always enforced unless explicitly trusted
-- Predictable performance: developers know checks exist and can measure/profile them
-- Safe optimization: static elision is purely an optimization, not a semantic change
+The default prioritizes safety:
+- Contracts are always enforced unless explicitly trusted
+- Developers can reason about program behavior knowing contracts hold
+- Static elision provides optimization without semantic change
+- No "hidden" paths where contracts are silently ignored
 
 **Why Require `unsafe` for `trusted`?**
 
-`trusted` mode produces Unverifiable Behavior on violation—the same category as raw pointer dereference and FFI calls. It belongs behind the same safety barrier. This ensures:
-- Code review catches all potential UVB sources by searching for `unsafe`
-- The `// SAFETY:` documentation convention applies uniformly
-- No "hidden" UVB in ostensibly safe code
+Trusted mode produces UVB on violation—the same category as raw pointer dereference and FFI. Requiring `unsafe`:
+- Ensures code review catches all potential UVB sources
+- Maintains the `// SAFETY:` documentation convention
+- Prevents accidental use of trusted mode in safe code
 
 ---
 
@@ -8046,56 +9112,98 @@ The "dynamic with static elision" default provides:
 
 ##### Definition
 
-A **Verification Fact** $F(P, L)$ is a compiler-internal guarantee that predicate $P$ holds at program location $L$. Verification Facts:
-- Have **zero runtime size**
-- Have **no runtime representation**
-- **MUST NOT** be stored in variables, passed as parameters, or returned from procedures
-- Exist solely for static analysis and optimization
+A **Verification Fact** is a compiler-internal guarantee that a predicate $P$ holds at program location $L$. Verification Facts are used for static analysis, contract elision, and type narrowing.
+
+**Formal Definition**
+
+A Verification Fact is a triple $F(P, L, S)$ where:
+- $P$ is a predicate expression
+- $L$ is a program location (CFG node)
+- $S$ is the source of the fact (control flow, runtime check, or assumption)
 
 ##### Static Semantics
 
-**Fact Dominance:**
+**Zero-Size Property**
 
-A Verification Fact $F(P, L)$ satisfies a requirement for predicate $P$ at statement $S$ if and only if $L$ strictly **dominates** $S$ in the Control Flow Graph (CFG).
+Verification Facts:
+- Have **zero runtime size**
+- Have **no runtime representation**
+- MUST NOT be stored in variables
+- MUST NOT be passed as parameters
+- MUST NOT be returned from procedures
+- Exist solely for static analysis
 
-**Fact Generation:**
+**Fact Dominance**
 
-Control flow structures generate Verification Facts:
+A Verification Fact $F(P, L)$ satisfies a requirement for predicate $P$ at statement $S$ if and only if $L$ **strictly dominates** $S$ in the Control Flow Graph (CFG):
 
-| Construct               | Generated Fact                              |
-| :---------------------- | :------------------------------------------ |
-| `if P { ... }`          | $F(P, \text{then-branch entry})$            |
-| `if !P { } else {...}`  | $F(P, \text{else-branch entry})$            |
-| `match x { Pat => ...}` | $F(\text{x matches Pat}, \text{arm entry})$ |
-| Runtime check for $P$   | $F(P, \text{post-check})$                   |
-
-**Type Narrowing:**
-
-If Fact $F(P, L)$ is active for binding `x` at location $L$, the type of `x` is effectively refined to:
 $$
-\text{typeof}(x) \text{ where } \{P\}
+\frac{
+    F(P, L) \in \text{Facts} \quad
+    L \text{ dom } S \quad
+    L \neq S
+}{
+    P \text{ satisfied at } S
+}
+\tag{Fact-Dominate}
 $$
+
+**Fact Generation Rules**
+
+The following constructs generate Verification Facts:
+
+| Construct                    | Generated Fact                  | Location                 |
+| :--------------------------- | :------------------------------ | :----------------------- |
+| `if P { ... }`               | $F(P, \_)$                      | Entry of then-branch     |
+| `if !P { } else { ... }`     | $F(P, \_)$                      | Entry of else-branch     |
+| `match x { Pat => ... }`     | $F(x \text{ matches } Pat, \_)$ | Entry of match arm       |
+| Runtime check for $P$        | $F(P, \_)$                      | Immediately after check  |
+| `[[verify(trusted)]]` on $P$ | $F(P, \_)$                      | Point of trust assertion |
+| Loop invariant $Inv$ at exit | $F(Inv, \_)$                    | Immediately after loop   |
+
+**Type Narrowing**
+
+When a Verification Fact $F(P, L)$ is active for binding $x$ at location $L$, the type of $x$ is effectively refined:
+
+$$\text{typeof}(x) \xrightarrow{F(P, L)} \text{typeof}(x) \texttt{ where } \{P\}$$
+
+This enables flow-sensitive typing:
+
+```cursive
+procedure example(x: i32 | null) {
+    if x != null {
+        // Fact: x != null
+        // Type of x narrowed to: i32
+        let y: i32 = x;  // Valid: x is known non-null
+    }
+}
+```
 
 ##### Dynamic Semantics
 
-**Dynamic Fact Injection (for `dynamic` mode):**
+**Dynamic Fact Injection**
 
-When verification mode is `dynamic` (or hybrid fallback):
+When verification mode is `dynamic` and no static fact dominates the check site:
 
-1. Identify requirement $P$ at call site $S$
-2. If no Fact $F(P, L)$ dominates $S$:
-   a. Construct check block $C$: `if !P { panic("Contract violation") }`
-   b. Insert $C$ into CFG such that $C$ dominates $S$
-   c. Successful execution of $C$ establishes $F(P, \text{exit}(C))$
+1. Identify requirement $P$ at program point $S$
+2. Construct check block $C$:
+   ```cursive
+   if !P { panic("Contract violation: {P}"); }
+   ```
+3. Insert $C$ into CFG such that $C$ dominates $S$
+4. Successful execution of $C$ establishes $F(P, \text{exit}(C))$
 
-**Optimizer Integration:**
+**Optimizer Integration**
 
-In optimized builds, implementations **SHOULD** use facts as optimization hints:
-- Treat $P$ as invariant truth for all instructions dominated by $F(P, L)$
-- Eliminate branches dependent on $\neg P$ dominated by $F(P, L)$
-- Corresponds to intrinsics like `llvm.assume` in backend IRs
+Implementations SHOULD use Verification Facts as optimization hints:
 
-In `trusted` mode (within `unsafe` context), the predicate is assumed true without generating a fact through verification. The optimizer **MAY** use the assumption, but this is UVB if the predicate is false.
+| Optimization             | Condition                                                            |
+| :----------------------- | :------------------------------------------------------------------- |
+| Assumption injection     | Treat $P$ as invariant truth for instructions dominated by $F(P, L)$ |
+| Dead code elimination    | Eliminate branches dependent on $\neg P$ dominated by $F(P, L)$      |
+| Bounds check elimination | Elide array bounds checks when index constraints are established     |
+
+> **Implementation Note:** Fact-based assumptions correspond to intrinsics like `llvm.assume` in backend IRs.
 
 ---
 
@@ -8103,93 +9211,155 @@ In `trusted` mode (within `unsafe` context), the predicate is assumed true witho
 
 ##### Definition
 
-When a type implements a trait (Clause 6), procedure implementations **MUST** adhere to the **behavioral subtyping principle** (Liskov Substitution Principle) with respect to trait contracts.
+When a type implements a trait (Clause 9), procedure implementations MUST adhere to the **Behavioral Subtyping Principle** (Liskov Substitution Principle) with respect to trait-defined contracts.
+
+**Formal Statement**
+
+For trait $T$ with procedure $f$ and implementing type $S$ with implementation $f'$:
+
+$$S <: T \implies \forall x.\ (\text{Pre}_T(x) \implies \text{Pre}_S(x)) \land (\text{Post}_S(x) \implies \text{Post}_T(x))$$
 
 ##### Static Semantics
 
-**Precondition Weakening:**
+**Precondition Weakening**
 
-An implementation **MAY** weaken (require less) the preconditions defined in the trait. An implementation **MUST NOT** strengthen (require more) the preconditions.
+An implementation MAY weaken (require less than) the preconditions defined in the trait. An implementation MUST NOT strengthen (require more than) the preconditions.
 
 $$P_{trait} \implies P_{impl}$$
 
-*Intuition:* If the trait says "you must provide X", the implementation may accept X or something easier.
+*Intuition:* If the trait says "caller must provide X", the implementation may accept X or something weaker (easier to satisfy).
 
-**Postcondition Strengthening:**
+**Formal Rule**
 
-An implementation **MAY** strengthen (guarantee more) the postconditions defined in the trait. An implementation **MUST NOT** weaken (guarantee less) the postconditions.
+$$
+\frac{
+    \text{trait } T \text{ defines } f \text{ with precondition } P_T \\
+    \text{type } S \text{ implements } f \text{ with precondition } P_S \\
+    \nvdash P_T \implies P_S
+}{
+    \text{program is ill-formed}
+}
+\tag{Liskov-Pre}
+$$
+
+**Postcondition Strengthening**
+
+An implementation MAY strengthen (guarantee more than) the postconditions defined in the trait. An implementation MUST NOT weaken (guarantee less than) the postconditions.
 
 $$Q_{impl} \implies Q_{trait}$$
 
-*Intuition:* If the trait promises "you will get Y", the implementation must deliver Y or something better.
+*Intuition:* If the trait promises "callee will provide Y", the implementation must deliver Y or something stronger (more informative).
+
+**Formal Rule**
+
+$$
+\frac{
+    \text{trait } T \text{ defines } f \text{ with postcondition } Q_T \\
+    \text{type } S \text{ implements } f \text{ with postcondition } Q_S \\
+    \nvdash Q_S \implies Q_T
+}{
+    \text{program is ill-formed}
+}
+\tag{Liskov-Post}
+$$
+
+**Example**
+
+```cursive
+trait Container {
+    procedure get(~, idx: usize) -> i32
+        |= idx < self.len() => @result != 0;
+}
+
+// Valid: Postcondition strengthened (guarantees more)
+record MyList <: Container {
+    data: [i32; 100],
+    length: usize,
+
+    procedure get(~, idx: usize) -> i32
+        |= idx < self.len() => @result > 0  // > 0 implies != 0
+    {
+        self.data[idx]
+    }
+}
+
+// Invalid: Postcondition weakened
+record BadList <: Container {
+    data: [i32; 100],
+    length: usize,
+
+    procedure get(~, idx: usize) -> i32
+        |= idx < self.len()  // No guarantee about @result
+    {
+        self.data[idx]
+    }  // Error: E-CON-2804
+}
+```
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                                   |
-| :----------- | :------- | :------------------------------------------ |
-| `E-CON-2803` | Error    | Precondition strengthened in implementation |
-| `E-CON-2804` | Error    | Postcondition weakened in implementation    |
+| Code         | Severity | Condition                                      | Detection    | Effect    |
+| :----------- | :------- | :--------------------------------------------- | :----------- | :-------- |
+| `E-CON-2803` | Error    | Implementation strengthens trait precondition. | Compile-time | Rejection |
+| `E-CON-2804` | Error    | Implementation weakens trait postcondition.    | Compile-time | Rejection |
 
 ---
 
-### 10.7 Diagnostics Summary
-
-| Code         | Severity | Description                                                       |
-| :----------- | :------- | :---------------------------------------------------------------- |
-| `E-CON-2801` | Error    | Static verification failed: Unable to prove contract              |
-| `E-CON-2802` | Error    | Impure or unsafe expression used in contract predicate            |
-| `E-CON-2803` | Error    | Liskov violation: Precondition strengthened in implementation     |
-| `E-CON-2804` | Error    | Liskov violation: Postcondition weakened in implementation        |
-| `E-CON-2805` | Error    | `@entry` operator used with non-Copy/Clone result type            |
-| `E-CON-2806` | Error    | `@result` intrinsic used outside of postcondition (right of `=>`) |
-| `E-CON-2807` | Error    | `[[verify(trusted)]]` used outside `unsafe` context               |
-
----
-
-### Clause 10: Cross-Reference Notes
+### Clause 10 Cross-Reference Notes
 
 **Terms defined in Clause 10 that MUST NOT be redefined elsewhere:**
 
-| Term                 | Section | Description                                                     |
-| :------------------- | :------ | :-------------------------------------------------------------- |
-| Contract             | §7.1    | Specification attached to procedure declaration                 |
-| Predicate            | §7.1    | Pure boolean expression in contract context                     |
-| Precondition         | §7.2.1  | Caller obligation (left of `=>` or inline parameter constraint) |
-| Postcondition        | §7.2.2  | Callee guarantee (right of `=>` in `where` clause)              |
-| `@result`            | §7.2.2  | Intrinsic for return value in postconditions                    |
-| `@entry`             | §7.2.2  | Operator for entry-state capture                                |
-| Type Invariant       | §7.3    | Predicate constraining all instances of a type                  |
-| Loop Invariant       | §7.3    | Predicate maintained across loop iterations                     |
-| Verification Mode    | §7.4    | Strategy for discharging contract obligations                   |
-| Verification Fact    | §7.5    | Compiler-internal predicate satisfaction proof                  |
-| Behavioral Subtyping | §7.6    | Contract inheritance rules (Liskov)                             |
+| Term                        | Section | Description                                               |
+| :-------------------------- | :------ | :-------------------------------------------------------- |
+| Contract                    | §10.1   | Specification attached to procedure declaration           |
+| Predicate                   | §10.1   | Pure boolean expression in contract context               |
+| Pure Expression             | §10.1.1 | Expression with no observable side effects                |
+| Evaluation Context          | §10.1.2 | Set of bindings available in predicate expressions        |
+| Inline Parameter Constraint | §10.1.3 | `where` clause on parameter declaration (type refinement) |
+| Contract Clause             | §10.1   | `\|=` clause on procedure declaration                     |
+| Precondition                | §10.2.1 | Caller obligation (left of `=>`)                          |
+| Postcondition               | §10.2.2 | Callee guarantee (right of `=>`)                          |
+| `@result`                   | §10.2.2 | Intrinsic for return value in postconditions              |
+| `@entry`                    | §10.2.2 | Operator for entry-state capture in postconditions        |
+| Type Invariant              | §10.3.1 | Predicate constraining all instances of a type            |
+| Enforcement Point           | §10.3.1 | Program point where type invariant is verified            |
+| Loop Invariant              | §10.3.2 | Predicate maintained across loop iterations               |
+| Verification Mode           | §10.4   | Strategy for discharging contract obligations             |
+| Verification Fact           | §10.5   | Compiler-internal predicate satisfaction guarantee        |
+| Fact Dominance              | §10.5   | CFG-based validity of verification facts                  |
+| Behavioral Subtyping        | §10.6   | Contract inheritance rules (Liskov Substitution)          |
 
 **Terms referenced from other clauses:**
 
-| Term                  | Source     | Usage in Clause 7                                   |
-| :-------------------- | :--------- | :-------------------------------------------------- |
-| Unverifiable Behavior | Clause 1   | `trusted` mode (in `unsafe`) violations produce UVB |
-| Unsafe Block          | Clause 3   | Required context for `[[verify(trusted)]]`          |
-| Panic                 | Clause 3   | Runtime contract failure triggers panic             |
-| `Copy` / `Clone`      | Clause 6   | Required for `@entry` capture types                 |
-| Trait                 | Clause 6   | Behavioral subtyping applies to traits              |
-| Permission System     | Clause 3   | Contracts must respect permissions                  |
-| Refinement Type       | §4.19      | Type narrowing produces refinement type             |
-| Control Flow Graph    | (Implicit) | Fact dominance defined via CFG                      |
+| Term                  | Source     | Usage in Clause 10                                    |
+| :-------------------- | :--------- | :---------------------------------------------------- |
+| Unverifiable Behavior | §1.2       | `trusted` mode violations produce UVB                 |
+| Unsafe Block          | §3.10      | Required context for `[[verify(trusted)]]`            |
+| Panic                 | §3.6       | Runtime contract failure triggers panic               |
+| `Copy` / `Clone`      | §9.7       | Required traits for `@entry` capture types            |
+| Trait                 | §9.1       | Behavioral subtyping applies to trait implementations |
+| Permission System     | §4.5       | Contracts must respect permission constraints         |
+| Refinement Type       | §4.19      | Type narrowing produces refinement types              |
+| Control Flow Graph    | (Implicit) | Fact dominance defined via CFG structure              |
+| Capability            | §13        | Distinguished from contracts (authority vs. validity) |
 
 **Terms deferred to other clauses:**
 
-| Term             | Deferred To   | Reason                                               |
-| :--------------- | :------------ | :--------------------------------------------------- |
-| `partition` stmt | Clause 3 §3.7 | Defined in The Partitioning System (primary concern) |
-| Capability       | Clause 10     | Distinguished from contracts in §7.1                 |
-
+| Term             | Deferred To | Reason                                                 |
+| :--------------- | :---------- | :----------------------------------------------------- |
+| `partition` stmt | §3.7        | Defined in The Partitioning System                     |
+| Capability       | §13         | Distinguished from contracts; controls effects         |
+| Refinement Type  | §4.19       | Subtype form; verification uses §10.4/§10.5 mechanisms |
 
 ---
 
 ## Clause 11: Expressions & Statements
 
-This clause defines the syntax and semantics of expressions and statements in Cursive. Expressions are syntactic forms that produce typed values; statements are syntactic forms executed for their side effects. This clause establishes the foundational abstractions (the "nouns") before describing the operations on them (the "verbs").
+This clause defines the syntax and semantics of expressions and statements in Cursive. Expressions are syntactic forms that produce typed values; statements are syntactic forms executed for their side effects. This clause establishes evaluation rules, pattern matching, operators, control flow, and the binding of values to identifiers.
+
+> **Diagnostic Code Allocation:** This clause uses diagnostic codes with prefixes `E-EXP-`, `E-STM-`, `E-PAT-`, and `P-EXP-` within the range 2500–2799. See the Appendix K Update section at the end of this clause for detailed allocations.
+
+---
 
 ### 11.1 Foundational Definitions
 
@@ -8197,26 +9367,29 @@ This clause defines the syntax and semantics of expressions and statements in Cu
 
 **Expression**
 
-An **Expression** is a syntactic form that, when evaluated, produces a typed value. Every expression has:
--   **Type**: A compile-time type $T$ determined by static analysis.
--   **Value Category**: Classification as either a *place expression* or *value expression*.
--   **Evaluation Result**: A runtime value conforming to the expression's type.
+An **expression** is a syntactic form that, when evaluated, produces a typed value. Every expression has:
+
+1. **Type**: A compile-time type $T$ determined by static analysis.
+2. **Value Category**: Classification as either a *place expression* or *value expression*.
+3. **Evaluation Result**: A runtime value conforming to the expression's type.
 
 **Statement**
 
-A **Statement** is a syntactic form that is executed for its side effects and does not produce a value. Statements form the executable body of procedures, loops, and other control-flow blocks.
+A **statement** is a syntactic form that is executed for its side effects and does not produce a value. Statements form the executable body of procedures, loops, and other control-flow blocks.
 
 **Statement Categories**
 
-1.  **Declaration Statements**: Introduce new bindings (`let`, `var`).
-2.  **Assignment Statements**: Modify the value stored in a place.
-3.  **Expression Statements**: Execute an expression for its side effects.
-4.  **Control Flow Statements**: Alter the flow of execution (`return`, `result`, `break`, `continue`).
-5.  **Defer Statements**: Schedule cleanup code.
+Statements are classified into the following categories:
+
+1. **Declaration Statements**: Introduce new bindings (`let`, `var`). See §11.8.
+2. **Assignment Statements**: Modify the value stored in a place. See §11.11.
+3. **Expression Statements**: Execute an expression for its side effects. See §11.9.
+4. **Control Flow Statements**: Alter the flow of execution (`return`, `result`, `break`, `continue`). See §11.10.
+5. **Defer Statements**: Schedule cleanup code for scope exit. See §11.12.
 
 **Typing Context**
 
-A **Typing Context** $\Gamma$ is a finite ordered sequence of bindings:
+A **typing context** $\Gamma$ is a finite ordered sequence of bindings:
 
 $$\Gamma ::= \emptyset \mid \Gamma, x : T$$
 
@@ -8226,68 +9399,89 @@ where $x$ is an identifier and $T$ is a type. The judgment $\Gamma \vdash e : T$
 
 Every expression is classified into exactly one **value category**:
 
-| Category         | Notation    | Definition                                       |
-| :--------------- | :---------- | :----------------------------------------------- |
-| Place Expression | $e^{place}$ | Denotes a memory location with stable address    |
-| Value Expression | $e^{value}$ | Produces a temporary without persistent location |
+| Category         | Notation    | Definition                                               |
+| :--------------- | :---------- | :------------------------------------------------------- |
+| Place Expression | $e^{place}$ | Denotes a memory location with a stable address          |
+| Value Expression | $e^{value}$ | Produces a temporary value without a persistent location |
 
-**Formal Classification Rules:**
-- Identifiers bound by `let`/`var`: Place
-- Dereferenced pointers (`*p`): Place
-- Field access on place (`place.field`): Place
-- Indexed access on place (`place[i]`): Place
-- Literals, arithmetic results, procedure returns: Value
+**Formal Classification Rules**
+
+The value category of an expression is determined by its syntactic form:
+
+| Expression Form                       | Value Category |
+| :------------------------------------ | :------------- |
+| Identifier bound by `let` or `var`    | Place          |
+| Dereferenced pointer (`*p`)           | Place          |
+| Field access on place (`place.field`) | Place          |
+| Tuple access on place (`place.0`)     | Place          |
+| Indexed access on place (`place[i]`)  | Place          |
+| Literals                              | Value          |
+| Arithmetic and logical results        | Value          |
+| Procedure and closure call results    | Value          |
+| Constructor expressions               | Value          |
+| Block expression results              | Value          |
 
 ##### Static Semantics
 
 **Evaluation Order**
 
-Cursive's evaluation order **MUST** be deterministic. For any compound expression, subexpressions **MUST** be evaluated strictly left-to-right, except for short-circuit operators (`&&`, `||`) defined in §8.4.
+Cursive's evaluation order MUST be deterministic. For any compound expression, subexpressions MUST be evaluated strictly left-to-right, with the following exception:
+
+- Short-circuit operators (`&&`, `||`) conditionally skip evaluation of their right operand as specified in §11.4.
 
 **Sequential Statement Execution**
 
-Statements within a block **MUST** be executed sequentially in source order. The effects of a statement **MUST** be fully complete before the next statement begins.
+Statements within a block MUST be executed sequentially in source order. The effects of a statement MUST be fully complete before the next statement begins execution.
 
 **Statement Termination**
 
-Statement termination is governed by §2.11. A statement is terminated by a `<newline>` token unless a continuation condition is met, or by an explicit semicolon (`;`).
+Statement termination is governed by Clause 2, §2.11. A statement is terminated by:
+
+1. A `<newline>` token, unless a continuation condition defined in §2.11 is met, OR
+2. An explicit semicolon (`;`).
+
+Multiple statements MAY appear on a single line when separated by semicolons.
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                                                 |
-| :----------- | :------- | :-------------------------------------------------------- |
-| `E-EXP-2502` | Error    | Value expression used where place expression is required. |
-| `E-EXP-2501` | Error    | Type mismatch (expected type differs from actual type).   |
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                                 | Detection    | Effect    |
+| :----------- | :------- | :-------------------------------------------------------- | :----------- | :-------- |
+| `E-EXP-2501` | Error    | Type mismatch: expected type differs from actual type.    | Compile-time | Rejection |
+| `E-EXP-2502` | Error    | Value expression used where place expression is required. | Compile-time | Rejection |
 
 ---
 
 ### 11.2 Pattern Matching
 
-*[RATIONALE: Patterns are placed early because they are used by both declaration statements (§8.7) and match expressions (§8.5). This follows the "nouns before verbs" principle.]*
-
 ##### Definition
 
 **Pattern**
 
-A **Pattern** is a syntactic form that:
-1.  Tests whether a value has a particular shape (for refutable patterns), and
-2.  Binds parts of the value to identifiers.
+A **pattern** is a syntactic form that:
+
+1. Tests whether a value has a particular shape (for refutable patterns), and
+2. Binds parts of the value to identifiers.
 
 **Irrefutable Pattern**
 
-An **irrefutable pattern** is a pattern that will match for any value of its expected type. Irrefutable patterns include:
--   Identifier patterns (`x`)
--   Wildcard patterns (`_`)
--   Tuple/record patterns composed entirely of irrefutable sub-patterns
--   Single-variant enum patterns
+An **irrefutable pattern** is a pattern that matches any value of its expected type. Irrefutable patterns include:
+
+- Identifier patterns (`x`)
+- Wildcard patterns (`_`)
+- Tuple patterns composed entirely of irrefutable sub-patterns
+- Record patterns composed entirely of irrefutable sub-patterns
+- Single-variant enum patterns
 
 **Refutable Pattern**
 
 A **refutable pattern** is a pattern that can fail to match a value of its expected type. Refutable patterns include:
--   Literal patterns (`42`, `"hello"`)
--   Multi-variant enum patterns
--   Modal state patterns (`@State`)
--   Range patterns
+
+- Literal patterns (`42`, `"hello"`, `true`)
+- Multi-variant enum patterns
+- Modal state patterns (`@State`)
+- Range patterns (`0..10`)
 
 **Pattern Binding Judgment**
 
@@ -8299,72 +9493,140 @@ The judgment $\Gamma \vdash p : T \Rightarrow \Gamma'$ asserts that pattern $p$ 
 
 ```ebnf
 pattern ::=
-    literal                                    (* Literal pattern *)
-  | "_"                                        (* Wildcard pattern *)
-  | identifier                                 (* Identifier pattern *)
-  | "(" ( pattern ( "," pattern )* ","? )? ")" (* Tuple pattern *)
-  | path "{" ( field_pattern ( "," field_pattern )* ","? )? "}"  (* Record pattern *)
-  | path                                       (* Unit-like enum variant *)
-  | path "(" pattern_list ")"                  (* Tuple-like enum variant *)
-  | path "{" field_pattern_list "}"            (* Record-like enum variant *)
-  | "@" state_identifier [ "{" field_pattern_list "}" ]  (* Modal state pattern *)
-  | pattern ".." pattern                       (* Range pattern *)
+    literal_pattern
+  | wildcard_pattern
+  | identifier_pattern
+  | tuple_pattern
+  | record_pattern
+  | enum_pattern
+  | modal_pattern
+  | range_pattern
 
-field_pattern ::= identifier [ ":" pattern ]
+literal_pattern     ::= integer_literal | float_literal | string_literal 
+                      | char_literal | "true" | "false"
+
+wildcard_pattern    ::= "_"
+
+identifier_pattern  ::= identifier
+
+tuple_pattern       ::= "(" [ pattern ( "," pattern )* ","? ] ")"
+
+record_pattern      ::= type_path "{" [ field_pattern ( "," field_pattern )* ","? ] "}"
+
+field_pattern       ::= identifier [ ":" pattern ]
+
+enum_pattern        ::= type_path "::" identifier [ enum_payload_pattern ]
+
+enum_payload_pattern ::= "(" [ pattern ( "," pattern )* ","? ] ")"
+                       | "{" [ field_pattern ( "," field_pattern )* ","? ] "}"
+
+modal_pattern       ::= "@" identifier [ "{" [ field_pattern ( "," field_pattern )* ","? ] "}" ]
+
+range_pattern       ::= pattern ".." pattern
 ```
 
 **Pattern Summary**
 
-| Pattern Type | Example                       | Refutability  | Description                       |
-| :----------- | :---------------------------- | :------------ | :-------------------------------- |
-| Literal      | `100`, `"hello"`, `true`      | Refutable     | Matches if value equals literal.  |
-| Wildcard     | `_`                           | Irrefutable   | Matches any value; binds nothing. |
-| Identifier   | `x`                           | Irrefutable   | Matches any value; binds to `x`.  |
-| Tuple        | `(p1, p2, ...)`               | Conditional*  | Destructures a tuple.             |
-| Record       | `MyRecord { field: p1, ... }` | Conditional*  | Destructures a record.            |
-| Enum         | `MyEnum::Variant`             | Conditional** | Matches a specific enum variant.  |
-| Modal State  | `@State { field: p, ... }`    | Refutable     | Matches a specific modal state.   |
-| Range        | `0..10`                       | Refutable     | Matches if value is within range. |
+| Pattern Type | Example                  | Refutability  | Description                      |
+| :----------- | :----------------------- | :------------ | :------------------------------- |
+| Literal      | `100`, `"hello"`, `true` | Refutable     | Matches if value equals literal  |
+| Wildcard     | `_`                      | Irrefutable   | Matches any value; binds nothing |
+| Identifier   | `x`                      | Irrefutable   | Matches any value; binds to `x`  |
+| Tuple        | `(a, b, c)`              | Conditional*  | Destructures a tuple             |
+| Record       | `Point { x: px, y: py }` | Conditional*  | Destructures a record            |
+| Enum         | `Option::Some(v)`        | Conditional** | Matches a specific enum variant  |
+| Modal State  | `@Valid { ptr }`         | Refutable     | Matches a specific modal state   |
+| Range        | `0..10`                  | Refutable     | Matches if value is within range |
 
-*Irrefutable only if all sub-patterns are irrefutable.
-**Irrefutable if and only if the enum has exactly one variant.
+\* Irrefutable only if all sub-patterns are irrefutable.
+
+\** Irrefutable if and only if the enum has exactly one variant.
 
 ##### Static Semantics
 
 **Matching Rules**
 
-1.  **Literal Pattern**: Matches if `scrutinee == literal`.
-2.  **Wildcard (`_`)**: Matches any value; binds nothing.
-3.  **Identifier Pattern (`x`)**: Matches any value; binds value to `x`. Move semantics apply unless `ref` keyword is used.
-4.  **Variant Pattern (`Enum::Variant(p...)`)**: Matches if scrutinee's discriminant equals Variant; recursively matches payload fields against sub-patterns.
-5.  **Range Pattern (`start..end`)**: Matches if `start <= scrutinee < end`.
-6.  **Modal Pattern (`@State { ... }`)**: Matches if scrutinee's active state is `@State`; destructures state payload.
+1. **Literal Pattern**: Matches if `scrutinee == literal`. The literal type MUST be compatible with the scrutinee type.
+
+2. **Wildcard Pattern (`_`)**: Matches any value. No binding is introduced. The matched value is not consumed.
+
+3. **Identifier Pattern (`x`)**: Matches any value. The value is bound to `x` using move semantics: responsibility for the value transfers to the new binding unless the scrutinee is accessed through a `const` permission, in which case the binding receives a `const` view.
+
+4. **Tuple Pattern (`(p₁, p₂, ..., pₙ)`)**: Matches if the scrutinee is a tuple of arity $n$ and each component matches the corresponding sub-pattern. Sub-patterns are matched left-to-right.
+
+5. **Record Pattern (`Type { f₁: p₁, ... }`)**: Matches if the scrutinee is of the named record type and each named field matches the corresponding sub-pattern. Field shorthand (`{ x }`) is equivalent to (`{ x: x }`). Fields not mentioned are ignored.
+
+6. **Enum Pattern (`Enum::Variant(p...)`)**: Matches if the scrutinee's discriminant equals the specified variant. Payload fields are recursively matched against sub-patterns.
+
+7. **Modal Pattern (`@State { ... }`)**: Matches if the scrutinee's active modal state is `@State`. State payload fields are recursively matched.
+
+8. **Range Pattern (`start..end`)**: Matches if $\text{start} \le \text{scrutinee} < \text{end}$. Both `start` and `end` MUST be compile-time constant expressions of the same ordered type as the scrutinee.
+
+**Typing Rules**
+
+**(T-Pat-Wildcard)**
+$$\frac{}{\Gamma \vdash \_ : T \Rightarrow \Gamma}$$
+
+**(T-Pat-Ident)**
+$$\frac{x \notin \text{dom}(\Gamma)}{\Gamma \vdash x : T \Rightarrow \Gamma, x : T}$$
+
+**(T-Pat-Tuple)**
+$$\frac{\Gamma_0 = \Gamma \quad \forall i \in 1..n,\ \Gamma_{i-1} \vdash p_i : T_i \Rightarrow \Gamma_i}{\Gamma \vdash (p_1, \ldots, p_n) : (T_1, \ldots, T_n) \Rightarrow \Gamma_n}$$
+
+**(T-Pat-Record)**
+$$\frac{R = \texttt{record} \{ f_1 : T_1, \ldots, f_k : T_k \} \quad \Gamma_0 = \Gamma \quad \forall j \in J,\ \Gamma_{j-1} \vdash p_j : T_{f_j} \Rightarrow \Gamma_j}{\Gamma \vdash R \{ f_{j_1} : p_1, \ldots \} : R \Rightarrow \Gamma_{|J|}}$$
+
+where $J \subseteq \{1, \ldots, k\}$ is the set of matched field indices.
+
+**(T-Pat-Enum)**
+$$\frac{E = \texttt{enum} \{ \ldots, V(T_1, \ldots, T_m), \ldots \} \quad \Gamma_0 = \Gamma \quad \forall i \in 1..m,\ \Gamma_{i-1} \vdash p_i : T_i \Rightarrow \Gamma_i}{\Gamma \vdash E::V(p_1, \ldots, p_m) : E \Rightarrow \Gamma_m}$$
 
 **Pattern Binding Scopes**
 
--   **Let statement**: Bindings are introduced into the current scope. Requires `shadow` keyword if shadowing an outer binding.
--   **Match arm**: Bindings are introduced into an arm-local scope that encompasses only the arm body. Implicit shadowing is permitted (NO `shadow` keyword required).
+- **Let/Var Statement**: Bindings are introduced into the enclosing scope. The pattern MUST be irrefutable.
+
+- **Match Arm**: Bindings are introduced into an arm-local scope encompassing only the arm body. Shadowing of outer bindings is implicitly permitted within match arms.
 
 **Exhaustiveness**
 
-A `match` expression **MUST** be exhaustive. The set of patterns in its arms, taken together, **MUST** cover every possible value of the scrutinee type.
+A `match` expression MUST be exhaustive. The set of patterns in its arms, taken together, MUST cover every possible value of the scrutinee type.
 
-Exhaustiveness checking is **MANDATORY** for:
--   `enum` types
--   `modal` types
--   `bool` type
+Exhaustiveness checking is MANDATORY for:
+
+- `enum` types: All variants MUST be covered.
+- `modal` types: All states MUST be covered.
+- `bool` type: Both `true` and `false` MUST be covered.
+- Integer types with range patterns: The union of ranges MUST cover all values, OR a wildcard/identifier pattern MUST be present.
+
+**Exhaustiveness Algorithm**
+
+Implementations MUST use a sound exhaustiveness algorithm. The algorithm:
+
+1. Constructs the set of all possible value shapes for the scrutinee type.
+2. For each pattern arm in order, removes the shapes covered by that pattern.
+3. If any shapes remain uncovered after processing all arms, the match is non-exhaustive.
 
 **Unreachability**
 
-A match arm **MUST NOT** be unreachable. An arm is unreachable if its pattern covers only values already covered by preceding arms.
+A match arm MUST NOT be unreachable. An arm is unreachable if its pattern covers only values already covered by preceding arms.
+
+Implementations MUST detect unreachable arms and issue diagnostic `E-PAT-2751`.
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                                                                |
-| :----------- | :------- | :----------------------------------------------------------------------- |
-| `E-PAT-2711` | Error    | A refutable pattern was used in an irrefutable context (e.g., `let`).    |
-| `E-PAT-2741` | Error    | `match` expression is not exhaustive for its scrutinee type.             |
-| `E-PAT-2751` | Error    | `match` arm is unreachable because its pattern is covered by prior arms. |
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                                            | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------------------------- | :----------- | :-------- |
+| `E-PAT-2711` | Error    | Refutable pattern used in irrefutable context (e.g., `let` binding). | Compile-time | Rejection |
+| `E-PAT-2712` | Error    | Pattern type incompatible with scrutinee type.                       | Compile-time | Rejection |
+| `E-PAT-2713` | Error    | Duplicate binding identifier within a single pattern.                | Compile-time | Rejection |
+| `E-PAT-2721` | Error    | Range pattern bounds are not compile-time constants.                 | Compile-time | Rejection |
+| `E-PAT-2722` | Error    | Range pattern start exceeds end (empty range).                       | Compile-time | Rejection |
+| `E-PAT-2731` | Error    | Record pattern references non-existent field.                        | Compile-time | Rejection |
+| `E-PAT-2732` | Error    | Record pattern missing required field (when exhaustive matching).    | Compile-time | Rejection |
+| `E-PAT-2741` | Error    | Match expression is not exhaustive for scrutinee type.               | Compile-time | Rejection |
+| `E-PAT-2751` | Error    | Match arm is unreachable; pattern covered by preceding arms.         | Compile-time | Rejection |
 
 ---
 
@@ -8374,17 +9636,20 @@ A match arm **MUST NOT** be unreachable. An arm is unreachable if its pattern co
 
 **Precedence**
 
-**Operator Precedence** is an integer ranking that determines how tightly an operator binds to its operands. Higher precedence operators bind more tightly than lower precedence operators.
+**Operator precedence** is an integer ranking that determines how tightly an operator binds to its operands. Operators with higher precedence bind more tightly than operators with lower precedence.
 
 **Associativity**
 
-**Associativity** determines how operators of the same precedence are grouped when parentheses are absent:
--   **Left-associative**: Groups left-to-right. `a op b op c` parses as `(a op b) op c`.
--   **Right-associative**: Groups right-to-left. `a op b op c` parses as `a op (b op c)`.
+**Associativity** determines how operators of equal precedence are grouped when parentheses are absent:
+
+- **Left-associative**: Groups left-to-right. `a op b op c` parses as `(a op b) op c`.
+- **Right-associative**: Groups right-to-left. `a op b op c` parses as `a op (b op c)`.
 
 ##### Syntax & Declaration
 
-**Precedence Table** (Highest to Lowest)
+**Precedence Table**
+
+The following table lists all Cursive operators from highest precedence (1) to lowest precedence (15). Operators in the same row share the same precedence level.
 
 | Precedence | Operator(s)                                              | Description                             | Associativity |
 | :--------- | :------------------------------------------------------- | :-------------------------------------- | :------------ |
@@ -8392,7 +9657,7 @@ A match arm **MUST NOT** be unreachable. An arm is unreachable if its pattern co
 | 2          | `=>`                                                     | Pipeline                                | Left          |
 | 3          | `!` `-` `&` `*` `^` `move`                               | Unary Not, Neg, Ref, Deref, Alloc, Move | Right         |
 | 4          | `as`                                                     | Type Cast                               | Left          |
-| 5          | `**`                                                     | Power                                   | Right         |
+| 5          | `**`                                                     | Exponentiation                          | Right         |
 | 6          | `*` `/` `%`                                              | Multiplicative                          | Left          |
 | 7          | `+` `-`                                                  | Additive                                | Left          |
 | 8          | `<<` `>>`                                                | Bitwise Shift                           | Left          |
@@ -8406,293 +9671,609 @@ A match arm **MUST NOT** be unreachable. An arm is unreachable if its pattern co
 
 ##### Static Semantics
 
-**Maximal Munch**
+**Maximal Munch Rule**
 
-The lexer **MUST** emit the longest valid token at each position (maximal munch rule). For example, `>>` is tokenized as a single right-shift operator, not two `>` tokens.
+The lexer MUST emit the longest valid token at each position. For example:
+
+- `>>` is tokenized as a single right-shift operator, not two `>` tokens.
+- `&&` is tokenized as logical AND, not two `&` tokens.
+- `::` is tokenized as the scope resolution operator, not two `:` tokens.
 
 **Generic Angle Bracket Exception**
 
-Inside generic argument lists (e.g., `Vec<Option<i32>>`), the token sequence `>>` **MUST** be split into two separate `>` tokens to correctly close nested type parameters.
+Inside generic argument lists (following `<` in type position), the token sequence `>>` MUST be split into two separate `>` tokens to correctly close nested type parameters:
+
+```cursive
+let x: Vec<Option<i32>> = ...  // >> split into > > to close Option and Vec
+```
+
+**Operator Ambiguity Resolution**
+
+Certain operators serve multiple roles depending on context:
+
+| Operator | Unary Role (Precedence 3) | Binary Role              |
+| :------- | :------------------------ | :----------------------- |
+| `-`      | Numeric negation          | Subtraction (Prec. 7)    |
+| `&`      | Address-of                | Bitwise AND (Prec. 9)    |
+| `*`      | Dereference               | Multiplication (Prec. 6) |
+| `^`      | Region allocation         | Bitwise XOR (Prec. 10)   |
+
+Disambiguation is syntactic: if the operator appears after a complete operand expression, it is binary; otherwise, it is unary.
 
 ---
 
 ### 11.4 Primary Expressions and Operators
 
-*[RATIONALE: All operator categories are consolidated into content blocks within this section, avoiding excessive h4 nesting. The operators share common typing infrastructure.]*
-
 ##### Definition
 
-**Primary Expressions** are the fundamental operand forms: literals, identifiers, and parenthesized expressions.
+**Primary Expressions** are the fundamental operand forms from which all other expressions are built: literals, identifiers, parenthesized expressions, and constructor expressions.
 
-**Postfix Expressions** extend primary expressions with field access, indexing, calls, and method dispatch.
+**Postfix Expressions** extend primary expressions with operations that follow the operand: field access, indexing, procedure calls, and method dispatch.
+
+**Unary Expressions** apply a prefix operator to a single operand.
+
+**Binary Expressions** combine two operands with an infix operator.
 
 ##### Syntax & Declaration
 
 **Grammar**
 
 ```ebnf
+expression ::= assignment_expr
+
+assignment_expr ::= logical_or_expr [ assignment_operator assignment_expr ]
+
+logical_or_expr ::= logical_and_expr ( "||" logical_and_expr )*
+
+logical_and_expr ::= comparison_expr ( "&&" comparison_expr )*
+
+comparison_expr ::= bitor_expr ( comparison_operator bitor_expr )*
+
+bitor_expr ::= bitxor_expr ( "|" bitxor_expr )*
+
+bitxor_expr ::= bitand_expr ( "^" bitand_expr )*
+
+bitand_expr ::= shift_expr ( "&" shift_expr )*
+
+shift_expr ::= additive_expr ( shift_operator additive_expr )*
+
+additive_expr ::= multiplicative_expr ( additive_operator multiplicative_expr )*
+
+multiplicative_expr ::= power_expr ( multiplicative_operator power_expr )*
+
+power_expr ::= cast_expr [ "**" power_expr ]
+
+cast_expr ::= unary_expr [ "as" type ]
+
+unary_expr ::= unary_operator unary_expr | postfix_expr
+
+postfix_expr ::= primary_expr postfix_operation*
+
+postfix_operation ::=
+    "." identifier
+  | "." integer_literal
+  | "[" expression "]"
+  | "(" [ argument_list ] ")"
+  | "~>" identifier "(" [ argument_list ] ")"
+  | "=>" expression
+
 primary_expr ::=
     literal
   | identifier
   | "(" expression ")"
+  | tuple_expr
+  | array_expr
+  | block_expr
+  | if_expr
+  | match_expr
+  | loop_expr
+  | closure_expr
 
-postfix_expr ::=
-    primary_expr
-  | postfix_expr "." identifier          (* Field access *)
-  | postfix_expr "." integer_literal     (* Tuple access *)
-  | postfix_expr "[" expression "]"      (* Indexing *)
-  | postfix_expr "(" argument_list? ")"  (* Procedure call *)
-  | postfix_expr "~>" identifier "(" argument_list? ")"  (* Instance method *)
-  | type_path "::" identifier "(" argument_list? ")"     (* Static method *)
-  | postfix_expr "=>" expression         (* Pipeline *)
+argument_list ::= argument ( "," argument )* ","?
+
+argument ::= [ "move" ] expression
+
+assignment_operator ::= "=" | "+=" | "-=" | "*=" | "/=" | "%=" 
+                      | "&=" | "|=" | "^=" | "<<=" | ">>="
+
+comparison_operator ::= "==" | "!=" | "<" | "<=" | ">" | ">="
+
+shift_operator ::= "<<" | ">>"
+
+additive_operator ::= "+" | "-"
+
+multiplicative_operator ::= "*" | "/" | "%"
+
+unary_operator ::= "!" | "-" | "&" | "*" | "^" | "move" | "widen"
 ```
-
-**Literals**
-
-A **literal** (e.g., `123`, `"hello"`, `true`) is a primary expression. Literal typing is defined in §2.5.
-
-**Identifiers**
-
-An **identifier** is a primary expression that **MUST** resolve to a value binding according to the name lookup rules in §5.
-
-**Parenthesized Expressions**
-
-A **parenthesized expression** `(<expression>)` has the same value, type, and value category as the enclosed expression.
-
-**Field Access (`.`)**
-
-A field access expression `record_expr.field` **MUST** be applied to an expression of a `record` type. The `field` **MUST** be a declared field of that record and **MUST** be visible in the current scope.
-
-A tuple access expression `tuple_expr.index` **MUST** be applied to an expression of a tuple type. The `index` **MUST** be a constant, non-negative integer literal that is a valid zero-based index for the tuple.
-
-**Indexing (`[]`)**
-
-An indexing expression `sequence_expr[index_expr]` **MUST** be applied to an expression of an `array` type or a `slice` type. The `index_expr` **MUST** have the type `usize`.
-
-**Procedure Call (`()`)**
-
-A procedure call `callable_expr(arg1, arg2, ...)` **MUST** be applied to an expression of a procedure type.
-
-**Method Calls (`~>` and `::`)**
-
-1.  **Instance Method Call (`~>`):** The **Receiver Dispatch Operator** `~>` **MUST** be used for calling methods on a value instance:
-    ```cursive
-    receiver_expr~>method_name(arg1, ...)
-    ```
-
-2.  **Static/Disambiguated Call (`::`):** The double-colon operator `::` **MUST** be used for static method calls and trait disambiguation:
-    ```cursive
-    MyType::new()
-    Trait::method(receiver)
-    ```
-
-**Pipeline (`=>`)**
-
-The pipeline expression `lhs_expr => rhs_expr` is syntactic sugar for a procedure call `rhs_expr(lhs_expr)`.
 
 ##### Static Semantics
 
-**Typing Rules**
+**Literals**
 
-**T-IDENT**: Identifier Typing
+A **literal** (integer, float, string, character, or boolean) is a primary expression whose type is determined by Clause 2, §2.8 (lexical form) and Clause 5 (type inference and suffixes). Literals are value expressions.
+
+**Identifiers**
+
+An **identifier** in expression position MUST resolve to a value binding according to the name resolution rules in Clause 8. If the identifier resolves to a type, module, or trait (rather than a value), the program is ill-formed.
+
+**(T-Ident)** Identifier Typing:
 $$\frac{(x : T) \in \Gamma}{\Gamma \vdash x : T}$$
 
-**T-FIELD**: Field Access Typing
-$$\frac{\Gamma \vdash e : R \quad R = \texttt{record} \{ \ldots, f : T, \ldots \}}{\Gamma \vdash e.f : T}$$
+An identifier expression is a place expression if it refers to a `let` or `var` binding, and a value expression otherwise.
 
-**T-INDEX**: Indexing Typing
+**Parenthesized Expressions**
+
+A **parenthesized expression** `(e)` has the same type, value, and value category as the enclosed expression `e`. Parentheses serve only to override precedence; they introduce no semantic effect.
+
+**Constructor Expressions**
+
+Constructor expressions for composite types (tuples, arrays, records, and enum variants) are defined in Clause 5:
+
+| Constructor Form               | Authoritative Section |
+| :----------------------------- | :-------------------- |
+| Tuple: `(e₁, e₂, ..., eₙ)`     | §5.2                  |
+| Array: `[e₁, e₂, ..., eₙ]`     | §5.3                  |
+| Record: `Type { f₁: e₁, ... }` | §5.4                  |
+| Enum: `Enum::Variant(e₁, ...)` | §5.5                  |
+
+This clause does not redefine constructor expression syntax or semantics; see the authoritative sections.
+
+---
+
+#### 11.4.1 Field and Tuple Access
+
+##### Definition
+
+**Field access** retrieves a named field from a record value. **Tuple access** retrieves an element from a tuple by positional index.
+
+##### Syntax & Declaration
+
+```ebnf
+field_access ::= postfix_expr "." identifier
+tuple_access ::= postfix_expr "." integer_literal
+```
+
+##### Static Semantics
+
+**(T-Field)** Field Access Typing:
+$$\frac{\Gamma \vdash e : R \quad R = \texttt{record} \{ \ldots, f : T, \ldots \} \quad f \text{ visible}}{\Gamma \vdash e.f : T}$$
+
+The field `f` MUST be:
+1. A declared field of record type $R$.
+2. Visible in the current scope per the visibility rules of Clause 8.
+
+**(T-Tuple-Index)** Tuple Access Typing:
+$$\frac{\Gamma \vdash e : (T_0, T_1, \ldots, T_{n-1}) \quad 0 \le i < n}{\Gamma \vdash e.i : T_i}$$
+
+The index MUST be:
+1. A non-negative decimal integer literal (not a variable or computed expression).
+2. Within bounds: $0 \le i < n$ where $n$ is the tuple arity.
+
+**Value Category Propagation**
+
+If the base expression is a place expression, the field/tuple access is also a place expression. If the base is a value expression, the access is a value expression.
+
+##### Constraints & Legality
+
+| Code         | Severity | Condition                                         | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------ | :----------- | :-------- |
+| `E-EXP-2511` | Error    | Identifier resolves to type or module, not value. | Compile-time | Rejection |
+| `E-EXP-2521` | Error    | Field access on non-record type.                  | Compile-time | Rejection |
+| `E-EXP-2522` | Error    | Field does not exist in record type.              | Compile-time | Rejection |
+| `E-EXP-2523` | Error    | Field is not visible in current scope.            | Compile-time | Rejection |
+| `E-EXP-2524` | Error    | Tuple access on non-tuple type.                   | Compile-time | Rejection |
+| `E-EXP-2525` | Error    | Tuple index out of bounds.                        | Compile-time | Rejection |
+| `E-EXP-2526` | Error    | Tuple index is not a constant integer literal.    | Compile-time | Rejection |
+
+---
+
+#### 11.4.2 Indexing
+
+##### Definition
+
+An **indexing expression** retrieves an element from an array or slice by computed index.
+
+##### Syntax & Declaration
+
+```ebnf
+index_expr ::= postfix_expr "[" expression "]"
+```
+
+##### Static Semantics
+
+**(T-Index-Array)** Array Indexing:
 $$\frac{\Gamma \vdash e_1 : [T; N] \quad \Gamma \vdash e_2 : \texttt{usize}}{\Gamma \vdash e_1[e_2] : T}$$
 
-*Note: The `move` expression typing rule (T-MOVE) is defined in **§3.5 Responsibility & Move Semantics**, not here.*
+**(T-Index-Slice)** Slice Indexing:
+$$\frac{\Gamma \vdash e_1 : [T] \quad \Gamma \vdash e_2 : \texttt{usize}}{\Gamma \vdash e_1[e_2] : T}$$
 
-**Typing Rules (Operators)**
+The index expression MUST have type `usize`. No implicit integer conversions are performed.
 
-**Logical Operators** (`!`, `&&`, `||`):
-$$\frac{\Gamma \vdash e : \texttt{bool}}{\Gamma \vdash !e : \texttt{bool}} \quad \frac{\Gamma \vdash e_1 : \texttt{bool} \quad \Gamma \vdash e_2 : \texttt{bool}}{\Gamma \vdash e_1 \texttt{ \&\& } e_2 : \texttt{bool}}$$
+**Value Category**
 
-**Arithmetic Operators** (`+`, `-`, `*`, `/`, `%`, `**`):
-$$\frac{\Gamma \vdash e_1 : N \quad \Gamma \vdash e_2 : N \quad N \in \text{Numeric}}{\Gamma \vdash e_1 \oplus e_2 : N}$$
-No implicit promotions. Homogeneous operand types required.
+If the base expression is a place expression, the indexing result is also a place expression (enabling assignment to array elements). If the base is a value expression, the result is a value expression.
 
-**Bitwise Operators** (`&`, `|`, `^`, `<<`, `>>`, `!` on integers):
-$$\frac{\Gamma \vdash e_1 : I \quad \Gamma \vdash e_2 : I \quad I \in \text{Integer}}{\Gamma \vdash e_1 \oplus e_2 : I}$$
+##### Dynamic Semantics
 
-**Comparison Operators** (`==`, `!=`, `<`, `<=`, `>`, `>=`):
-$$\frac{\Gamma \vdash e_1 : T \quad \Gamma \vdash e_2 : T}{\Gamma \vdash e_1 \texttt{ cmp } e_2 : \texttt{bool}}$$
+**Bounds Checking**
 
-**Address-Of (`&`)**:
-$$\frac{\Gamma \vdash e : T \quad e^{place}}{\Gamma \vdash \&e : \texttt{Ptr}<T>\texttt{@Valid}}$$
+All indexing operations MUST be bounds-checked at runtime. If $\text{index} \ge \text{length}$, the executing thread MUST panic with diagnostic `P-EXP-2530`.
 
-**Dereference (`*`)**:
-$$\frac{\Gamma \vdash e : \texttt{Ptr}<T>\texttt{@}S \quad S \neq \texttt{Null}}{\Gamma \vdash *e : T}$$
+**Optimization Note**
 
-**Region Allocation (`^`)**: Allocates operand into innermost active `region`. Full semantics defined in **§3.9 Regions and Arena Allocation**.
+Implementations MAY elide bounds checks when static analysis can prove the index is within bounds (e.g., via contract verification per Clause 10 or loop invariants). Such elision MUST NOT alter observable behavior for well-formed programs.
 
-**Receiver Dispatch Algorithm (`~>`)**
+##### Constraints & Legality
 
-1.  Search for method `m` in the inherent methods of type `T` of receiver `x`.
-2.  If not found, search for method `m` in all Traits implemented by `T` that are visible in the current scope.
-3.  If ambiguous (multiple traits provide `m`), trigger `E-NAM-1305` (require disambiguation via `Trait::m(x)`).
-4.  Auto-dereference and auto-reference of `x` to match method receiver (`self`, `*self`, `&self`) is **NOT** performed. Strict receiver matching is required.
+| Code         | Severity | Condition                                | Detection    | Effect    |
+| :----------- | :------- | :--------------------------------------- | :----------- | :-------- |
+| `E-EXP-2527` | Error    | Indexing applied to non-indexable type.  | Compile-time | Rejection |
+| `E-EXP-2528` | Error    | Index expression is not of type `usize`. | Compile-time | Rejection |
+| `P-EXP-2530` | Panic    | Index out of bounds at runtime.          | Runtime      | Panic     |
+
+---
+
+#### 11.4.3 Procedure and Method Calls
+
+##### Definition
+
+A **procedure call** invokes a callable value with a list of arguments. A **method call** invokes a procedure associated with a type, using either instance dispatch (`~>`) or static/qualified dispatch (`::`).
+
+##### Syntax & Declaration
+
+```ebnf
+call_expr ::= postfix_expr "(" [ argument_list ] ")"
+
+method_call ::= postfix_expr "~>" identifier "(" [ argument_list ] ")"
+
+static_call ::= type_path "::" identifier "(" [ argument_list ] ")"
+
+argument_list ::= argument ( "," argument )* ","?
+
+argument ::= [ "move" ] expression
+```
+
+##### Static Semantics
+
+**(T-Call)** Procedure Call Typing:
+$$\frac{\Gamma \vdash f : (m_1\ T_1, \ldots, m_n\ T_n) \to R \quad \forall i \in 1..n,\ \Gamma \vdash a_i : T_i}{\Gamma \vdash f(a_1, \ldots, a_n) : R}$$
+
+**Argument Passing Rules**
+
+1. The number of arguments MUST equal the number of parameters.
+2. Each argument type MUST be compatible with the corresponding parameter type per the subtyping rules of Clause 4.
+3. If a parameter has the `move` modifier, the corresponding argument MUST be passed via an explicit `move` expression. After the call, the source binding enters the Moved state (§3.5).
+4. Arguments are evaluated left-to-right before control transfers to the callee.
+
+**Instance Method Dispatch (`~>`)**
+
+The receiver dispatch operator `~>` invokes a method on a value instance:
+
+```cursive
+receiver~>method_name(args)
+```
+
+**(T-Method-Instance)** Instance Method Typing:
+$$\frac{\Gamma \vdash r : T \quad \text{method } m(self : T', \ldots) \to R \in \text{methods}(T) \quad T <: T'}{\Gamma \vdash r \mathord{\sim>} m(\ldots) : R}$$
+
+**Receiver Dispatch Algorithm**
+
+1. Search for method `m` in the inherent methods of the receiver's type $T$.
+2. If not found, search for method `m` in all traits implemented by $T$ that are visible in the current scope.
+3. If multiple traits provide method `m`, the call is ambiguous. Disambiguation via qualified syntax `Trait::m(receiver, ...)` is required.
+4. **Strict Receiver Matching**: The receiver type MUST match the method's `self` parameter type exactly. Auto-dereference and auto-reference are NOT performed.
+
+**Static/Qualified Dispatch (`::`)**
+
+The scope resolution operator `::` invokes a method without an instance receiver, or disambiguates trait methods:
+
+```cursive
+Type::method(args)           // Static method (no self parameter)
+Trait::method(receiver, ...) // Disambiguated trait method
+```
+
+##### Constraints & Legality
+
+| Code         | Severity | Condition                                             | Detection    | Effect    |
+| :----------- | :------- | :---------------------------------------------------- | :----------- | :-------- |
+| `E-EXP-2531` | Error    | Callee expression is not of callable type.            | Compile-time | Rejection |
+| `E-EXP-2532` | Error    | Argument count mismatch.                              | Compile-time | Rejection |
+| `E-EXP-2533` | Error    | Argument type incompatible with parameter type.       | Compile-time | Rejection |
+| `E-EXP-2534` | Error    | `move` argument required but not provided.            | Compile-time | Rejection |
+| `E-EXP-2535` | Error    | `move` argument provided but parameter is not `move`. | Compile-time | Rejection |
+| `E-EXP-2536` | Error    | Method not found for receiver type.                   | Compile-time | Rejection |
+| `E-EXP-2537` | Error    | Method call using `.` instead of `~>`.                | Compile-time | Rejection |
+| `E-NAM-1305` | Error    | Ambiguous method resolution; disambiguation required. | Compile-time | Rejection |
+
+---
+
+#### 11.4.4 Pipeline Expressions
+
+##### Definition
+
+A **pipeline expression** provides left-to-right function composition syntax, where the left operand becomes the first argument to the right operand.
+
+##### Syntax & Declaration
+
+```ebnf
+pipeline_expr ::= postfix_expr "=>" expression
+```
+
+##### Static Semantics
+
+**Desugaring**
+
+The pipeline expression `x => f` desugars to `f(x)` before type checking. The desugaring is:
+
+$$e_1 \Rightarrow e_2 \equiv e_2(e_1)$$
+
+The right-hand expression MUST evaluate to a callable that accepts at least one argument, where the first parameter type is compatible with the left-hand expression type.
+
+**(T-Pipeline)**
+$$\frac{\Gamma \vdash e_1 : T_1 \quad \Gamma \vdash e_2 : (T_1, \ldots) \to R}{\Gamma \vdash e_1 \Rightarrow e_2 : R}$$
+
+**Chaining**
+
+Pipelines are left-associative and may be chained:
+
+```cursive
+x => f => g => h   // Equivalent to: h(g(f(x)))
+```
+
+##### Constraints & Legality
+
+| Code         | Severity | Condition                                    | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------- | :----------- | :-------- |
+| `E-EXP-2538` | Error    | Right-hand side of pipeline is not callable. | Compile-time | Rejection |
+| `E-EXP-2539` | Error    | Pipeline target has no parameters.           | Compile-time | Rejection |
+
+---
+
+#### 11.4.5 Unary Operators
+
+##### Definition
+
+Unary operators apply a single-operand operation. All unary operators have precedence 3 and are right-associative.
+
+##### Syntax & Declaration
+
+```ebnf
+unary_expr ::= unary_operator unary_expr | postfix_expr
+
+unary_operator ::= "!" | "-" | "&" | "*" | "^" | "move" | "widen"
+```
+
+##### Static Semantics
+
+**Logical Negation (`!`)**
+
+**(T-Not-Bool)**
+$$\frac{\Gamma \vdash e : \texttt{bool}}{\Gamma \vdash !e : \texttt{bool}}$$
+
+**(T-Not-Int)** Bitwise complement on integers:
+$$\frac{\Gamma \vdash e : I \quad I \in \mathcal{T}_{\text{int}}}{\Gamma \vdash !e : I}$$
+
+**Numeric Negation (`-`)**
+
+**(T-Neg)**
+$$\frac{\Gamma \vdash e : N \quad N \in \mathcal{T}_{\text{signed}} \cup \mathcal{T}_{\text{float}}}{\Gamma \vdash -e : N}$$
+
+Negation is defined for signed integer types and floating-point types. Negation of unsigned integers is ill-formed.
+
+**Address-Of (`&`)**
+
+**(T-Ref)**
+$$\frac{\Gamma \vdash e : T \quad e^{place}}{\Gamma \vdash \&e : \texttt{Ptr}\langle T \rangle @\texttt{Valid}}$$
+
+The operand MUST be a place expression. The result is a safe pointer in the `@Valid` modal state. The permission of the resulting pointer is determined by the permission of the source place (§4.5).
+
+**Dereference (`*`)**
+
+**(T-Deref)**
+$$\frac{\Gamma \vdash e : \texttt{Ptr}\langle T \rangle @S \quad S \ne \texttt{Null}}{\Gamma \vdash *e : T}$$
+
+The operand MUST be a pointer in a dereferenceable state (not `@Null`). Dereferencing a raw pointer (`*imm T` or `*mut T`) is permitted only within an `unsafe` block (§3.10).
+
+**Region Allocation (`^`)**
+
+**(T-Alloc)**
+$$\frac{\Gamma \vdash e : T \quad \text{region}(R) \in \text{scope}}{\Gamma \vdash \texttt{\^{}}e : \texttt{Ptr}\langle T \rangle @\texttt{Valid}}$$
+
+The `^` operator allocates the operand value into the innermost active region. Full semantics are defined in §3.9 (Regions and Arena Allocation).
+
+**Move (`move`)**
+
+**(T-Move)**
+$$\frac{\Gamma \vdash x : T \quad \text{state}(\Gamma, x) = \text{Valid} \quad \text{movable}(\Gamma, x)}{\Gamma \vdash \texttt{move } x : T \dashv \Gamma[x \mapsto \text{Moved}]}$$
+
+The `move` operator transfers responsibility for a value from its source binding. Full semantics are defined in §3.5 (Responsibility and Move Semantics).
+
+##### Constraints & Legality
+
+| Code         | Severity | Condition                                          | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------- | :----------- | :-------- |
+| `E-EXP-2541` | Error    | Logical `!` applied to non-bool, non-integer type. | Compile-time | Rejection |
+| `E-EXP-2542` | Error    | Numeric negation of unsigned integer.              | Compile-time | Rejection |
+| `E-EXP-2543` | Error    | Address-of `&` applied to value expression.        | Compile-time | Rejection |
+| `E-EXP-2544` | Error    | Dereference of pointer in `@Null` state.           | Compile-time | Rejection |
+| `E-EXP-2545` | Error    | Raw pointer dereference outside `unsafe` block.    | Compile-time | Rejection |
+| `E-MEM-3021` | Error    | Region allocation `^` outside region scope.        | Compile-time | Rejection |
+| `E-MEM-3001` | Error    | Move from binding in Moved state.                  | Compile-time | Rejection |
+| `E-MEM-3006` | Error    | Move from immovable binding (`:=`).                | Compile-time | Rejection |
+
+---
+
+#### 11.4.6 Binary Operators
+
+##### Definition
+
+Binary operators combine two operands with an infix operator. This section covers arithmetic, bitwise, comparison, and logical operators.
+
+##### Static Semantics
+
+**Arithmetic Operators (`+`, `-`, `*`, `/`, `%`, `**`)**
+
+**(T-Arith)**
+$$\frac{\Gamma \vdash e_1 : N \quad \Gamma \vdash e_2 : N \quad N \in \mathcal{T}_{\text{numeric}}}{\Gamma \vdash e_1 \oplus e_2 : N}$$
+
+where $\oplus \in \{+, -, *, /, \%, **\}$.
+
+Arithmetic operators require homogeneous operand types. No implicit numeric promotions or conversions are performed. If operand types differ, the program is ill-formed.
+
+**Bitwise Operators (`&`, `|`, `^`, `<<`, `>>`)**
+
+**(T-Bitwise)**
+$$\frac{\Gamma \vdash e_1 : I \quad \Gamma \vdash e_2 : I \quad I \in \mathcal{T}_{\text{int}}}{\Gamma \vdash e_1 \oplus e_2 : I}$$
+
+where $\oplus \in \{\&, |, \texttt{\^{}}\}$.
+
+**(T-Shift)**
+$$\frac{\Gamma \vdash e_1 : I \quad \Gamma \vdash e_2 : \texttt{u32} \quad I \in \mathcal{T}_{\text{int}}}{\Gamma \vdash e_1 \ll e_2 : I} \quad \frac{\Gamma \vdash e_1 : I \quad \Gamma \vdash e_2 : \texttt{u32} \quad I \in \mathcal{T}_{\text{int}}}{\Gamma \vdash e_1 \gg e_2 : I}$$
+
+Shift operators require the right operand to be `u32`. The result type is the type of the left operand.
+
+**Comparison Operators (`==`, `!=`, `<`, `<=`, `>`, `>=`)**
+
+**(T-Compare)**
+$$\frac{\Gamma \vdash e_1 : T \quad \Gamma \vdash e_2 : T}{\Gamma \vdash e_1\ \text{cmp}\ e_2 : \texttt{bool}}$$
+
+Comparison operators require homogeneous operand types. The result type is always `bool`.
+
+Equality operators (`==`, `!=`) are defined for all types implementing the `Eq` trait.
+
+Ordering operators (`<`, `<=`, `>`, `>=`) are defined for types implementing the `Ord` trait.
+
+**Logical Operators (`&&`, `||`)**
+
+**(T-Logic)**
+$$\frac{\Gamma \vdash e_1 : \texttt{bool} \quad \Gamma \vdash e_2 : \texttt{bool}}{\Gamma \vdash e_1 \land\land e_2 : \texttt{bool}} \quad \frac{\Gamma \vdash e_1 : \texttt{bool} \quad \Gamma \vdash e_2 : \texttt{bool}}{\Gamma \vdash e_1 \lor\lor e_2 : \texttt{bool}}$$
 
 ##### Dynamic Semantics
 
 **Short-Circuit Evaluation**
 
-Logical `&&` and `||` **MUST** implement short-circuit evaluation:
--   `e1 && e2`: If `e1` evaluates to `false`, `e2` is NOT evaluated; result is `false`.
--   `e1 || e2`: If `e1` evaluates to `true`, `e2` is NOT evaluated; result is `true`.
+Logical operators MUST implement short-circuit evaluation:
 
-**Bounds Checking**
+- `e₁ && e₂`: If `e₁` evaluates to `false`, `e₂` is NOT evaluated; the result is `false`.
+- `e₁ || e₂`: If `e₁` evaluates to `true`, `e₂` is NOT evaluated; the result is `true`.
 
-All indexing operations **MUST** be bounds-checked at runtime. An out-of-bounds access **MUST** cause the executing thread to panic.
+This is the sole exception to strict left-to-right evaluation: the right operand may be skipped entirely.
 
-**Overflow Behavior**
+**Integer Overflow**
 
-Integer arithmetic operations (`+`, `-`, `*`) **MUST** panic on overflow in `strict` mode. Wrap-around behavior in `release` mode is Implementation-Defined Behavior (IDB).
+Integer arithmetic operations (`+`, `-`, `*`) MUST panic on overflow in `strict` mode. Behavior in `release` mode is Implementation-Defined (IDB); implementations MUST document whether overflow wraps or panics.
 
-**Division by Zero**
+**Division and Remainder**
 
-Division by zero **MUST** cause the executing thread to panic in all modes.
+Division by zero MUST cause the executing thread to panic.
 
-**Pipeline Desugaring**
+For signed integer division, the result is truncated toward zero. The remainder operation `a % b` satisfies the identity: `a == (a / b) * b + (a % b)`.
 
-The expression `x => f` desugars to `f(x)` before type checking.
+**Shift Operations**
+
+If the right operand of a shift operation is greater than or equal to the bit width of the left operand type, the behavior is Implementation-Defined. Implementations MUST document whether this condition panics or produces a defined result.
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                                                 |
-| :----------- | :------- | :-------------------------------------------------------- |
-| `E-EXP-2511` | Error    | Identifier resolves to a type or module, not a value.     |
-| `E-EXP-2531` | Error    | Invalid field or tuple index, or field is not visible.    |
-| `E-EXP-2532` | Error    | Mismatched number of arguments in procedure call.         |
-| `E-EXP-2533` | Error    | Method call using `.` instead of `~>`.                    |
-| `E-EXP-2535` | Error    | Right-hand side of pipeline `=>` is not a valid callable. |
-| `E-EXP-2541` | Error    | Logical operator applied to non-bool operand.             |
-| `E-EXP-2542` | Error    | Invalid or mismatched types for arithmetic/bitwise.       |
-| `E-EXP-2545` | Error    | Address-of operator `&` applied to non-place expression.  |
-| `E-MEM-3021` | Error    | Region allocation `^` outside region scope. (See §3.9)    |
-| `E-MEM-3030` | Error    | Pointer arithmetic outside `unsafe` block. (See §3.10)    |
-| `E-MEM-3001` | Error    | Use of moved value. (Defined in §3.5)                     |
-| `E-NAM-1305` | Error    | Ambiguous method resolution; requires disambiguation.     |
+| Code         | Severity | Condition                                         | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------ | :----------- | :-------- |
+| `E-EXP-2551` | Error    | Arithmetic operator applied to non-numeric types. | Compile-time | Rejection |
+| `E-EXP-2552` | Error    | Mismatched operand types for arithmetic operator. | Compile-time | Rejection |
+| `E-EXP-2553` | Error    | Bitwise operator applied to non-integer types.    | Compile-time | Rejection |
+| `E-EXP-2554` | Error    | Comparison of incompatible types.                 | Compile-time | Rejection |
+| `E-EXP-2555` | Error    | Logical operator applied to non-bool operands.    | Compile-time | Rejection |
+| `E-EXP-2556` | Error    | Shift amount is not of type `u32`.                | Compile-time | Rejection |
+| `P-EXP-2560` | Panic    | Integer overflow in strict mode.                  | Runtime      | Panic     |
+| `P-EXP-2561` | Panic    | Division by zero.                                 | Runtime      | Panic     |
 
 ---
 
-#### 11.4.5 Cast Expressions (`as`)
+#### 11.4.7 Cast Expressions
 
 ##### Definition
 
-A **cast expression** explicitly converts a value from one type to another. Casts are required for all conversions between distinct types; Cursive does not perform implicit numeric conversions.
-
-**Formal Definition**
-
-A cast expression has the form:
-
-$$e\ \texttt{as}\ T$$
-
-where $e$ is an expression and $T$ is a target type. The cast is well-formed if and only if the source type of $e$ and target type $T$ form a valid cast pair as defined in the Static Semantics below.
+A **cast expression** explicitly converts a value from one type to another using the `as` operator.
 
 ##### Syntax & Declaration
-
-**Grammar**
 
 ```ebnf
 cast_expr ::= unary_expr "as" type
 ```
 
-**Precedence**
-
-The `as` operator has **precedence 4** (between unary operators and the power operator `**`), and is **left-associative**.
-
-| Precedence | Operator(s)                | Description |
-| :--------- | :------------------------- | :---------- |
-| 3          | `!` `-` `&` `*` `^` `move` | Unary       |
-| **4**      | **`as`**                   | **Cast**    |
-| 5          | `**`                       | Power       |
-
-**Chained Casts**
-
-Multiple casts may be chained: `x as i32 as f64` parses as `(x as i32) as f64`.
+The `as` operator has precedence 4 (between unary operators and exponentiation) and is left-associative. Multiple casts may be chained: `x as i32 as f64` parses as `(x as i32) as f64`.
 
 ##### Static Semantics
-
-**Typing Rule**
 
 **(T-Cast)**
 $$\frac{\Gamma \vdash e : S \quad \text{CastValid}(S, T)}{\Gamma \vdash e\ \texttt{as}\ T : T}$$
 
-where $\text{CastValid}(S, T)$ holds iff the source-target pair is in one of the categories defined below.
+A cast is well-formed if and only if the source-target type pair is in one of the categories defined below. All other combinations are ill-formed.
 
 **Cast Categories**
 
-The following cast categories are permitted. All other source-target combinations are ill-formed.
+| Category              | Source Type         | Target Type         | Semantics                   |
+| :-------------------- | :------------------ | :------------------ | :-------------------------- |
+| **Numeric Widening**  | `iN`                | `iM` where `M > N`  | Sign-extended               |
+|                       | `uN`                | `uM` where `M > N`  | Zero-extended               |
+|                       | `fN`                | `fM` where `M > N`  | Precision-extended          |
+| **Numeric Narrowing** | `iN`                | `iM` where `M < N`  | Truncated (low-order bits)  |
+|                       | `uN`                | `uM` where `M < N`  | Truncated (low-order bits)  |
+|                       | `fN`                | `fM` where `M < N`  | Rounded to nearest          |
+| **Sign Conversion**   | `iN`                | `uN`                | Bit reinterpretation        |
+|                       | `uN`                | `iN`                | Bit reinterpretation        |
+| **Integer ↔ Float**   | `iN` / `uN`         | `fM`                | Nearest representable value |
+|                       | `fM`                | `iN` / `uN`         | Truncate toward zero†       |
+| **Pointer ↔ Integer** | `usize`             | `*imm T` / `*mut T` | Address interpretation‡     |
+|                       | `*imm T` / `*mut T` | `usize`             | Address extraction‡         |
+| **Safe → Raw Ptr**    | `Ptr<T>@Valid`      | `*imm T` / `*mut T` | Extract address             |
+| **Enum → Integer**    | `enum E`            | Integer type        | Discriminant value§         |
+| **Bool → Integer**    | `bool`              | Any integer         | `false`→0, `true`→1         |
+| **Char ↔ Integer**    | `char`              | `u32`               | Unicode scalar value        |
+|                       | `u32`               | `char`              | Validated conversion††      |
+|                       | `char`              | `u8`                | Validated conversion††      |
+|                       | `u8`                | `char`              | Always valid (ASCII subset) |
 
-| Category              | Source Type         | Target Type         | Semantics               |
-| :-------------------- | :------------------ | :------------------ | :---------------------- |
-| **Numeric Widening**  | `iN`                | `iM` where `M > N`  | Sign-extended           |
-|                       | `uN`                | `uM` where `M > N`  | Zero-extended           |
-|                       | `fN`                | `fM` where `M > N`  | Precision-extended      |
-| **Numeric Narrowing** | `iN`                | `iM` where `M < N`  | Truncated (low bits)    |
-|                       | `uN`                | `uM` where `M < N`  | Truncated (low bits)    |
-|                       | `fN`                | `fM` where `M < N`  | Rounded to nearest      |
-| **Sign Conversion**   | `iN`                | `uN`                | Bit reinterpretation    |
-|                       | `uN`                | `iN`                | Bit reinterpretation    |
-| **Integer ↔ Float**   | `iN` / `uN`         | `fM`                | Nearest representable   |
-|                       | `fM`                | `iN` / `uN`         | Truncate toward zero†   |
-| **Pointer Size**      | `usize`             | `*imm T` / `*mut T` | Address interpretation‡ |
-|                       | `*imm T` / `*mut T` | `usize`             | Address extraction‡     |
-| **Safe → Raw Ptr**    | `Ptr<T>@Valid`      | `*imm T` / `*mut T` | Extract address         |
-| **Enum → Integer**    | `enum E`            | Integer type        | Discriminant value§     |
-| **Bool → Integer**    | `bool`              | Any integer         | `false`→0, `true`→1     |
-
-† Float-to-integer casts that overflow or produce NaN trigger a **panic** (see Dynamic Semantics).
+† Float-to-integer casts that overflow or produce NaN trigger a panic.
 
 ‡ Pointer-integer casts are permitted only within `unsafe` blocks.
 
-§ Enum-to-integer casts are valid only when the enum has an explicit `#[repr(intN)]` attribute specifying its discriminant type.
+§ Enum-to-integer casts are valid only when the enum has an explicit `#[repr(intN)]` attribute.
+
+†† Panics if the value is not a valid Unicode scalar value or exceeds the target range.
 
 **Forbidden Casts**
 
-The following conversions are **never** permitted, even with explicit `as`:
+The following conversions are never permitted:
 
-| Source           | Target                | Reason                                     |
-| :--------------- | :-------------------- | :----------------------------------------- |
-| `bool`           | `float`               | Use integer intermediate: `b as u8 as f64` |
-| `char`           | `bool`                | Semantically meaningless                   |
-| `string`         | Any numeric           | Use parsing methods                        |
-| Any numeric      | `string`              | Use formatting methods                     |
-| Record/Enum      | Different Record/Enum | Use explicit conversion functions          |
-| `Ptr<T>@Null`    | `*imm T` / `*mut T`   | Only `@Valid` can cast to raw              |
-| `Ptr<T>@Expired` | `*imm T` / `*mut T`   | Only `@Valid` can cast to raw              |
-
-**Char-Integer Conversions**
-
-Character-integer conversions have special rules:
-
-| Conversion    | Semantics                                                          |
-| :------------ | :----------------------------------------------------------------- |
-| `char as u32` | Unicode scalar value (always valid)                                |
-| `u32 as char` | Valid only if value is a Unicode scalar value; otherwise **panic** |
-| `char as u8`  | Valid only if `char <= '\u{FF}'`; otherwise **panic**              |
-| `u8 as char`  | Always valid (ASCII subset)                                        |
+| Source           | Target                | Reason                                 |
+| :--------------- | :-------------------- | :------------------------------------- |
+| `bool`           | `float`               | Use integer intermediate               |
+| `char`           | `bool`                | Semantically meaningless               |
+| `string`         | Any numeric           | Use parsing methods                    |
+| Any numeric      | `string`              | Use formatting methods                 |
+| Record/Enum      | Different Record/Enum | Use explicit conversion functions      |
+| `Ptr<T>@Null`    | `*imm T` / `*mut T`   | Only `@Valid` pointers may cast to raw |
+| `Ptr<T>@Expired` | `*imm T` / `*mut T`   | Only `@Valid` pointers may cast to raw |
 
 ##### Dynamic Semantics
 
 **Widening Casts**
 
-Widening casts (smaller to larger type) are always well-defined:
-- Integer widening: Sign-extension for signed, zero-extension for unsigned.
-- Float widening: Exact representation in larger format.
+Widening casts are always lossless:
+- Signed integers: Sign-extended to fill additional bits.
+- Unsigned integers: Zero-extended to fill additional bits.
+- Floats: Exactly represented in the larger format.
 
 **Narrowing Casts**
 
-Narrowing casts (larger to smaller type) may lose information:
-- Integer narrowing: Truncation to low-order bits. No panic; information loss is silent.
-- Float narrowing: Round to nearest representable value in target format.
+Narrowing casts may lose information:
+- Integer narrowing: Low-order bits are preserved; high-order bits are discarded. No panic occurs; information loss is silent.
+- Float narrowing: Rounded to nearest representable value per IEEE 754.
 
 **Float-to-Integer Casts**
 
-Float-to-integer casts truncate toward zero. The following conditions trigger a **panic**:
+Float-to-integer casts truncate toward zero. The following conditions trigger a panic:
 
 | Condition                  | Example                |
 | :------------------------- | :--------------------- |
@@ -8700,101 +10281,336 @@ Float-to-integer casts truncate toward zero. The following conditions trigger a 
 | Value is NaN               | `f64::NAN as i32`      |
 | Value is ±Infinity         | `f64::INFINITY as i32` |
 
-> **Rationale:** Silent truncation of out-of-range floats would produce arbitrary, platform-dependent results. Panicking ensures predictable behavior and forces programmers to handle edge cases explicitly.
-
 **Integer-to-Float Casts**
 
-Integer-to-float casts produce the nearest representable floating-point value. For large integers that cannot be exactly represented, rounding occurs per IEEE 754 "round to nearest, ties to even."
-
-**Pointer Casts**
-
-Pointer-integer casts within `unsafe` blocks:
-- `*T as usize`: Extracts the numeric address.
-- `usize as *T`: Interprets the integer as an address.
-
-These casts preserve the bit pattern. The programmer assumes responsibility for validity.
+Large integers that cannot be exactly represented are rounded to the nearest representable value per IEEE 754 "round to nearest, ties to even."
 
 ##### Constraints & Legality
 
-**Diagnostic Table**
-
 | Code         | Severity | Condition                                        | Detection    | Effect    |
 | :----------- | :------- | :----------------------------------------------- | :----------- | :-------- |
-| `E-EXP-2601` | Error    | Cast between incompatible types.                 | Compile-time | Rejection |
-| `E-EXP-2602` | Error    | Pointer-integer cast outside `unsafe` block.     | Compile-time | Rejection |
-| `E-EXP-2603` | Error    | Enum cast without `#[repr]` attribute.           | Compile-time | Rejection |
-| `E-EXP-2604` | Error    | Cast of non-`@Valid` pointer to raw pointer.     | Compile-time | Rejection |
-| `P-EXP-2610` | Panic    | Float-to-integer cast overflow or NaN.           | Runtime      | Panic     |
-| `P-EXP-2611` | Panic    | `u32 as char` with invalid Unicode scalar value. | Runtime      | Panic     |
-| `P-EXP-2612` | Panic    | `char as u8` with value > 255.                   | Runtime      | Panic     |
+| `E-EXP-2571` | Error    | Cast between incompatible types.                 | Compile-time | Rejection |
+| `E-EXP-2572` | Error    | Pointer-integer cast outside `unsafe` block.     | Compile-time | Rejection |
+| `E-EXP-2573` | Error    | Enum cast without `#[repr]` attribute.           | Compile-time | Rejection |
+| `E-EXP-2574` | Error    | Cast of non-`@Valid` pointer to raw pointer.     | Compile-time | Rejection |
+| `P-EXP-2580` | Panic    | Float-to-integer cast overflow or NaN.           | Runtime      | Panic     |
+| `P-EXP-2581` | Panic    | `u32 as char` with invalid Unicode scalar value. | Runtime      | Panic     |
+| `P-EXP-2582` | Panic    | `char as u8` with value > 255.                   | Runtime      | Panic     |
 
 ---
 
-### 11.5 Control Flow Expressions
+### 11.5 Closure Expressions
 
 ##### Definition
 
-**Conditional Expression (`if`)**: Evaluates one of two branches based on boolean condition.
+A **closure expression** creates an anonymous callable value. Closures may capture bindings from their enclosing lexical scope.
 
-**Match Expression**: Exhaustive pattern matching on a scrutinee.
+**Capturing Closure**
 
-**Loop Expression**: Iteration construct with three forms (infinite, conditional, iterator).
+A closure that references bindings from its enclosing scope is a **capturing closure**. The captured bindings form the closure's **environment**.
+
+**Non-Capturing Closure**
+
+A closure that references no bindings from its enclosing scope is a **non-capturing closure**. Non-capturing closures have sparse function pointer types and are FFI-compatible.
 
 ##### Syntax & Declaration
 
+**Grammar**
+
 ```ebnf
-if_expr   ::= "if" expression block [ "else" ( block | if_expr ) ]
-match_expr ::= "match" expression "{" match_arm+ "}"
-match_arm  ::= pattern "=>" expression ","
+closure_expr ::= "|" [ closure_param_list ] "|" [ "->" type ] closure_body
 
-loop_expr ::=
-    [ label ":" ] "loop" block                              (* Infinite *)
-  | [ label ":" ] "loop" expression block                   (* Conditional *)
-  | [ label ":" ] "loop" pattern ":" type "in" expression block  (* Iterator *)
+closure_param_list ::= closure_param ( "," closure_param )* ","?
 
-label ::= "'" identifier
+closure_param ::= [ "move" ] identifier [ ":" type ]
+
+closure_body ::= expression | block_expr
+```
+
+**Syntactic Notes**
+
+1. The `|` delimiters distinguish closure expressions from other uses of `|` (bitwise OR). Context disambiguates: `|` at expression start, followed by an optional parameter list and another `|`, forms a closure.
+
+2. Parameter types MAY be omitted when the closure is checked against a known function type (see Bidirectional Type Checking).
+
+3. The return type MAY be omitted; it is inferred from the closure body.
+
+4. The closure body is either a single expression (for simple closures) or a block expression (for multi-statement closures).
+
+**Examples**
+
+```cursive
+// No parameters, expression body
+|| 42
+
+// Single parameter, expression body
+|x| x + 1
+
+// Multiple parameters with types, block body
+|a: i32, b: i32| -> i32 {
+    let sum = a + b
+    result sum * 2
+}
+
+// Move parameter
+|move buffer| process(buffer)
 ```
 
 ##### Static Semantics
 
-**T-IF**:
-$$\frac{\Gamma \vdash e_1 : \texttt{bool} \quad \Gamma \vdash e_2 : T \quad \Gamma \vdash e_3 : T}{\Gamma \vdash \texttt{if } e_1 \{ e_2 \} \texttt{ else } \{ e_3 \} : T}$$
+**Closure Typing**
 
-**T-IF-NO-ELSE**:
-$$\frac{\Gamma \vdash e_1 : \texttt{bool} \quad \Gamma \vdash e_2 : ()}{\Gamma \vdash \texttt{if } e_1 \{ e_2 \} : ()}$$
+A closure expression has a function type determined by its parameters, return type, and captures:
 
-**T-MATCH**:
-$$\frac{\Gamma \vdash e : T_s \quad \forall i.\, \Gamma, \text{bindings}(p_i) \vdash e_i : T \quad \text{exhaustive}(\{p_i\}, T_s)}{\Gamma \vdash \texttt{match } e \{ p_1 \Rightarrow e_1, \ldots \} : T}$$
+**(T-Closure-Sparse)** Non-Capturing Closure:
+$$\frac{\Gamma, p_1 : T_1, \ldots, p_n : T_n \vdash e : R \quad \text{captures} = \emptyset}{\Gamma \vdash |p_1, \ldots, p_n| \to e : (T_1, \ldots, T_n) \to R}$$
 
-**Loop Types**:
-- Infinite loop (`loop { }`): Type `!` unless `break <value>` present.
-- Conditional loop (`loop cond { }`): Type `()`.
-- Iterator loop: Type `()`.
-- With `break <value>`: All `break`s **MUST** provide same type; that type becomes loop type.
+**(T-Closure-Capturing)** Capturing Closure:
+$$\frac{\Gamma, p_1 : T_1, \ldots, p_n : T_n \vdash e : R \quad \text{captures} \neq \emptyset}{\Gamma \vdash |p_1, \ldots, p_n| \to e : |T_1, \ldots, T_n| \to R}$$
+
+Non-capturing closures have sparse function pointer types `(T) -> R`. Capturing closures have closure types `|T| -> R`. See §6.3 for the full specification of function types.
+
+**Parameter Typing**
+
+1. If a parameter has an explicit type annotation, that type is used.
+2. If a parameter lacks a type annotation and the closure is checked against an expected function type, the parameter type is inferred from the expected type.
+3. If a parameter lacks a type annotation and no expected type is available, the program is ill-formed.
+
+**Return Type Inference**
+
+1. If the return type is explicitly annotated, the body is checked against that type.
+2. If the return type is omitted, it is inferred from the body expression type.
+
+**Capture Semantics**
+
+Closures capture bindings from their enclosing scope according to the following rules:
+
+| Binding Permission | Capture Mode  | Closure Environment Contains        |
+| :----------------- | :------------ | :---------------------------------- |
+| `const`            | By reference  | `const` reference to binding        |
+| `unique`           | Move required | Owned value (binding becomes Moved) |
+| `partitioned`      | Prohibited†   | —                                   |
+| `concurrent`       | By reference  | `concurrent` reference to binding   |
+
+† Capturing `partitioned` bindings in closures that may escape their scope is prohibited because the partitioning proof cannot be extended across closure boundaries.
+
+**Move Captures**
+
+A binding with `unique` permission MUST be captured via an explicit `move` in the closure parameter list or by using `move` when referencing the binding in the closure body:
+
+```cursive
+let buffer: unique Buffer = ...
+let closure = |x| process(move buffer, x)  // 'buffer' moved into closure
+// 'buffer' is now in Moved state
+```
+
+**Capture Analysis**
+
+The compiler MUST perform capture analysis to determine which bindings are referenced by the closure body. A binding is captured if:
+
+1. It is referenced by name within the closure body, AND
+2. It is not a parameter of the closure, AND
+3. It is not shadowed by a local binding within the closure body.
+
+**Closure Subtyping**
+
+Per §6.3, sparse function pointers are subtypes of the corresponding closure types:
+
+$$(T_1, \ldots, T_n) \to R <: |T_1, \ldots, T_n| \to R$$
+
+A non-capturing closure may be used where a capturing closure is expected.
 
 ##### Dynamic Semantics
 
-**Conditional Desugaring**: `loop cond { body }` → `loop { if !cond { break } body }`
+**Closure Construction**
 
-**Iterator Desugaring**: `loop x: T in iter { body }` → match on `iter~>next()`.
+When a closure expression is evaluated:
 
-**Match Execution**: Patterns tested in declaration order; first match executes.
+1. All captured bindings are evaluated and stored in the closure's environment.
+2. For `const` and `concurrent` captures, references to the original bindings are stored.
+3. For `move` captures, the values are moved into the closure environment; the source bindings become invalid.
+4. A closure value is constructed containing the code pointer and environment pointer.
+
+**Closure Invocation**
+
+When a closure is invoked:
+
+1. Arguments are bound to parameters.
+2. The closure body is evaluated with access to both parameters and captured environment.
+3. The result is returned to the caller.
+
+**Environment Lifetime**
+
+The closure's environment has a lifetime tied to the closure value. When the closure value is dropped, captured owned values are destroyed.
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                                 |
-| :----------- | :------- | :---------------------------------------- |
-| `E-EXP-2561` | Error    | `if` without `else` in non-unit context.  |
-| `E-EXP-2571` | Error    | `match` arms have incompatible types.     |
-| `E-EXP-2582` | Error    | `break` statements have mismatched types. |
+| Code         | Severity | Condition                                               | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------------ | :----------- | :-------- |
+| `E-EXP-2591` | Error    | Closure parameter type cannot be inferred.              | Compile-time | Rejection |
+| `E-EXP-2592` | Error    | Capture of `partitioned` binding in escaping closure.   | Compile-time | Rejection |
+| `E-EXP-2593` | Error    | Capture of `unique` binding without `move`.             | Compile-time | Rejection |
+| `E-EXP-2594` | Error    | Closure return type mismatch.                           | Compile-time | Rejection |
+| `E-CON-3201` | Error    | Capture of `partitioned` binding in concurrent closure. | Compile-time | Rejection |
 
 ---
 
-### 11.6 Block Expressions
+### 11.6 Control Flow Expressions
 
 ##### Definition
 
-**Block Expression**: A block expression `{ stmt*; [result_expr] }` introduces a new lexical scope and evaluates to a value.
+Control flow expressions alter the sequential flow of evaluation and may produce values.
+
+**Conditional Expression (`if`)**: Evaluates one of two branches based on a boolean condition.
+
+**Match Expression**: Performs exhaustive pattern matching on a scrutinee value.
+
+**Loop Expression**: Iterates until a termination condition is met.
+
+##### Syntax & Declaration
+
+**Grammar**
+
+```ebnf
+if_expr ::= "if" expression block_expr [ "else" ( block_expr | if_expr ) ]
+
+match_expr ::= "match" expression "{" match_arm+ "}"
+
+match_arm ::= pattern [ "if" expression ] "=>" arm_body ","
+
+arm_body ::= expression | block_expr
+
+loop_expr ::= [ label ] loop_kind
+
+label ::= "'" identifier ":"
+
+loop_kind ::=
+    "loop" block_expr
+  | "loop" expression block_expr
+  | "loop" pattern ":" type "in" expression block_expr
+```
+
+##### Static Semantics
+
+**Conditional Expression (`if`)**
+
+**(T-If)**
+$$\frac{\Gamma \vdash e_c : \texttt{bool} \quad \Gamma \vdash e_t : T \quad \Gamma \vdash e_f : T}{\Gamma \vdash \texttt{if } e_c\ \{ e_t \}\ \texttt{else}\ \{ e_f \} : T}$$
+
+Both branches MUST have the same type. The result type is the common branch type.
+
+**(T-If-No-Else)**
+$$\frac{\Gamma \vdash e_c : \texttt{bool} \quad \Gamma \vdash e_t : ()}{\Gamma \vdash \texttt{if } e_c\ \{ e_t \} : ()}$$
+
+An `if` without `else` has type `()`. The then-branch MUST also have type `()`.
+
+**Match Expression**
+
+**(T-Match)**
+$$\frac{\Gamma \vdash e : T_s \quad \forall i,\ \Gamma, \text{bindings}(p_i) \vdash e_i : T \quad \text{exhaustive}(\{p_i\}, T_s) \quad \text{reachable}(p_i)}{\Gamma \vdash \texttt{match } e\ \{ p_1 \Rightarrow e_1, \ldots \} : T}$$
+
+1. All arm bodies MUST have the same type.
+2. The pattern set MUST be exhaustive for the scrutinee type (§11.2).
+3. No arm MUST be unreachable (§11.2).
+
+**Match Guards**
+
+A match arm MAY include a guard clause `if guard_expr`. The guard:
+
+1. MUST have type `bool`.
+2. Is evaluated only if the pattern matches.
+3. If the guard evaluates to `false`, matching continues with the next arm.
+4. Guard expressions MAY reference bindings introduced by the pattern.
+
+Guards do not affect exhaustiveness checking; patterns with guards are considered to cover their full range for exhaustiveness purposes.
+
+**Loop Expressions**
+
+**(T-Loop-Infinite)**
+$$\frac{\Gamma \vdash e : T}{\Gamma \vdash \texttt{loop}\ \{ e \} : !}$$
+
+An infinite loop with no `break` has type `!` (never). If a `break value` is present, the loop has the type of the break values.
+
+**(T-Loop-Conditional)**
+$$\frac{\Gamma \vdash e_c : \texttt{bool} \quad \Gamma \vdash e_b : ()}{\Gamma \vdash \texttt{loop } e_c\ \{ e_b \} : ()}$$
+
+A conditional loop (`loop condition { ... }`) has type `()`.
+
+**(T-Loop-Iterator)**
+$$\frac{\Gamma \vdash e_{iter} : I \quad I : \texttt{Iterator}\langle\texttt{Item} = T\rangle \quad \Gamma, x : T \vdash e_b : ()}{\Gamma \vdash \texttt{loop } x : T\ \texttt{in } e_{iter}\ \{ e_b \} : ()}$$
+
+An iterator loop has type `()`. The iterator expression MUST implement the `Iterator` trait.
+
+**Loop with Break Value**
+
+When a loop contains `break value` statements, all such breaks for the same loop MUST provide values of the same type. That type becomes the loop's result type.
+
+##### Dynamic Semantics
+
+**Conditional Evaluation**
+
+1. The condition expression is evaluated.
+2. If true, the then-branch is evaluated and its value is the result.
+3. If false and an else-branch exists, the else-branch is evaluated and its value is the result.
+4. If false and no else-branch exists, the result is `()`.
+
+**Match Evaluation**
+
+1. The scrutinee expression is evaluated.
+2. Patterns are tested in declaration order.
+3. For each pattern that matches structurally, the guard (if any) is evaluated.
+4. The first arm whose pattern matches and whose guard (if any) evaluates to `true` is selected.
+5. Pattern bindings are introduced into scope, and the arm body is evaluated.
+6. The arm body's value is the match result.
+
+**Loop Desugaring**
+
+Conditional loops desugar to infinite loops:
+
+```cursive
+loop condition { body }
+// Equivalent to:
+loop {
+    if !condition { break }
+    body
+}
+```
+
+Iterator loops desugar to match on `Iterator::next`:
+
+```cursive
+loop x: T in iter { body }
+// Equivalent to:
+{
+    var iterator = iter
+    loop {
+        match iterator~>next() {
+            Option::Some(x) => { body },
+            Option::None => { break },
+        }
+    }
+}
+```
+
+##### Constraints & Legality
+
+| Code         | Severity | Condition                                          | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------- | :----------- | :-------- |
+| `E-EXP-2601` | Error    | `if` condition is not of type `bool`.              | Compile-time | Rejection |
+| `E-EXP-2602` | Error    | `if` branches have incompatible types.             | Compile-time | Rejection |
+| `E-EXP-2603` | Error    | `if` without `else` used in non-unit context.      | Compile-time | Rejection |
+| `E-EXP-2611` | Error    | Match arms have incompatible types.                | Compile-time | Rejection |
+| `E-EXP-2612` | Error    | Match guard is not of type `bool`.                 | Compile-time | Rejection |
+| `E-EXP-2621` | Error    | Iterator expression does not implement `Iterator`. | Compile-time | Rejection |
+| `E-EXP-2622` | Error    | `break` values have incompatible types.            | Compile-time | Rejection |
+
+---
+
+### 11.7 Block Expressions
+
+##### Definition
+
+A **block expression** introduces a new lexical scope and evaluates to a value. Blocks are delimited by braces and contain zero or more statements followed by an optional result expression.
 
 ##### Syntax & Declaration
 
@@ -8804,228 +10620,396 @@ block_expr ::= "{" statement* [ expression ] "}"
 
 ##### Static Semantics
 
-**Block Type**:
-1. Type of explicit `result` statement, OR
-2. Type of final unterminated expression, OR
-3. `()` if empty or semicolon-terminated.
+**Block Type**
+
+The type of a block expression is determined by:
+
+1. The type of an explicit `result` statement, if present, OR
+2. The type of the final unterminated expression, if present, OR
+3. The unit type `()` if the block is empty or ends with a terminated statement.
+
+**(T-Block-Result)**
+$$\frac{\Gamma \vdash s_1; \ldots; s_n \quad \Gamma \vdash e : T}{\Gamma \vdash \{ s_1; \ldots; s_n;\ e \} : T}$$
+
+**(T-Block-Unit)**
+$$\frac{\Gamma \vdash s_1; \ldots; s_n}{\Gamma \vdash \{ s_1; \ldots; s_n; \} : ()}$$
+
+**Scope Rules**
+
+1. Bindings introduced within a block are visible only within that block.
+2. Bindings shadow outer bindings of the same name for the duration of the block.
+3. When a block exits, all bindings introduced within it are destroyed in reverse declaration order.
 
 ##### Dynamic Semantics
 
-Statements executed sequentially. Block returns value per Static Semantics rules.
+1. Statements are executed sequentially in source order.
+2. If a `result` statement is executed, the block immediately evaluates to that value.
+3. If the block ends with an unterminated expression, that expression's value is the block result.
+4. If the block ends with a terminated statement, the block result is `()`.
+5. Upon block exit (normal or via control flow), destructors are invoked for all bindings in reverse declaration order.
 
-##### Cross-References (Specialized Blocks)
+**Specialized Block Forms**
 
 The following block forms have specialized semantics defined in other clauses:
 
-| Block Form                   | Authoritative Section                 |
-| :--------------------------- | :------------------------------------ |
-| `region { ... }`             | **§3.9** Regions and Arena Allocation |
-| `unsafe { ... }`             | **§3.10** Unsafe Memory Operations    |
-| `parallel(bindings) { ... }` | **§9.1** Data Parallelism             |
-| `comptime { ... }`           | **§11.1** Compile-Time Execution      |
+| Block Form              | Authoritative Section             |
+| :---------------------- | :-------------------------------- |
+| `region { ... }`        | §3.9 Regions and Arena Allocation |
+| `unsafe { ... }`        | §3.10 Unsafe Memory Operations    |
+| `parallel(...) { ... }` | §12.1 Data Parallelism            |
+| `comptime { ... }`      | §14.1 Compile-Time Execution      |
 
-Clause 8 does NOT re-specify these blocks; see the authoritative sections for full syntax and semantics.
+This clause does not redefine these block forms; see the authoritative sections.
 
 ---
 
-### 11.7 Declaration Statements
+### 11.8 Declaration Statements
 
 ##### Definition
 
-Declaration statements introduce new bindings into the current scope.
+A **declaration statement** introduces new bindings into the current scope.
 
 ##### Syntax & Declaration
 
 ```ebnf
+decl_stmt ::= let_decl | var_decl
+
+let_decl ::= "let" pattern [ ":" type ] binding_op expression
+
+var_decl ::= "var" pattern [ ":" type ] binding_op expression
+
 binding_op ::= "=" | ":="
-let_stmt   ::= "let" pattern [ ":" type ] binding_op expression
-var_stmt   ::= "var" pattern [ ":" type ] binding_op expression
 ```
 
 ##### Static Semantics
 
-- `let`: Immutable binding (identifier cannot be rebound).
-- `var`: Mutable binding (identifier can be rebound).
-- `=`: Movable binding (responsibility may transfer via `move`).
-- `:=`: Immovable binding (responsibility cannot transfer; `move` forbidden).
-- **Orthogonality**: Binding mutability is orthogonal to data permission (`unique`, `const`, etc.) and responsibility transferability. See **§3.4 The Binding Model**.
-- **Responsibility**: Both `=` and `:=` establish cleanup responsibility per **§3.4** and **§3.5**. The difference is whether that responsibility may be transferred.
-- **Pattern**: **MUST** be irrefutable (see §8.2).
+**Binding Keywords**
 
-##### Constraints & Legality
+| Keyword | Mutability | Description                  |
+| :------ | :--------- | :--------------------------- |
+| `let`   | Immutable  | Binding cannot be reassigned |
+| `var`   | Mutable    | Binding may be reassigned    |
 
-| Code         | Severity | Condition                         |
-| :----------- | :------- | :-------------------------------- |
-| `E-PAT-2711` | Error    | Refutable pattern in `let`/`var`. |
-| `E-DEC-2401` | Error    | Reassignment of immutable `let`.  |
+**Binding Operators**
 
----
+| Operator | Movability | Description                                  |
+| :------- | :--------- | :------------------------------------------- |
+| `=`      | Movable    | Responsibility may be transferred via `move` |
+| `:=`     | Immovable  | Responsibility cannot be transferred         |
 
-### 11.8 Assignment Statements
+**Orthogonality**
 
-##### Definition
+Binding mutability (`let` vs. `var`) is orthogonal to:
 
-Assignment statements modify the value stored in a place expression.
+1. **Permission**: The permission of the bound value (`const`, `unique`, `partitioned`, `concurrent`) is determined by the value's type and how it is accessed.
+2. **Movability**: The binding operator (`=` vs. `:=`) determines whether responsibility may be transferred.
 
-##### Syntax & Declaration
+**Type Inference**
 
-```ebnf
-assignment_stmt ::= place_expr assignment_operator expression
-assignment_operator ::= "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^=" | "<<=" | ">>="
-```
+If the type annotation is omitted, the type is inferred from the initializer expression. If the type cannot be inferred, the program is ill-formed.
 
-**Compound Assignment**
+**Pattern Requirements**
 
-Compound assignment `place op= expr` desugars to `place = place op expr`.
+The pattern in a declaration statement MUST be irrefutable (§11.2). Refutable patterns are diagnosed as errors.
 
-##### Static Semantics
+**Responsibility**
 
-1.  The left-hand side **MUST** be a place expression.
-2.  The place expression **MUST** refer to a mutable binding (declared with `var`).
-3.  The place expression **MUST** be accessible via a `unique` or `partitioned` permission (NOT `const`).
-4.  The right-hand side expression **MUST** be type-compatible with the place.
-
-**Movability Preservation**
-
-The movability property of a `var` binding is determined at declaration and is preserved across reassignments:
-- A `var x = v` binding remains movable; reassignment does not change this.
-- A `var x := v` binding remains immovable; the new value is also immovable.
-
-Reassignment uses the plain `=` operator regardless of the binding's movability. The `:=` operator is only used at binding declaration.
+Both `=` and `:=` establish cleanup responsibility per §3.4 and §3.5. The binding becomes responsible for invoking the destructor when it goes out of scope.
 
 ##### Dynamic Semantics
 
-**Drop on Reassignment**
-
-If the place expression refers to an initialized, responsible binding, the implementation **MUST** invoke the destructor (`Drop::drop`) of the current value. This destruction **MUST** occur deterministically before the new value is installed.
+1. The initializer expression is evaluated.
+2. The value is bound to the pattern, introducing bindings into scope.
+3. For destructuring patterns, components are bound to their respective identifiers.
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                                 |
-| :----------- | :------- | :---------------------------------------- |
-| `E-STM-2631` | Error    | Assignment target is not a place.         |
-| `E-DEC-2401` | Error    | Re-assignment of immutable `let` binding. |
+| Code         | Severity | Condition                                        | Detection    | Effect    |
+| :----------- | :------- | :----------------------------------------------- | :----------- | :-------- |
+| `E-PAT-2711` | Error    | Refutable pattern in `let`/`var`.                | Compile-time | Rejection |
+| `E-DEC-2401` | Error    | Reassignment of immutable `let` binding.         | Compile-time | Rejection |
+| `E-DEC-2402` | Error    | Type annotation incompatible with inferred type. | Compile-time | Rejection |
 
 ---
 
-### 11.9 Control Flow Statements
+### 11.9 Expression Statements
 
 ##### Definition
 
-**`return`**: Terminates procedure, returns to caller.
-**`result`**: Terminates block, yields value as block result.
-**`break`**: Terminates innermost `loop` (or labeled loop).
-**`continue`**: Skips to next iteration.
+An **expression statement** evaluates an expression for its side effects. The resulting value is discarded.
+
+##### Syntax & Declaration
+
+```ebnf
+expr_stmt ::= expression terminator
+
+terminator ::= ";" | <newline>
+```
+
+##### Static Semantics
+
+The type of an expression statement is the unit type `()`. The expression's value is discarded after evaluation.
+
+##### Dynamic Semantics
+
+1. The expression is evaluated.
+2. If the expression produces a value, that value is discarded.
+3. If the expression's result is a value with a destructor and the value is not moved elsewhere, the destructor is invoked at statement end.
+
+---
+
+### 11.10 Control Flow Statements
+
+##### Definition
+
+Control flow statements alter the normal sequential execution of statements.
 
 ##### Syntax & Declaration
 
 ```ebnf
 return_stmt   ::= "return" [ expression ]
+
 result_stmt   ::= "result" expression
-break_stmt    ::= "break" [ label ] [ expression ]
-continue_stmt ::= "continue" [ label ]
+
+break_stmt    ::= "break" [ "'" identifier ] [ expression ]
+
+continue_stmt ::= "continue" [ "'" identifier ]
 ```
 
 ##### Static Semantics
 
-- `return` expression type **MUST** match procedure return type.
-- `result` expression type becomes enclosing block type.
-- `break` with value: all `break`s for same loop **MUST** provide same type.
-- `break`/`continue` **MUST** be within `loop`.
+**Return Statement**
+
+`return` terminates the current procedure and returns control to the caller.
+
+1. If an expression is provided, its type MUST match the procedure's declared return type.
+2. If no expression is provided, the procedure's return type MUST be `()`.
+3. `return` MUST NOT appear at module scope.
+
+**Result Statement**
+
+`result` terminates the current block and yields a value as the block's result.
+
+1. The expression type becomes (or must match) the enclosing block's type.
+2. `result` exits only the immediately enclosing block, not the procedure.
+3. `result` is the primary mechanism for yielding values from blocks.
+
+**Break Statement**
+
+`break` terminates the innermost (or labeled) loop.
+
+1. `break` MUST appear within a `loop` body.
+2. If a label is provided, the labeled loop is terminated.
+3. If an expression is provided, the value becomes the loop's result.
+4. All `break` statements for the same loop MUST provide values of the same type (or all omit values).
+
+**Continue Statement**
+
+`continue` skips to the next iteration of the innermost (or labeled) loop.
+
+1. `continue` MUST appear within a `loop` body.
+2. If a label is provided, the labeled loop's next iteration begins.
 
 ##### Dynamic Semantics
 
-- `return`: Executes deferred actions in LIFO order, then returns.
-- `result`: Exits immediate block only (not procedure).
-- `break`/`continue`: Target innermost or labeled loop.
+**Return Execution**
+
+1. The return expression (if any) is evaluated.
+2. Deferred actions in all scopes between the `return` and procedure entry are executed in LIFO order.
+3. Control transfers to the caller.
+
+**Result Execution**
+
+1. The result expression is evaluated.
+2. Deferred actions in the exited block (only) are executed in LIFO order.
+3. The block completes with the yielded value.
+
+**Break/Continue Execution**
+
+1. Deferred actions in scopes between the statement and the target loop are executed in LIFO order.
+2. For `break`: the loop terminates with the break value (if any).
+3. For `continue`: the loop's next iteration begins.
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                  |
-| :----------- | :------- | :------------------------- |
-| `E-STM-2661` | Error    | `return` type mismatch.    |
-| `E-STM-2662` | Error    | `break` outside `loop`.    |
-| `E-STM-2663` | Error    | `continue` outside `loop`. |
-| `E-STM-2664` | Error    | `result` type mismatch.    |
+| Code         | Severity | Condition                               | Detection    | Effect    |
+| :----------- | :------- | :-------------------------------------- | :----------- | :-------- |
+| `E-STM-2661` | Error    | `return` type mismatch with procedure.  | Compile-time | Rejection |
+| `E-STM-2665` | Error    | `return` at module scope.               | Compile-time | Rejection |
+| `E-STM-2664` | Error    | `result` type mismatch with block.      | Compile-time | Rejection |
+| `E-STM-2662` | Error    | `break` outside `loop`.                 | Compile-time | Rejection |
+| `E-STM-2663` | Error    | `continue` outside `loop`.              | Compile-time | Rejection |
+| `E-STM-2666` | Error    | Unknown loop label.                     | Compile-time | Rejection |
+| `E-STM-2667` | Error    | `break` values have incompatible types. | Compile-time | Rejection |
 
 ---
 
-### 11.10 Defer Statement
+### 11.11 Assignment Statements
 
 ##### Definition
 
-A `defer` statement schedules code for execution at scope exit.
+An **assignment statement** modifies the value stored in a place expression.
 
 ##### Syntax & Declaration
 
 ```ebnf
-defer_stmt ::= "defer" block
+assignment_stmt ::= place_expr assignment_operator expression
+
+assignment_operator ::= "=" | "+=" | "-=" | "*=" | "/=" | "%=" 
+                      | "&=" | "|=" | "^=" | "<<=" | ">>="
 ```
 
 ##### Static Semantics
 
-- Block **MUST** have type `()`.
-- Block **MUST NOT** contain non-local control flow (`return`, `break`, `continue`).
+**Requirements**
+
+1. The left-hand side MUST be a place expression (§11.1).
+2. The place MUST refer to a mutable binding (declared with `var`).
+3. The place MUST be accessible via a `unique` or `partitioned` permission. Assignment through `const` permission is forbidden.
+4. The right-hand side type MUST be compatible with the place's type.
+
+**Compound Assignment Desugaring**
+
+Compound assignment `place op= expr` desugars to `place = place op expr`, except that `place` is evaluated only once.
+
+**Movability Preservation**
+
+The movability property of a binding is determined at declaration and preserved across reassignments:
+
+- A `var x = v` binding remains movable after reassignment.
+- A `var x := v` binding remains immovable after reassignment; the new value is also immovable.
+
+Reassignment uses the plain `=` operator regardless of movability. The `:=` operator appears only at binding declaration.
 
 ##### Dynamic Semantics
 
-**LIFO Execution**: On scope exit (normal, `return`, `result`, `break`), deferred blocks execute Last-In, First-Out.
+**Drop on Reassignment**
+
+If the place refers to an initialized, responsible binding, the implementation MUST invoke the destructor (`Drop::drop`) of the current value before installing the new value. This destruction is deterministic:
+
+1. The new value expression is evaluated.
+2. The old value's destructor is invoked.
+3. The new value is installed.
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                        |
-| :----------- | :------- | :------------------------------- |
-| `E-STM-2651` | Error    | Defer block returns non-unit.    |
-| `E-STM-2652` | Error    | Non-local control flow in defer. |
+| Code         | Severity | Condition                                    | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------- | :----------- | :-------- |
+| `E-STM-2631` | Error    | Assignment target is not a place expression. | Compile-time | Rejection |
+| `E-DEC-2401` | Error    | Assignment to immutable `let` binding.       | Compile-time | Rejection |
+| `E-STM-2632` | Error    | Assignment through `const` permission.       | Compile-time | Rejection |
+| `E-STM-2633` | Error    | Assignment type mismatch.                    | Compile-time | Rejection |
+
+---
+
+### 11.12 Defer Statements
+
+##### Definition
+
+A **defer statement** schedules a block of code for execution when the enclosing scope exits.
+
+##### Syntax & Declaration
+
+```ebnf
+defer_stmt ::= "defer" block_expr
+```
+
+##### Static Semantics
+
+1. The deferred block MUST have type `()`.
+2. The deferred block MUST NOT contain non-local control flow (`return`, `break`, `continue`) that would transfer control outside the defer block.
+3. The deferred block MAY reference bindings from the enclosing scope that are in scope at the `defer` statement.
+
+##### Dynamic Semantics
+
+**Registration**
+
+When a `defer` statement is executed, the block is not evaluated immediately. Instead, it is pushed onto a per-scope stack of deferred actions.
+
+**Execution Order (LIFO)**
+
+When a scope exits—by normal completion, `return`, `result`, `break`, or panic—all deferred blocks for that scope are executed in Last-In, First-Out (LIFO) order.
+
+```cursive
+procedure example() {
+    defer { log("first defer") }   // Executes second
+    defer { log("second defer") }  // Executes first
+    // ... body ...
+}  // Output: "second defer", "first defer"
+```
+
+**Nested Scopes**
+
+Each block has its own defer stack. When a nested block exits, only its deferred actions execute. When the outer scope exits, its deferred actions execute.
+
+**Panics in Defer**
+
+If a panic occurs during execution of a deferred block:
+
+1. The remaining deferred blocks in that scope are still executed.
+2. After all deferred blocks complete, the panic propagates.
+3. If multiple panics occur, behavior is Implementation-Defined.
+
+##### Constraints & Legality
+
+| Code         | Severity | Condition                              | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------- | :----------- | :-------- |
+| `E-STM-2651` | Error    | Defer block has non-unit type.         | Compile-time | Rejection |
+| `E-STM-2652` | Error    | Non-local control flow in defer block. | Compile-time | Rejection |
 
 ---
 
 ### Clause 11 Cross-Reference Notes
 
-**Terms defined in Clause 8 that MUST NOT be redefined elsewhere:**
+**Terms Defined in Clause 11 That MUST NOT Be Redefined Elsewhere**
 
-| Term                | Section | Description                                   |
-| :------------------ | :------ | :-------------------------------------------- |
-| Expression          | §8.1    | Syntactic form producing typed value.         |
-| Statement           | §8.1    | Syntactic form executed for side effects.     |
-| Typing Context      | §8.1    | Mapping $\Gamma$ from identifiers to types.   |
-| Value Category      | §8.1    | Classification: Place vs Value expression.    |
-| Place Expression    | §8.1    | Expression denoting memory location.          |
-| Value Expression    | §8.1    | Expression producing temporary value.         |
-| Pattern             | §8.2    | Syntactic form for destructuring/testing.     |
-| Irrefutable Pattern | §8.2    | Pattern that always matches.                  |
-| Refutable Pattern   | §8.2    | Pattern that may fail to match.               |
-| Exhaustiveness      | §8.2    | Property: patterns cover all values.          |
-| Unreachability      | §8.2    | Property: arm can never execute.              |
-| Precedence          | §8.3    | Operator binding strength ranking.            |
-| Associativity       | §8.3    | Grouping rule for equal-precedence operators. |
-| Short-Circuit Eval  | §8.4    | Second operand conditionally skipped.         |
+| Term                | Section | Description                                        |
+| :------------------ | :------ | :------------------------------------------------- |
+| Expression          | §11.1   | Syntactic form producing typed value               |
+| Statement           | §11.1   | Syntactic form executed for side effects           |
+| Typing Context      | §11.1   | Mapping $\Gamma$ from identifiers to types         |
+| Value Category      | §11.1   | Classification: Place vs. Value expression         |
+| Place Expression    | §11.1   | Expression denoting memory location                |
+| Value Expression    | §11.1   | Expression producing temporary value               |
+| Pattern             | §11.2   | Syntactic form for destructuring and testing       |
+| Irrefutable Pattern | §11.2   | Pattern that always matches                        |
+| Refutable Pattern   | §11.2   | Pattern that may fail to match                     |
+| Exhaustiveness      | §11.2   | Property: patterns cover all possible values       |
+| Unreachability      | §11.2   | Property: arm can never execute                    |
+| Precedence          | §11.3   | Operator binding strength ranking                  |
+| Associativity       | §11.3   | Grouping rule for equal-precedence operators       |
+| Short-Circuit Eval  | §11.4.6 | Second operand conditionally skipped               |
+| Closure Expression  | §11.5   | Anonymous callable with optional captures          |
+| Capture             | §11.5   | Binding referenced by closure from enclosing scope |
 
-**Terms referenced from other clauses:**
+**Terms Referenced From Other Clauses**
 
-| Term                      | Source | Usage in Clause 8                                   |
-| :------------------------ | :----- | :-------------------------------------------------- |
-| Type                      | §4.1   | Expression typing, pattern typing.                  |
-| Permission                | §4.5   | Assignment constraints.                             |
-| Binding, Responsible      | §3.4   | Declaration statements, binding state.              |
-| Move (semantics)          | §3.5   | Move expression references §3.5 for full semantics. |
-| Deterministic Destruction | §3.6   | Assignment drop behavior.                           |
-| Partitioning System       | §3.7   | Contract statement references §3.7.                 |
-| Partition Proof Verifier  | §3.8   | Contract statement verification.                    |
-| Region                    | §3.9   | Region allocation operator, region blocks.          |
-| Unsafe Operations         | §3.10  | Unsafe block behavior.                              |
-| Ptr<T>@State              | §4.13  | Address-of result type (Pointer Types).             |
-| Statement Termination     | §2.11  | Statement boundary rules.                           |
-| Drop                      | §6.5   | Assignment drop semantics.                          |
-| Iterator Protocol         | §6.x   | Iterator loop desugaring.                           |
+| Term                      | Source | Usage in Clause 11                              |
+| :------------------------ | :----- | :---------------------------------------------- |
+| Type                      | §4.1   | Expression typing, pattern typing               |
+| Permission                | §4.5   | Assignment constraints, closure captures        |
+| Subtyping                 | §4.3   | Type compatibility in assignments and arguments |
+| Function Type             | §6.3   | Closure typing, procedure call typing           |
+| Binding, Responsible      | §3.4   | Declaration statements, binding state           |
+| Move Semantics            | §3.5   | Move expression, closure captures               |
+| Deterministic Destruction | §3.6   | Assignment drop behavior, scope exit            |
+| Region                    | §3.9   | Region allocation operator                      |
+| Unsafe Operations         | §3.10  | Unsafe block, raw pointer dereference           |
+| Ptr<T>@State              | §6.2   | Address-of result type, dereference constraints |
+| Statement Termination     | §2.11  | Statement boundary rules                        |
+| Drop Trait                | §9.7   | Assignment drop semantics, scope exit           |
+| Iterator Trait            | §9.x   | Iterator loop desugaring                        |
+| Name Resolution           | §8.4   | Identifier lookup                               |
 
-**Terms deferred to later clauses:**
+**Terms Deferred to Other Clauses**
 
-| Term             | Deferred To | Reason                     |
-| :--------------- | :---------- | :------------------------- |
-| `parallel` block | §9.1        | Concurrency semantics.     |
-| `comptime` block | §11.1       | Metaprogramming semantics. |
-| `unsafe` details | §3.10       | Safety check specifics.    |
+| Term               | Clause | Reason                      |
+| :----------------- | :----- | :-------------------------- |
+| `parallel` block   | §12.1  | Concurrency semantics       |
+| `comptime` block   | §14.1  | Metaprogramming semantics   |
+| `unsafe` details   | §3.10  | Safety system specification |
+| `region` block     | §3.9   | Memory region allocation    |
+| Contract statement | §10.x  | Verification system         |
 
 ---
 
@@ -11406,6 +13390,11 @@ This appendix provides the authoritative allocation of diagnostic code ranges to
 | `E-TYP-` | 2300–2399     | Clause 7: Generics                      |
 | `E-DEC-` | 2400–2499     | Clause 8: Declarations                  |
 | `E-NAM-` | 1300–1399     | Clause 9: Name Resolution               |
+| `E-EXP-` | 2500–2599     | Clause 11: Expressions                  |
+| `E-STM-` | 2630–2639     | Clause 11: Assignment Statements        |
+| `E-STM-` | 2650–2659     | Clause 11: Defer Statements             |
+| `E-STM-` | 2660–2669     | Clause 11: Control Flow Statements      |
+| `E-PAT-` | 2710–2759     | Clause 11: Patterns                     |
 | `E-TRS-` | 2900–2999     | Clause 9: Traits                        |
 | `E-CON-` | 3200–3299     | Clause 12: Concurrency                  |
 | `P-`     | (same ranges) | Runtime Panics (use domain prefix)      |
