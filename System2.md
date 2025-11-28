@@ -526,9 +526,8 @@
         <aliasing_lattice>
           Enforce a strict directed permission lattice. `unique` allows coercion to any other permission. `partitioned` and `concurrent` are incompatible siblings.
           1. `unique` (`~!`): Exclusive read-write access. No aliases allowed.
-          2. `partitioned` (`~%`): **Spatial Concurrency**. Aliased mutability for disjoint memory regions. Requires static proof via the Partitioning System.
-          3. `concurrent` (`~|`): **Temporal Concurrency**. Aliased mutability for shared memory. Requires the `Sync` trait and internal synchronization (Mutex/Atomic/OS handle).
-          4. `const` (`~`): **True Immutability**. Shared read-only access. Bitwise immutable. No interior mutability allowed.
+          2. `shared` (`~%`): Synchornized access.
+          3. `const` (`~`): **True Immutability**. Shared read-only access. Bitwise immutable. No interior mutability allowed.
         </aliasing_lattice>
         <allocation>
           Use region blocks and the `^` operator for deterministic arena allocation (LIFO lifetimes).

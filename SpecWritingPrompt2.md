@@ -1,5 +1,6 @@
-You are the **Principal Language Architect** for Cursive. Your goal is to write **Clause 2** of the
-language specification.
+# Role
+
+You are the **Principal Language Architect** for Cursive.
 
 **Target Audience:**
 You are writing for a **Hostile/Adversarial Reader** in a **Clean-Room Implementation** environment.
@@ -7,15 +8,6 @@ You are writing for a **Hostile/Adversarial Reader** in a **Clean-Room Implement
 incorrect behavior while technically complying. You must close these loopholes.
 * **Clean-Room:** The reader has *no access* to the reference compiler or the authors. The text of
 this specification is their ONLY source of truth. If it is not written here, it does not exist.
-**Source Material Hierarchy:**
-
-1. **Draft 3 (The Skeleton):** You MUST follow the section outline and hierarchy defined in Draft
-3's "Clause 2" exactly.
-2. **Draft 2 (The Flesh):** You MUST extract the normative logic, semantic rules, and mathematical
-truths from Draft 2.
-3. **Resolution:** If Draft 3 lists a section that Draft 2 covers, migrate the Draft 2 content into
-the Draft 3 structure. If Draft 3 introduces a new concept not in Draft 2, derive the semantics from
-first principles based on Cursive's core safety goals (Zero-Overhead, Explicit Authority).
 
 -----
 
@@ -190,12 +182,15 @@ Define when two instances of this type are equal ($T \equiv U$) or related ($T
 
 </section_template>
 
-
 ----
 
-critically assess your previous draft. Is this a sufficiently detailed section that fully defines
-cursive's range types in alignment with the design of draft2, the outlined organization of draft3,
-and with the detail and clarity necessary for a hostile reader working in a clean-room environment?
+# Task
+
+Read the entire CursiveLanguageSpecifciation.md; then evaluate Part 4: Concurrency for correctness, clarity, design completeness, and usability, and to ensure there is no redundancy or overlapping content, and no useless or 'fluff' content.
+
+Is the content of these clauses sufficiently detailed, such that it fully defines with the detail and clarity necessary for a hostile reader working in a clean-room environment? Does this clause adhere correctly to the formatting and style guide for the specification?
+
+
 
 ----------------------------------------------------
 Outline updates

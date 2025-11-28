@@ -1,5 +1,7 @@
 # The Cursive Language Specification (Draft 3)
 
+# Part I: General Principles and Conformance
+
 ## Clause 1: General Principles and Conformance
 
 This clause establishes the foundational framework for the Cursive language specification. It defines the normative requirements for conforming implementations and programs, the classification of program behaviors, the minimum capacities implementations MUST support, and the rules governing language evolution.
@@ -384,7 +386,7 @@ Vendor-specific extensions enable implementations to provide additional capabili
 
 ---
 
-### Clause 1 Cross-Reference Notes
+### Clause 1 Cross-Reference Notes `[INFORMATIVE]`
 
 **Terms Defined in Clause 1 That MUST NOT Be Redefined Elsewhere:**
 
@@ -407,16 +409,16 @@ Vendor-specific extensions enable implementations to provide additional capabili
 
 **Terms Deferred to Later Clauses:**
 
-| Term                  | Deferred To | Reason                                               |
-| :-------------------- | :---------- | :--------------------------------------------------- |
-| Lexical constraints   | Clause 2    | Detailed token and identifier rules                  |
-| Syntactic constraints | Clause 2    | Grammar and parse rules                              |
-| Type Layout           | Clause 5    | Size, alignment, representation details              |
-| Permission System     | Clause 4    | `unique`, `const`, `partitioned`, `concurrent` rules |
-| Module System         | Clause 9    | Visibility, imports, compilation units               |
-| `unsafe` semantics    | Clause 3    | Full rules for unsafe blocks and operations          |
-| `comptime` semantics  | Clause 10   | Compile-time evaluation rules                        |
-| FFI                   | Clause 12   | Foreign function interface rules                     |
+| Term                  | Deferred To | Reason                                      |
+| :-------------------- | :---------- | :------------------------------------------ |
+| Lexical constraints   | Clause 2    | Detailed token and identifier rules         |
+| Syntactic constraints | Clause 2    | Grammar and parse rules                     |
+| Type Layout           | Clause 5    | Size, alignment, representation details     |
+| Permission System     | Clause 4    | `unique`, `const`, `shared` rules           |
+| Module System         | Clause 9    | Visibility, imports, compilation units      |
+| `unsafe` semantics    | Clause 3    | Full rules for unsafe blocks and operations |
+| `comptime` semantics  | Clause 10   | Compile-time evaluation rules               |
+| FFI                   | Clause 12   | Foreign function interface rules            |
 
 ---
 
@@ -666,20 +668,23 @@ Let $\mathcal{K}$ denote the set of reserved keywords. The complete enumeration 
 The reserved keywords are:
 
 ```
-abstract    as          break       char        comptime
-const       continue    else        enum        extern
-false       fork        if          imm         import
-internal    let         loop        match       modal       module
-move        mut         override    parallel    partitioned private
-procedure   protected   public      quote       record      region
-result      return      self        Self        shadow      true
-trait       type        unique      unsafe      use
-var         widen       witness     where
+and         as          async       atomic      break       comptime
+shared      const       continue    defer       dispatch    do
+drop        else        emit        enum        escape      extern
+false       for         gpu         if          impl        import
+in          interrupt   let         loop        match       modal
+mod         module      move        mut         override    pool
+private     procedure   protected   public      quote       record
+region      result      return      select      self        Self
+set         simd        spawn       sync        then        trait
+transition  transmute   true        type        union       unique
+unsafe      using       var         volatile    where       while
+witness
 ```
 
 Implementations MUST tokenize these as `<keyword>`, not `<identifier>`. The keyword set MUST be identical across conforming implementations for a given language version.
 
-> **Note:** The keywords `imm` and `mut` are used as qualifiers in raw pointer type syntax: `*imm T` (immutable raw pointer to `T`) and `*mut T` (mutable raw pointer to `T`). See §4.13 for the complete grammar and semantics of pointer types.
+> **Note:** The keyword `mut` is used as a qualifier in raw pointer type syntax: `*mut T` (mutable raw pointer to `T`). See §4.13 for the complete grammar and semantics of pointer types.
 
 **Contextual Keywords**
 
@@ -701,7 +706,7 @@ An **Operator** is a symbol or symbol sequence denoting an operation. A **Punctu
 
 **Formal Definition**
 
-$$\mathcal{O}_\text{multi} = \{\texttt{==}, \texttt{!=}, \texttt{<=}, \texttt{>=}, \texttt{\&\&}, \texttt{||}, \texttt{<<}, \texttt{>>}, \texttt{..}, \texttt{..=}, \texttt{=>}, \texttt{->}, \texttt{**}, \texttt{::}, \texttt{:=}, \texttt{|=}, \texttt{\~>}, \texttt{\~!}, \texttt{\~\%}, \texttt{\~|}\}$$
+$$\mathcal{O}_\text{multi} = \{\texttt{==}, \texttt{!=}, \texttt{<=}, \texttt{>=}, \texttt{\&\&}, \texttt{||}, \texttt{<<}, \texttt{>>}, \texttt{..}, \texttt{..=}, \texttt{=>}, \texttt{->}, \texttt{**}, \texttt{::}, \texttt{:=}, \texttt{|=}, \texttt{\~>}, \texttt{\~!}, \texttt{\~%}\}$$
 
 $$\mathcal{O}_\text{single} = \{+, -, *, /, \%, <, >, =, !, \&, |, \hat{}, \sim, .\}$$
 
@@ -711,17 +716,17 @@ $$\mathcal{P} = \{(, ), [, ], \{, \}, ,, :, ;\}$$
 
 **Multi-Character Tokens**
 
-| Category          | Tokens                       |
-| :---------------- | :--------------------------- |
-| Comparison        | `==`, `!=`, `<=`, `>=`       |
-| Logical           | `&&`, `\|\|`                 |
-| Bitwise Shift     | `<<`, `>>`, `<<=`, `>>=`     |
-| Range             | `..`, `..=`                  |
-| Arrow             | `=>`, `->`                   |
-| Binding           | `:=`                         |
-| Contract          | `\|=`                        |
-| Other             | `**`, `::`                   |
-| Receiver/Dispatch | `~`, `~>`, `~!`, `~%`, `~\|` |
+| Category          | Tokens                   |
+| :---------------- | :----------------------- |
+| Comparison        | `==`, `!=`, `<=`, `>=`   |
+| Logical           | `&&`, `\|\|`             |
+| Bitwise Shift     | `<<`, `>>`, `<<=`, `>>=` |
+| Range             | `..`, `..=`              |
+| Arrow             | `=>`, `->`               |
+| Binding           | `:=`                     |
+| Contract          | `\|=`                    |
+| Other             | `**`, `::`               |
+| Receiver/Dispatch | `~`, `~>`, `~!`, `~%`    |
 
 **Single-Character Tokens**
 
@@ -731,13 +736,19 @@ $$\mathcal{P} = \{(, ), [, ], \{, \}, ,, :, ;\}$$
 
 **Receiver Token Lexemes**
 
-| Token | Lexical Role                                |
-| :---- | :------------------------------------------ |
-| `~`   | Receiver reference in method context        |
-| `~>`  | Method dispatch operator                    |
-| `~!`  | Permission-qualified receiver (unique)      |
-| `~%`  | Permission-qualified receiver (partitioned) |
-| `~\|` | Permission-qualified receiver (concurrent)  |
+| Token | Lexical Role                             |
+| :---- | :--------------------------------------- |
+| `~`   | Receiver reference in method context     |
+| `~>`  | Lens operator / method dispatch operator |
+| `~!`  | Permission-qualified receiver (unique)   |
+| `~%`  | Permission-qualified receiver (shared)   |
+
+**Region Operators**
+
+| Token | Lexical Role                                  |
+| :---- | :-------------------------------------------- |
+| `r^`  | Region-prefixed allocation (e.g., `r^data()`) |
+| `^`   | Implicit region allocation (innermost named)  |
 
 > **Note:** Full semantic definitions are in §4.5.6. See Appendix F.4 for design rationale.
 
@@ -1058,7 +1069,7 @@ Implementations MUST support at least the minimum nesting limits specified in §
 
 ---
 
-### Clause 2 Cross-Reference Notes
+### Clause 2 Cross-Reference Notes `[INFORMATIVE]`
 
 **Terms defined in Clause 2 that MUST NOT be redefined elsewhere:**
 
@@ -1088,12 +1099,12 @@ Implementations MUST support at least the minimum nesting limits specified in §
 
 **Terms deferred to later clauses:**
 
-| Term                                  | Deferred To    | Reason                     |
-| :------------------------------------ | :------------- | :------------------------- |
-| Module                                | Clause 6       | Requires module system     |
-| `comptime` Block                      | Clause 8       | Requires metaprogramming   |
-| `self`, `Self`                        | Clause 4       | Requires type definitions  |
-| `unique`, `partitioned`, `concurrent` | Clause 4, §4.5 | Requires permission system |
+| Term               | Deferred To    | Reason                     |
+| :----------------- | :------------- | :------------------------- |
+| Module             | Clause 6       | Requires module system     |
+| `comptime` Block   | Clause 8       | Requires metaprogramming   |
+| `self`, `Self`     | Clause 4       | Requires type definitions  |
+| `unique`, `shared` | Clause 4, §4.5 | Requires permission system |
 
 ---
 
@@ -1113,7 +1124,7 @@ Cursive's memory safety is decomposed into two orthogonal concerns:
 
 1.  **Liveness**: The property that all pointers and bindings refer to allocated, initialized memory.
 
-2.  **Aliasing**: The property that concurrent or reentrant access to the same memory location does not violate data integrity.
+2.  **Aliasing**: The property that shared or reentrant access to the same memory location does not violate data integrity.
 
 **Formal Definition**
 
@@ -1135,7 +1146,7 @@ Liveness is enforced through RAII and deterministic destruction (§3.6), modal p
 
 **Aliasing Enforcement**
 
-Aliasing is enforced through permission types (§4.5) and the partitioning system (§3.7).
+Aliasing is enforced through permission types (§4.5) and the key-based concurrency model (§13).
 
 ##### Constraints & Legality
 
@@ -1143,12 +1154,11 @@ Aliasing is enforced through permission types (§4.5) and the partitioning syste
 
 Memory operations affecting ownership, allocation, or synchronization MUST be syntactically explicit in source code:
 
-| Operation          | Required Syntax                                             |
-| :----------------- | :---------------------------------------------------------- |
-| Region Allocation  | The `^` operator                                            |
-| Heap Allocation    | Explicit allocator method call with `witness HeapAllocator` |
-| Ownership Transfer | The `move` keyword at call sites for consuming parameters   |
-| Synchronization    | Explicit primitives (`Mutex`, `Atomic`)                     |
+| Operation               | Required Syntax                                             |
+| :---------------------- | :---------------------------------------------------------- |
+| Region Allocation       | The `^` operator                                            |
+| Heap Allocation         | Explicit allocator method call with `witness HeapAllocator` |
+| Responsibility Transfer | The `move` keyword at call sites for consuming parameters   |
 
 **The Zero Runtime Overhead Principle**
 
@@ -1172,12 +1182,16 @@ The complete permission system—including the coexistence matrix, subtyping lat
 
 **Summary:**
 
-| Permission    | Permits Aliasing? | Permits Mutation?  | Coexistence                                 |
-| :------------ | :---------------- | :----------------- | :------------------------------------------ |
-| `const`       | Yes               | No                 | Any number of `const` paths                 |
-| `unique`      | No                | Yes                | Excludes all other paths                    |
-| `partitioned` | Yes (disjoint)    | Yes                | Only with disjoint `partitioned` or `const` |
-| `concurrent`  | Yes               | Yes (synchronized) | With `concurrent` or `const`                |
+| Permission | Permits Aliasing? | Permits Mutation?  | Coexistence                 | Key Required? |
+| :--------- | :---------------- | :----------------- | :-------------------------- | :------------ |
+| `const`    | Yes               | No                 | Any number of `const` paths | No            |
+| `unique`   | No                | Yes                | Excludes all other paths    | No            |
+| `shared`   | Yes               | Yes (synchronized) | With `shared` or `const`    | Yes           |
+
+> **Note:** The `shared` permission uses a key-based access model where keys are
+> implicitly acquired on access and released after use. Disjoint paths to `shared`
+> data may be accessed in parallel without contention. See §13 (Concurrency) for
+> the complete key system specification.
 
 See §4.5 for formal definitions, the coexistence matrix, subtyping rules, and method receiver compatibility.
 
@@ -1191,12 +1205,11 @@ The coexistence matrix above specifies which permissions may **simultaneously** 
 
 **Sequencing Examples:**
 
-| Initial State              | Action                    | Permitted Next State                                   |
-| :------------------------- | :------------------------ | :----------------------------------------------------- |
-| `unique` path active       | Path goes out of scope    | Any permission                                         |
-| `const` paths active       | All paths go out of scope | Any permission                                         |
-| `concurrent` path active   | Path goes out of scope    | Any permission (if no other `concurrent` paths remain) |
-| `partitioned` paths active | All paths go out of scope | Any permission                                         |
+| Initial State        | Action                    | Permitted Next State                               |
+| :------------------- | :------------------------ | :------------------------------------------------- |
+| `unique` path active | Path goes out of scope    | Any permission                                     |
+| `const` paths active | All paths go out of scope | Any permission                                     |
+| `shared` path active | Path goes out of scope    | Any permission (if no other `shared` paths remain) |
 
 **Non-Overlapping Temporal Windows:**
 
@@ -1219,8 +1232,6 @@ The coexistence rules apply to paths that exist **at the same program point**. P
 | Code         | Severity | Condition                                           | Detection    | Effect    |
 | :----------- | :------- | :-------------------------------------------------- | :----------- | :-------- |
 | `E-MEM-3040` | Error    | `unique` path created while other paths are active. | Compile-time | Rejection |
-| `E-MEM-3041` | Error    | `partitioned` path overlaps existing path.          | Compile-time | Rejection |
-| `E-MEM-3042` | Error    | Incompatible sibling permissions on same object.    | Compile-time | Rejection |
 
 > **Note:** Per Appendix K, type system diagnostics (`E-TYP-`) are canonical; memory model diagnostics (`E-MEM-`) are secondary. Implementations MUST emit the canonical diagnostic and MAY additionally emit secondary diagnostics when they provide distinct information.
 
@@ -1535,7 +1546,7 @@ A **Non-Transferring Parameter** is declared without `move`. The callee receives
 | Code         | Severity | Condition                                                    | Detection    | Effect    |
 | :----------- | :------- | :----------------------------------------------------------- | :----------- | :-------- |
 | `E-MEM-3001` | Error    | Access to a binding in Moved or PartiallyMoved state.        | Compile-time | Rejection |
-| `E-MEM-3004` | Error    | Partial move from `const` or `partitioned` binding.          | Compile-time | Rejection |
+| `E-MEM-3004` | Error    | Partial move from `const` binding.                           | Compile-time | Rejection |
 | `E-MEM-3006` | Error    | Attempt to move from immovable binding (`:=`).               | Compile-time | Rejection |
 | `E-DEC-2411` | Error    | Missing `move` keyword at call site for consuming parameter. | Compile-time | Rejection |
 
@@ -1579,246 +1590,86 @@ Explicit calls to `Drop::drop` are forbidden. To destroy an object before scope 
 
 ---
 
-### 3.7 The Partitioning System
+### 3.7 Regions
 
 ##### Definition
 
-The **Partitioning System** enables safe aliased mutability by verifying that concurrent mutable accesses target disjoint portions of data.
+A **Region** is a lexical scope that provides arena-style memory allocation with
+deterministic bulk deallocation. Data allocated in a region lives until the region
+exits.
 
-A **Partition** is a named or anonymous subset of a record's fields or a collection's indices that may be accessed independently from other partitions.
+**Region** provides **memory lifetime** management:
+- Arena-style bulk allocation with deterministic deallocation
+- LIFO lifetime ordering relative to nested regions
 
-**Verification Modes** determine how disjointness is validated:
-
-| Mode      | Description                                             | Runtime Cost | Safety Context        |
-| :-------- | :------------------------------------------------------ | :----------- | :-------------------- |
-| `static`  | Compiler proves disjointness using the verifier (§3.8)  | Zero         | Safe code             |
-| `dynamic` | Runtime intersection check; panic on overlap            | Bounds check | Safe code             |
-| `trusted` | Programmer assertion; no verification (UVB if violated) | Zero         | **`unsafe` required** |
-
-**Trusted Mode Requirement**
-
-The `[[verify(trusted)]]` attribute MUST appear only within an `unsafe` block or an `unsafe` procedure. Use of `[[verify(trusted)]]` outside an unsafe context MUST be diagnosed as error `E-MEM-3015`.
+Task execution is managed separately by the `parallel` block (§13.3). While regions
+and parallel blocks are orthogonal, they compose naturally: region-allocated data
+can be shared across tasks within a `parallel` block because structured concurrency
+guarantees all tasks complete before the enclosing scope (and thus any enclosing
+region) exits.
 
 ##### Syntax & Declaration
 
-**Record Partitioning**
+**Grammar**
 
 ```ebnf
-<partition_decl>   ::= "partition" <identifier> "{" <field_decl>+ "}"
+<region_stmt>      ::= "region" <region_options>? <region_alias>? <block>
+
+<region_options>   ::= <region_option>*
+<region_option>    ::= "." "stack_size" "(" <expr> ")"
+                     | "." "name" "(" <expr> ")"
+
+<region_alias>     ::= "as" <identifier>
+
+<alloc_expr>       ::= <identifier>? "^" <expression>
+<named_alloc>      ::= <identifier> "^" <expression>
 ```
 
-**Collection Partitioning**
+> **Note:** Execution modifiers (`pool`, `async`, `simd`, `gpu`, `interrupt`) are
+> specified on `parallel` blocks, not regions. See §13.3 for the `parallel` block
+> specification.
 
-```ebnf
-<partition_stmt>   ::= "[[verify(" <verify_mode> ")]]"?
-                       "partition" <expr> "by" "(" <range_list> ")"
-                       ("where" "(" <predicate> ")")?
-                       <block>
-```
+**Region Allocation**
 
-##### Static Semantics
-
-**Typing Rule (T-Partition)**
-
-$$\frac{\Gamma \vdash arr : \texttt{Array}[T, N] \quad \text{disjoint}(R_1, \ldots, R_k) \quad \text{perm}(\Gamma, arr) \in \{\text{unique}, \text{partitioned}\}}{\Gamma \vdash \texttt{partition } arr \texttt{ by } (R_1, \ldots, R_k) : () \dashv \Gamma, p_1 : \texttt{Slice}[T]^{\%}, \ldots, p_k : \texttt{Slice}[T]^{\%}}$$
-
-The source MUST be a place expression with array or slice type. The source MUST have `unique` or `partitioned` permission. The ranges MUST be proven disjoint per the verification mode. The original binding becomes inaccessible within the partition block.
-
-**Record Partitioning Rules**
-
-When accessing a record via a `partitioned` binding, the compiler MUST track active partitions. Accessing a field acquires the partition containing that field. Simultaneous access to fields in the same partition is a compile-time error.
-
-**Implicit Partitions**
-
-Any field not declared within a named `partition` block belongs to a unique, anonymous partition.
-
-**Disjointness Definition**
-
-Two ranges $R_1 = [L_1, U_1)$ and $R_2 = [L_2, U_2)$ are disjoint if and only if $(U_1 \le L_2) \lor (U_2 \le L_1)$. The partition proof verifier (§3.8) validates this statically.
-
-##### Dynamic Semantics
-
-When `[[verify(dynamic)]]` is specified, the compiler injects code to compute the intersection. If non-empty, the runtime triggers a panic.
-
-##### Constraints & Legality
-
-**Diagnostic Table**
-
-| Code         | Severity | Condition                                       | Detection    | Effect    |
-| :----------- | :------- | :---------------------------------------------- | :----------- | :-------- |
-| `E-MEM-3010` | Error    | Static partition conflict: overlapping access.  | Compile-time | Rejection |
-| `E-MEM-3012` | Error    | Partition contract proof failed.                | Compile-time | Rejection |
-| `P-MEM-3013` | Panic    | Dynamic partition overlap.                      | Runtime      | Panic     |
-| `E-MEM-3015` | Error    | `[[verify(trusted)]]` outside `unsafe` context. | Compile-time | Rejection |
-
----
-
-### 3.8 The Partition Proof Verifier
-
-##### Definition
-
-The **Partition Proof Verifier** is the static analysis pass responsible for validating partition disjointness.
-
-**Canonical Linear Form** is the abstract domain for index expressions:
-
-$$E ::= C_{\text{base}} + \sum_{i} (C_i \times V_i)$$
-
-where $C_{\text{base}}, C_i \in \mathbb{Z}$ are constants and $V_i$ are symbolic variables. Non-linear terms result in `Unknown`.
-
-##### Static Semantics
-
-**Algorithm: Canonical Reduction**
-
-```
-Reduce(Literal(n))     = { base: n, terms: [] }
-Reduce(Identifier(id)) = { base: 0, terms: [{coeff: 1, var: id}] }
-Reduce(Add(lhs, rhs))  = AddLinear(Reduce(lhs), Reduce(rhs))
-Reduce(Sub(lhs, rhs))  = AddLinear(Reduce(lhs), ScaleLinear(Reduce(rhs), -1))
-Reduce(Mul(lhs, rhs))  =
-    if Reduce(lhs).is_constant() then ScaleLinear(Reduce(rhs), Reduce(lhs).base)
-    else if Reduce(rhs).is_constant() then ScaleLinear(Reduce(lhs), Reduce(rhs).base)
-    else Unknown
-Reduce(_)              = Unknown
-```
-
-**Algorithm: GatherFacts**
-
-```
-GatherFacts(Target):
-    Facts = {}
-    Node = Target.immediate_dominator
-    while Node != null:
-        match Node.statement:
-            "let x = E":        Facts.add(Eq(x, Reduce(E)))
-            "loop i in s..e":   Facts.add(Ge(i, Reduce(s))); Facts.add(Lt(i, Reduce(e)))
-            "if C" (then):      Facts.add(ReduceCondition(C))
-            "if C" (else):      Facts.add(ReduceCondition(Negate(C)))
-        Node = Node.immediate_dominator
-    return Facts
-```
-
-**Proof Evaluation**
-
-To validate `partition arr by (A, B)`, the verifier reduces range bounds to linear forms, substitutes known facts, and checks if the disjointness inequality simplifies to a tautology.
-
-**Hybrid Enforcement**
-
-If the static proof relies on the absence of integer overflow, the compiler MUST inject a runtime assertion unless value-range analysis proves overflow impossible.
-
-##### Constraints & Legality
-
-**Diagnostic Table**
-
-| Code         | Severity | Condition                                                   | Detection    | Effect    |
-| :----------- | :------- | :---------------------------------------------------------- | :----------- | :-------- |
-| `E-MEM-3014` | Error    | Expression not reducible to Canonical Linear Form.          | Compile-time | Rejection |
-| `E-MEM-3016` | Error    | `[[verify(dynamic)]]` not supported by this implementation. | Compile-time | Rejection |
-
-
-Partition contract proof failures are diagnosed as `E-MEM-3012` per §3.7.
-
-**Non-Reducible Expression Handling**
-
-When an index expression in a partition statement cannot be reduced to Canonical Linear Form (i.e., the Reduce algorithm returns `Unknown`), the implementation MUST:
-
-1. Reject the partition statement with diagnostic `E-MEM-3014` if `[[verify(static)]]` is specified or implied.
-2. Accept the partition statement if `[[verify(dynamic)]]` is specified, inserting runtime disjointness checks.
-
-Conforming implementations MUST support `[[verify(dynamic)]]`. An implementation that cannot generate runtime disjointness checks MUST reject programs containing `[[verify(dynamic)]]` with diagnostic `E-MEM-3016`.
-
-3. Accept the partition statement if `[[verify(trusted)]]` is specified, with the programmer assuming responsibility for disjointness (UVB if violated).
-
-> **Note:** Common sources of non-linear expressions include multiplication of two variables (e.g., `i * j`), division, modulo operations, and function calls with non-constant results.
-
----
-
-### 3.9 Regions and Arena Allocation
-
-##### Definition
-
-A **Region** is a lexical scope associated with a specific `Arena` instance, providing deterministic bulk memory allocation.
-
-**Arena** is a built-in modal type (§4.8) with states:
-
-$$\text{ArenaState} ::= @\text{Active} \mid @\text{Frozen} \mid @\text{Freed}$$
-
-##### Syntax & Declaration
-
-**Region Block**
-
-```ebnf
-<region_stmt>      ::= "region" <identifier> <block>
-```
-
-**Allocation Operator**
-
-```ebnf
-<alloc_expr>       ::= "^"+ <expression>
-```
-
-**Desugaring**
-
-The statement `region r { body }` is equivalent to:
-
-```cursive
-{
-    let r: unique Arena@Active = Arena::new()
-    defer { r~>free() }
-    { body }
-}
-```
+The `^` operator allocates storage in a region:
+- `^expr` allocates in the innermost enclosing named region
+- `r^expr` allocates in the explicitly named region `r`
 
 ##### Static Semantics
 
 **Typing Rules**
 
-**(T-Region)**
-$$\frac{\Gamma, r : \texttt{Arena@Active}^{!} \vdash \textit{body} : T}{\Gamma \vdash \texttt{region } r \{ \textit{body} \} : T}$$
+**(T-Region-Seq)**
+$$\frac{\Gamma, r : \texttt{Region@Active} \vdash \textit{body} : T}{\Gamma \vdash \texttt{region as } r \{ \textit{body} \} : T}$$
 
-**(T-Alloc)**
-$$\frac{\Gamma \vdash e : T \quad \text{region\_depth}(\Gamma) \ge n}{\Gamma \vdash \underbrace{\hat{} \cdots \hat{}}_{n} e : \texttt{Ptr}[T]^{!}_{\pi_{\text{Region}}(R_n)}}$$
+**(T-Alloc-Named)**
+$$\frac{\Gamma(r) = \texttt{Region@Active} \quad \Gamma \vdash e : T}{\Gamma \vdash r\texttt{\^{}}e : T^{\pi_r}}$$
 
-**Caret Resolution**
+**(T-Alloc-Implicit)**
+$$\frac{\text{InnermostNamedRegion}(\Gamma) = r \quad \Gamma \vdash e : T}{\Gamma \vdash \texttt{\^{}}e : T^{\pi_r}}$$
 
-A single `^` selects the lexically innermost active region. Each additional `^` selects the immediate parent region.
+**Named Region Requirement**
 
-**Formal Rule (Caret-Depth):**
-
-Let $n$ be the number of consecutive `^` operators in an allocation expression. Let $d$ be the current region nesting depth (the count of lexically enclosing `region` blocks). The allocation is well-formed if and only if:
-
-$1 \le n \le d$
-
-When $n = 0$, no region allocation occurs (the expression is not a region allocation). When $n > d$, the program is ill-formed.
-
-| Condition                    | Result                                                   |
-| :--------------------------- | :------------------------------------------------------- |
-| $n = 0$                      | Not a region allocation                                  |
-| $1 \le n \le d$              | Allocates in region at depth $d - n + 1$ (1 = innermost) |
-| $n > d$                      | Error `E-MEM-3022`                                       |
-| $d = 0$ (outside any region) | Error `E-MEM-3021` for any $n \ge 1$                     |
-
-**Escape Analysis**
-
-Region pointers are subject to the escape rule (§3.3).
-
-> **Informative Note — Best Practice: Immovable Bindings for Region Values**
->
-> Values allocated in a region (`^` operator) SHOULD be bound with `:=` (immovable binding) to provide defense-in-depth against accidental escape attempts. While the type system independently prevents escaping region pointers via the provenance escape rule (§3.3), using `:=` documents intent and catches errors earlier in the development cycle.
+The unprefixed `^` operator requires a named region in lexical scope:
+- `^expr` allocates in the innermost enclosing named region
+- `r^expr` allocates in the explicitly named region `r`
+- Using `^` with no named region in scope is error `E-REG-1205`
 
 ##### Constraints & Legality
 
 **Diagnostic Table**
 
-| Code         | Severity | Condition                                     | Detection    | Effect    |
-| :----------- | :------- | :-------------------------------------------- | :----------- | :-------- |
-| `E-MEM-3021` | Error    | Allocation operator `^` outside region block. | Compile-time | Rejection |
-| `E-MEM-3022` | Error    | Caret depth exceeds region nesting depth.     | Compile-time | Rejection |
+| Code         | Severity | Condition                                      |
+| ------------ | -------- | ---------------------------------------------- |
+| `E-REG-1205` | Error    | `^` with no named region in scope              |
+| `E-REG-1206` | Error    | Named region not found for prefixed allocation |
 
-Region pointer escape is diagnosed as `E-MEM-3020` per §3.3.
+> **Note:** Task-related diagnostics (`E-SPAWN-xxxx`, `E-ASYNC-xxxx`) are defined
+> in §13 (Concurrency).
 
 ---
 
-### 3.10 Unsafe Memory Operations
+### 3.8 Unsafe Memory Operations
 
 ##### Definition
 
@@ -1843,7 +1694,7 @@ $$\frac{\Gamma \vdash_{\text{unsafe}} e : S \quad \text{sizeof}(S) = \text{sizeo
 
 **Suspended Checks**
 
-Within an `unsafe` block, the compiler SHALL NOT enforce liveness, aliasing exclusivity, or partitioning disjointness.
+Within an `unsafe` block, the compiler SHALL NOT enforce liveness, aliasing exclusivity, or key disjointness.
 
 **Enabled Operations**
 
@@ -1866,7 +1717,7 @@ The use of an `unsafe` block constitutes a normative assertion by the programmer
 
 ---
 
-### Clause 3 Cross-Reference Notes
+### Clause 3 Cross-Reference Notes `[INFORMATIVE]`
 
 **Terms defined in Clause 3 that MUST NOT be redefined elsewhere:**
 
@@ -1890,10 +1741,10 @@ The use of an `unsafe` block constitutes a normative assertion by the programmer
 | Transferring Parameter | §3.5    | Parameter declared with `move` modifier                   |
 | RAII                   | §3.6    | Resource Acquisition Is Initialization pattern            |
 | Drop Order             | §3.6    | LIFO destruction order                                    |
-| Partition              | §3.7    | Named disjoint subset of fields or indices                |
-| Verification Mode      | §3.7    | Static, Dynamic, or Trusted                               |
-| Canonical Linear Form  | §3.8    | Abstract domain for partition index verification          |
-| Region                 | §3.9    | Lexical scope with associated Arena                       |
+| Region                 | §3.7    | Lexical scope with associated Arena                       |
+| Key                    | §13.2   | Runtime proof of access rights to a shared path           |
+| Key Mode               | §13.2   | Read or Write access grant                                |
+| Key Coarsening         | §13.2   | The `#` annotation for explicit key granularity control   |
 | Arena                  | §3.9    | Modal type managing region memory lifecycle               |
 | Unsafe Block           | §3.10   | Lexical scope with suspended safety enforcement           |
 | `transmute`            | §3.10   | Bitwise reinterpretation intrinsic                        |
@@ -1916,11 +1767,11 @@ The use of an `unsafe` block constitutes a normative assertion by the programmer
 | Panic   | Clause 10   | Error handling semantics      |
 | Abort   | Clause 10   | Process termination semantics |
 | FFI     | Clause 12   | Foreign function interface    |
-| Mutex   | Clause 11   | Synchronization primitive     |
-| Atomic  | Clause 11   | Lock-free synchronization     |
 | `defer` | Clause 8    | Deferred execution statement  |
 
 ---
+
+# Part 2: Types
 
 ## Clause 4: Type System Foundations
 
@@ -2060,7 +1911,7 @@ $$\frac{\Gamma \vdash e : S \quad \Gamma \vdash S <: T}{\Gamma \vdash e : T} \qu
 
 **Permission Subtyping**
 
-Permission types form a subtype lattice. The complete lattice structure, formal subtyping rules, sibling incompatibility between `partitioned` and `concurrent`, and the prohibition on implicit upgrades are all defined in §4.5.
+Permission types form a linear subtype lattice. The complete lattice structure, formal subtyping rules, and the prohibition on implicit upgrades are all defined in §4.5.
 
 **Trait Implementation Subtyping**
 
@@ -2145,7 +1996,7 @@ The `const` permission enables covariant treatment of otherwise invariant contai
 
 $$\frac{\Gamma \vdash A <: B}{\Gamma \vdash \texttt{const}\ C[A] <: \texttt{const}\ C[B]} \quad \text{(Var-Const)}$$
 
-This rule applies because `const` prohibits mutation, eliminating the safety concern that motivates invariance. The rule does not apply to `unique` or `partitioned` permissions:
+This rule applies because `const` prohibits mutation, eliminating the safety concern that motivates invariance. The rule does not apply to `unique` or `shared` permissions:
 
 $$\frac{A \not\equiv B}{\Gamma \nvdash \texttt{unique}\ C[A] <: \texttt{unique}\ C[B]}$$
 
@@ -2267,24 +2118,29 @@ The permission system governs data access through three complementary mechanisms
 
 **Quick Reference:**
 
-| Question                                             | Answer           | Rule        | Section |
-| :--------------------------------------------------- | :--------------- | :---------- | :------ |
-| Can I have both a `const` and `unique` path to X?    | No               | Coexistence | §4.5.4  |
-| Can I pass a `unique T` where `const T` is expected? | Yes              | Subtyping   | §4.5.5  |
-| Can I have two `partitioned` paths to X?             | Yes, if disjoint | Coexistence | §4.5.4  |
-| Can I convert `const T` to `unique T`?               | No               | Subtyping   | §4.5.5  |
-| Can I call a `~!` method through a `const` path?     | No               | Receiver    | §4.5.6  |
-| Can I call a `~` method through a `unique` path?     | Yes              | Receiver    | §4.5.6  |
-| Can `partitioned` and `concurrent` paths coexist?    | No               | Coexistence | §4.5.4  |
+| Question                                              | Answer | Rule        | Section |
+| :---------------------------------------------------- | :----- | :---------- | :------ |
+| Can I have both a `const` and `unique` path to X?     | No     | Coexistence | §4.5.4  |
+| Can I pass a `unique T` where `const T` is expected?  | Yes    | Subtyping   | §4.5.5  |
+| Can I convert `const T` to `unique T`?                | No     | Subtyping   | §4.5.5  |
+| Can I call a `~!` method through a `const` path?      | No     | Receiver    | §4.5.6  |
+| Can I call a `~` method through a `unique` path?      | Yes    | Receiver    | §4.5.6  |
+| Can multiple `shared` paths coexist?                  | Yes    | Coexistence | §4.5.4  |
+| Does accessing `shared` data require synchronization? | Yes    | Key System  | §13.2   |
+| Can I directly mutate fields through a `shared` path? | No*    | Key System  | §13.2   |
+
+> *Direct field mutation through `shared` requires implicit key acquisition. The
+> compiler automatically inserts key operations; field access syntax is unchanged.
+> See §13.2 for key semantics.
 
 **Permission Lattice (Visual Summary):**
 
 ```
-        unique          (strongest: exclusive read-write)
-       /      \
-partitioned  concurrent  (siblings: incompatible with each other)
-       \      /
-        const           (weakest: shared read-only)
+    unique        (exclusive read-write)
+       |
+  shared      (synchronized shared mutable)
+       |
+     const        (shared read-only)
 ```
 
 All formal rules are defined in the subsections below. §3.1.1 provides memory model context.
@@ -2301,7 +2157,7 @@ A **permission** is a type qualifier that governs how the data referenced by a b
 
 Let $\mathcal{P}$ denote the set of permissions:
 
-$$\mathcal{P} = \{\texttt{const}, \texttt{unique}, \texttt{partitioned}, \texttt{concurrent}\}$$
+$$\mathcal{P} = \{\texttt{const}, \texttt{unique}, \texttt{shared}\}$$
 
 A **permission-qualified type** is a pair $(P, T)$ where $P \in \mathcal{P}$ and $T$ is a base type. The notation $P\ T$ denotes this qualification (e.g., `unique Buffer`, `const Config`).
 
@@ -2313,21 +2169,19 @@ Two permission-qualified types are equivalent if and only if both their base typ
 
 #### 4.5.2 The Permission Lattice
 
-The four permissions form a directed lattice ordered by the subtype relation:
+The three permissions form a linear lattice ordered by the subtype relation:
 
-$$\texttt{unique} <: \{\texttt{partitioned}, \texttt{concurrent}\} <: \texttt{const}$$
+$$\texttt{unique} <: \texttt{shared} <: \texttt{const}$$
 
 The lattice structure is:
 
 ```
-        unique
-       /      \
-partitioned  concurrent
-       \      /
-        const
+    unique        (exclusive read-write)
+       |
+  shared      (synchronized shared mutable)
+       |
+     const        (shared read-only)
 ```
-
-A value with a stronger (higher) permission may be implicitly coerced to the same base type with a weaker (lower) permission. The permissions `partitioned` and `concurrent` are **incompatible siblings**: neither is a subtype of the other. The formal subtyping rules are specified in the Static Semantics block.
 
 ---
 
@@ -2360,50 +2214,64 @@ The following definitions specify the semantic meaning of each permission.
 
 **`const` — Immutable Access (Default)**
 
-The `const` permission grants read-only access to data and permits unlimited aliasing. Mutation through a `const` path is forbidden; any number of `const` paths to the same data may coexist simultaneously. Data accessible only through `const` paths is inherently safe for concurrent read access across threads.
+The `const` permission grants read-only access to data and permits unlimited aliasing. Mutation through a `const` path is forbidden; any number of `const` paths to the same data may coexist simultaneously. Data accessible only through `const` paths is inherently safe for shared read access across threads.
 
 **`unique` — Exclusive Mutable Access**
 
 The `unique` permission grants exclusive read-write access to data, guaranteeing that no other live path to the same data exists. The existence of a live `unique` path to an object statically precludes the existence of any other path to that object or its sub-components. A `unique` path may be temporarily downgraded to a weaker permission for a bounded scope; during this period, the original path is **inactive** and the binding becomes unusable until the scope ends. The `unique` permission does **not** imply cleanup responsibility; a procedure parameter of type `unique T` (without `move`) grants exclusive access while the caller retains responsibility for cleanup.
 
-**`partitioned` — Spatially-Disjoint Mutable Access**
+**`shared` — Key-Synchronized Mutable Access**
 
-The `partitioned` permission grants mutable access to data under the constraint that all coexisting mutable paths access **disjoint regions** of the data. Multiple `partitioned` paths to the same aggregate object may coexist simultaneously when they access statically verified disjoint portions. Disjointness is validated by the Partitioning System (§3.7). This permission enables safe parallel mutation of different array elements or record fields.
+The `shared` permission grants mutable access to data through implicit key acquisition.
+A `shared` value is conceptually "locked by default"—access requires a key, which is
+automatically acquired when accessing the data and released after use.
 
-**`concurrent` — Temporally-Synchronized Mutable Access**
+**Key Properties:**
 
-The `concurrent` permission grants access to data through synchronized operations. Multiple `concurrent` paths may coexist because synchronization primitives prevent data races. Fields may be read through a `concurrent` path, but direct field mutation is forbidden; mutation occurs only through methods that accept `concurrent self` (or the shorthand `~|`), which provide internal synchronization. A type supports `concurrent` access when it provides methods accepting `self: concurrent Self`; a type without such methods exposes only field reads and `const`-compatible method calls through `concurrent` paths.
+- **Path-specific:** Keys are acquired at the granularity of the accessed path
+- **Implicitly acquired:** Accessing a `shared` path acquires the necessary key automatically
+- **Minimal scope:** Keys are held for the minimal duration preserving correctness
+- **Reentrant:** If a covering key is already held, nested access succeeds without additional acquisition
 
-The following table specifies which operations are permitted through a `concurrent` path:
+The `shared` permission does **not** imply cleanup responsibility; a procedure parameter
+of type `shared T` (without `move`) grants synchronized access while the caller retains
+responsibility for cleanup.
 
-| Operation                    | Permitted | Rationale                                |
-| :--------------------------- | :-------- | :--------------------------------------- |
-| Field read                   | Yes       | Reading is always safe                   |
-| Field mutation               | No        | Direct mutation requires synchronization |
-| Method call (`~` receiver)   | Yes       | `concurrent <: const`                    |
-| Method call (`~\|` receiver) | Yes       | Permission match                         |
-| Method call (`~!` receiver)  | No        | `concurrent` is not `<: unique`          |
-| Method call (`~%` receiver)  | No        | Sibling incompatibility                  |
+The following table specifies which operations are permitted through a `shared` path:
 
-See §4.5.6 for the complete receiver compatibility matrix covering all permission combinations.
+| Operation                   | Permitted | Key Mode  | Rationale                                |
+| :-------------------------- | :-------- | :-------- | :--------------------------------------- |
+| Field read                  | Yes       | Read key  | Multiple readers may proceed in parallel |
+| Field mutation              | Yes       | Write key | Exclusive access during mutation         |
+| Method call (`~` receiver)  | Yes       | Read key  | `shared <: const`                        |
+| Method call (`~%` receiver) | Yes       | Write key | Method controls internal synchronization |
+| Method call (`~!` receiver) | No        | N/A       | `shared` is not `<: unique`              |
 
-> **Rationale:** Thread safety is visible in API signatures via method receiver permissions, not marker traits.
+**Key Modes:**
+
+| Mode  | Grants       | Multiple Holders | Acquired By  |
+| :---- | :----------- | :--------------- | :----------- |
+| Read  | Read         | Yes              | Read access  |
+| Write | Read + Write | No               | Write access |
+
+See §4.5.6 for the complete receiver compatibility matrix and §13.2 for the full key
+system specification including coarsening (`#`), deadlock prevention, and key elision.
+
+> **Rationale:** The key system provides fine-grained, path-based synchronization with
+> zero syntactic overhead for the common case. Disjoint paths to the same `shared`
+> object may be accessed in parallel without contention.
 
 **Exclusion Principle (Normative)**
 
 The rules governing which permission-qualified paths may coexist for the same object are defined in this section. The **coexistence matrix** specifies which permissions may exist simultaneously:
 
-| Active Permission | May Add `unique` | May Add `partitioned` | May Add `concurrent` | May Add `const` |
-| :---------------- | :--------------- | :-------------------- | :------------------- | :-------------- |
-| `unique`          | No               | No                    | No                   | No              |
-| `partitioned`     | No               | Yes (if disjoint)     | No                   | Yes             |
-| `concurrent`      | No               | No                    | Yes                  | Yes             |
-| `const`           | No               | No                    | Yes                  | Yes             |
-| (none)            | Yes              | Yes                   | Yes                  | Yes             |
+| Active Permission | May Add `unique` | May Add `shared` | May Add `const` |
+| :---------------- | :--------------- | :--------------- | :-------------- |
+| `unique`          | No               | No               | No              |
+| `shared`          | No               | Yes              | Yes             |
+| `const`           | No               | Yes              | Yes             |
 
-The permissions `partitioned` and `concurrent` are **siblings** in the permission lattice—neither is a subtype of the other. Paths with `partitioned` permission and paths with `concurrent` permission to the same object MUST NOT coexist.
-
-> **Cross-Reference:** See §3.1.1 for memory model context (temporal transitions, non-overlapping windows). Diagnostics `E-TYP-1602` and `E-TYP-1603` are canonical for coexistence violations.
+> **Cross-Reference:** See §3.1.1 for memory model context (temporal transitions, non-overlapping windows). Diagnostic `E-TYP-1602` is canonical for coexistence violations.
 
 **Complete Permission Reference:**
 
@@ -2420,7 +2288,7 @@ This section (§4.5) is the authoritative source for all permission rules:
 **Grammar**
 
 ```ebnf
-permission       ::= "const" | "unique" | "partitioned" | "concurrent"
+permission       ::= "const" | "unique" | "shared"
 permission_type  ::= [permission] type
 ```
 
@@ -2428,12 +2296,11 @@ When no permission is specified, `const` is implied.
 
 **Shorthand Notation**
 
-The receiver shorthand notations (`~`, `~!`, `~%`, `~|`) are defined in §2.7 (Operators and Punctuators). The semantic mapping to permission-qualified `self` parameters is:
+The receiver shorthand notations (`~`, `~!`, `~%`) are defined in §2.7 (Operators and Punctuators). The semantic mapping to permission-qualified `self` parameters is:
 
 - `~` expands to `self: const Self`
 - `~!` expands to `self: unique Self`
-- `~%` expands to `self: partitioned Self`
-- `~|` expands to `self: concurrent Self`
+- `~%` expands to `self: shared Self`
 
 These shorthands are syntactic sugar. A conforming implementation MUST treat them as equivalent to their expanded forms.
 
@@ -2447,29 +2314,15 @@ These shorthands are syntactic sugar. A conforming implementation MUST treat the
 
 The following rules define the subtype relation for permission-qualified types:
 
-$$\frac{}{\Gamma \vdash \texttt{unique}\ T <: \texttt{partitioned}\ T} \quad \text{(Sub-Perm-UP)}$$
-
-$$\frac{}{\Gamma \vdash \texttt{unique}\ T <: \texttt{concurrent}\ T} \quad \text{(Sub-Perm-UC)}$$
+$$\frac{}{\Gamma \vdash \texttt{unique}\ T <: \texttt{shared}\ T} \quad \text{(Sub-Perm-UC)}$$
 
 $$\frac{}{\Gamma \vdash \texttt{unique}\ T <: \texttt{const}\ T} \quad \text{(Sub-Perm-UK)}$$
 
-$$\frac{}{\Gamma \vdash \texttt{partitioned}\ T <: \texttt{const}\ T} \quad \text{(Sub-Perm-PK)}$$
-
-$$\frac{}{\Gamma \vdash \texttt{concurrent}\ T <: \texttt{const}\ T} \quad \text{(Sub-Perm-CK)}$$
+$$\frac{}{\Gamma \vdash \texttt{shared}\ T <: \texttt{const}\ T} \quad \text{(Sub-Perm-CK)}$$
 
 **Permission Lattice Summary**
 
-The subtyping rules above formalize the lattice structure defined in §4.5.2.
-
-**Sibling Incompatibility**
-
-The permissions `partitioned` and `concurrent` are incompatible. The following subtype relationships are **not derivable**:
-
-$$\Gamma \nvdash \texttt{partitioned}\ T <: \texttt{concurrent}\ T$$
-
-$$\Gamma \nvdash \texttt{concurrent}\ T <: \texttt{partitioned}\ T$$
-
-Coercion between sibling permissions is rejected per §4.2 (`E-TYP-1512`).
+The subtyping rules above formalize the linear lattice structure defined in §4.5.2. For the complete lattice diagram and permission definitions, see §4.5.2.
 
 **No Implicit Upgrade**
 
@@ -2477,40 +2330,40 @@ Coercion from a weaker permission to a stronger permission is **not derivable**:
 
 $$\Gamma \nvdash \texttt{const}\ T <: \texttt{unique}\ T$$
 
-$$\Gamma \nvdash \texttt{const}\ T <: \texttt{partitioned}\ T$$
+$$\Gamma \nvdash \texttt{const}\ T <: \texttt{shared}\ T$$
 
-$$\Gamma \nvdash \texttt{const}\ T <: \texttt{concurrent}\ T$$
+$$\Gamma \nvdash \texttt{shared}\ T <: \texttt{unique}\ T$$
 
 Implicit upgrade attempts are rejected per §4.2 (`E-TYP-1511`).
 
-**Concurrent-Safe Method Rule**
+**shared-Safe Method Rule**
 
-A method $m$ on type $T$ is callable through a `concurrent` path if and only if the method's receiver accepts `concurrent` permission or a weaker permission (`const`):
+A method $m$ on type $T$ is callable through a `shared` path if and only if the method's receiver accepts `shared` permission or a weaker permission (`const`):
 
-$$\frac{\Gamma \vdash m : T.\text{method} \quad m.\text{receiver} \in \{\texttt{concurrent}, \texttt{const}\}}{\Gamma \vdash (\texttt{concurrent}\ T).m\ \text{callable}} \quad \text{(Concurrent-Method)}$$
+$$\frac{\Gamma \vdash m : T.\text{method} \quad m.\text{receiver} \in \{\texttt{shared}, \texttt{const}\}}{\Gamma \vdash (\texttt{shared}\ T).m\ \text{callable}} \quad \text{(shared-Method)}$$
 
-**Concurrent Access to Types Without Synchronized Methods**
+**shared Access to Types Without Synchronized Methods**
 
-A type that provides no methods accepting `concurrent Self` (or `~|`) receiver is **read-only through `concurrent` paths**. Such types may still be useful in concurrent contexts when:
+A type that provides no methods accepting `shared Self` (or `~%`) receiver is **read-only through `shared` paths**. Such types may still be useful in shared contexts when:
 
 1. Only field reads are required, OR
 2. The type implements `const`-compatible methods sufficient for the use case.
 
-**Example — Read-only concurrent access:**
+**Example — Read-only shared access:**
 
 ```cursive
 record Config {
     timeout_ms: u32,
     max_retries: u32,
-    // No methods accepting ~| receiver
+    // No methods accepting ~% receiver
 }
 
-let config: concurrent Config = load_config()
+let config: shared Config = load_config()
 let timeout = config.timeout_ms    // OK: field read
 // config.timeout_ms = 5000        // ERROR E-TYP-1604: field mutation forbidden
 ```
 
-> **Design Note:** Types intended for concurrent mutation SHOULD provide methods with `~|` receivers that encapsulate synchronization. Types without such methods are implicitly read-only when accessed through `concurrent` paths. This is intentional: the absence of synchronized methods indicates the type was not designed for concurrent mutation.
+> **Design Note:** Types intended for shared mutation SHOULD provide methods with `~%` receivers that encapsulate synchronization. Types without such methods are implicitly read-only when accessed through `shared` paths. This is intentional: the absence of synchronized methods indicates the type was not designed for shared mutation.
 
 ---
 
@@ -2520,22 +2373,21 @@ let timeout = config.timeout_ms    // OK: field read
 
 A method with receiver permission $P_{\text{method}}$ is callable through a path with permission $P_{\text{caller}}$ if and only if $P_{\text{caller}} <: P_{\text{method}}$ in the permission subtyping lattice (§4.5.5).
 
-| Caller's Permission | `~` (const) | `~!` (unique) | `~%` (partitioned) | `~\|` (concurrent) |
-| :------------------ | :---------: | :-----------: | :----------------: | :----------------: |
-| `const`             |      ✓      |       ✗       |         ✗          |         ✗          |
-| `unique`            |      ✓      |       ✓       |         ✓          |         ✓          |
-| `partitioned`       |      ✓      |       ✗       |         ✓          |         ✗          |
-| `concurrent`        |      ✓      |       ✗       |         ✗          |         ✓          |
+| Caller's Permission | `~` (const) | `~!` (unique) | `~%` (shared) |
+| :------------------ | :---------: | :-----------: | :-----------: |
+| `const`             |      ✓      |       ✗       |       ✗       |
+| `unique`            |      ✓      |       ✓       |       ✓       |
+| `shared`            |      ✓      |       ✗       |       ✓       |
 
 **Reading the matrix:** Row = permission of the caller's path to the receiver. Column = permission required by the method's receiver parameter. ✓ = method is callable. ✗ = method is not callable (error `E-TYP-1605`).
 
-**Key observations:**
+**Key observations** (derived from the permission lattice in §4.5.2)**:**
 
 1. **`unique` callers can call any method.** The `unique` permission is the lattice top and subtypes all other permissions.
 
 2. **`const` callers can only call `const` methods.** The `const` permission is the lattice bottom; it cannot be upgraded.
 
-3. **Sibling permissions cannot access each other's methods.** A `partitioned` path cannot call `~|` methods, and a `concurrent` path cannot call `~%` methods. This reflects the incompatibility of spatial and temporal concurrency models.
+3. **`shared` callers can call `const` and `shared` methods.** The `shared` permission is in the middle of the linear lattice.
 
 4. **All callers can call `const` methods.** Every permission subtypes `const`, so `~` methods are universally accessible.
 
@@ -2558,24 +2410,47 @@ record Counter {
 
     procedure get(~) -> i32 { self.value }           // const receiver
     procedure set(~!, new_value: i32) { self.value = new_value }  // unique receiver
-    procedure increment(~|) { /* atomic increment */ }  // concurrent receiver
+    procedure increment(~%) { /* atomic increment */ }  // shared receiver
 }
 
 let c1: const Counter = Counter { value: 0 }
 c1.get()           // OK: const caller, const method
 // c1.set(5)       // ERROR E-TYP-1605: const caller, unique method
-// c1.increment()  // ERROR E-TYP-1605: const caller, concurrent method
+// c1.increment()  // ERROR E-TYP-1605: const caller, shared method
 
 let c2: unique Counter = Counter { value: 0 }
 c2.get()           // OK: unique caller, const method (unique <: const)
 c2.set(5)          // OK: unique caller, unique method
-c2.increment()     // OK: unique caller, concurrent method (unique <: concurrent)
+c2.increment()     // OK: unique caller, shared method (unique <: shared)
 
-let c3: concurrent Counter = Counter { value: 0 }
-c3.get()           // OK: concurrent caller, const method (concurrent <: const)
-// c3.set(5)       // ERROR E-TYP-1605: concurrent caller, unique method
-c3.increment()     // OK: concurrent caller, concurrent method
+let c3: shared Counter = Counter { value: 0 }
+c3.get()           // OK: shared caller, const method (shared <: const)
+// c3.set(5)       // ERROR E-TYP-1605: shared caller, unique method
+c3.increment()     // OK: shared caller, shared method
 ```
+
+**Key Acquisition in Method Calls**
+
+When a method with `~%` receiver is called through a `shared` path, the key is
+acquired for the duration of the method call:
+
+```cursive
+let counter: shared Counter = Counter { value: 0 }
+
+// Key acquisition sequence:
+counter.increment()
+// 1. Acquire write key to `counter` (method has ~% receiver)
+// 2. Execute increment method body
+// 3. Release key
+
+// Parallel access to disjoint shared data:
+parallel {
+    spawn { counter_a.increment() }  // Key to counter_a
+    spawn { counter_b.increment() }  // Key to counter_b — parallel, no contention
+}
+```
+
+For explicit control over key scope, see the `#` coarsening annotation in §13.2.
 
 ---
 
@@ -2632,9 +2507,8 @@ process(d, d)           // ERROR E-TYP-1602: 'd' is inactive (passed as const)
 The following constraints apply to permission-qualified types:
 
 1. A `const` path MUST NOT be used to mutate data.
-2. A `concurrent` path MUST NOT be used for direct field mutation.
-3. All `partitioned` access MUST be validated by the Partitioning System (§3.7).
-4. Multiple paths violating the Exclusion Principle MUST NOT coexist.
+2. A `shared` path MUST NOT be used for direct field mutation.
+3. Multiple paths violating the Exclusion Principle MUST NOT coexist.
 
 **Diagnostic Table**
 
@@ -2642,19 +2516,18 @@ The following constraints apply to permission-qualified types:
 | :----------- | :------- | :------------------------------------------------------------------------------------ | :----------- | :-------- |
 | `E-TYP-1601` | Error    | Attempt to mutate data via a `const` path.                                            | Compile-time | Rejection |
 | `E-TYP-1602` | Error    | Violation of `unique` exclusion (aliasing detected or inactive use).                  | Compile-time | Rejection |
-| `E-TYP-1603` | Error    | Partitioning system violation (non-disjoint `partitioned` access).                    | Compile-time | Rejection |
-| `E-TYP-1604` | Error    | Direct field mutation through `concurrent` path.                                      | Compile-time | Rejection |
+| `E-TYP-1604` | Error    | Direct field mutation through `shared` path.                                          | Compile-time | Rejection |
 | `E-TYP-1605` | Error    | Method receiver permission incompatible with caller's permission (see §4.5.6 matrix). | Compile-time | Rejection |
 
 **Canonical Diagnostic Codes**
 
 See Appendix J (§J.1) for the cross-reference matrix mapping permission diagnostics to memory model diagnostics. Per Appendix K, type system diagnostics (`E-TYP-`) are canonical; memory model diagnostics (`E-MEM-`) are secondary.
 
-> **Note:** Implicit permission upgrade (`E-TYP-1511`) and sibling coercion (`E-TYP-1512`) diagnostics are defined in §4.2.
+> **Note:** Implicit permission upgrade (`E-TYP-1511`) diagnostic is defined in §4.2.
 
 ---
 
-### Clause 4 Cross-Reference Notes
+### Clause 4 Cross-Reference Notes `[INFORMATIVE]`
 
 **Terms Defined in Clause 4 That MUST NOT Be Redefined Elsewhere:**
 
@@ -2670,9 +2543,8 @@ See Appendix J (§J.1) for the cross-reference matrix mapping permission diagnos
 | Permission              | §4.5    | Type qualifier governing access, mutation, and aliasing       |
 | `const`                 | §4.5    | Permission for immutable, freely aliasable access             |
 | `unique`                | §4.5    | Permission for exclusive read-write access                    |
-| `partitioned`           | §4.5    | Permission for spatial disjoint aliased mutability            |
-| `concurrent`            | §4.5    | Permission for synchronized temporal aliased mutability       |
-| Permission Lattice      | §4.5    | Partial order on permissions defining subtyping               |
+| `shared`                | §4.5    | Permission for synchronized temporal aliased mutability       |
+| Permission Lattice      | §4.5    | Linear order on permissions defining subtyping                |
 
 **Terms Deferred to Later Clauses:**
 
@@ -3165,7 +3037,7 @@ All array indexing MUST be bounds-checked at runtime. An attempt to access an in
 
 **Bounds Check Elision**
 
-Implementations MAY elide bounds checks only when they can **statically prove** that the access is always within bounds. The Partitioning System (§3.7) provides one mechanism for such proofs.
+Implementations MAY elide bounds checks only when they can **statically prove** that the access is always within bounds. The key-based concurrency model (§12) provides one mechanism for such proofs via disjointness analysis.
 
 **Initialization**
 
@@ -3620,7 +3492,7 @@ When a record declares a type invariant via a `where` clause, the implementation
 
 1. **Post-Construction:** Immediately after any constructor or literal initialization completes.
 2. **Pre-Call (Public):** Before any `public` procedure is invoked on the instance.
-3. **Post-Call (Mutating):** Before any procedure taking `unique` or `partitioned` access to `self` returns.
+3. **Post-Call (Mutating):** Before any procedure taking `unique` access to `self` returns.
 
 The invariant predicate is implicitly conjoined with the postconditions of all mutating procedures. Invariant enforcement modes and verification strategies are defined in §7.3.
 
@@ -3634,11 +3506,23 @@ Record types do not participate in structural subtyping. A record type $R$ is a 
 
 $$\frac{R\ \texttt{<:}\ \textit{Tr}}{\Gamma \vdash R <: \textit{Tr}} \quad \text{(Sub-Record-Trait)}$$
 
-**Static Record Partitioning**
+**Parallel Field Access**
 
-A record definition MAY include `partition` declarations to group fields into named sets for use with the `partitioned` permission (§4.5). Fields declared within a `partition` block belong to that partition. Fields declared outside any partition block each belong to an implicit, anonymous partition unique to that field.
+Record fields with disjoint paths may be accessed in parallel through `shared` references.
+The key system automatically acquires fine-grained keys to individual fields, enabling
+parallel access without explicit synchronization:
 
-When accessing a record via a `partitioned` binding, the compiler tracks active partition locks. Accessing a field acquires a lock on its containing partition. Simultaneous access to fields in different partitions is permitted; simultaneous access to fields in the same partition via separate paths is forbidden. Partition semantics are fully defined in §3.7.
+```cursive
+let player: shared Player = ...
+
+parallel {
+    spawn { player.health = 100 }   // Key to player.health
+    spawn { player.mana = 50 }      // Key to player.mana — parallel
+}
+```
+
+When fields are moved into parallel tasks, the compiler tracks the partial move state
+and restores the parent record when all fields return to their original scope.
 
 ##### Memory & Layout
 
@@ -3876,7 +3760,7 @@ When an enum declares a type invariant via a `where` clause, the implementation 
 
 1. **Post-Construction:** Immediately after any variant constructor is invoked.
 2. **Pre-Call (Public):** Before any `public` procedure is invoked on the instance.
-3. **Post-Call (Mutating):** Before any procedure taking `unique` or `partitioned` access to `self` returns.
+3. **Post-Call (Mutating):** Before any procedure taking `unique` access to `self` returns.
 
 Invariant enforcement modes and verification strategies are defined in §7.3.
 
@@ -4105,6 +3989,8 @@ Direct field access, method invocation, or operator application on a union value
 
 $$\Gamma \vdash e : U \implies \Gamma \nvdash e.f : T \quad \text{(Union-No-Direct-Access)}$$
 
+
+
 **Exhaustiveness Requirement**
 
 A `match` expression over a union type MUST be exhaustive. The set of patterns MUST cover all member types of the union. Exhaustiveness checking is defined in §8.4.
@@ -4202,9 +4088,223 @@ The following constraints apply to union type declarations and values:
 | `E-PAT-2205` | Error    | `match` expression is not exhaustive for union type.   | Compile-time | Rejection |
 | `W-TYP-2201` | Warning  | Union type contains duplicate member types.            | Compile-time | N/A       |
 
+#### 5.5.1 Propagation Operator (`?`)
+
+##### Definition
+
+The **propagation operator** (`?`) provides concise syntax for early return of error-like union members. When applied to a union-typed expression, it either unwraps the "success" member or immediately returns the "error" member to the caller.
+
+**Formal Definition**
+
+Let $e$ be an expression of union type $U = T_1 \mid T_2 \mid \cdots \mid T_n$. Let $R$ be the return type of the enclosing procedure, where $R = S_1 \mid S_2 \mid \cdots \mid S_m$ (or $R$ is a single type).
+
+The expression $e?$ is well-formed when:
+
+1. **Exactly one success type exists:** There exists exactly one member $T_s \in U$ such that $T_s \not<: R$ (the success type).
+2. **All other members propagate:** For all $T_i \in U$ where $i \neq s$, either $T_i <: R$ or $T_i$ is a member of $R$ (the error types).
+
+The result type of $e?$ is $T_s$ (the success type).
+
+##### Syntax & Declaration
+
+**Grammar**
+
+```ebnf
+try_expr ::= postfix_expr "?"
+```
+
+The `?` operator is a postfix operator with precedence 2 (highest, same as field access and method calls).
+
+##### Static Semantics
+
+**Typing Rules**
+
+**(T-Try-Union)** Propagation on Union Type:
+
+$$\frac{
+    \Gamma \vdash e : U \quad
+    U = T_s \mid T_{e_1} \mid \cdots \mid T_{e_k} \quad
+    \forall i \in 1..k,\ T_{e_i} <: R \quad
+    T_s \not<: R
+}{
+    \Gamma \vdash e? : T_s
+} \quad \text{(T-Try-Union)}$$
+
+Where $R$ is the return type of the enclosing procedure.
+
+**(T-Try-Single-Error)** Common Case (Single Error Type):
+
+For the common pattern $T \mid E$ where $E <: R$:
+
+$$\frac{
+    \Gamma \vdash e : T \mid E \quad
+    E <: R \quad
+    T \not<: R
+}{
+    \Gamma \vdash e? : T
+} \quad \text{(T-Try-Single)}$$
+
+**Success Type Inference**
+
+The success type $T_s$ is determined by:
+
+1. If exactly one member type is NOT a subtype of (or member of) the return type, that type is the success type.
+2. If multiple candidates exist, the program is ill-formed (ambiguous propagation).
+3. If no candidates exist (all types propagate), the program is ill-formed.
+
+**Propagation Compatibility**
+
+A union member $T_e$ is **propagation-compatible** with return type $R$ when:
+
+| Return Type Form                      | Compatibility Condition                      |
+| :------------------------------------ | :------------------------------------------- |
+| Single type $S$                       | $T_e <: S$                                   |
+| Union type $S_1 \mid \cdots \mid S_m$ | $\exists j : T_e <: S_j$ OR $T_e \equiv S_j$ |
+
+##### Dynamic Semantics
+
+**Evaluation**
+
+The expression $e?$ evaluates as follows:
+
+1. Evaluate $e$ to obtain value $v$ of union type $U$.
+2. Determine the active member type $T_v$ of $v$.
+3. **If $T_v$ is the success type $T_s$:** Extract the payload and continue with type $T_s$.
+4. **If $T_v$ is a propagating type $T_{e_i}$:** Execute `return v` (coerced to return type $R$ if necessary).
+
+**Desugaring**
+
+The expression $e?$ is semantically equivalent to:
+
+```cursive
+match e {
+    success: T_s => success,
+    error: T_e => { return error }
+}
+```
+
+Where $T_s$ is the success type and $T_e$ ranges over all propagating types.
+
+##### Examples
+
+**Basic Error Propagation**
+
+```cursive
+procedure read_config(path: string) -> Config | IoError {
+    let content: string | IoError = read_file(path)
+    let config: Config | ParseError = parse(content?)  // Propagates IoError
+    // Note: ParseError is not compatible with return type — would need handling
+    config
+}
+```
+
+**Multiple Error Types**
+
+```cursive
+procedure process(path: string) -> Result | IoError | ParseError | ValidationError {
+    let content = read_file(path)?           // string | IoError → string
+    let parsed = parse(content)?             // Data | ParseError → Data
+    let validated = validate(parsed)?        // Result | ValidationError → Result
+    validated
+}
+```
+
+**Chained Propagation**
+
+```cursive
+procedure fetch_user(id: UserId) -> User | DbError | NotFound {
+    let conn = db~>connect()?                // Connection | DbError
+    let row = conn~>query("SELECT ...", id)? // Row | DbError | NotFound
+    User::from_row(row)?                     // User | ParseError — ERROR if ParseError not in return
+}
+```
+
+##### Constraints & Legality
+
+**Negative Constraints**
+
+1. The `?` operator MUST NOT be applied outside a procedure body.
+2. The `?` operator MUST NOT be applied to non-union types.
+3. The success type MUST be unambiguously determinable.
+4. All non-success types MUST be propagation-compatible with the return type.
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                                 | Detection    | Effect    |
+| :----------- | :------- | :-------------------------------------------------------- | :----------- | :-------- |
+| `E-TYP-2210` | Error    | `?` applied to non-union type.                            | Compile-time | Rejection |
+| `E-TYP-2211` | Error    | Ambiguous success type in `?` expression.                 | Compile-time | Rejection |
+| `E-TYP-2212` | Error    | Union member not propagation-compatible with return type. | Compile-time | Rejection |
+| `E-TYP-2213` | Error    | `?` used outside procedure body.                          | Compile-time | Rejection |
+| `E-TYP-2214` | Error    | No success type candidate (all types propagate).          | Compile-time | Rejection |
+
 ---
 
-### Clause 5 Cross-Reference Notes
+### Rationale
+
+The `?` operator addresses a significant ergonomic gap identified in the review. Without it, every fallible operation requires verbose pattern matching. This addition:
+
+1. **Aligns with ONE_CORRECT_WAY** — Establishes `?` as the canonical error propagation pattern
+2. **Supports LLM_FRIENDLY_SYNTAX** — Reduces token count for common operations
+3. **Maintains LOCAL_REASONING** — `?` clearly marks potential early-return points
+4. **Preserves type safety** — Propagation compatibility is statically verified
+
+---
+
+### 5.7 Volatile Type
+
+##### Definition
+
+**Volatile** is a type for memory-mapped I/O that prevents compiler optimizations
+on memory operations. Unlike `Atomic`, `Volatile` provides no memory barriers
+or cache coherence guarantees.
+
+**Formal Definition**
+
+```cursive
+modal Volatile<T> where T: Copy {
+    @Valid { address: usize }
+}
+```
+
+##### Comparison with Atomic
+
+| Aspect          | `Volatile<T>`    | `Atomic<T>`            |
+| --------------- | ---------------- | ---------------------- |
+| Purpose         | Hardware I/O     | Thread synchronization |
+| Memory barriers | None             | Per ordering parameter |
+| Cache coherence | Not assumed      | Assumed                |
+| shared access   | Unsafe           | Safe                   |
+| Typical use     | Device registers | Shared variables       |
+
+##### Syntax & Declaration
+
+```cursive
+impl<T: Copy> Volatile<T> {
+    /// Create from raw address. UNSAFE: caller ensures validity.
+    unsafe procedure from_address(addr: usize) -> Volatile<T>
+
+    /// Read value. Compiler will not cache, reorder, or elide.
+    procedure read(~) -> T
+
+    /// Write value. Compiler will not reorder or elide.
+    procedure write(~, value: T)
+
+    /// Modify via read-modify-write (NOT atomic).
+    procedure modify(~, f: |T| -> T)
+}
+```
+
+##### Constraints & Legality
+
+| Code         | Severity | Condition                                         |
+| ------------ | -------- | ------------------------------------------------- |
+| `E-VOL-6001` | Error    | Volatile type parameter not Copy                  |
+| `W-VOL-6002` | Warning  | Volatile used for apparent thread synchronization |
+
+---
+
+### Clause 5 Cross-Reference Notes `[INFORMATIVE]`
 
 **Terms Defined in Clause 5 That MUST NOT Be Redefined Elsewhere:**
 
@@ -4221,6 +4321,7 @@ The following constraints apply to union type declarations and values:
 | Enum             | §5.4    | Nominal sum type with variants                 |
 | Union Type       | §5.5    | Structural anonymous sum type                  |
 | String Type      | §5.6    | Built-in text type with modal states           |
+| Volatile Type    | §5.7    | Memory-mapped I/O type without barriers        |
 
 **Terms Referenced from Other Clauses:**
 
@@ -4373,31 +4474,48 @@ This rule prohibits implicit conversion between states; state changes MUST occur
 
 **Modal Widening**
 
-Modal widening converts a state-specific type `M@S` to the general modal type `M`. This operation is **explicit only**; the `widen` keyword MUST be used at every widening site:
+Modal widening converts a state-specific type `M@S` to the general modal type `M`. This section describes the general widening mechanism; see **Niche-Induced Layout-Compatible Modal Subtyping** below for an exception that permits implicit widening for certain modal types.
+
+For modal types that are **not** niche-layout-compatible, widening is **explicit only**; the `widen` keyword MUST be used at every widening site:
 
 $$\frac{\Gamma \vdash e : M@S \quad S \in \text{States}(M)}{\Gamma \vdash \texttt{widen } e : M} \quad \text{(T-Modal-Widen)}$$
 
-**No Implicit Subtyping:** State-specific types are NOT subtypes of general modal types. The following does NOT hold:
+**No Implicit Subtyping (Non-Niche-Layout-Compatible):** For modal types that are not niche-layout-compatible, state-specific types are NOT subtypes of general modal types. The following does NOT hold:
 
-$$M@S \not<: M$$
+$$M@S \not<: M \quad \text{(when } M@S \text{ is not niche-layout-compatible with } M \text{)}$$
 
-Implicit coercion from `M@S` to `M` is prohibited. The `widen` keyword MUST appear at every site where a state-specific value is used in a context expecting the general modal type. The converse also does not hold: the general type `M` is not a subtype of any state-specific type `M@S`.
+For such types, implicit coercion from `M@S` to `M` is prohibited. The `widen` keyword MUST appear at every site where a state-specific value is used in a context expecting the general modal type. The converse also does not hold: the general type `M` is not a subtype of any state-specific type `M@S`.
 
 **Widen Expression Constraints:**
 
 1. The operand of `widen` MUST have a state-specific modal type `M@S` (diagnostic `E-TYP-2071` if non-modal).
 2. The result type is the general modal type `M`.
 3. Applying `widen` to an already-general modal type is ill-formed (diagnostic `E-TYP-2072`).
-4. The `widen` keyword is required regardless of whether niche optimization eliminates runtime cost.
+4. For non-niche-layout-compatible modal types, the `widen` keyword is required regardless of payload size. For niche-layout-compatible types, `widen` is optional (see below).
 
 **Usage Contexts:**
 
-| Context | Syntax |
-|---------|--------|
-| Variable binding | `let conn: Connection = widen specific` |
-| Procedure argument | `process_connection(widen specific)` |
-| Return value | `result widen specific` |
-| Expression position | `match widen specific { ... }` |
+| Context             | Syntax                                  |
+| ------------------- | --------------------------------------- |
+| Variable binding    | `let conn: Connection = widen specific` |
+| Procedure argument  | `process_connection(widen specific)`    |
+| Return value        | `result widen specific`                 |
+| Expression position | `match widen specific { ... }`          |
+
+**Niche-Induced Layout-Compatible Modal Subtyping**
+
+A state-specific type $M@S$ is **niche-layout-compatible** with general type $M$ when:
+
+1. **Niche Optimization Applies:** The implementation applies niche optimization to modal type $M$ (per §4.9 Niche Optimization).
+2. **Layout Compatibility:** $\text{sizeof}(M@S) = \text{sizeof}(M)$ and the representation of $M@S$ is a valid representation of $M$.
+
+For niche-layout-compatible state-specific types, implicit subtyping is permitted:
+
+$$\frac{M@S \text{ is niche-layout-compatible with } M}{\Gamma \vdash M@S <: M} \quad \text{(Sub-NicheLayout)}$$
+
+The `widen` keyword is optional for niche-layout-compatible types. It MAY be used for explicitness but is not required.
+
+For the complete specification of niche-layout-compatibility criteria, storage costs, optimization requirements, and detailed examples comparing niche-layout-compatible types (e.g., `Ptr<T>`) with non-compatible types (e.g., `Connection`), see **Modal Widening Operation** under Dynamic Semantics below.
 
 **Transition Typing**
 
@@ -4523,12 +4641,12 @@ When `widen e` is evaluated where $e : M@S$:
 
 **Storage Cost Classification**
 
-| Expression | Result Type | Storage Change | Runtime Cost                                 |
-| :--------- | :---------- | :------------- | :------------------------------------------- |
-| `e : M@S`  | `M@S`       | None           | Zero (no conversion)                         |
-| `widen e` where `e : M@S` | `M` | May increase | Payload copy + discriminant write |
-| `match e` where `e : M` | `M@S` | N/A        | Requires pattern match (narrowing)           |
-| `M@S₁` to `M@S₂` | N/A   | N/A            | Requires explicit transition (not permitted) |
+| Expression                | Result Type | Storage Change | Runtime Cost                                 |
+| :------------------------ | :---------- | :------------- | :------------------------------------------- |
+| `e : M@S`                 | `M@S`       | None           | Zero (no conversion)                         |
+| `widen e` where `e : M@S` | `M`         | May increase   | Payload copy + discriminant write            |
+| `match e` where `e : M`   | `M@S`       | N/A            | Requires pattern match (narrowing)           |
+| `M@S₁` to `M@S₂`          | N/A         | N/A            | Requires explicit transition (not permitted) |
 
 **Size Relationships:**
 
@@ -4582,7 +4700,7 @@ let c4: Connection = widen c3  // Widening: 16 bytes copied, discriminant writte
                                // Cost: O(sizeof(Socket))
 ```
 
-**Example — Niche-Optimized Type (Zero-Cost Widening):**
+**Example — Niche-Layout-Compatible Type (Zero-Cost Implicit Widening):**
 
 ```cursive
 modal Ptr<T> {
@@ -4593,11 +4711,14 @@ modal Ptr<T> {
 // sizeof(Ptr<T>) = 8 (niche optimization: null address is discriminant)
 // sizeof(Ptr<T>@Null) = 0
 // sizeof(Ptr<T>@Valid) = 8
+// Ptr<T> is niche-layout-compatible — implicit widening permitted
 
 let p1: Ptr<Buffer>@Valid = allocate_buffer()
-let p2: Ptr<Buffer> = widen p1  // Widening: ZERO COST (niche-optimized)
+let p2: Ptr<Buffer> = p1        // Implicit widening: ZERO COST (niche-layout-compatible)
                                 // No copy, no discriminant write — layout identical
-                                // `widen` keyword still required for consistency
+                                // `widen` keyword is optional
+
+let p3: Ptr<Buffer> = widen p1  // Explicit `widen` also permitted (for clarity)
 ```
 
 **Narrowing via Pattern Match**
@@ -4621,12 +4742,12 @@ match conn {
 
 **Diagnostic Table Addition:**
 
-| Code         | Severity | Condition                                                | Detection    | Effect    |
-| :----------- | :------- | :------------------------------------------------------- | :----------- | :-------- |
-| `E-TYP-2070` | Error    | Implicit modal widening (missing `widen` keyword)        | Compile-time | Rejection |
-| `E-TYP-2071` | Error    | `widen` applied to non-modal type                        | Compile-time | Rejection |
-| `E-TYP-2072` | Error    | `widen` applied to already-general modal type            | Compile-time | Rejection |
-| `W-OPT-4010` | Warning  | Modal widening involves large payload copy (> threshold) | Compile-time | Advisory  |
+| Code         | Severity | Condition                                                                             | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------------------------------------------ | :----------- | :-------- |
+| `E-TYP-2070` | Error    | Implicit modal widening on non-niche-layout-compatible type (missing `widen` keyword) | Compile-time | Rejection |
+| `E-TYP-2071` | Error    | `widen` applied to non-modal type                                                     | Compile-time | Rejection |
+| `E-TYP-2072` | Error    | `widen` applied to already-general modal type                                         | Compile-time | Rejection |
+| `W-OPT-4010` | Warning  | Modal widening involves large payload copy (> threshold)                              | Compile-time | Advisory  |
 
 **Error Message Format (E-TYP-2070):**
 
@@ -4639,11 +4760,14 @@ error[E-TYP-2070]: implicit modal widening prohibited
    |                            ^^^^^^^^^^^^^
 
    State-specific type `Connection@Connected` cannot implicitly convert to
-   general type `Connection`.
+   general type `Connection` because `Connection` is not niche-layout-compatible.
 
    Use explicit `widen` to perform this conversion:
 
        let conn: Connection = widen specific_conn
+
+   note: Implicit widening is only permitted for niche-layout-compatible modal
+         types such as `Ptr<T>`. See §6.1 for details.
 ```
 
 > **Note:** The threshold for `W-OPT-4010` is Implementation-Defined but SHOULD be configurable. A reasonable default is 256 bytes.
@@ -5039,7 +5163,7 @@ raw_pointer_qual      ::= "imm" | "mut"
 
 > **Design Note — Vocabulary Distinction:** Raw pointer qualifiers use `imm` (immutable) and `mut` (mutable) rather than the permission keywords `const` and `unique`. This distinction is intentional:
 >
-> 1. **Semantic Separation:** Permission keywords (`const`, `unique`, `partitioned`, `concurrent`) denote the language's verified aliasing model with compile-time guarantees. Raw pointer qualifiers denote unverified mutability intent with no compiler enforcement.
+> 1. **Semantic Separation:** Permission keywords (`const`, `unique`, `shared`) denote the language's verified aliasing model with compile-time guarantees. Raw pointer qualifiers denote unverified mutability intent with no compiler enforcement.
 >
 > 2. **FFI Alignment:** The `imm`/`mut` vocabulary aligns with C's `const`/non-`const` pointer semantics, facilitating FFI reasoning without conflating C's shallow `const` with Cursive's deep `const` permission.
 >
@@ -5126,13 +5250,22 @@ $$\frac{\Gamma \vdash p : \texttt{*imm T} \quad \text{context is } \texttt{unsaf
 
 $$\frac{\Gamma \vdash p : \texttt{*mut T} \quad \text{context is } \texttt{unsafe}}{\Gamma \vdash \texttt{*}p : T} \quad \text{(T-Raw-Deref-Mut)}$$
 
-**Modal Widening**
+**Modal Subtyping**
 
-All state-specific pointer types are subtypes of the general modal type `Ptr<T>` per the modal widening rule (§4.11):
+The `Ptr<T>` modal type is **niche-layout-compatible**: all runtime-observable states (`@Valid`, `@Null`) can be distinguished via niche encoding (null vs non-null address), and state-specific types share identical layout with the general type. Per the Niche-Induced Layout-Compatible Modal Subtyping rule (§6.1):
 
-$$\frac{S \in \{\texttt{@Valid}, \texttt{@Null}, \texttt{@Expired}\}}{\Gamma \vdash \texttt{Ptr<T>@}S <: \texttt{Ptr<T>}} \quad \text{(Sub-Modal-Widen)}$$
+$$\frac{S \in \{\texttt{@Valid}, \texttt{@Null}\}}{\Gamma \vdash \texttt{Ptr<T>@}S <: \texttt{Ptr<T>}} \quad \text{(Sub-Ptr-Widen)}$$
 
-A procedure accepting the general type `Ptr<T>` may receive any state; the active state is determined via pattern matching.
+Implicit widening is permitted; a procedure accepting `Ptr<T>` may receive any state-specific pointer directly:
+
+```cursive
+procedure process_ptr(p: Ptr<Buffer>) { /* ... */ }
+
+let valid_ptr: Ptr<Buffer>@Valid = &buffer
+process_ptr(valid_ptr)  // Implicit widening — no `widen` keyword required
+```
+
+> **Note:** The `@Expired` state is compile-time only (see Dynamic Semantics below) and cannot be widened to the general type; the compiler statically prevents use of expired pointers before they could reach widening contexts.
 
 **Trait Implementations**
 
@@ -5566,7 +5699,7 @@ The following constraints apply when invoking a function type value:
 
 ---
 
-### Clause 6 Cross-Reference Notes
+### Clause 6 Cross-Reference Notes `[INFORMATIVE]`
 
 **Terms Defined in Clause 6 That MUST NOT Be Redefined Elsewhere:**
 
@@ -6497,7 +6630,7 @@ The following constraints apply to refinement types:
 
 ---
 
-### Clause 7 Cross-Reference Notes
+### Clause 7 Cross-Reference Notes `[INFORMATIVE]`
 
 **Terms Defined in Clause 7 That MUST NOT Be Redefined Elsewhere:**
 
@@ -6531,6 +6664,8 @@ The following constraints apply to refinement types:
 | Comptime Evaluation   | Clause 14   | Attribute argument evaluation |
 
 ---
+
+# Part 3: Program Behavior
 
 ## Clause 8: Modules and Name Resolution
 
@@ -7391,7 +7526,7 @@ record Context {
 
 ---
 
-### Clause 8: Modules and Resolution Cross-Reference Notes
+### Clause 8: Modules and Resolution Cross-Reference Notes `[INFORMATIVE]`
 
 **Terms defined in Clause 8 that MUST NOT be redefined elsewhere:**
 
@@ -8094,7 +8229,7 @@ Foundational traits are traits fundamental to language semantics. The normative 
 
 ---
 
-### Clause 9: Traits and Polymorphism Cross-Reference Notes
+### Clause 9: Traits and Polymorphism Cross-Reference Notes `[INFORMATIVE]`
 
 **Terms defined in Clause 9 that MUST NOT be redefined elsewhere:**
 
@@ -8119,18 +8254,18 @@ Foundational traits are traits fundamental to language semantics. The normative 
 
 **Terms referenced:**
 
-| Term                    | Source | Usage in Clause 9                                        |
-| :---------------------- | :----- | :------------------------------------------------------- |
-| Type Context ($\Gamma$) | §4.1   | Used in typing judgments for trait bounds.               |
-| Subtype Relation ($<:$) | §4.2   | Trait implementation creates subtype relationship.       |
-| Permission              | §4.5   | Receiver shorthands (`~`, `~!`, `~%`) imply permissions. |
-| `const`                 | §4.5   | Default permission for `self` in trait methods.          |
-| `unique`                | §4.5   | Permission required for `Drop::drop` receiver.           |
-| Record                  | §4.8   | Primary type that implements traits.                     |
-| Enum                    | §4.9   | May implement traits.                                    |
-| Modal Type              | §4.11  | May implement traits.                                    |
-| Visibility              | §5.2   | Controls trait and procedure accessibility.              |
-| Assembly                | §5.1   | Compilation unit for orphan rule.                        |
+| Term                    | Source | Usage in Clause 9                                  |
+| :---------------------- | :----- | :------------------------------------------------- |
+| Type Context ($\Gamma$) | §4.1   | Used in typing judgments for trait bounds.         |
+| Subtype Relation ($<:$) | §4.2   | Trait implementation creates subtype relationship. |
+| Permission              | §4.5   | Receiver shorthands (`~`, `~!`, `~                 | `) imply permissions. |
+| `const`                 | §4.5   | Default permission for `self` in trait methods.    |
+| `unique`                | §4.5   | Permission required for `Drop::drop` receiver.     |
+| Record                  | §4.8   | Primary type that implements traits.               |
+| Enum                    | §4.9   | May implement traits.                              |
+| Modal Type              | §4.11  | May implement traits.                              |
+| Visibility              | §5.2   | Controls trait and procedure accessibility.        |
+| Assembly                | §5.1   | Compilation unit for orphan rule.                  |
 
 **Terms deferred to later clauses/appendices:**
 
@@ -8348,7 +8483,7 @@ An **Evaluation Context** defines the set of bindings available for reference wi
 
 The precondition evaluation context includes:
 - All procedure parameters at their entry state
-- The receiver binding (if present), accessible via receiver shorthand (`~`, `~!`, `~%`, `~|`)
+- The receiver binding (if present), accessible via receiver shorthand (`~`, `~!`, `~%`)
 - All bindings visible in the enclosing scope that are accessible without side effects
 
 The precondition context MUST NOT include:
@@ -8361,7 +8496,7 @@ The precondition context MUST NOT include:
 The postcondition evaluation context includes:
 - All procedure parameters:
   - Immutable parameters (`const`, `~`): same value as at entry
-  - Mutable parameters (`unique`, `partitioned`, `concurrent`): post-state value
+  - Mutable parameters (`unique`, `shared`): post-state value
 - The receiver binding (post-state for mutable receivers)
 - The `@result` intrinsic (§10.2.2)
 - The `@entry` operator (§10.2.2)
@@ -8369,7 +8504,7 @@ The postcondition evaluation context includes:
 
 **Mutable Parameter State Semantics**
 
-For parameters with mutable permission (`~!`, `~%`, `~|`):
+For parameters with mutable permission (`~!`, `~%`):
 
 | Location in Contract          | State Referenced |
 | :---------------------------- | :--------------- |
@@ -8714,14 +8849,14 @@ A type invariant MUST be verified at the following program points:
 | :------------------ | :------------------------------------------------------------------- |
 | Post-Construction   | Immediately after a constructor or literal initialization completes  |
 | Pre-Call (Public)   | Before any public procedure is invoked with the instance as receiver |
-| Post-Call (Mutator) | Before any procedure taking `unique` or `partitioned` `self` returns |
+| Post-Call (Mutator) | Before any procedure taking `unique` `self` returns                  |
 
 **Effective Postcondition Desugaring**
 
 For a procedure $P$ on type $T$ with:
 - Type invariant $Inv$
 - Explicit postcondition $Post$
-- Mutable receiver (`unique` or `partitioned`)
+- Mutable receiver (`unique`)
 
 The **effective postcondition** is:
 
@@ -9305,7 +9440,7 @@ record BadList <: Container {
 
 ---
 
-### Clause 10 Cross-Reference Notes
+### Clause 10 Cross-Reference Notes `[INFORMATIVE]`
 
 **Terms defined in Clause 10 that MUST NOT be redefined elsewhere:**
 
@@ -9347,7 +9482,7 @@ record BadList <: Container {
 
 | Term             | Deferred To | Reason                                                 |
 | :--------------- | :---------- | :----------------------------------------------------- |
-| `partition` stmt | §3.7        | Defined in The Partitioning System                     |
+| `parallel` block | §12.2       | Defined in the Concurrency Model                       |
 | Capability       | §13         | Distinguished from contracts; controls effects         |
 | Refinement Type  | §4.19       | Subtype form; verification uses §10.4/§10.5 mechanisms |
 
@@ -10389,10 +10524,7 @@ Closures capture bindings from their enclosing scope according to the following 
 | :----------------- | :------------ | :---------------------------------- |
 | `const`            | By reference  | `const` reference to binding        |
 | `unique`           | Move required | Owned value (binding becomes Moved) |
-| `partitioned`      | Prohibited†   | —                                   |
-| `concurrent`       | By reference  | `concurrent` reference to binding   |
-
-† Capturing `partitioned` bindings in closures that may escape their scope is prohibited because the partitioning proof cannot be extended across closure boundaries.
+| `shared`           | By reference  | `shared` reference to binding       |
 
 **Move Captures**
 
@@ -10427,7 +10559,7 @@ A non-capturing closure may be used where a capturing closure is expected.
 When a closure expression is evaluated:
 
 1. All captured bindings are evaluated and stored in the closure's environment.
-2. For `const` and `concurrent` captures, references to the original bindings are stored.
+2. For `const` and `shared` captures, references to the original bindings are stored.
 3. For `move` captures, the values are moved into the closure environment; the source bindings become invalid.
 4. A closure value is constructed containing the code pointer and environment pointer.
 
@@ -10445,13 +10577,11 @@ The closure's environment has a lifetime tied to the closure value. When the clo
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                                               | Detection    | Effect    |
-| :----------- | :------- | :------------------------------------------------------ | :----------- | :-------- |
-| `E-EXP-2591` | Error    | Closure parameter type cannot be inferred.              | Compile-time | Rejection |
-| `E-EXP-2592` | Error    | Capture of `partitioned` binding in escaping closure.   | Compile-time | Rejection |
-| `E-EXP-2593` | Error    | Capture of `unique` binding without `move`.             | Compile-time | Rejection |
-| `E-EXP-2594` | Error    | Closure return type mismatch.                           | Compile-time | Rejection |
-| `E-CON-3201` | Error    | Capture of `partitioned` binding in concurrent closure. | Compile-time | Rejection |
+| Code         | Severity | Condition                                   | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------ | :----------- | :-------- |
+| `E-EXP-2591` | Error    | Closure parameter type cannot be inferred.  | Compile-time | Rejection |
+| `E-EXP-2593` | Error    | Capture of `unique` binding without `move`. | Compile-time | Rejection |
+| `E-EXP-2594` | Error    | Closure return type mismatch.               | Compile-time | Rejection |
 
 ---
 
@@ -10656,7 +10786,7 @@ The following block forms have specialized semantics defined in other clauses:
 | :---------------------- | :-------------------------------- |
 | `region { ... }`        | §3.9 Regions and Arena Allocation |
 | `unsafe { ... }`        | §3.10 Unsafe Memory Operations    |
-| `parallel(...) { ... }` | §12.1 Data Parallelism            |
+| `parallel(...) { ... }` | §13.3 Structured Concurrency      |
 | `comptime { ... }`      | §14.1 Compile-Time Execution      |
 
 This clause does not redefine these block forms; see the authoritative sections.
@@ -10701,7 +10831,7 @@ binding_op ::= "=" | ":="
 
 Binding mutability (`let` vs. `var`) is orthogonal to:
 
-1. **Permission**: The permission of the bound value (`const`, `unique`, `partitioned`, `concurrent`) is determined by the value's type and how it is accessed.
+1. **Permission**: The permission of the bound value (`const`, `unique`, `shared`) is determined by the value's type and how it is accessed.
 2. **Movability**: The binding operator (`=` vs. `:=`) determines whether responsibility may be transferred.
 
 **Type Inference**
@@ -10865,7 +10995,7 @@ assignment_operator ::= "=" | "+=" | "-=" | "*=" | "/=" | "%="
 
 1. The left-hand side MUST be a place expression (§11.1).
 2. The place MUST refer to a mutable binding (declared with `var`).
-3. The place MUST be accessible via a `unique` or `partitioned` permission. Assignment through `const` permission is forbidden.
+3. The place MUST be accessible via a `unique` permission. Assignment through `const` or `shared` permission is forbidden.
 4. The right-hand side type MUST be compatible with the place's type.
 
 **Compound Assignment Desugaring**
@@ -10959,7 +11089,7 @@ If a panic occurs during execution of a deferred block:
 
 ---
 
-### Clause 11 Cross-Reference Notes
+### Clause 11 Cross-Reference Notes `[INFORMATIVE]`
 
 **Terms Defined in Clause 11 That MUST NOT Be Redefined Elsewhere**
 
@@ -11005,7 +11135,7 @@ If a panic occurs during execution of a deferred block:
 
 | Term               | Clause | Reason                      |
 | :----------------- | :----- | :-------------------------- |
-| `parallel` block   | §12.1  | Concurrency semantics       |
+| `parallel` block   | §13.3  | Concurrency semantics       |
 | `comptime` block   | §14.1  | Metaprogramming semantics   |
 | `unsafe` details   | §3.10  | Safety system specification |
 | `region` block     | §3.9   | Memory region allocation    |
@@ -11013,386 +11143,11 @@ If a panic occurs during execution of a deferred block:
 
 ---
 
-## Clause 12: Concurrency
-
-This clause defines the Cursive concurrency model, specifying two mutually exclusive paths for concurrent execution and the static rules that guarantee data-race freedom.
-
-### 12.1 Concurrency Model Foundations
-
-##### Definition
-
-**The Two-Path Concurrency Model**
-
-Cursive provides exactly two models for concurrent execution:
-
-1. **Path 1 (Deterministic Data Parallelism)**: The `parallel` block enforces Concurrent-Read, Exclusive-Write (CREW) semantics at compile time.
-
-2. **Path 2 (Stateful Coordination)**: The `System` capability provides thread spawning and synchronization primitives (`Mutex`, `Thread`).
-
-**Formal Definition**
-
-Let $\text{ConcurrencyPath}$ be the set $\{\text{CREW}, \text{Coordination}\}$.
-
-A concurrent operation $op$ **MUST** be associated with exactly one path:
-$$op \in \text{ConcurrencyPath}$$
-
-**Thread Safety Classification**
-
-Thread safety is derived from the **Permission System** (§4.5), not marker traits:
-
-| Permission    | Share Safety | Transfer Safety |
-| :------------ | :----------- | :-------------- |
-| `const`       | Safe         | Safe            |
-| `unique`      | Unsafe       | Safe            |
-| `partitioned` | Unsafe       | Unsafe          |
-| `concurrent`  | Safe         | Safe            |
-
-##### Static Semantics
-
-**Typing Rules**
-
-**Rule Safe-Const:** A `const` binding is always safe to share across threads.
-$$
-\frac{}{\Gamma \vdash \text{IsSafe}(x : \text{const } T, \text{Share})}
-$$
-
-**Rule Safe-Unique-Transfer:** A `unique` binding may be transferred (moved) to another thread.
-$$
-\frac{}{\Gamma \vdash \text{IsSafe}(x : \text{unique } T, \text{Transfer})}
-$$
-
-**Rule Unsafe-Partitioned:** A `partitioned` binding is never safe for concurrent access.
-$$
-\frac{}{\Gamma \nvdash \text{IsSafe}(x : \text{partitioned } T, \_)}
-$$
-
-##### Constraints & Legality
-
-| Code         | Severity | Condition                                               |
-| :----------- | :------- | :------------------------------------------------------ |
-| `E-CON-3201` | Error    | Capture of `partitioned` binding in concurrent closure. |
-
----
-
-### 12.2 Path 1: Data Parallelism (CREW)
-
-##### Definition
-
-**Parallel Epoch**
-
-A **Parallel Epoch** is the lexical scope of a `parallel` block during which the compiler enforces Concurrent-Read, Exclusive-Write (CREW) semantics.
-
-**CREW Invariant**
-
-Within a parallel epoch:
-- Multiple threads **MAY** read shared data concurrently.
-- No thread **MAY** mutate shared data.
-
-##### Syntax & Declaration
-
-**Grammar**
-
-```ebnf
-parallel_statement
-    ::= "parallel" "(" binding_list ")" block
-
-binding_list
-    ::= identifier ("," identifier)*
-
-fork_expression
-    ::= "fork" closure_expression
-```
-
-**Desugaring**
-
-The `parallel` block desugars to:
-1. Static invalidation of captured bindings in outer scope
-2. Introduction of `const`-permission bindings in inner scope
-3. Implicit synchronization barrier at block exit
-
-##### Static Semantics
-
-**Typing Rules**
-
-**Rule WF-Parallel-Epoch:** Permission tightening within parallel scope.
-
-Let $\Gamma_{outer}$ be the environment before the block. Let $x$ be a binding with outer permission $P_{outer}$ and type $T$.
-
-$$
-\frac{
-    \Gamma_{inner} = \Gamma_{outer} [ x \mapsto \text{const } T ] \quad
-    \Gamma_{outer}' = \Gamma_{outer} [ x \mapsto \text{invalidated} ]
-}{
-    \Gamma_{outer} \vdash \text{parallel}(x) \{ s \} \Rightarrow \Gamma_{outer}
-}
-$$
-
-**Static Invalidation**
-
-Upon entry to a `parallel` block, bindings in the `binding_list` **MUST** be statically invalidated in the enclosing scope for the duration of the block.
-
-**Permission Tightening**
-
-Inside the block, captured bindings **MUST** have `const` permission, regardless of their outer permission (`unique` or `partitioned`).
-
-**Restoration**
-
-Upon exit from the `parallel` block, outer bindings **MUST** be re-validated with their original permissions.
-
-##### Dynamic Semantics
-
-**Evaluation**
-
-1. **Entry**: The runtime suspends the current execution context.
-2. **Execution**: The block body executes with CREW guarantees enforced.
-3. **Barrier**: The end of the block acts as a strict synchronization barrier.
-4. **Exit**: Control returns to the parent context only after all forked tasks complete.
-
-**Panic Propagation**
-
-If any task within the epoch panics, the parent thread **MUST** panic upon reaching the synchronization barrier.
-
----
-
-### 12.3 The `fork` Expression and `JobHandle<T>`
-
-##### Definition
-
-**Fork Expression**
-
-The `fork` keyword spawns a logical task within a parallel epoch.
-
-**JobHandle<T>**
-
-A `JobHandle<T>` is a non-modal, linear type representing a pending computation that yields a value of type `T`. Its layout is implementation-defined.
-
-##### Syntax & Declaration
-
-**Grammar**
-
-```ebnf
-fork_expression
-    ::= "fork" closure_expression
-```
-
-##### Static Semantics
-
-**Typing Rules**
-
-**Rule Fork-Type:** The `fork` expression returns `JobHandle<T>`.
-
-$$
-\frac{
-    \Gamma \vdash e : () \to T \quad
-    \text{InParallelScope}(\Gamma)
-}{
-    \Gamma \vdash \text{fork } e : \text{JobHandle}<T>
-}
-$$
-
-**Rule Fork-Capture:** Closures capture only `const` bindings from the epoch scope.
-
-**JobHandle Constraints**
-
-- `JobHandle<T>` **MUST NOT** implement `Copy` or `Clone`.
-- `JobHandle<T>` **MUST NOT** provide a `detach()` method.
-- `JobHandle<T>` **MUST** provide exactly one consuming method: `join(self) -> T`.
-
-**Static Join Requirement (Linear Usage Analysis)**
-
-Every `JobHandle` produced by `fork` **MUST** be consumed by `.join()` within the same `parallel` block:
-
-1. **Usage Count**: Compiler tracks usage of every `JobHandle`.
-2. **Consumption**: Calling `join()` consumes the handle (count → 0).
-3. **Invariant**: At block exit, usage count of all handles **MUST** be 0.
-4. **Branching**: In conditional branches, handle **MUST** be joined in ALL paths or NO paths.
-
-##### Constraints & Legality
-
-| Code         | Severity | Condition                                         |
-| :----------- | :------- | :------------------------------------------------ |
-| `E-CON-3202` | Error    | `JobHandle` not joined within `parallel` block.   |
-| `E-EXP-2592` | Error    | `parallel` result depends on invalidated binding. |
-
----
-
-### 12.4 Path 2: Stateful Coordination
-
-##### Definition
-
-**Stateful Coordination Model**
-
-Path 2 manages mutable state across threads using explicit ownership transfer, locking primitives, and the System capability.
-
-**Thread<T> Modal Type**
-
-`Thread<T>` is a modal type (§4.13) representing a system thread:
-
-| State       | Description                                 |
-| :---------- | :------------------------------------------ |
-| `@Spawned`  | Thread is executing                         |
-| `@Joined`   | Thread completed; result `T` available      |
-| `@Detached` | Thread continues independently; result lost |
-
-**Mutex<T> Modal Type**
-
-`Mutex<T>` is a modal type providing synchronized mutable access:
-
-| State       | Description                                       |
-| :---------- | :------------------------------------------------ |
-| `@Unlocked` | Mutex is free; data `T` inaccessible              |
-| `@Locked`   | Mutex held by current thread; data `T` accessible |
-
-`Mutex<T>` supports the `concurrent` permission because it provides methods accepting `concurrent self` (e.g., `lock`). See §4.5 for `concurrent` permission semantics.
-
-The modal type system tracks the lock state. When `Mutex<T>@Locked` goes out of scope, `Drop` transitions it back to `@Unlocked`. No separate guard type needed.
-
-##### Syntax & Declaration
-
-**Thread Transitions**
-
-```cursive
-transition join(self: unique Thread<T>@Spawned) -> Thread<T>@Joined
-transition detach(self: unique Thread<T>@Spawned) -> Thread<T>@Detached
-```
-
-**Mutex State-Specific Operations**
-
-```cursive
-modal Mutex<T> {
-    @Unlocked {
-        // Blocks until lock acquired, transitions to @Locked
-        transition lock(self: concurrent Mutex<T>@Unlocked) -> Mutex<T>@Locked
-    }
-
-    @Locked {
-        data: T  // Protected data accessible only in @Locked state
-
-        // Access the protected data
-        procedure get(self: unique) -> unique T
-        procedure set(self: unique, value: T)
-
-        // Explicit unlock (also happens via Drop)
-        transition unlock(self: unique Mutex<T>@Locked) -> Mutex<T>@Unlocked
-    }
-}
-```
-
-**System.spawn**
-
-```cursive
-procedure spawn<T>(self: const System, closure: () -> T): Thread<T>@Spawned
-```
-
-##### Static Semantics
-
-**Mutex Lock Transition**
-
-The `lock` transition **MUST** accept `concurrent` permission (§4.5) because it performs synchronized internal state mutation:
-
-$$
-\frac{
-    \Gamma \vdash m : \text{concurrent Mutex}<T>\text{@Unlocked}
-}{
-    \Gamma \vdash m.\text{lock}() : \text{Mutex}<T>\text{@Locked}
-}
-$$
-
-**State-Specific Access**
-
-Data field `T` is accessible **only** in `@Locked` state. Attempting to access data on `Mutex<T>@Unlocked` is a compile-time error (`E-TYP-2052`).
-
-**Spawn Capture Constraints**
-
-1. Closure **MUST NOT** capture `partitioned` bindings.
-2. `unique` bindings **MUST** be moved into the closure.
-3. `const` bindings **MUST** be `Copy` or thread-safe references.
-
-##### Dynamic Semantics
-
-**Lock/Unlock via Modal Transitions**
-
-1. `lock()` blocks until mutex is acquired, returns `Mutex<T>@Locked`.
-2. In `@Locked` state, `data` field provides exclusive mutable access.
-3. `unlock()` or `Drop::drop` transitions back to `@Unlocked`.
-
-**Memory Ordering**
-
-`lock()` implies acquire barrier; `unlock()` implies release barrier.
-
-**Deadlock Semantics**
-
-Deadlocks are permitted (safe but undesirable). Calling `lock()` on an already-locked mutex blocks the thread indefinitely.
-
-##### Constraints & Legality
-
-| Code         | Severity | Condition                                      |
-| :----------- | :------- | :--------------------------------------------- |
-| `E-CON-3203` | Error    | Invalid capture in `System.spawn`.             |
-| `E-TYP-2052` | Error    | Accessing `data` field on `Mutex<T>@Unlocked`. |
-
----
-
-### 12.5 Diagnostics Summary
-
-| Code         | Severity | Description                                             |
-| :----------- | :------- | :------------------------------------------------------ |
-| `E-CON-3201` | Error    | Capture of `partitioned` binding in concurrent closure. |
-| `E-CON-3202` | Error    | `JobHandle` not joined within `parallel` block.         |
-| `E-CON-3203` | Error    | Invalid capture in `System.spawn`.                      |
-| `E-EXP-2592` | Error    | `parallel` result depends on invalidated binding.       |
-
----
-
-### Clause 12: Concurrency Cross-Reference Notes
-
-**Terms defined in Clause 9 that MUST NOT be redefined elsewhere:**
-
-| Term                    | Section | Description                                            |
-| :---------------------- | :------ | :----------------------------------------------------- |
-| Parallel Epoch          | §9.2    | Lexical scope of `parallel` block with CREW semantics. |
-| CREW                    | §9.2    | Concurrent-Read, Exclusive-Write invariant.            |
-| Permission Tightening   | §9.2    | Downgrading of permissions within parallel scope.      |
-| Static Invalidation     | §9.2    | Compile-time inaccessibility of captured bindings.     |
-| JobHandle<T>            | §9.3    | Linear type for pending parallel computation.          |
-| Static Join Requirement | §9.3    | Linearity constraint requiring all handles be joined.  |
-
-**Terms referenced:**
-
-| Term         | Source | Usage in Clause 9                                         |
-| :----------- | :----- | :-------------------------------------------------------- |
-| Permission   | §4.5   | Thread safety classification, capture constraints.        |
-| const        | §4.5   | Shared-safe permission in concurrent contexts.            |
-| unique       | §4.5   | Transfer-safe permission; move semantics in spawn.        |
-| partitioned  | §4.5   | Thread-unsafe permission; prohibited in captures.         |
-| concurrent   | §4.5   | Synchronized aliased mutability; required for Mutex.lock. |
-| Modal Type   | §4.11  | Thread<T>@State, Mutex<T>@State declarations.             |
-| Drop         | §6.7   | Mutex unlock semantics (special compiler permission).     |
-| `concurrent` | §4.5   | Permission required for synchronized shared access.       |
-| System       | §10.2  | Capability required for thread spawning.                  |
-| Closure      | §7.x   | Capture semantics in fork and spawn.                      |
-
-**Terms deferred to later clauses:**
-
-| Term       | Deferred To | Reason                                         |
-| :--------- | :---------- | :--------------------------------------------- |
-| Channel<T> | Appendix D  | Standard library primitive; not core language. |
-
-**Terms explicitly NOT included (Rust cargo-cult removed):**
-
-| Term          | Reason                                                             |
-| :------------ | :----------------------------------------------------------------- |
-| Atomic<T>     | No justification in Cursive's model - use Mutex or FFI if needed.  |
-| MutexGuard<T> | Not needed due to modal type design with @Locked/@Unlocked states. |
-  
-
----
-
-## Clause 13: The Capability System
+## Clause 12: The Capability System
 
 This clause defines the Cursive Capability System, which governs all procedures that produce observable **external effects** (e.g., I/O, networking, threading, heap allocation) and enforces the security principle of **No Ambient Authority**.
 
-### 13.1 Foundational Principles
+### 12.1 Foundational Principles
 
 ##### Definition
 
@@ -11437,7 +11192,7 @@ $$\frac{\Gamma \vdash c : \text{witness } T \quad e \in \text{Authority}(T)}{\Ga
 
 ---
 
-### 13.2 The Root of Authority
+### 12.2 The Root of Authority
 
 ##### Definition
 
@@ -11470,7 +11225,6 @@ Context (root)
 │   ├── time()                 (clock access)
 │   ├── exit()                 (process termination)
 │   ├── spawn()                (thread creation)
-│   └── create_mutex()         (synchronization)
 └── heap: witness HeapAllocator (dynamic allocation)
 ```
 
@@ -11482,7 +11236,7 @@ Context (root)
 
 ---
 
-### 13.3 Capability Attenuation
+### 12.3 Capability Attenuation
 
 ##### Definition
 
@@ -11523,7 +11277,7 @@ $$\frac{\Gamma \vdash c : \text{witness } T \quad \Gamma \vdash c.restrict(r) : 
 
 ---
 
-### 13.4 Capability Propagation
+### 12.4 Capability Propagation
 
 ##### Definition
 
@@ -11581,12 +11335,12 @@ A parameter of type `witness Trait` accepts any concrete type `T` where `T` impl
 
 Capability methods **MUST** declare appropriate receiver permissions:
 
-| Operation Type                 | Required Permission  | Rationale                         |
-| :----------------------------- | :------------------- | :-------------------------------- |
-| Side-effecting I/O             | `concurrent` (`~\|`) | Allows synchronized shared access |
-| Pure queries (no state change) | `const` (`~`)        | No state change; safe for sharing |
+| Operation Type                 | Required Permission | Rationale                         |
+| :----------------------------- | :------------------ | :-------------------------------- |
+| Side-effecting I/O             | `shared` (`~%`)     | Allows synchronized shared access |
+| Pure queries (no state change) | `const` (`~`)       | No state change; safe for sharing |
 
-**Cross-Reference**: `concurrent` permission semantics defined in §4.5.
+**Cross-Reference**: `shared` permission semantics defined in §4.5.
 
 ##### Constraints & Legality
 
@@ -11600,7 +11354,7 @@ A procedure **MUST NOT** access capabilities not explicitly provided as paramete
 
 ---
 
-### 13.5 System Capability Traits
+### 12.5 System Capability Traits
 
 ##### Definition
 
@@ -11642,13 +11396,11 @@ Governs dynamic memory allocation.
 
 Aggregates miscellaneous system-level primitives. Unlike the traits above, `System` is a concrete record (not a trait) because it bundles unrelated operations.
 
-| Method            | Signature                            | Description                 |
-| :---------------- | :----------------------------------- | :-------------------------- |
-| `get_env`         | `(~, key: string@View) -> string`    | Environment variable access |
-| `time`            | `(~) -> Timestamp`                   | Current timestamp           |
-| `exit`            | `(~, code: i32) -> !`                | Process termination         |
-| `spawn<T>`        | `(~, action: () -> T) -> Thread<T>`  | Thread creation             |
-| `create_mutex<T>` | `(~, value: T) -> Mutex<T>@Unlocked` | Mutex creation              |
+| Method    | Signature                         | Description                 |
+| :-------- | :-------------------------------- | :-------------------------- |
+| `get_env` | `(~, key: string@View) -> string` | Environment variable access |
+| `time`    | `(~) -> Timestamp`                | Current timestamp           |
+| `exit`    | `(~, code: i32) -> !`             | Process termination         |
 
 ##### Static Semantics
 
@@ -11656,13 +11408,13 @@ Aggregates miscellaneous system-level primitives. Unlike the traits above, `Syst
 
 System capability methods **MUST** declare receiver permissions that accurately reflect their side effects:
 
-$$\frac{m : T.\text{method} \quad \text{HasSideEffect}(m)}{\Gamma \vdash m.\text{receiver} = \texttt{concurrent}}$$
+$$\frac{m : T.\text{method} \quad \text{HasSideEffect}(m)}{\Gamma \vdash m.\text{receiver} = \texttt{shared}}$$
 
 **Const Purity Rule**
 
 Methods accepting `const` (`~`) receiver **MUST** guarantee **zero** logical state changes to the external resource:
 - `time~>now()` - const (reading clock has no side effect)
-- `file~>write(data)` - concurrent (modifies file state)
+- `file~>write(data)` - shared (modifies file state)
 
 ##### Constraints & Legality
 
@@ -11672,7 +11424,7 @@ Methods accepting `const` (`~`) receiver **MUST** guarantee **zero** logical sta
 
 ---
 
-### 13.6 User-Defined Capabilities
+### 12.6 User-Defined Capabilities
 
 ##### Definition
 
@@ -11697,8 +11449,8 @@ By wrapping system capabilities in `private` fields, the user-defined capability
 ```cursive
 // Define the capability interface
 trait DatabaseAccess {
-    procedure query(~|, sql: string@View): QueryResult
-    procedure execute(~|, sql: string@View): u64
+    procedure query(~%, sql: string@View): QueryResult
+    procedure execute(~%, sql: string@View): u64
 }
 ```
 
@@ -11710,12 +11462,12 @@ record PostgresConnection <: DatabaseAccess {
     private net: witness Network,
     private connection_string: string@View,
 
-    procedure query(~|, sql: string@View): QueryResult {
+    procedure query(~%, sql: string@View): QueryResult {
         // Uses self.net internally to communicate with database
         // ...
     }
 
-    procedure execute(~|, sql: string@View): u64 {
+    procedure execute(~%, sql: string@View): u64 {
         // Uses self.net internally
         // ...
     }
@@ -11745,11 +11497,11 @@ record PostgresConnection <: DatabaseAccess {
 record ReadOnlyPostgres <: DatabaseAccess {
     private inner: witness DatabaseAccess,
 
-    procedure query(~|, sql: string@View): QueryResult {
+    procedure query(~%, sql: string@View): QueryResult {
         self.inner~>query(sql)
     }
 
-    procedure execute(~|, sql: string@View): u64 {
+    procedure execute(~%, sql: string@View): u64 {
         panic("Write operations not permitted on read-only connection")
     }
 }
@@ -11757,7 +11509,7 @@ record ReadOnlyPostgres <: DatabaseAccess {
 
 ---
 
-### Clause 13: The Capability System Cross-Reference Notes
+### Clause 12: The Capability System Cross-Reference Notes `[INFORMATIVE]`
 
 **Terms defined in Clause 10 that MUST NOT be redefined elsewhere:**
 
@@ -11779,8 +11531,8 @@ record ReadOnlyPostgres <: DatabaseAccess {
 | :----------------------- | :----------- | :--------------------------------------------- |
 | `main` procedure         | §5.6         | Entry point for capability injection           |
 | `Context` record         | §5.6         | Root capability container                      |
-| Permission types         | §4.5         | `concurrent`, `const` for method receivers     |
-| `concurrent` permission  | §4.5         | Required for side-effecting capability methods |
+| Permission types         | §4.5         | `shared`, `const` for method receivers         |
+| `shared` permission      | §4.5         | Required for side-effecting capability methods |
 | `witness` types          | §6.3         | Dynamic polymorphism for capability traits     |
 | Trait                    | §6.1         | Interface defining capability methods          |
 | System Capability Traits | Appendix D.2 | Normative trait definitions                    |
@@ -11789,14 +11541,1805 @@ record ReadOnlyPostgres <: DatabaseAccess {
 
 | Term         | Deferred To  | Reason                        |
 | :----------- | :----------- | :---------------------------- |
-| `Mutex<T>`   | Clause 9     | Synchronization primitive     |
-| `Thread<T>`  | Clause 9     | Thread handle type            |
 | `FileHandle` | Appendix D.2 | Defined with FileSystem trait |
 | `Timestamp`  | Appendix D.2 | Defined with System record    |
 
 ---
+# Part 4: Concurrency 
 
-## Clause 14: Metaprogramming
+This clause defines the Cursive concurrency model, which provides safe concurrent and parallel programming through a key-based synchronization system, structured concurrency primitives, and zero-cost abstractions for shared mutable state.
+
+The Cursive concurrency model is built on five principles:
+
+1. **Shared data is locked by default.** A `shared` value is opaque—you cannot access its contents without a key.
+
+2. **Keys unlock, not lock.** The mental model is a locked box requiring a key to open, not a guard blocking access.
+
+3. **Keys are implicit and fine-grained.** Accessing a path implicitly acquires a key to exactly that path. Maximum parallelism emerges naturally.
+
+4. **No ambient concurrency.** Spawning tasks requires an explicit `parallel` block. There is no global thread pool or hidden parallelism.
+
+5. **Structured concurrency by default.** Tasks are scoped to `parallel` blocks and complete before the block exits.
+
+---
+
+## Clause 13: The Key System
+
+This clause defines the key system, which provides safe access to `shared` data through static verification with runtime synchronization as a fallback.
+
+---
+
+### 13.1 Key Fundamentals
+
+##### Definition
+
+A **key** is a **static proof of access rights** to a specific path within `shared` data. Keys are primarily a compile-time verification mechanism: the compiler tracks key state during type checking to ensure safe access patterns. Runtime synchronization is introduced only when static analysis cannot prove safety.
+
+**Formal Definition**
+
+A key is a triple:
+
+$$\text{Key} ::= (\text{Path}, \text{Mode}, \text{Scope})$$
+
+| Component | Type                            | Description                                     |
+| :-------- | :------------------------------ | :---------------------------------------------- |
+| Path      | $\text{PathExpr}$               | The memory location being accessed              |
+| Mode      | $\{\text{Read}, \text{Write}\}$ | The access grant (see §13.2.1.2)                |
+| Scope     | $\text{LexicalScope}$           | The lexical scope during which the key is valid |
+
+**Compile-Time vs. Runtime**
+
+| Aspect                  | Compile-Time                   | Runtime                              |
+| :---------------------- | :----------------------------- | :----------------------------------- |
+| **Key tracking**        | Always performed               | N/A                                  |
+| **Safety verification** | Always attempted               | Fallback when static proof fails     |
+| **Synchronization**     | None (zero cost)               | Emitted only when necessary          |
+| **Representation**      | Abstract; no runtime footprint | Implementation-defined when required |
+
+**Key Invariants**
+
+The following invariants are enforced by the compiler and, when necessary, by runtime mechanisms:
+
+1. **Path-specificity:** A key to path $P$ grants access only to $P$ and paths for which $P$ is a prefix. A key to `player.health` does not grant access to `player.mana`.
+
+2. **Implicit acquisition:** Accessing a `shared` path logically acquires the necessary key. Keys are not exposed to user code as values; there is no syntax to explicitly acquire, release, store, or pass keys.
+
+3. **Scoped lifetime:** Keys are valid for a bounded lexical scope and become invalid when that scope exits.
+
+4. **Reentrancy:** If a key covering path $P$ is already held by the current task, nested access to $P$ or any path prefixed by $P$ succeeds without conflict.
+
+5. **Task locality:** Keys are associated with tasks, not procedures or bindings. A key held by a task remains valid until its scope exits, even across procedure calls within that task.
+
+##### Syntax & Declaration
+
+**Path Expression Grammar**
+
+A **path expression** identifies a location within a value:
+
+```ebnf
+path_expr       ::= root_segment ("." path_segment)*
+
+root_segment    ::= key_marker? IDENTIFIER index_suffix?
+
+path_segment    ::= key_marker? IDENTIFIER index_suffix?
+
+key_marker      ::= "#"
+
+index_suffix    ::= "[" expression "]"
+```
+
+**Terminology:**
+
+- The **root** of a path is the first identifier (e.g., `player` in `player.stats.health`)
+- A **segment** is a single field access or indexed access
+- The **depth** of a path is the number of segments (e.g., `player.stats.health` has depth 3)
+
+**Examples:**
+
+```cursive
+player                      // Depth 1: root only
+player.health               // Depth 2: root + one field
+player.stats.health         // Depth 3: root + two fields
+player.inventory[5]         // Depth 2: root + indexed field
+team.players[0].health      // Depth 3: root + indexed field + field
+```
+
+##### Static Semantics
+
+**Path Well-Formedness**
+
+A path expression $P = p_1.p_2.\ldots.p_n$ is **well-formed** if and only if:
+
+1. The root identifier $p_1$ is bound in scope $\Gamma$ with type $T_0$
+2. For each subsequent segment $p_i$ ($i > 1$):
+   - If $p_i$ is a field access, $T_{i-1}$ has a field named $p_i$ with type $T_i$
+   - If $p_i$ is an index access $[e]$, $T_{i-1}$ is an array or slice type with element type $T_i$, and $e$ has type `usize`
+3. At most one `#` marker appears in the entire path (see §13.2.4)
+
+**(WF-Path)**
+$$\frac{
+    \Gamma \vdash p_1 : T_0 \quad
+    \forall i \in 2..n,\ \Gamma \vdash T_{i-1}.p_i : T_i
+}{
+    \Gamma \vdash p_1.p_2.\ldots.p_n : T_n\ \text{wf}
+}$$
+
+**Path Typing for Key Determination**
+
+A path expression has an associated **permission** derived from the root binding:
+
+**(Path-Permission)**
+$$\frac{
+    \Gamma \vdash p_1 : P\ T_0 \quad P \in \{\texttt{const}, \texttt{unique}, \texttt{shared}\}
+}{
+    \Gamma \vdash p_1.p_2.\ldots.p_n : P\ T_n
+}$$
+
+Key analysis is performed if and only if the path permission is `shared`. Paths with `const` or `unique` permission require no key analysis (they are statically safe by the permission system).
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                         | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------ | :----------- | :-------- |
+| `E-KEY-0001` | Error    | Access to `shared` path outside valid key context | Compile-time | Rejection |
+| `E-KEY-0002` | Error    | `#` annotation on non-`shared` path               | Compile-time | Rejection |
+| `E-KEY-0003` | Error    | Multiple `#` markers in single path expression    | Compile-time | Rejection |
+
+##### Examples
+
+**Compile-time key analysis:**
+
+```cursive
+let player: shared Player = Player::new()
+let config: const Config = Config::default()
+let buffer: unique Buffer = Buffer::new()
+
+player.health               // Key analysis required (shared)
+config.timeout              // No key analysis (const — immutable)
+buffer.data                 // No key analysis (unique — exclusive)
+```
+
+---
+
+#### 13.1.1 Path Prefix and Disjointness
+
+##### Definition
+
+The **prefix relation** and **disjointness relation** on paths are used by the compiler to determine key coverage and to prove static safety of concurrent accesses.
+
+**Formal Definition**
+
+**Path Prefix:**
+
+Path $P$ is a **prefix** of path $Q$ (written $\text{Prefix}(P, Q)$) if $P$ is an initial subsequence of $Q$:
+
+$$\text{Prefix}(p_1.\ldots.p_m,\ q_1.\ldots.q_n) \iff m \leq n \land \forall i \in 1..m,\ p_i = q_i$$
+
+**Path Disjointness:**
+
+Two paths $P$ and $Q$ are **disjoint** (written $\text{Disjoint}(P, Q)$) if neither is a prefix of the other:
+
+$$\text{Disjoint}(P, Q) \iff \neg\text{Prefix}(P, Q) \land \neg\text{Prefix}(Q, P)$$
+
+**Segment Equality:**
+
+Two segments are equal if they have the same identifier and, for indexed segments, provably equal index values:
+
+$$p_i = q_i \iff \text{name}(p_i) = \text{name}(q_i) \land \text{index}(p_i) \equiv \text{index}(q_i)$$
+
+For index comparison with dynamic indices, see §13.2.6.
+
+##### Static Semantics
+
+**Disjointness for Static Safety**
+
+When the compiler can prove two paths are disjoint, concurrent accesses to those paths are statically safe and require no runtime synchronization:
+
+**(K-Disjoint-Safe)**
+$$\frac{
+    \text{Disjoint}(P, Q)
+}{
+    \text{ConcurrentAccess}(P, Q) \text{ is statically safe}
+}$$
+
+##### Examples
+
+| Path P          | Path Q          | Prefix(P,Q) | Prefix(Q,P) | Disjoint | Concurrent Access   |
+| :-------------- | :-------------- | :---------- | :---------- | :------- | :------------------ |
+| `player`        | `player.health` | true        | false       | false    | Conflicts           |
+| `player.health` | `player.mana`   | false       | false       | true     | **Statically safe** |
+| `arr[0]`        | `arr[1]`        | false       | false       | true     | **Statically safe** |
+| `arr[0]`        | `arr[0].field`  | true        | false       | false    | Conflicts           |
+| `a.b.c`         | `a.b`           | false       | true        | false    | Conflicts           |
+
+---
+
+#### 13.1.2 Key Modes
+
+##### Definition
+
+A key's **mode** determines what operations it permits and how it interacts with other keys to the same or overlapping paths.
+
+**Formal Definition**
+
+$$\text{Mode} ::= \text{Read} \mid \text{Write}$$
+
+| Mode  | Permitted Operations       | Exclusivity                                                       |
+| :---- | :------------------------- | :---------------------------------------------------------------- |
+| Read  | Read the value at the path | Shared: multiple Read keys to overlapping paths MAY coexist       |
+| Write | Read and write the value   | Exclusive: Write key excludes all other keys to overlapping paths |
+
+##### Static Semantics
+
+**Mode Determination**
+
+The required key mode is determined by the syntactic context of the access:
+
+| Context                       | Required Mode | Example                                     |
+| :---------------------------- | :------------ | :------------------------------------------ |
+| Value read                    | Read          | `let x = p.field`                           |
+| Assignment target             | Write         | `p.field = v`                               |
+| Compound assignment           | Write         | `p.field += v`                              |
+| Method receiver `~` (const)   | Read          | `p.method()` where method has `~` receiver  |
+| Method receiver `~%` (shared) | Write         | `p.method()` where method has `~%` receiver |
+| Method receiver `~!` (unique) | Write         | `p.method()` where method has `~!` receiver |
+
+**(K-Mode-Read)**
+$$\frac{
+    \Gamma \vdash e : \texttt{shared}\ T \quad
+    \text{ReadContext}(e)
+}{
+    \text{RequiredMode}(e) = \text{Read}
+}$$
+
+**(K-Mode-Write)**
+$$\frac{
+    \Gamma \vdash e : \texttt{shared}\ T \quad
+    \text{WriteContext}(e)
+}{
+    \text{RequiredMode}(e) = \text{Write}
+}$$
+
+**Key Compatibility**
+
+Two keys $K_1$ and $K_2$ are **compatible** (may coexist) if and only if:
+
+$$\text{Compatible}(K_1, K_2) \iff \text{Disjoint}(K_1.\text{Path}, K_2.\text{Path}) \lor (K_1.\text{Mode} = \text{Read} \land K_2.\text{Mode} = \text{Read})$$
+
+**Compatibility Matrix:**
+
+| Key A Mode | Key B Mode | Paths Overlap? | Compatible? |
+| :--------- | :--------- | :------------- | :---------- |
+| Read       | Read       | Yes            | Yes         |
+| Read       | Write      | Yes            | No          |
+| Write      | Read       | Yes            | No          |
+| Write      | Write      | Yes            | No          |
+| Any        | Any        | No             | Yes         |
+
+##### Dynamic Semantics
+
+**When Runtime Synchronization Is Required**
+
+If the compiler cannot statically prove that concurrent accesses are compatible, runtime synchronization MUST enforce the compatibility rules:
+
+- **Compatible keys:** May proceed concurrently
+- **Incompatible keys:** One task blocks until the other releases
+
+**Blocking Semantics (Runtime Only)**
+
+When runtime synchronization is active and a task attempts to acquire an incompatible key:
+
+1. The task MUST block until the conflicting key is released
+2. Implementations MUST guarantee eventual progress (no indefinite starvation)
+3. The blocking mechanism is implementation-defined (IDB)
+
+---
+
+#### 13.1.3 Key Mode Upgrade
+
+##### Definition
+
+**Mode upgrade** occurs when a task holding a Read key to a path requires Write access to the same path within the same statement.
+
+##### Static Semantics
+
+**(K-Mode-Upgrade)**
+
+If a Read key to path $P$ is held and Write access to $P$ is subsequently required within the same statement, the key MUST be upgraded to Write.
+
+$$\frac{
+    \text{Held}(P, \text{Read}) \quad
+    \text{RequiredMode}(P) = \text{Write} \quad
+    \text{SameStatement}
+}{
+    \text{Upgrade}(P, \text{Read} \to \text{Write})
+}$$
+
+**Static vs. Runtime Upgrade**
+
+| Situation                            | Upgrade Handling                      |
+| :----------------------------------- | :------------------------------------ |
+| Single-task, no concurrency possible | Compile-time: no runtime cost         |
+| Concurrent access possible           | Runtime: atomic upgrade with blocking |
+
+##### Dynamic Semantics
+
+**Runtime Upgrade Procedure (When Required)**
+
+If runtime synchronization is active:
+
+1. The upgrading task retains Read access during the upgrade attempt
+2. The upgrade blocks until all other tasks release Read keys to overlapping paths
+3. No other task may acquire keys to overlapping paths while upgrade is pending
+4. Once complete, the task holds exclusive Write access
+
+**Upgrade Example:**
+
+```cursive
+player.health = player.health + 10
+```
+
+Compile-time key analysis:
+1. RHS `player.health`: Read access required
+2. LHS `player.health`: Write access required
+3. Same path in same statement: upgrade from Read to Write
+
+If statically safe (no concurrency): zero runtime cost.
+If concurrent access possible: runtime upgrade synchronization.
+
+---
+
+### 13.2 Key Acquisition and Release
+
+##### Definition
+
+Keys are logically acquired **on demand** during expression evaluation and released **at scope exit**. The compiler tracks this lifecycle statically; runtime synchronization occurs only when static safety cannot be proven.
+
+**Formal Definition**
+
+Let $\text{KeySet}(s)$ denote the set of keys logically acquired during evaluation of statement or block $s$. The key lifecycle has three phases:
+
+1. **Acquisition Phase:** Keys are logically acquired as `shared` paths are evaluated, in evaluation order
+2. **Execution Phase:** The statement or block body executes with all keys logically held
+3. **Release Phase:** All keys in $\text{KeySet}(s)$ become invalid when $s$'s scope exits
+
+##### Static Semantics
+
+**Compile-Time Key Tracking**
+
+The compiler MUST track key state at each program point:
+
+$$\Gamma_{\text{keys}} : \text{ProgramPoint} \to \mathcal{P}(\text{Key})$$
+
+For each `shared` path access, the compiler:
+
+1. Computes the key path (per §13.2.4)
+2. Determines the required mode (per §13.2.1.2)
+3. Checks for coverage by an existing key (see below)
+4. Adds the key to $\Gamma_{\text{keys}}$ if not covered
+5. Marks the key for release at scope exit
+
+**Acquisition Rules**
+
+**(K-Acquire-Read)**
+$$\frac{
+    \Gamma \vdash P : \texttt{shared}\ T \quad
+    \text{ReadContext}(P) \quad
+    \neg\text{Covered}(P, \Gamma_{\text{keys}})
+}{
+    \Gamma_{\text{keys}}' = \Gamma_{\text{keys}} \cup \{(P, \text{Read}, \text{CurrentScope})\}
+}$$
+
+**(K-Acquire-Write)**
+$$\frac{
+    \Gamma \vdash P : \texttt{shared}\ T \quad
+    \text{WriteContext}(P) \quad
+    \neg\text{Covered}(P, \Gamma_{\text{keys}})
+}{
+    \Gamma_{\text{keys}}' = \Gamma_{\text{keys}} \cup \{(P, \text{Write}, \text{CurrentScope})\}
+}$$
+
+**Coverage**
+
+A held key **covers** finer-grained paths, preventing redundant acquisition:
+
+**(K-Coverage)**
+$$\text{Held}(P, M, \Gamma_{\text{keys}}) \land \text{Prefix}(P, Q) \Longrightarrow \text{Covered}(Q, \Gamma_{\text{keys}})$$
+
+**Coverage Mode Sufficiency:**
+
+If a Read key covers a path requiring Write access, the covering key is upgraded:
+
+$$\text{Held}(P, \text{Read}) \land \text{Prefix}(P, Q) \land \text{RequiredMode}(Q) = \text{Write} \Longrightarrow \text{Upgrade}(P)$$
+
+**Evaluation Order**
+
+Subexpressions MUST be evaluated **left-to-right, depth-first**. Key acquisition follows evaluation order. This order is deterministic.
+
+**(K-Eval-Order)** For expression $e_1 \oplus e_2$:
+
+$$\text{eval}(e_1 \oplus e_2) \longrightarrow \text{eval}(e_1);\ \text{eval}(e_2);\ \text{apply}(\oplus)$$
+
+##### Dynamic Semantics
+
+**Runtime Realization (When Required)**
+
+If static safety cannot be proven for a key acquisition, the implementation MUST emit runtime synchronization that:
+
+1. Blocks if an incompatible key is held by another task
+2. Proceeds once compatibility is established
+3. Releases the key when the scope exits
+
+**Release Guarantee**
+
+Keys MUST be released (logically, and at runtime if synchronized) when their scope exits, regardless of exit mechanism:
+
+| Exit Mechanism    | Keys Released? |
+| :---------------- | :------------- |
+| Normal completion | Yes            |
+| `return`          | Yes            |
+| `break`           | Yes            |
+| `continue`        | Yes            |
+| Panic propagation | Yes            |
+| Task cancellation | Yes            |
+
+##### Constraints & Legality
+
+**Scope Definitions**
+
+| Construct                      | Key Scope                  | Release Point          |
+| :----------------------------- | :------------------------- | :--------------------- |
+| Expression statement (`expr;`) | The statement              | Semicolon              |
+| `let`/`var` declaration        | The declaration            | Semicolon              |
+| Assignment statement           | The statement              | Semicolon              |
+| `if` condition                 | The condition only         | Before entering branch |
+| `match` scrutinee              | The scrutinee only         | Before entering arm    |
+| `loop` condition               | Each iteration's condition | Before entering body   |
+| `#path { ... }` block          | The entire block           | Closing brace          |
+| Procedure body                 | Callee's body              | Procedure return       |
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                          | Detection    | Effect  |
+| :----------- | :------- | :------------------------------------------------- | :----------- | :------ |
+| `W-KEY-0001` | Warning  | Fine-grained keys in tight loop (performance hint) | Compile-time | Warning |
+| `W-KEY-0002` | Warning  | Redundant key acquisition (already covered)        | Compile-time | Warning |
+
+##### Examples
+
+**Statically safe — No concurrency:**
+
+```cursive
+procedure process() {
+    let data: shared Data = Data::new()
+    data.value = 100      // Key tracked at compile time
+    data.count += 1       // Key tracked, upgrade to Write
+}
+// No runtime synchronization: data never escapes
+```
+
+**Statically safe — Disjoint paths:**
+
+```cursive
+parallel {
+    spawn { state.player.health = 100 }   // Key: state.player.health
+    spawn { state.enemy.health = 50 }     // Key: state.enemy.health
+}
+// Compiler proves paths are disjoint: no runtime synchronization between tasks
+```
+
+---
+
+### 13.3 Key Acquisition at Procedure Boundaries
+
+##### Definition
+
+When a `shared` value is passed to a procedure, key analysis occurs at the **point of access** within the callee, not at the call site.
+
+##### Static Semantics
+
+**(K-Procedure-Boundary)**
+
+Passing a `shared` value as a procedure argument does not constitute key acquisition. The callee's accesses are analyzed independently.
+
+$$\frac{
+    \Gamma \vdash f : (\texttt{shared}\ T) \to R \quad
+    \Gamma \vdash v : \texttt{shared}\ T
+}{
+    \text{call}(f, v) \longrightarrow \text{no key acquisition at call site}
+}$$
+
+**Cross-Procedure Analysis**
+
+The compiler MAY perform interprocedural analysis to prove static safety across procedure boundaries. If the compiler can prove that a callee's accesses are compatible with the caller's context, no runtime synchronization is required.
+
+##### Dynamic Semantics
+
+**Consequence — Fine-Grained Parallelism:**
+
+```cursive
+procedure increment_health(p: shared Player) {
+    p.health += 1              // Key analysis: p.health (Write)
+}
+
+procedure increment_mana(p: shared Player) {
+    p.mana += 1                // Key analysis: p.mana (Write)
+}
+
+parallel {
+    spawn { increment_health(player) }
+    spawn { increment_mana(player) }
+}
+// Compiler proves disjoint paths: both may execute without synchronization
+```
+
+**Consequence — Callee Determines Granularity:**
+
+```cursive
+procedure update_all(p: shared Player) {
+    #p {
+        p.health = 100
+        p.mana = 100
+    }
+}
+// Callee chooses coarse granularity (entire player)
+
+procedure update_selective(p: shared Player) {
+    p.health = 100             // Fine-grained: p.health
+    p.mana = 100               // Fine-grained: p.mana
+}
+// Callee chooses fine granularity (individual fields)
+```
+
+##### Constraints & Legality
+
+**Recursive Calls and Reentrancy**
+
+If a caller holds a key covering the callee's access paths, the callee's accesses are covered (reentrant):
+
+```cursive
+procedure process(p: shared Player) {
+    #p {
+        helper(p)              // Callee's accesses covered by caller's key
+    }
+}
+
+procedure helper(p: shared Player) {
+    p.health += 1              // Covered by caller's key to p
+}
+```
+
+---
+
+### 13.4 The `#` Coarsening Operator
+
+##### Definition
+
+The `#` operator controls key granularity. It instructs the compiler to use a coarser key path than the default fine-grained path.
+
+**Formal Definition — Key Path Extraction**
+
+Given a path expression $P$, the **key path** $\text{KeyPath}(P)$ determines what path is used for key analysis.
+
+**Case 1: Explicit `#` marker**
+
+If $P = p_1.\ldots.p_{k-1}.\#p_k.\ldots.p_n$:
+
+$$\text{KeyPath}(P) = p_1.p_2.\ldots.p_k$$
+
+**Case 2: Type-level `#` boundary**
+
+If $P$ has no explicit `#` but passes through a `#`-declared field at position $b$:
+
+$$\text{KeyPath}(P) = p_1.p_2.\ldots.p_b$$
+
+**Case 3: No marker, no boundary**
+
+$$\text{KeyPath}(P) = P$$
+
+**Case 4: Both explicit and type-level**
+
+The coarser (shorter) path wins:
+
+$$\text{KeyPath}(P) = p_1.p_2.\ldots.\min(k, b)$$
+
+##### Syntax & Declaration
+
+**Inline Coarsening Grammar**
+
+```ebnf
+path_segment    ::= "#"? IDENTIFIER index_suffix?
+```
+
+**Block Coarsening Grammar**
+
+```ebnf
+key_block       ::= "#" path_list block
+path_list       ::= path ("," path)*
+path            ::= IDENTIFIER ("." IDENTIFIER)* index_suffix?
+```
+
+##### Static Semantics
+
+**Inline Coarsening**
+
+| Expression             | Key Path              |
+| :--------------------- | :-------------------- |
+| `player.stats.health`  | `player.stats.health` |
+| `#player.stats.health` | `player`              |
+| `player.#stats.health` | `player.stats`        |
+
+**Block Coarsening**
+
+Keys in a `#path { }` block are logically acquired at block entry and held until block exit:
+
+```cursive
+#player {
+    player.health = 100       // Covered by key to player
+    player.mana = 50          // Covered by key to player
+}
+```
+
+**Multiple Paths**
+
+```cursive
+#player, enemy {
+    player.health -= enemy.damage
+}
+```
+
+Keys MUST be acquired in **canonical order** (see §13.2.7).
+
+**Interaction with Method Calls**
+
+`#` MUST NOT appear immediately before a method name but MAY appear on preceding path segments:
+
+```cursive
+player.#inventory.push(item)  // Valid: key to player.inventory
+#player.process()             // Valid: key to player
+player.inventory.#push(item)  // ERROR E-KEY-0020
+```
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                             | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------ | :----------- | :-------- |
+| `E-KEY-0003` | Error    | Multiple `#` markers in path          | Compile-time | Rejection |
+| `E-KEY-0020` | Error    | `#` immediately before method name    | Compile-time | Rejection |
+| `E-KEY-0031` | Error    | `#` block path not in scope           | Compile-time | Rejection |
+| `E-KEY-0032` | Error    | `#` block path is not `shared`        | Compile-time | Rejection |
+| `W-KEY-0003` | Warning  | `#` redundant (matches type boundary) | Compile-time | Warning   |
+
+##### Examples
+
+**Coarsening for atomicity:**
+
+```cursive
+#player {
+    let total = player.health + player.mana
+    player.health = total / 2
+    player.mana = total / 2
+}
+// Single key scope ensures atomic update of both fields
+```
+
+---
+
+### 13.5 Type-Level Key Boundaries
+
+##### Definition
+
+A **type-level key boundary** is a permanent granularity constraint declared on a record field. All access paths through that field use the field as the minimum key granularity.
+
+##### Syntax & Declaration
+
+```ebnf
+field_decl      ::= "#"? visibility? IDENTIFIER ":" type
+```
+
+**Example:**
+
+```cursive
+record Player {
+    health: i32,              // Fine-grained
+    mana: i32,                // Fine-grained
+    #inventory: [Item; 20],   // Boundary: always keys to player.inventory
+}
+```
+
+##### Static Semantics
+
+**Boundary Enforcement**
+
+| Expression                 | Key Path           | Reason        |
+| :------------------------- | :----------------- | :------------ |
+| `player.health`            | `player.health`    | No boundary   |
+| `player.inventory[5]`      | `player.inventory` | Type boundary |
+| `player.inventory[5].name` | `player.inventory` | Type boundary |
+
+**Coarsening Beyond Boundaries**
+
+Expression `#` MAY coarsen beyond a type boundary:
+
+| Expression             | Key Path                       |
+| :--------------------- | :----------------------------- |
+| `#player.inventory[5]` | `player`                       |
+| `player.#inventory[5]` | `player.inventory` (redundant) |
+
+##### Examples
+
+**Type boundary for reduced overhead:**
+
+```cursive
+record Cache {
+    #entries: [Entry; 1024],
+}
+
+// All element accesses use same key path (cache.entries)
+// Trades parallelism for reduced synchronization overhead
+parallel {
+    spawn { cache.entries[0] = a }   // Key: cache.entries
+    spawn { cache.entries[1] = b }   // Key: cache.entries (same — serializes)
+}
+```
+
+---
+
+### 13.6 Static Index Resolution
+
+##### Definition
+
+An index expression's **static resolvability** determines whether the compiler can reason about path disjointness at compile time.
+
+**Formal Definition**
+
+An index expression is **statically resolvable** if and only if it is:
+
+1. An integer literal
+2. A reference to a `const` binding with statically resolvable initializer
+3. A generic const parameter
+4. An arithmetic expression (`+`, `-`, `*`, `/`, `%`) with statically resolvable operands
+
+All other index expressions are **dynamic**.
+
+##### Static Semantics
+
+**Classification**
+
+| Expression             | Classification        |
+| :--------------------- | :-------------------- |
+| `arr[0]`               | Statically resolvable |
+| `arr[BUFFER_SIZE - 1]` | Statically resolvable |
+| `arr[i]`               | Dynamic               |
+| `arr[get_index()]`     | Dynamic               |
+
+**Static Disjointness**
+
+Two statically resolvable indices are disjoint if their compile-time values differ:
+
+$$\text{StaticDisjoint}(a[i], a[j]) \iff \text{StaticValue}(i) \neq \text{StaticValue}(j)$$
+
+**Dynamic Index Conflict**
+
+If a statement accesses the same array through multiple dynamic indices and disjointness cannot be proven, diagnostic `E-KEY-0010` MUST be emitted:
+
+**(K-Dynamic-Index-Conflict)**
+$$\frac{
+    P_1 = a[e_1] \quad P_2 = a[e_2] \quad
+    (\text{Dynamic}(e_1) \lor \text{Dynamic}(e_2)) \quad
+    \neg\text{ProvablyDisjoint}(e_1, e_2)
+}{
+    \text{Emit}(\texttt{E-KEY-0010})
+}$$
+
+##### Constraints & Legality
+
+**Resolution: Explicit Coarsening**
+
+```cursive
+procedure swap(arr: shared [i32; N], i: usize, j: usize) {
+    // ERROR E-KEY-0010
+    arr[i] = arr[j]
+}
+
+// Resolution:
+procedure swap(arr: shared [i32; N], i: usize, j: usize) {
+    #arr {
+        arr[i] = arr[j]    // OK: single key to entire array
+    }
+}
+```
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                             | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------ | :----------- | :-------- |
+| `E-KEY-0010` | Error    | Potential conflict on dynamic indices | Compile-time | Rejection |
+
+---
+
+### 13.7 Deadlock Prevention
+
+##### Definition
+
+Cursive prevents deadlock through:
+
+1. **Scoped keys:** Keys are released at scope exit, limiting hold duration
+2. **Canonical ordering:** `#` blocks acquire keys in deterministic order
+
+##### Static Semantics
+
+**Canonical Order**
+
+For paths $P$ and $Q$:
+
+$$P <_{\text{canon}} Q \iff \exists k : (\forall i < k,\ p_i = q_i) \land (p_k <_{\text{seg}} q_k \lor (k > m \land m < n))$$
+
+**Segment Ordering:**
+
+1. Identifiers: lexicographic by UTF-8
+2. Indexed: by index value ($a[i] <_{\text{seg}} a[j] \iff i < j$)
+3. Bare identifier precedes indexed: $a <_{\text{seg}} a[i]$
+
+**Statement Keys: Evaluation Order**
+
+Keys within a single statement are acquired in **evaluation order** (left-to-right). Cross-statement deadlock is programmer responsibility.
+
+**`#` Block Keys: Canonical Order**
+
+Keys in a `#` block MUST be acquired in canonical order:
+
+```cursive
+#zebra, alpha, mango {
+    // Acquired: alpha, mango, zebra
+}
+```
+
+##### Constraints & Legality
+
+**Nested `#` Blocks**
+
+Nested `#` blocks acquire keys independently. Deadlock from inconsistent nesting is programmer responsibility:
+
+```cursive
+// HAZARD: Potential deadlock
+// Task 1:          // Task 2:
+#alpha {            #beta {
+    #beta { }           #alpha { }
+}                   }
+
+// Resolution: single block
+#alpha, beta { ... }
+```
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                     | Detection    | Effect    |
+| :----------- | :------- | :---------------------------- | :----------- | :-------- |
+| `E-KEY-0011` | Error    | Detectable key ordering cycle | Compile-time | Rejection |
+
+---
+
+### 13.8 Keys and Async Suspension
+
+##### Definition
+
+Keys MUST NOT be held across async suspension points (`.await`). This is enforced at compile time.
+
+##### Static Semantics
+
+**(K-No-Await-Holding)**
+
+$$\frac{
+    \text{KeysHeld}(\Gamma_{\text{keys}}) \neq \emptyset \quad
+    e = \text{expr}.\texttt{await}
+}{
+    \text{Emit}(\texttt{E-KEY-0050})
+}$$
+
+The compiler tracks key state and rejects programs where `.await` occurs while keys are logically held.
+
+##### Dynamic Semantics
+
+**Rationale:**
+
+| Problem    | Description                                                                                       |
+| :--------- | :------------------------------------------------------------------------------------------------ |
+| Deadlock   | Task holds key, suspends; other task needs key, blocks; first task's completion depends on second |
+| Starvation | Long async operation blocks all other tasks needing the key                                       |
+
+**Resolution Pattern:**
+
+```cursive
+// INVALID:
+#player {
+    player.health += 1
+    save().await               // ERROR E-KEY-0050
+}
+
+// VALID:
+player.health += 1             // Key released at semicolon
+save().await                   // No keys held
+```
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                  | Detection    | Effect    |
+| :----------- | :------- | :------------------------- | :----------- | :-------- |
+| `E-KEY-0050` | Error    | `.await` while key is held | Compile-time | Rejection |
+
+---
+
+### 13.9 Compile-Time Verification and Runtime Realization
+
+##### Definition
+
+Keys are a **compile-time abstraction**. The compiler performs static key analysis to verify safe access patterns. Runtime synchronization is emitted **only when** static verification is insufficient.
+
+**The Verification Hierarchy**
+
+| Level                       | Mechanism                     | Runtime Cost |
+| :-------------------------- | :---------------------------- | :----------- |
+| **Static Proof**            | Compiler proves safety        | Zero         |
+| **Runtime Synchronization** | Static proof fails; emit sync | Non-zero     |
+
+##### Static Semantics
+
+**Compile-Time Key Analysis**
+
+The compiler MUST perform key analysis for all `shared` path accesses:
+
+1. Compute the key path
+2. Determine the required mode
+3. Track key state through control flow
+4. Verify no conflicting accesses
+
+**Static Safety Conditions**
+
+An access is **statically safe** if the compiler proves:
+
+| Condition              | Description                                                 |
+| :--------------------- | :---------------------------------------------------------- |
+| **No escape**          | `shared` value never escapes to another task                |
+| **Disjoint paths**     | Concurrent accesses target provably disjoint paths          |
+| **Sequential context** | No `parallel` block encloses the access                     |
+| **Unique origin**      | Value is `unique` at origin, temporarily viewed as `shared` |
+| **Dispatch-indexed**   | Access indexed by `dispatch` iteration variable             |
+
+**(K-Static-Safe)**
+$$\frac{
+    \text{Access}(P, M) \quad
+    \text{StaticallySafe}(P)
+}{
+    \text{NoRuntimeSync}(P)
+}$$
+
+**When Runtime Synchronization Is Required**
+
+| Situation                          | Why Static Proof Fails        |
+| :--------------------------------- | :---------------------------- |
+| `shared` escapes to multiple tasks | Cannot track all access sites |
+| Dynamic indices to same array      | Cannot prove disjointness     |
+| External `shared` parameter        | Caller context unknown        |
+| `shared` captured from outer scope | May be accessed concurrently  |
+
+##### Dynamic Semantics
+
+**Runtime Realization**
+
+When required, runtime synchronization MUST provide:
+
+1. Mutual exclusion per key compatibility rules
+2. Blocking when incompatible keys are held
+3. Release on scope exit
+
+**Implementation Strategies (IDB)**
+
+| Data Characteristic     | Typical Implementation       |
+| :---------------------- | :--------------------------- |
+| Small primitive         | Atomic operations            |
+| Record/struct           | Reader-writer lock           |
+| Array (static indices)  | Per-element or segment locks |
+| Array (dynamic indices) | Address-keyed lock table     |
+| `#` boundary            | Single lock for subtree      |
+
+Implementations MUST document their strategy in the Conformance Dossier.
+
+##### Memory & Layout
+
+**No Guaranteed Runtime Representation**
+
+A `shared` type does NOT necessarily differ in representation from its non-`shared` equivalent. When statically safe, layout MAY be identical to `unique`.
+
+**Runtime Metadata**
+
+If runtime synchronization is required, the implementation MAY associate metadata with `shared` values. The presence and format of this metadata is implementation-defined and MUST NOT be observable by conforming programs.
+
+##### Constraints & Legality
+
+**Requirements**
+
+| Requirement                                      | Level |
+| :----------------------------------------------- | :---- |
+| Perform static key analysis                      | MUST  |
+| Prove safety when possible                       | MUST  |
+| Emit runtime sync when static proof fails        | MUST  |
+| Runtime sync must conform to key semantics       | MUST  |
+| Static proof must not change observable behavior | MUST  |
+| Document realization strategy                    | MUST  |
+
+**Observational Equivalence**
+
+Program behavior MUST be identical whether safety is proven statically or enforced at runtime. The only difference is performance.
+
+##### Examples
+
+**Zero-cost — No escape:**
+
+```cursive
+procedure process() {
+    let data: shared Data = Data::new()
+    data.value = 100
+}
+// data never escapes: no runtime synchronization
+```
+
+**Zero-cost — Disjoint paths:**
+
+```cursive
+parallel {
+    spawn { state.player.health = 100 }
+    spawn { state.enemy.health = 50 }
+}
+// Paths disjoint: no synchronization between tasks
+```
+
+**Zero-cost — Dispatch-indexed:**
+
+```cursive
+dispatch i in 0..arr.len() {
+    arr[i] = i as i32
+}
+// Iteration variable guarantees disjointness: no synchronization
+```
+
+**Runtime sync — Escaping shared:**
+
+```cursive
+parallel {
+    spawn { counter.value += 1 }
+    spawn { counter.value += 1 }
+}
+// Same path, concurrent: runtime synchronization required
+```
+
+---
+
+### 13.10 Cross-Reference Notes `[INFORMATIVE]`
+
+**Terms Defined in §13.2**
+
+| Term                  | Section   | Description                                    |
+| :-------------------- | :-------- | :--------------------------------------------- |
+| Key                   | §13.2.1   | Static proof of access rights to `shared` path |
+| Key Mode              | §13.2.1.2 | Read or Write access grant                     |
+| Path Prefix           | §13.2.1.1 | Relation for coverage determination            |
+| Path Disjointness     | §13.2.1.1 | Relation for static safety proofs              |
+| Mode Upgrade          | §13.2.1.3 | Read to Write transition                       |
+| Key Path              | §13.2.4   | Path used for key analysis                     |
+| Coverage              | §13.2.2   | When held key subsumes finer access            |
+| Type-Level Boundary   | §13.2.5   | Permanent granularity constraint               |
+| Statically Resolvable | §13.2.6   | Index evaluable at compile time                |
+| Canonical Order       | §13.2.7   | Deterministic path ordering                    |
+| Static Safety         | §13.2.9   | Compiler-proven access safety                  |
+
+**Terms Referenced**
+
+| Term                | Source | Usage                       |
+| :------------------ | :----- | :-------------------------- |
+| `shared` permission | §4.5.4 | Data requiring key analysis |
+| `const` permission  | §4.5.4 | Immutable, no keys needed   |
+| `unique` permission | §4.5.4 | Exclusive, no keys needed   |
+| `.await` expression | §13.5  | Async suspension point      |
+| `dispatch`          | §13.6  | Data-parallel iteration     |
+
+**Related Diagnostics**
+
+| §13.2 Code   | Related           | Category                |
+| :----------- | :---------------- | :---------------------- |
+| `E-KEY-0001` | `E-TYP-1604`      | Shared access violation |
+| `E-KEY-0010` | `E-DISPATCH-0001` | Dynamic index conflict  |
+## Clause 14: Concurrency Structures
+
+### 14.1 The `parallel` Block
+
+##### Definition
+
+**Separation of Concerns**
+
+Cursive separates memory management from task execution:
+
+| Construct  | Responsibility                    |
+| :--------- | :-------------------------------- |
+| `region`   | Memory arena lifetime             |
+| `parallel` | Task grouping + executor          |
+| `spawn`    | Create task (requires `parallel`) |
+
+**The `parallel` Block**
+
+The `parallel` block is the structured concurrency primitive. It groups tasks and ensures all complete before continuing.
+
+##### Syntax & Declaration
+
+**Grammar**
+
+```ebnf
+<parallel_block>   ::= "parallel" <executor>? <block_options>? "{" <parallel_body> "}"
+
+<executor>         ::= "pool" "(" <expr> ")"
+                     | "async" "(" <expr> ")"
+
+<block_options>    ::= <block_option>*
+<block_option>     ::= "." "collect_errors" "()"
+                     | "." "name" "(" <expr> ")"
+
+<parallel_body>    ::= <statement>*
+```
+
+**Executor Types**
+
+| Executor         | Description                        |
+| :--------------- | :--------------------------------- |
+| (none)           | System default pool                |
+| `pool(n)`        | Thread pool with n workers         |
+| `async(runtime)` | Async executor for I/O concurrency |
+
+**Default Executor**
+
+Bare `parallel` uses the system default thread pool:
+
+```cursive
+parallel {
+    spawn { task_a() }
+    spawn { task_b() }
+}
+
+// Equivalent to:
+parallel pool(System.cpu_count()) {
+    spawn { task_a() }
+    spawn { task_b() }
+}
+```
+
+##### Static Semantics
+
+**Typing Rules**
+
+**(T-Parallel)**
+$$\frac{\Gamma, \text{parallel} \vdash \textit{body} : T}{\Gamma \vdash \texttt{parallel } \{ \textit{body} \} : T}$$
+
+**(T-Spawn)**
+$$\frac{\Gamma \vdash e : T \quad \text{InParallel}(\Gamma)}{\Gamma \vdash \texttt{spawn } \{ e \} : \texttt{Task}\langle T \rangle}$$
+
+**Structured Concurrency Invariant**
+
+All tasks spawned within a `parallel` block MUST complete before the block exits:
+
+$$\forall t \in \text{Tasks}(p) : \text{Completed}(t) \text{ before } \text{Exit}(p)$$
+
+**Implicit Joining**
+
+All tasks spawned within a `parallel` block are implicitly joined when the block exits:
+
+```cursive
+parallel {
+    let task_a = spawn { compute_a() }
+    let task_b = spawn { compute_b() }
+
+    let result_a = task_a.join()      // Join a early
+    use(result_a)
+
+    // task_b implicitly joined here
+}
+```
+
+**Task Handle API**
+
+```cursive
+modal Task<T> {
+    @Running { }
+    @Completed { value: T }
+    @Panicked { error: PanicInfo }
+
+    // Block until complete, return result
+    procedure join(~!) -> T
+
+    // Check completion without blocking
+    procedure is_complete(~) -> bool
+
+    // Non-blocking attempt to get result
+    procedure try_join(~!) -> Option<T>
+}
+```
+
+##### Constraints & Legality
+
+**Nesting**
+
+`parallel` blocks nest naturally. Inner blocks complete before the outer block continues.
+
+**Panic Propagation**
+
+Default behavior: All tasks run to completion (or their own panic). After all tasks finish, the first panic propagates.
+
+**Diagnostic Table**
+
+| Code           | Severity | Condition                                     |
+| :------------- | :------- | :-------------------------------------------- |
+| `E-SPAWN-0001` | Error    | `spawn` outside `parallel` block              |
+| `E-SPAWN-0002` | Error    | Captured reference outlives task              |
+| `E-SPAWN-0003` | Error    | Cannot capture downgraded ref outside struct. |
+| `E-SPAWN-0004` | Error    | `detach` prohibited inside `parallel` block   |
+
+---
+
+### 14.2 Capture Semantics
+
+##### Definition
+
+Tasks capture bindings from their environment according to their permission:
+
+| Source Permission | Capture Mode | In Task  |
+| :---------------- | :----------- | :------- |
+| `const`           | Reference    | `const`  |
+| `shared`          | Reference    | `shared` |
+| `unique`          | Must `move`  | `unique` |
+
+##### Static Semantics
+
+**Const Capture**
+
+`const` data is freely capturable—it cannot change, so sharing is safe:
+
+```cursive
+let config: const Config = ...
+
+parallel {
+    spawn { use(config.timeout) }     // OK: const, no key needed
+    spawn { use(config.retries) }     // OK: const, no key needed
+}
+```
+
+**Shared Capture**
+
+`shared` data is capturable within structured concurrency:
+
+```cursive
+let player: shared Player = ...
+
+parallel {
+    spawn { player.health = 100 }     // OK: shared, key acquired on access
+    spawn { player.mana = 50 }        // OK: different path, parallel
+}
+```
+
+**Unique Capture**
+
+`unique` data cannot be captured by reference—it must be moved:
+
+```cursive
+let buffer: unique Buffer = ...
+
+parallel {
+    spawn { buffer.write(data) }      // ERROR: cannot capture unique
+}
+
+parallel {
+    spawn {
+        move buffer                   // Ownership moves into task
+        buffer.write(data)            // OK: buffer is unique within task
+    }
+}
+// buffer no longer accessible here
+```
+
+**Implicit Downgrade Capture**
+
+When `unique` data is captured as `shared` (permission downgrade), this is only permitted within structured concurrency:
+
+```cursive
+let player: unique Player = Player::new()
+
+parallel {
+    // player implicitly downgraded to shared for these captures
+    spawn { player.health = 100 }
+    spawn { player.mana = 50 }
+}
+// parallel block complete, player accessible as unique again
+
+player.health = 200   // OK: unique access restored
+```
+
+The original `unique` binding is **inactive** for the duration of the `parallel` block.
+
+---
+
+### 14.3 Data Parallelism
+
+##### Definition
+
+**The `dispatch` Primitive**
+
+`dispatch` expresses data-parallel operations over a range:
+
+```cursive
+let data: shared [i32; 1000] = ...
+
+dispatch i in 0..data.len() {
+    data[i] = data[i] * 2
+}
+```
+
+The runtime:
+1. Partitions the iteration space
+2. Assigns partitions to available workers
+3. Executes in parallel
+4. Joins when complete
+
+##### Static Semantics
+
+**Automatic Key Elision**
+
+`dispatch` automatically proves disjointness for iteration-indexed access and elides keys:
+
+```cursive
+dispatch i in 0..data.len() {
+    data[i] *= 2              // No key: proven disjoint by dispatch semantics
+}
+```
+
+**Cross-iteration Dependency Detection**
+
+```cursive
+dispatch i in 0..data.len() {
+    data[i] = data[i + 1]     // ERROR E-DISPATCH-0001: cross-iteration dependency
+}
+```
+
+##### Syntax & Declaration
+
+**Dispatch Variants**
+
+*With explicit pool:*
+```cursive
+dispatch on pool(8) i in 0..n {
+    process(data[i])
+}
+```
+
+*Reduction:*
+```cursive
+let sum = dispatch i in 0..data.len()
+    reduce(0, |acc, x| acc + x)
+{
+    data[i]
+}
+```
+
+*Nested dispatch:*
+```cursive
+dispatch i in 0..rows {
+    dispatch j in 0..cols {
+        matrix[i][j] = compute(i, j)
+    }
+}
+```
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code              | Severity | Condition                  |
+| :---------------- | :------- | :------------------------- |
+| `E-DISPATCH-0001` | Error    | Cross-iteration dependency |
+
+---
+
+## Clause 15: Async
+
+##### Definition
+
+**Futures**
+
+A **Future** represents a value that may not yet exist:
+
+```cursive
+trait Future {
+    type Output
+    procedure poll(~!, cx: unique WakerContext) -> Poll<Self::Output>
+}
+
+enum Poll<T> {
+    Ready { value: T },
+    Pending,
+}
+```
+
+##### Syntax & Declaration
+
+**Async Procedures**
+
+An `async` procedure returns a `Future` instead of executing immediately:
+
+```cursive
+async procedure fetch(url: Url) -> Response {
+    let conn = connect(url).await
+    conn.read_response().await
+}
+
+// Calling creates a future
+let future = fetch(url)
+
+// Awaiting drives it to completion
+let response = future.await
+```
+
+**The `.await` Operator**
+
+`.await` suspends the current task until a future completes:
+
+```cursive
+let response = http_get(url).await
+```
+
+**Critical property:** Keys are never held across `.await`.
+
+Each access is self-contained:
+
+```cursive
+let player: shared Player = ...
+
+parallel async(runtime) {
+    spawn {
+        player.health += 1            // Acquire key, modify, release
+        sleep(1.second).await         // Suspended — no keys held
+        player.health += 1            // Acquire key, modify, release
+    }
+}
+```
+
+##### Static Semantics
+
+**Async with Parallel**
+
+Async tasks use `parallel async(runtime)`:
+
+```cursive
+parallel async(runtime) {
+    spawn { fetch(url_a).await }
+    spawn { fetch(url_b).await }
+}
+```
+
+**Select**
+
+Wait on multiple futures, proceed with first to complete:
+
+```cursive
+select {
+    response = fetch(url).await => handle(response),
+    _ = timeout(5.seconds).await => handle_timeout(),
+}
+```
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code           | Severity | Condition                       |
+| :------------- | :------- | :------------------------------ |
+| `E-ASYNC-0001` | Error    | `.await` outside async context  |
+| `E-ASYNC-0002` | Error    | Blocking operation in async ctx |
+
+---
+
+## Clause 16: Synchronization Primitives
+
+### 16.1 Waiting
+
+##### Definition
+
+`wait` efficiently blocks until a condition becomes true, then executes an action atomically:
+
+```cursive
+wait <condition> then {
+    <body>
+}
+```
+
+**Semantics:**
+
+1. Acquire keys to paths in condition
+2. Evaluate condition
+3. If true: execute body with keys held, release keys, done
+4. If false:
+   - Register as waiter for these keys
+   - Release keys
+   - Sleep until any registered key is released by another task
+   - Goto 1
+
+##### Syntax & Declaration
+
+**Example:**
+```cursive
+let queue: shared Queue<T> = ...
+
+// Consumer waits for non-empty, then pops atomically
+wait !queue.items.is_empty() then {
+    let item = queue.items.pop()      // Guaranteed non-empty
+    process(item)
+}
+```
+
+**Plain Wait**
+
+`wait <condition>` without a body is sugar for `wait <condition> then { }`:
+
+```cursive
+wait shutdown_requested       // Wait for flag, then continue
+```
+
+**Wait with Timeout**
+
+```cursive
+if wait(timeout: 5.seconds) !queue.is_empty() then {
+    process(queue.pop())
+} else {
+    handle_timeout()
+}
+```
+
+##### Constraints & Legality
+
+**Wake Trigger**
+
+Waiters are triggered by **key release**, not modification notification:
+- When a task releases a key, all tasks waiting on that key are woken
+- Woken tasks re-acquire keys and re-evaluate their condition
+- If condition is still false, they return to waiting
+
+**Diagnostic Table**
+
+| Code          | Severity | Condition                 |
+| :------------ | :------- | :------------------------ |
+| `E-WAIT-0001` | Error    | `wait` on non-shared data |
+
+---
+
+### 16.2 Channels
+
+##### Definition
+
+Channels provide **ownership transfer** between tasks—a different paradigm from shared access:
+
+- **Keys:** Multiple tasks access shared data with synchronized access
+- **Channels:** Data moves from producer to consumer with no sharing
+
+```cursive
+let (tx, rx) = channel::<Data>()
+
+parallel {
+    spawn {
+        let data: unique Data = produce()
+        tx.send(move data)            // Ownership into channel
+    }
+
+    spawn {
+        let data: unique Data = rx.recv()   // Ownership out
+        consume(data)
+    }
+}
+```
+
+The data is `unique` throughout—never shared, never needs keys.
+
+##### Syntax & Declaration
+
+**Channel Types**
+
+*Unbounded:*
+```cursive
+let (tx, rx) = channel::<T>()
+// Grows as needed, send never blocks
+```
+
+*Bounded:*
+```cursive
+let (tx, rx) = channel::<T>(capacity)
+// send blocks when full
+```
+
+*Oneshot:*
+```cursive
+let (tx, rx) = oneshot::<T>()
+// Single value, single send
+```
+
+**Channel Operations**
+
+*Synchronous:*
+```cursive
+tx.send(move value)           // Block until sent (bounded) or enqueue (unbounded)
+let val = rx.recv()           // Block until received
+
+tx.try_send(move value)       // Non-blocking: Ok(()) or Err(Full)
+let opt = rx.try_recv()       // Non-blocking: Some(val) or None
+```
+
+*Async:*
+```cursive
+tx.send(move value).await     // Suspend until sent
+let val = rx.recv().await     // Suspend until received
+```
+
+---
+
+
+## Clause 17: Memory Ordering
+
+##### Definition
+
+**Default: Sequential Consistency**
+
+Key acquisition uses **acquire** semantics. Key release uses **release** semantics. Memory accesses default to **sequentially consistent** ordering.
+
+This provides the strongest guarantees—all tasks observe operations in a consistent global order.
+
+##### Syntax & Declaration
+
+**Relaxed Ordering**
+
+For performance-critical code, weaker orderings are available via annotation:
+
+```cursive
+#[relaxed]
+counter += 1
+
+#[acquire]
+let ready = flag
+
+#[release]
+flag = true
+```
+
+**Ordering Levels**
+
+| Ordering  | Guarantee                             |
+| :-------- | :------------------------------------ |
+| `relaxed` | Atomicity only—no ordering            |
+| `acquire` | Subsequent reads see prior writes     |
+| `release` | Prior writes visible to acquire reads |
+| `acq_rel` | Both acquire and release              |
+| `seq_cst` | Total global order (default)          |
+
+The annotation affects the memory operation, not the key synchronization. Keys always use acquire/release semantics.
+
+**Fence Operations**
+
+```cursive
+fence(acquire)       // Acquire fence
+fence(release)       // Release fence
+fence(seq_cst)       // Full barrier
+```
+
+---
+
+### 17.1 Implementation Model
+
+##### Definition
+
+**Zero-Cost Abstractions**
+
+Keys are a compile-time concept. Runtime cost occurs only when necessary:
+
+| Condition                              | Cost                          |
+| :------------------------------------- | :---------------------------- |
+| No concurrent access possible          | Zero—elided                   |
+| Single-threaded context                | Zero—elided                   |
+| Provably disjoint access               | Zero—parallel without sync    |
+| `const` permission                     | Zero—immutable                |
+| `unique` permission                    | Zero—exclusive                |
+| `dispatch` iteration-indexed access    | Zero—proven disjoint          |
+| Small primitive + potential contention | Atomic operation              |
+| Compound type + potential contention   | Reader-writer synchronization |
+
+**Key Implementation Strategy**
+
+When runtime synchronization is needed:
+
+| Data Type                   | Implementation               |
+| :-------------------------- | :--------------------------- |
+| Small primitive (≤ 8 bytes) | Atomic CAS / fetch-and-op    |
+| Struct field                | Per-field or single RwLock   |
+| Array (static index)        | Per-element or segment locks |
+| Array (dynamic index)       | Lock keyed by address        |
+| `#`-annotated boundary      | Single lock for subtree      |
+
+**Key state storage is implementation-defined.** Implementations document their strategy in the Conformance Dossier.
+
+##### Static Semantics
+
+**Key Elision Analysis**
+
+The compiler uses several analyses to prove key elision is safe:
+
+*Escape Analysis:*
+```cursive
+procedure local_only() {
+    let data: shared Data = Data { value: 0 }
+    data.value = 100
+}
+// data never escapes—elide all key operations
+```
+
+*Sequential Region Analysis:*
+```cursive
+region as r {
+    // No parallel block in this region
+    let data: shared Data = r^Data::new()
+    data.value = 100
+}
+// No concurrency possible—elide all key operations
+```
+
+*Disjoint Path Analysis:*
+```cursive
+parallel {
+    spawn { player.health = 100 }
+    spawn { player.mana = 50 }
+}
+// Paths are disjoint—elide key operations for both
+```
+
+---
+
+### Clause 13 Cross-Reference Notes `[INFORMATIVE]`
+
+**Terms defined in Clause 13 that MUST NOT be redefined elsewhere:**
+
+| Term                   | Section | Description                                     |
+| :--------------------- | :------ | :---------------------------------------------- |
+| Key                    | §13.2   | Runtime proof of access rights to shared path   |
+| Key Mode               | §13.2   | Read or Write access grant                      |
+| Key Coarsening         | §13.2   | The `#` annotation for explicit key granularity |
+| Parallel Block         | §13.3   | Structured concurrency primitive                |
+| Spawn                  | §13.3   | Task creation within parallel block             |
+| Structured Concurrency | §13.3   | Tasks complete before enclosing scope exits     |
+| Capture Semantics      | §13.4   | Rules for binding capture in tasks              |
+| Future                 | §13.5   | Deferred computation                            |
+| Dispatch               | §13.6   | Data-parallel iteration primitive               |
+| Channel                | §13.7   | Ownership-transferring communication            |
+| Wait Expression        | §13.8   | Condition-based blocking primitive              |
+
+**Terms referenced from other clauses:**
+
+| Term             | Source | Usage in Clause 13                     |
+| :--------------- | :----- | :------------------------------------- |
+| Permission Types | §4.5   | Govern capture and access semantics    |
+| Region           | §3.7   | Memory arena for region-allocated data |
+| Modal Types      | §4.8   | Task handle is a modal type            |
+
+---
+
+# Part 5: Advanced Features
+
+## Clause 18: Metaprogramming
 
 This clause defines the Cursive metaprogramming system. Cursive provides a deterministic, declarative code generation mechanism based on **compile-time execution**, **type introspection**, **quasiquoting**, and **explicit AST emission**. This system adheres to the **Two-Phase Compilation Model** defined in §2.12. Metaprogramming occurs strictly between the **Parsing** and **Semantic Analysis** phases.
 
@@ -12177,7 +13720,7 @@ Type errors in emitted code **MUST** be reported with a diagnostic trace pointin
 
 ##### Definition
 
-Conforming implementations **MUST** enforce the following minimum limits for compile-time execution to ensure portability.
+Conforming implementations **MUST** enforce the following minimum limits for compile-time execution to ensure portability. These compile-time specific limits supplement the general implementation limits defined in §1.4; see Appendix I for the complete normative limit values.
 
 ##### Constraints & Legality
 
@@ -12242,7 +13785,7 @@ Exceeding these limits **MUST** result in error `E-MET-3402`.
 
 ---
 
-## Clause 15: Interoperability
+## Clause 19: Interoperability
 
 This clause defines the Foreign Function Interface (FFI) mechanisms for interacting with code adhering to C-compatible Application Binary Interfaces (ABIs). It specifies extern declaration syntax, the safety boundary enforced by `unsafe` blocks, memory layout guarantees via representation attributes, and the strict categorization of types permitted across the language boundary.
 
@@ -12324,7 +13867,7 @@ Where $\mathcal{F}$ is the smallest set satisfying:
 
 The following types are expressly **excluded** from FFI signatures:
 
-- Permission-qualified references (`unique T`, `const T`, `partitioned T`, `concurrent T`)
+- Permission-qualified references (`unique T`, `const T`, `shared T`)
 - Slices (`[T]`)
 - Strings (`string`, `string@View`, `string@Owned`)
 - Closures (non-extern function types that capture environment)
@@ -12362,6 +13905,218 @@ $$
 | `E-FFI-3301` | Error    | Non-FFI-Safe type used in `extern` signature. |
 
 ---
+### 15.2.1 FFI String Types
+
+##### Definition
+
+**CString**
+
+`CString` is a null-terminated, heap-allocated byte sequence for C interoperability. It provides safe construction from Cursive strings and extraction of raw pointers for FFI calls.
+
+**CStr**
+
+`CStr` is a borrowed view of a null-terminated byte sequence, analogous to `string@View` but for C-compatible strings.
+
+##### Syntax & Declaration
+
+**Type Definitions**
+
+```cursive
+/// Owned null-terminated string for FFI.
+/// Implements Drop to deallocate when responsibility ends.
+record CString <: Drop [[layout(C)]] {
+    private ptr: *mut u8,
+    private len: usize,       // Length excluding null terminator
+    private cap: usize,       // Allocated capacity
+    
+    /// Creates a CString from a Cursive string view.
+    /// Allocates memory and copies content with null terminator.
+    /// Returns error if the string contains interior null bytes.
+    procedure from_string(
+        s: string@View,
+        heap: witness HeapAllocator
+    ) -> CString | NullByteError {
+        // Scan for interior null bytes
+        for byte in s~>bytes() {
+            if byte == 0u8 {
+                return NullByteError { position: /* index */ }
+            }
+        }
+        // Allocate len + 1 bytes for null terminator
+        let buffer = heap~>alloc::<u8>(s~>len() + 1)
+        // Copy string data and append null terminator
+        copy_bytes(s~>as_ptr(), buffer, s~>len())
+        buffer[s~>len()] = 0u8
+        CString { ptr: buffer, len: s~>len(), cap: s~>len() + 1 }
+    }
+    
+    /// Creates a CString from a Cursive string, replacing interior
+    /// nulls with a replacement character.
+    procedure from_string_lossy(
+        s: string@View,
+        heap: witness HeapAllocator
+    ) -> CString {
+        // Implementation: replace interior nulls with '?'
+    }
+    
+    /// Returns a raw pointer to the null-terminated content.
+    /// Valid for the lifetime of the CString.
+    procedure as_ptr(~) -> *imm u8 {
+        self.ptr as *imm u8
+    }
+    
+    /// Returns a mutable raw pointer.
+    /// Valid for the lifetime of the CString.
+    procedure as_mut_ptr(~!) -> *mut u8 {
+        self.ptr
+    }
+    
+    /// Converts to CStr view.
+    procedure as_cstr(~) -> CStr {
+        CStr { ptr: self.ptr as *imm u8, len: self.len }
+    }
+    
+    /// Consumes the CString and transfers ownership of the raw pointer.
+    /// Caller assumes responsibility for deallocation.
+    /// Drop is suppressed via intrinsic.
+    procedure into_raw(move self, heap: witness HeapAllocator) -> *mut u8 {
+        let ptr = self.ptr
+        intrinsic::forget(move self)  // Suppress destructor
+        ptr
+    }
+    
+    /// Reconstructs a CString from a raw pointer.
+    /// UNSAFE: ptr must have been created by into_raw() with matching len/cap.
+    unsafe procedure from_raw(ptr: *mut u8, len: usize, cap: usize) -> CString {
+        CString { ptr, len, cap }
+    }
+    
+    /// Returns the length in bytes (excluding null terminator).
+    procedure len(~) -> usize {
+        self.len
+    }
+    
+    /// Drop implementation: deallocates the underlying buffer.
+    procedure drop(~!, heap: witness HeapAllocator) {
+        heap~>dealloc::<u8>(self.ptr, self.cap)
+    }
+}
+
+/// Borrowed view of null-terminated C string.
+/// Does not own memory; no Drop implementation needed.
+record CStr [[layout(C)]] <: Copy {
+    private ptr: *imm u8,
+    private len: usize,       // Length excluding null terminator
+    
+    /// Creates a CStr from a raw pointer.
+    /// UNSAFE: ptr must point to a valid null-terminated string.
+    unsafe procedure from_ptr(ptr: *imm u8) -> CStr {
+        // Scan for null terminator to determine length
+        let len = c_strlen(ptr)
+        CStr { ptr, len }
+    }
+    
+    /// Creates a CStr from a pointer with known length.
+    /// UNSAFE: ptr must point to valid memory of at least len+1 bytes,
+    /// with a null terminator at position len.
+    unsafe procedure from_ptr_with_len(ptr: *imm u8, len: usize) -> CStr {
+        CStr { ptr, len }
+    }
+    
+    /// Returns the raw pointer.
+    procedure as_ptr(~) -> *imm u8 {
+        self.ptr
+    }
+    
+    /// Converts to a Cursive string view.
+    /// Returns error if content is not valid UTF-8.
+    procedure to_string(~) -> string@View | Utf8Error {
+        // Validate UTF-8 and create view
+    }
+    
+    /// Converts to a Cursive string, replacing invalid UTF-8.
+    procedure to_string_lossy(~) -> string@View {
+        // Implementation with replacement
+    }
+    
+    /// Returns the length in bytes (excluding null terminator).
+    procedure len(~) -> usize {
+        self.len
+    }
+}
+```
+
+**FFI-Safety**
+
+`*imm u8` and `*mut u8` are FFI-safe. The `CString` and `CStr` record types are **not** directly FFI-safe; use `as_ptr()` to obtain the raw pointer for FFI boundaries.
+
+##### Examples
+
+**Calling C Functions**
+
+```cursive
+extern "C" procedure puts(s: *imm u8) -> i32
+
+procedure print_message(msg: string@View, ctx: Context) {
+    let cstr = CString::from_string(msg, ctx.heap) match {
+        ok: CString => ok,
+        err: NullByteError => {
+            CString::from_string_lossy(msg, ctx.heap)
+        }
+    }
+    
+    unsafe {
+        puts(cstr~>as_ptr())
+    }
+}
+```
+
+**Receiving Strings from C**
+
+```cursive
+extern "C" procedure getenv(name: *imm u8) -> *imm u8
+
+procedure get_env_var(
+    name: string@View,
+    ctx: Context
+) -> string@Managed | EnvError | NullByteError | Utf8Error {
+    let name_c = CString::from_string(name, ctx.heap)?  // Propagates NullByteError
+    
+    let result_ptr = unsafe { getenv(name_c~>as_ptr()) }
+    
+    if result_ptr == null {
+        return EnvError::NotFound
+    }
+    
+    let cstr = unsafe { CStr::from_ptr(result_ptr) }
+    let value = cstr~>to_string()?  // Propagates Utf8Error
+    
+    // Copy to managed string (getenv result has static lifetime but we want owned)
+    string::from(value, ctx.heap)
+}
+```
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                         | Detection | Effect      |
+| :----------- | :------- | :------------------------------------------------ | :-------- | :---------- |
+| `E-FFI-3310` | Error    | Interior null byte in CString::from_string input. | Runtime   | Panic/Error |
+| `E-FFI-3311` | Error    | Invalid UTF-8 in CStr::to_string.                 | Runtime   | Panic/Error |
+
+---
+
+### Rationale
+
+The review correctly identified the lack of FFI string helpers as a gap. This addition:
+
+1. **Provides safe abstractions** — `CString`/`CStr` handle the complexity of null termination
+2. **Maintains capability discipline** — Allocation requires `HeapAllocator` witness
+3. **Follows FFI patterns** — Similar to Rust's `std::ffi::CString`/`CStr`
+
+---
+
 
 ### 15.3 Type Representation
 
@@ -12602,12 +14357,12 @@ When `[[unwind(catch)]]` is specified:
 
 | Term   | Deferred To | Reason                                         |
 | :----- | :---------- | :--------------------------------------------- |
-| (none) | -           | Clause 12 is terminal for FFI/interoperability |
+| (none) | -           | Clause 15 is terminal for FFI/interoperability |
 
 ---
 
-## Appendices
-### Appendix A: Formal Grammar (ANTLR)
+# Appendices
+## Appendix A: Formal Grammar (ANTLR)
 
   <u>Definition</u>
     Complete normative grammar for Cursive in ANTLR4 format. This grammar defines all lexical and syntactic productions required to parse valid Cursive source code.
@@ -12628,7 +14383,7 @@ When `[[unwind(catch)]]` is specified:
   <u>Examples</u>
     Complete ANTLR4 grammar suitable for parser generators. Includes all production rules from top-level `sourceFile` to terminal tokens.
 
-### Appendix B: Diagnostic Code Taxonomy
+## Appendix B: Diagnostic Code Taxonomy
 
 This appendix defines the normative taxonomy for compiler diagnostics. All conforming implementations **MUST** use these codes when reporting the corresponding conditions to ensure consistent error reporting across toolchains.
 
@@ -12777,7 +14532,7 @@ The following tables list all diagnostic codes required by this specification, o
 | `E-TYP-1505` | Error    | Missing required top-level type annotation.             |
 | `E-TYP-1601` | Error    | Attempt to mutate data via a `const` reference.         |
 | `E-TYP-1602` | Error    | Violation of `unique` exclusion (aliasing detected).    |
-| `E-TYP-1603` | Error    | Partitioning system violation.                          |
+| `E-TYP-1603` | Error    | Key disjointness violation.                             |
 | `W-TYP-1701` | Warning  | `f16` arithmetic may be emulated and slow.              |
 | `E-TYP-1801` | Error    | Tuple or Array index out of bounds.                     |
 | `E-TYP-2151` | Panic    | String slice boundary is not a valid `char` boundary.   |
@@ -12821,7 +14576,7 @@ The following tables list all diagnostic codes required by this specification, o
 | `E-EXP-2571` | Error    | Incompatible types in `match` arms.                   |
 | `E-EXP-2582` | Error    | Mismatched types in `loop` `break` values.            |
 | `E-EXP-2591` | Error    | Returning region-allocated value from `region` block. |
-| `E-EXP-2592` | Error    | `parallel` result depends on invalidated binding.     |
+| `E-EXP-2592` | Error    | Pool region result depends on invalidated binding.    |
 | `E-STM-2631` | Error    | Assignment target is not a place.                     |
 | `E-STM-2651` | Error    | `defer` block returns non-unit value.                 |
 | `E-STM-2652` | Error    | Non-local control flow (return/break) in `defer`.     |
@@ -12829,7 +14584,7 @@ The following tables list all diagnostic codes required by this specification, o
 | `E-STM-2662` | Error    | `break` used outside loop.                            |
 | `E-STM-2663` | Error    | `continue` used outside loop.                         |
 | `E-STM-2664` | Error    | `result` value mismatch with block type.              |
-| `E-STM-2671` | Error    | `partition` proof verification failed.                |
+| `E-STM-2671` | Error    | Lens disjointness proof verification failed.          |
 
 ##### B.3.6 PAT (Patterns)
 
@@ -12841,17 +14596,28 @@ The following tables list all diagnostic codes required by this specification, o
 
 ##### B.3.7 CON (Contracts & Concurrency)
 
-| Code         | Severity | Description                                                              |
-| :----------- | :------- | :----------------------------------------------------------------------- |
-| `E-CON-2801` | Error    | Static contract verification failed.                                     |
-| `E-CON-2802` | Error    | Impure/Unsafe expression in contract.                                    |
-| `E-CON-2803` | Error    | Liskov violation: Precondition strengthened.                             |
-| `E-CON-2804` | Error    | Liskov violation: Postcondition weakened.                                |
-| `E-CON-2805` | Error    | `@entry` applied to non-Copy/Clone type.                                 |
-| `E-CON-2806` | Error    | `@result` used outside `will` clause.                                    |
-| `E-CON-3201` | Error    | Thread Safety: Capturing `partitioned` binding in concurrency primitive. |
-| `E-CON-3202` | Error    | Static Join violation: `JobHandle` not joined in `parallel`.             |
-| `E-CON-3203` | Error    | Spawn capture violation (e.g. `unique` not moved).                       |
+| Code              | Severity | Description                                             |
+| :---------------- | :------- | :------------------------------------------------------ |
+| `E-CON-2801`      | Error    | Static contract verification failed.                    |
+| `E-CON-2802`      | Error    | Impure/Unsafe expression in contract.                   |
+| `E-CON-2803`      | Error    | Liskov violation: Precondition strengthened.            |
+| `E-CON-2804`      | Error    | Liskov violation: Postcondition weakened.               |
+| `E-CON-2805`      | Error    | `@entry` applied to non-Copy/Clone type.                |
+| `E-CON-2806`      | Error    | `@result` used outside `will` clause.                   |
+| `E-KEY-0001`      | Error    | Access to shared path without key context.              |
+| `E-KEY-0010`      | Error    | Potential key conflict on dynamic indices.              |
+| `E-KEY-0020`      | Error    | `#` annotation on method call.                          |
+| `E-KEY-0030`      | Error    | Redundant `#` (already at boundary).                    |
+| `E-SPAWN-0001`    | Error    | `spawn` outside `parallel` block.                       |
+| `E-SPAWN-0002`    | Error    | Captured reference outlives task.                       |
+| `E-SPAWN-0003`    | Error    | Cannot capture downgraded reference outside structured. |
+| `E-SPAWN-0004`    | Error    | `detach` prohibited inside `parallel` block.            |
+| `E-ASYNC-0001`    | Error    | `.await` outside async context.                         |
+| `E-ASYNC-0002`    | Error    | Blocking operation in async context.                    |
+| `E-DISPATCH-0001` | Error    | Cross-iteration dependency in dispatch.                 |
+| `E-WAIT-0001`     | Error    | `wait` on non-shared data.                              |
+| `W-KEY-0001`      | Warning  | Fine-grained keys in tight loop.                        |
+| `W-KEY-0002`      | Warning  | Redundant key acquisition (covered by held key).        |
 
 ##### B.3.8 TRS (Traits)
 
@@ -12868,23 +14634,19 @@ The following tables list all diagnostic codes required by this specification, o
 
 ##### B.3.9 MEM (Memory & Safety)
 
-| Code         | Severity | Description                                         |
-| :----------- | :------- | :-------------------------------------------------- |
-| `E-MEM-3001` | Error    | Use of moved value.                                 |
-| `E-MEM-3002` | Error    | Access to binding in Uninitialized state.           |
-| `E-MEM-3003` | Error    | Reassignment of immutable binding.                  |
-| `E-MEM-3004` | Error    | Partial move from `const` or `partitioned` binding. |
-| `E-MEM-3005` | Error    | Explicit call to destructor.                        |
-| `E-MEM-3006` | Error    | Attempt to move from immovable binding (`:=`).      |
-| `E-MEM-3010` | Error    | Static record partition conflict.                   |
-| `E-MEM-3012` | Error    | Partition contract proof failed (Static).           |
-| `P-MEM-3013` | Panic    | Dynamic partition check failed (Runtime).           |
-| `E-MEM-3014` | Error    | Expression not reducible to Canonical Linear Form.  |
-| `E-MEM-3020` | Error    | Region pointer escape.                              |
-| `E-MEM-3021` | Error    | Region allocation `^` outside region scope.         |
-| `E-MEM-3022` | Error    | Caret depth exceeds region nesting depth.           |
-| `E-MEM-3030` | Error    | Unsafe operation in safe code.                      |
-| `E-MEM-3031` | Error    | `transmute` size mismatch.                          |
+| Code         | Severity | Description                                    |
+| :----------- | :------- | :--------------------------------------------- |
+| `E-MEM-3001` | Error    | Use of moved value.                            |
+| `E-MEM-3002` | Error    | Access to binding in Uninitialized state.      |
+| `E-MEM-3003` | Error    | Reassignment of immutable binding.             |
+| `E-MEM-3004` | Error    | Partial move from `const` binding.             |
+| `E-MEM-3005` | Error    | Explicit call to destructor.                   |
+| `E-MEM-3006` | Error    | Attempt to move from immovable binding (`:=`). |
+| `E-MEM-3020` | Error    | Region pointer escape.                         |
+| `E-MEM-3021` | Error    | Region allocation `^` outside region scope.    |
+| `E-MEM-3022` | Error    | Caret depth exceeds region nesting depth.      |
+| `E-MEM-3030` | Error    | Unsafe operation in safe code.                 |
+| `E-MEM-3031` | Error    | `transmute` size mismatch.                     |
 
 ##### B.3.10 FFI (Interoperability)
 
@@ -12906,7 +14668,7 @@ The following tables list all diagnostic codes required by this specification, o
 | `E-MET-3405` | Error    | Emitted AST failed type checking.                 |
 | `E-MET-3406` | Error    | `emit` called without capability.                 |
 
-### Appendix C: Conformance Dossier Schema
+## Appendix C: Conformance Dossier Schema
 
 This appendix defines the normative JSON Schema for the Conformance Dossier. A conforming implementation **MUST** produce a JSON artifact matching this schema when the `dossier` emission phase is active.
 
@@ -13021,7 +14783,7 @@ The dossier **MUST** be a valid JSON document encoded in UTF-8.
 }
 ```
 
-### Appendix D: Standard Trait Catalog
+## Appendix D: Standard Trait Catalog
 
 This appendix provides normative definitions for foundational traits and system capability traits built into Cursive or its core library.
 
@@ -13034,7 +14796,6 @@ This appendix provides normative definitions for foundational traits and system 
     *   `Copy`: Marker trait for implicit bitwise duplication
     *   `Clone`: `procedure clone(~): Self` - explicit deep copy
 
-    **Note on `concurrent` Permission**: Thread safety for the `concurrent` permission is not governed by a marker trait. Instead, types opt-in to `concurrent` access by providing methods that accept `concurrent self` (or `~|`). Types like `Mutex<T>` and `Atomic<T>` support `concurrent` because they provide synchronized methods. See §4.5 for full semantics.
     
     **System Capability Traits** (§D.2):
     *   `FileSystem`:
@@ -13053,7 +14814,6 @@ This appendix provides normative definitions for foundational traits and system 
         -   `exit(code: i32): !`
         -   `get_env(key: string@View): string`
         -   `spawn<T>(closure: () -> T): Thread<T>@Spawned` (Concurrency Path 2)
-        -   `create_mutex<T>(value: T): Mutex<T>@Unlocked` (Concurrency Path 2)
         -   `time(): Timestamp`
     *   `Time`: Monotonic time access with `now(): Timestamp` procedure
   
@@ -13078,7 +14838,7 @@ This appendix provides normative definitions for foundational traits and system 
   <u>Examples</u>
     Complete trait signatures must be provided for: Drop, Copy, Clone, HeapAllocator, FileSystem, Network, Time, System (which implements Time and provides `exit`, `get_env`).
 
-### Appendix E: Core Library Specification
+## Appendix E: Core Library Specification
 
   <u>Definition</u>
     Minimal normative definitions for core types assumed to be available by the language without explicit import.
@@ -13103,7 +14863,7 @@ This appendix provides normative definitions for foundational traits and system 
   
 
 
-### Appendix F: Implementation Guide (Informative)
+## Appendix F: Implementation Guide (Informative)
 
 **Note**: This appendix provides non-normative guidance for compiler implementers.
 
@@ -13222,9 +14982,9 @@ This appendix provides normative definitions for foundational traits and system 
 
   <u>Design Note</u>
 
-  The tilde (`~`) was chosen for receiver syntax based on its mnemonic association with "home" in Unix systems—representing the method's "home" (the receiver instance). The shorthand forms (`~!`, `~%`, `~|`) extend this metaphor while providing visual distinction for permission-qualified receivers.
+  The tilde (`~`) was chosen for receiver syntax based on its mnemonic association with "home" in Unix systems—representing the method's "home" (the receiver instance). The shorthand forms (`~!`, `~%`) extend this metaphor while providing visual distinction for permission-qualified receivers.
 
-### Appendix G: Behavior Classification Index (Normative)
+## Appendix G: Behavior Classification Index (Normative)
 
 This appendix provides an index of behaviors by classification. Definitions for each classification (Defined, IDB, USB, UVB) are in §1.2.
 
@@ -13252,17 +15012,16 @@ This appendix provides an index of behaviors by classification. Definitions for 
 
 *   Integer Overflow (Checked Mode)
 *   Array/Slice Bounds Check
-*   **Dynamic Partition Overlap** (`[[verify(dynamic)]]`)
+*   **Dynamic Lens Overlap** (`[[verify(dynamic)]]`)
 
-### Appendix H: Formal Core Semantics (Normative)
+## Appendix H: Formal Core Semantics (Normative)
 
 This appendix defines the **Cursive Core Calculus**, a simplified formal model of the language's memory and permission system. Implementations **MUST** preserve the safety properties defined here.
 
-> **Scope Note:** This appendix formalizes the core memory and permission system for `unique`, `const`, and `partitioned` permissions. The `concurrent` permission and synchronization primitives (`Mutex`, `Atomic`) require additional formalization involving temporal logic and are not covered by this calculus. Implementations MUST preserve the safety properties defined here; the `concurrent` permission's safety properties are specified operationally in §4.5.3 and §10.
 
 #### H.1 Syntax of the Core
 
-$$\begin{aligned} v &::= \ell \mid \text{const } \ell \mid \text{null} \\ e &::= v \mid \text{let } x = e \text{ in } e \mid x \mid x.f \mid x.f \leftarrow v \mid \text{fork}(e) \\ \tau &::= \text{const } T \mid \text{unique } T \mid \text{partitioned } T \quad \text{(concurrent omitted; see Scope Note)} \end{aligned}$$
+$$\begin{aligned} v &::= \ell \mid \text{const } \ell \mid \text{null} \\ e &::= v \mid \text{let } x = e \text{ in } e \mid x \mid x.f \mid x.f \leftarrow v \mid \text{spawn}(e) \\ \tau &::= \text{const } T \mid \text{unique } T \quad \text{(shared omitted; see Scope Note)} \end{aligned}$$
 
 #### H.2 Operational Semantics (Small-Step)
 
@@ -13286,10 +15045,10 @@ If $\vdash e : \tau$ and $(H, e) \longrightarrow (H', e')$, then $\vdash e' : \t
 Implication: Operations never violate the permission rules defined in Part 4\.  
 
 ##### Theorem 3: Data Race Freedom
-If $\Gamma \vdash e : \text{well-formed}$, and $e$ contains fork, no two threads can access location $\ell$ simultaneously unless both accesses are Reads.  
+If $\Gamma \vdash e : \text{well-formed}$, and $e$ contains spawn, no two threads can access location $\ell$ simultaneously unless both accesses are Reads.  
 _Proof Sketch:_ The unique permission ($\ell$) cannot be duplicated. The const permission ($\text{const } \ell$) allows duplication but removes the Write Rule from the set of valid reductions for that value.
 
-### Appendix I: Implementation Limits (Normative)
+## Appendix I: Implementation Limits (Normative)
 
 This appendix defines the minimum guaranteed capacities that all conforming implementations MUST support. Programs exceeding these limits are ill-formed (§1.4).
 
@@ -13305,20 +15064,21 @@ This appendix defines the minimum guaranteed capacities that all conforming impl
 
 ---
 
-### Appendix J: Diagnostic Code Cross-Reference (Informative)
+## Appendix J: Diagnostic Code Cross-Reference (Informative)
 
 This appendix provides a cross-reference of diagnostic codes that may be triggered by related or identical program violations across different specification clauses.
 
 #### J.1 Permission and Memory Model Diagnostics
 
-| Clauses 4-6 (Types) | Clause 3 (Memory)          | Violation Category                      |
-| :------------------ | :------------------------- | :-------------------------------------- |
-| `E-TYP-1601`        | `E-MEM-3003`               | Mutation through immutable binding/path |
-| `E-TYP-1602`        | `E-MEM-3040`               | Unique permission exclusion             |
-| `E-TYP-1603`        | `E-MEM-3010`, `E-MEM-3041` | Partition conflict/overlap              |
-| `E-TYP-1604`        | —                          | Concurrent direct field mutation        |
-| `E-TYP-1511`        | —                          | Implicit permission upgrade             |
-| `E-TYP-1512`        | `E-MEM-3042`               | Sibling permission coercion             |
+| Clauses 4-6 (Types) | Clause 3 (Memory) | Clause 13 (Concurrency) | Violation Category                      |
+| :------------------ | :---------------- | :---------------------- | :-------------------------------------- |
+| `E-TYP-1601`        | `E-MEM-3003`      | —                       | Mutation through immutable binding/path |
+| `E-TYP-1602`        | `E-MEM-3040`      | —                       | Unique permission exclusion             |
+| `E-TYP-1604`        | —                 | `E-KEY-0001`            | shared access without key               |
+| —                   | —                 | `E-KEY-0010`            | Dynamic index key conflict              |
+| —                   | —                 | `E-DISPATCH-0001`       | Cross-iteration dependency              |
+| `E-TYP-1511`        | —                 | —                       | Implicit permission upgrade             |
+| `E-TYP-1512`        | `E-MEM-3042`      | —                       | Sibling permission coercion             |
 
 #### J.1.1 Modal Type Diagnostics
 
@@ -13338,11 +15098,11 @@ This appendix provides a cross-reference of diagnostic codes that may be trigger
 
 #### J.2 Move and Binding State Diagnostics
 
-| Clause 3 (Memory) | Clauses 4-7 (Types) | Violation Category                  |
-| :---------------- | :------------------ | :---------------------------------- |
-| `E-MEM-3001`      | —                   | Access to moved binding             |
-| `E-MEM-3006`      | —                   | Move from immovable binding         |
-| `E-MEM-3004`      | —                   | Partial move from const/partitioned |
+| Clause 3 (Memory) | Clauses 4-7 (Types) | Violation Category          |
+| :---------------- | :------------------ | :-------------------------- |
+| `E-MEM-3001`      | —                   | Access to moved binding     |
+| `E-MEM-3006`      | —                   | Move from immovable binding |
+| `E-MEM-3004`      | —                   | Partial move from const     |
 
 #### J.3 Implementation Guidance
 
@@ -13350,7 +15110,7 @@ When multiple diagnostic codes apply to the same violation:
 
 1. Implementations MUST emit the **canonical** diagnostic. Type system diagnostics (`E-TYP-xxxx`) are canonical; memory model diagnostics (`E-MEM-xxxx`) are secondary and MAY be emitted in addition to, but not instead of, the canonical diagnostic.
 2. Implementations MAY additionally emit secondary diagnostics if they provide distinct information (e.g., different source location granularity).
-3. Implementations SHOULD prefer more specific diagnostics within a clause (e.g., `E-TYP-1604` over `E-TYP-1601` for concurrent field mutation).
+3. Implementations SHOULD prefer more specific diagnostics within a clause (e.g., `E-TYP-1604` over `E-TYP-1601` for shared field mutation).
 
 #### J.4 Diagnostic Severity Legend
 
@@ -13362,43 +15122,49 @@ When multiple diagnostic codes apply to the same violation:
 
 ---
 
-### Appendix K: Diagnostic Code Registry (Normative)
+## Appendix K: Diagnostic Code Registry (Normative)
 
 This appendix provides the authoritative allocation of diagnostic code ranges to prevent conflicts across specification clauses.
 
 #### K.1 Code Range Allocation
 
-| Prefix   | Range         | Clause/Domain                           |
-| :------- | :------------ | :-------------------------------------- |
-| `E-CNF-` | 0100–0299     | Clause 1: Conformance (general)         |
-| `E-CNF-` | 0300–0399     | Clause 1: Implementation Limits         |
-| `E-SRC-` | 0100–0399     | Clause 2: Source Text & Lexical         |
-| `E-SYN-` | 0100–0199     | Clause 2: Syntactic Nesting             |
-| `E-MEM-` | 3000–3099     | Clause 3: Memory Model                  |
-| `E-TYP-` | 1500–1599     | Clause 4: Type System Foundations       |
-| `E-TYP-` | 1600–1699     | Clause 4: Permission System             |
-| `E-TYP-` | 1700–1799     | Clause 5: Primitive Types               |
-| `E-TYP-` | 1800–1849     | Clause 5: Composite Types (Tuple/Array) |
-| `E-TYP-` | 1850–1899     | Clause 5: Composite Types (Slice/Range) |
-| `E-TYP-` | 1900–1949     | Clause 5: Records                       |
-| `E-TYP-` | 1950–1999     | Clause 5: Enums                         |
-| `E-TYP-` | 2000–2049     | Clause 5: Union Types                   |
-| `E-TYP-` | 2050–2099     | Clause 6: Modal Types                   |
-| `E-TYP-` | 2100–2149     | Clause 6: Pointer Types                 |
-| `E-TYP-` | 2150–2199     | Clause 6: String Type                   |
-| `E-TYP-` | 2200–2249     | Clause 6: Function Types                |
-| `E-TYP-` | 2300–2399     | Clause 7: Generics                      |
-| `E-DEC-` | 2400–2499     | Clause 8: Declarations                  |
-| `E-NAM-` | 1300–1399     | Clause 9: Name Resolution               |
-| `E-EXP-` | 2500–2599     | Clause 11: Expressions                  |
-| `E-STM-` | 2630–2639     | Clause 11: Assignment Statements        |
-| `E-STM-` | 2650–2659     | Clause 11: Defer Statements             |
-| `E-STM-` | 2660–2669     | Clause 11: Control Flow Statements      |
-| `E-PAT-` | 2710–2759     | Clause 11: Patterns                     |
-| `E-TRS-` | 2900–2999     | Clause 9: Traits                        |
-| `E-CON-` | 3200–3299     | Clause 12: Concurrency                  |
-| `P-`     | (same ranges) | Runtime Panics (use domain prefix)      |
-| `W-`     | (same ranges) | Warnings (use domain prefix)            |
+| Prefix        | Range         | Clause/Domain                           |
+| :------------ | :------------ | :-------------------------------------- |
+| `E-CNF-`      | 0100–0299     | Clause 1: Conformance (general)         |
+| `E-CNF-`      | 0300–0399     | Clause 1: Implementation Limits         |
+| `E-SRC-`      | 0100–0399     | Clause 2: Source Text & Lexical         |
+| `E-SYN-`      | 0100–0199     | Clause 2: Syntactic Nesting             |
+| `E-MEM-`      | 3000–3099     | Clause 3: Memory Model                  |
+| `E-TYP-`      | 1500–1599     | Clause 4: Type System Foundations       |
+| `E-TYP-`      | 1600–1699     | Clause 4: Permission System             |
+| `E-TYP-`      | 1700–1799     | Clause 5: Primitive Types               |
+| `E-TYP-`      | 1800–1849     | Clause 5: Composite Types (Tuple/Array) |
+| `E-TYP-`      | 1850–1899     | Clause 5: Composite Types (Slice/Range) |
+| `E-TYP-`      | 1900–1949     | Clause 5: Records                       |
+| `E-TYP-`      | 1950–1999     | Clause 5: Enums                         |
+| `E-TYP-`      | 2000–2049     | Clause 5: Union Types                   |
+| `E-TYP-`      | 2050–2099     | Clause 6: Modal Types                   |
+| `E-TYP-`      | 2100–2149     | Clause 6: Pointer Types                 |
+| `E-TYP-`      | 2150–2199     | Clause 6: String Type                   |
+| `E-TYP-`      | 2200–2249     | Clause 6: Function Types                |
+| `E-TYP-`      | 2300–2399     | Clause 7: Generics                      |
+| `E-DEC-`      | 2400–2499     | Clause 8: Declarations                  |
+| `E-NAM-`      | 1300–1399     | Clause 9: Name Resolution               |
+| `E-EXP-`      | 2500–2599     | Clause 11: Expressions                  |
+| `E-STM-`      | 2630–2639     | Clause 11: Assignment Statements        |
+| `E-STM-`      | 2650–2659     | Clause 11: Defer Statements             |
+| `E-STM-`      | 2660–2669     | Clause 11: Control Flow Statements      |
+| `E-PAT-`      | 2710–2759     | Clause 11: Patterns                     |
+| `E-TRS-`      | 2900–2999     | Clause 9: Traits                        |
+| `E-CON-`      | 3200–3299     | Clause 12: Contracts                    |
+| `E-KEY-`      | 0001–0099     | Clause 13: Key System                   |
+| `E-SPAWN-`    | 0001–0099     | Clause 13: Task Spawning                |
+| `E-ASYNC-`    | 0001–0099     | Clause 13: Async Operations             |
+| `E-DISPATCH-` | 0001–0099     | Clause 13: Data Parallelism             |
+| `E-WAIT-`     | 0001–0099     | Clause 13: Wait Expressions             |
+| `W-KEY-`      | 0001–0099     | Clause 13: Key Warnings                 |
+| `P-`          | (same ranges) | Runtime Panics (use domain prefix)      |
+| `W-`          | (same ranges) | Warnings (use domain prefix)            |
 
 #### K.2 Reserved Ranges
 
