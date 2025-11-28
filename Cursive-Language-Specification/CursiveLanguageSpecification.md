@@ -4185,40 +4185,6 @@ match e {
 
 Where $T_s$ is the success type and $T_e$ ranges over all propagating types.
 
-##### Examples
-
-**Basic Error Propagation**
-
-```cursive
-procedure read_config(path: string) -> Config | IoError {
-    let content: string | IoError = read_file(path)
-    let config: Config | ParseError = parse(content?)  // Propagates IoError
-    // Note: ParseError is not compatible with return type — would need handling
-    config
-}
-```
-
-**Multiple Error Types**
-
-```cursive
-procedure process(path: string) -> Result | IoError | ParseError | ValidationError {
-    let content = read_file(path)?           // string | IoError → string
-    let parsed = parse(content)?             // Data | ParseError → Data
-    let validated = validate(parsed)?        // Result | ValidationError → Result
-    validated
-}
-```
-
-**Chained Propagation**
-
-```cursive
-procedure fetch_user(id: UserId) -> User | DbError | NotFound {
-    let conn = db~>connect()?                // Connection | DbError
-    let row = conn~>query("SELECT ...", id)? // Row | DbError | NotFound
-    User::from_row(row)?                     // User | ParseError — ERROR if ParseError not in return
-}
-```
-
 ##### Constraints & Legality
 
 **Negative Constraints**
@@ -10373,7 +10339,7 @@ A cast is well-formed if and only if the source-target type pair is in one of th
 
 ‡ Pointer-integer casts are permitted only within `unsafe` blocks.
 
-§ Enum-to-integer casts are valid only when the enum has an explicit `#[repr(intN)]` attribute.
+§ Enum-to-integer casts are valid only when the enum has an explicit `[[repr(intN)]]` attribute.
 
 †† Panics if the value is not a valid Unicode scalar value or exceeds the target range.
 
@@ -10426,7 +10392,7 @@ Large integers that cannot be exactly represented are rounded to the nearest rep
 | :----------- | :------- | :----------------------------------------------- | :----------- | :-------- |
 | `E-EXP-2571` | Error    | Cast between incompatible types.                 | Compile-time | Rejection |
 | `E-EXP-2572` | Error    | Pointer-integer cast outside `unsafe` block.     | Compile-time | Rejection |
-| `E-EXP-2573` | Error    | Enum cast without `#[repr]` attribute.           | Compile-time | Rejection |
+| `E-EXP-2573` | Error    | Enum cast without `[[repr]]` attribute.          | Compile-time | Rejection |
 | `E-EXP-2574` | Error    | Cast of non-`@Valid` pointer to raw pointer.     | Compile-time | Rejection |
 | `P-EXP-2580` | Panic    | Float-to-integer cast overflow or NaN.           | Runtime      | Panic     |
 | `P-EXP-2581` | Panic    | `u32 as char` with invalid Unicode scalar value. | Runtime      | Panic     |
@@ -11584,8 +11550,63 @@ $$\text{Key} ::= (\text{Path}, \text{Mode}, \text{Scope})$$
 | Component | Type                            | Description                                     |
 | :-------- | :------------------------------ | :---------------------------------------------- |
 | Path      | $\text{PathExpr}$               | The memory location being accessed              |
-| Mode      | $\{\text{Read}, \text{Write}\}$ | The access grant (see §13.2.1.2)                |
+| Mode      | $\{\text{Read}, \text{Write}\}$ | The access grant (see §13.1.2)                  |
 | Scope     | $\text{LexicalScope}$           | The lexical scope during which the key is valid |
+
+**Program Point**
+
+A **Program Point** is a unique location in the abstract control flow representation of a procedure body at which the compiler tracks state.
+
+$$\text{ProgramPoint} ::= (\text{ProcedureId}, \text{CFGNodeId})$$
+
+where:
+- $\text{ProcedureId}$ uniquely identifies the enclosing procedure
+- $\text{CFGNodeId}$ uniquely identifies a node in that procedure's control flow graph
+
+Program points are partially ordered by control flow reachability: $p_1 \leq_{cf} p_2$ if and only if $p_2$ is reachable from $p_1$ via zero or more control flow edges.
+
+**Lexical Scope**
+
+A **Lexical Scope** is a contiguous region of source text that defines a lifetime boundary for keys.
+
+$$\text{LexicalScope} ::= (\text{EntryPoint}, \text{ExitPoint}, \text{Parent}?)$$
+
+where:
+- $\text{EntryPoint}$ is the program point where the scope begins
+- $\text{ExitPoint}$ is the program point where the scope ends
+- $\text{Parent}$ is the immediately enclosing scope (absent for procedure-level scope)
+
+**Scope Hierarchy**
+
+Lexical scopes form a forest of trees, with one tree per procedure, rooted at procedure scope. A scope $S_1$ is **nested within** $S_2$ (written $S_1 \sqsubset S_2$) if $S_2$ is an ancestor of $S_1$ in this tree.
+
+**Scope-Introducing Constructs**
+
+| Construct         | Scope Entry              | Scope Exit                |
+| :---------------- | :----------------------- | :------------------------ |
+| Procedure body    | Opening `{`              | Closing `}` or `return`   |
+| Block expression  | Opening `{`              | Closing `}`               |
+| `if` branch       | Branch entry             | Branch exit               |
+| `match` arm       | Arm entry                | Arm exit                  |
+| `loop` body       | Body entry               | Body exit (per iteration) |
+| `#path { }` block | Opening `{`              | Closing `}`               |
+| `defer` block     | Deferred execution start | Deferred execution end    |
+
+**Key State Context**
+
+The compiler MUST track key state at each program point using a key state context:
+
+$$\Gamma_{\text{keys}} : \text{ProgramPoint} \to \mathcal{P}(\text{Key})$$
+
+This mapping associates each program point with the set of keys logically held at that point.
+
+**Held Predicate**
+
+A key is **held** at a program point if it is a member of the key state context at that point:
+
+$$\text{Held}(P, M, S, \Gamma_{\text{keys}}, p) \iff (P, M, S) \in \Gamma_{\text{keys}}(p)$$
+
+When the program point is clear from context, we write $\text{Held}(P, M, \Gamma_{\text{keys}})$ or simply $\text{Held}(P, M)$.
 
 **Compile-Time vs. Runtime**
 
@@ -11654,7 +11675,7 @@ A path expression $P = p_1.p_2.\ldots.p_n$ is **well-formed** if and only if:
 2. For each subsequent segment $p_i$ ($i > 1$):
    - If $p_i$ is a field access, $T_{i-1}$ has a field named $p_i$ with type $T_i$
    - If $p_i$ is an index access $[e]$, $T_{i-1}$ is an array or slice type with element type $T_i$, and $e$ has type `usize`
-3. At most one `#` marker appears in the entire path (see §13.2.4)
+3. At most one `#` marker appears in the entire path (see §13.4)
 
 **(WF-Path)**
 $$\frac{
@@ -11675,9 +11696,65 @@ $$\frac{
     \Gamma \vdash p_1.p_2.\ldots.p_n : P\ T_n
 }$$
 
-Key analysis is performed if and only if the path permission is `shared`. Paths with `const` or `unique` permission require no key analysis (they are statically safe by the permission system).
+**Key Analysis Applicability**
+
+Key analysis is performed if and only if the path permission is `shared`:
+
+$$\text{RequiresKeyAnalysis}(P) \iff \text{Permission}(P) = \texttt{shared}$$
+
+Paths with `const` or `unique` permission require no key analysis (they are statically safe by the permission system defined in §4.5).
+
+**Key Path Determination for Method Calls**
+
+When a path expression includes a method call, the key path is determined by the method's return type and receiver:
+
+1. If the method returns a reference into the receiver's data (e.g., a field accessor), the key path extends through the method call to the returned reference's target.
+
+2. If the method returns an independent value (not a reference into the receiver), the returned value is a fresh binding and key analysis applies to accesses on that binding independently.
+
+3. For method chaining on `shared` data, each method call in the chain is analyzed for its receiver permission. If a method requires `unique` or write access to its receiver, the key path MUST include the receiver with Write mode.
+
+**(K-Method-Call-Path)**
+$$\frac{
+    \Gamma \vdash e.\text{method}() : \texttt{shared}\ T \quad
+    \text{method returns reference into } e
+}{
+    \text{KeyPath}(e.\text{method}().f) = \text{KeyPath}(e) \cup \{f\}
+}$$
+
+> **Note:** Method calls that return owned values (not references) create new bindings. Key analysis for subsequent accesses on such values is independent of the original receiver's key state.
+
+##### Memory & Layout
+
+**Compile-Time Representation**
+
+Keys have no runtime representation when statically proven safe. The compiler tracks key state in $\Gamma_{\text{keys}}$ during type checking as an abstract data structure with no physical manifestation.
+
+**Runtime Representation (When Required)**
+
+When runtime synchronization is necessary, key metadata representation is Implementation-Defined Behavior (IDB). Implementations MUST document in the Conformance Dossier:
+
+1. Whether synchronization metadata is stored inline within `shared` values or in external data structures
+2. Size overhead per `shared` value, if any
+3. Lock table or hash table organization, if used
+4. Memory ordering guarantees for metadata access
+
+**ABI Guarantees**
+
+| Aspect                          | Guarantee                                           |
+| :------------------------------ | :-------------------------------------------------- |
+| Key metadata presence           | IDB — may or may not exist at runtime               |
+| Key metadata layout             | IDB — not observable by conforming programs         |
+| `shared T` vs `unique T` layout | MAY be identical when statically safe               |
+| `shared T` size                 | MAY differ from `T` size when runtime sync required |
 
 ##### Constraints & Legality
+
+**Negative Constraints**
+
+1. A program MUST NOT access a `shared` path outside a valid key context.
+2. A program MUST NOT apply the `#` annotation to a non-`shared` path.
+3. A program MUST NOT include multiple `#` markers in a single path expression.
 
 **Diagnostic Table**
 
@@ -11686,20 +11763,8 @@ Key analysis is performed if and only if the path permission is `shared`. Paths 
 | `E-KEY-0001` | Error    | Access to `shared` path outside valid key context | Compile-time | Rejection |
 | `E-KEY-0002` | Error    | `#` annotation on non-`shared` path               | Compile-time | Rejection |
 | `E-KEY-0003` | Error    | Multiple `#` markers in single path expression    | Compile-time | Rejection |
+| `E-KEY-0004` | Error    | Key escapes its defining scope                    | Compile-time | Rejection |
 
-##### Examples
-
-**Compile-time key analysis:**
-
-```cursive
-let player: shared Player = Player::new()
-let config: const Config = Config::default()
-let buffer: unique Buffer = Buffer::new()
-
-player.health               // Key analysis required (shared)
-config.timeout              // No key analysis (const — immutable)
-buffer.data                 // No key analysis (unique — exclusive)
-```
 
 ---
 
@@ -11715,7 +11780,7 @@ The **prefix relation** and **disjointness relation** on paths are used by the c
 
 Path $P$ is a **prefix** of path $Q$ (written $\text{Prefix}(P, Q)$) if $P$ is an initial subsequence of $Q$:
 
-$$\text{Prefix}(p_1.\ldots.p_m,\ q_1.\ldots.q_n) \iff m \leq n \land \forall i \in 1..m,\ p_i = q_i$$
+$$\text{Prefix}(p_1.\ldots.p_m,\ q_1.\ldots.q_n) \iff m \leq n \land \forall i \in 1..m,\ p_i \equiv_{\text{seg}} q_i$$
 
 **Path Disjointness:**
 
@@ -11723,13 +11788,50 @@ Two paths $P$ and $Q$ are **disjoint** (written $\text{Disjoint}(P, Q)$) if neit
 
 $$\text{Disjoint}(P, Q) \iff \neg\text{Prefix}(P, Q) \land \neg\text{Prefix}(Q, P)$$
 
-**Segment Equality:**
+**Segment Equivalence:**
 
-Two segments are equal if they have the same identifier and, for indexed segments, provably equal index values:
+Two segments are equivalent ($\equiv_{\text{seg}}$) if they have the same identifier and, for indexed segments, provably equivalent index expressions:
 
-$$p_i = q_i \iff \text{name}(p_i) = \text{name}(q_i) \land \text{index}(p_i) \equiv \text{index}(q_i)$$
+$$p_i \equiv_{\text{seg}} q_i \iff \text{name}(p_i) = \text{name}(q_i) \land \text{IndexEquiv}(p_i, q_i)$$
 
-For index comparison with dynamic indices, see §13.2.6.
+where $\text{IndexEquiv}$ is defined as:
+
+$$\text{IndexEquiv}(p, q) \iff \begin{cases}
+\text{true} & \text{if neither } p \text{ nor } q \text{ is indexed} \\
+e_p \equiv_{\text{idx}} e_q & \text{if both are indexed with expressions } e_p, e_q \\
+\text{false} & \text{otherwise}
+\end{cases}$$
+
+**Index Expression Equivalence:**
+
+Two index expressions $e_1$ and $e_2$ are **provably equivalent** ($e_1 \equiv_{\text{idx}} e_2$) if and only if one of the following conditions holds:
+
+1. Both are the same integer literal
+2. Both are references to the same `const` binding
+3. Both are references to the same generic const parameter
+4. Both are references to the same variable binding in scope
+5. Both normalize to the same canonical form under constant folding
+
+**Canonical Form Normalization**
+
+The implementation MUST normalize index expressions using the following transformations:
+
+1. **Identity elimination:** $x + 0 = x$, $x \times 1 = x$, $x - 0 = x$
+2. **Constant folding:** Literal arithmetic expressions are evaluated to their result.
+3. **Associative regrouping:** Operands of `+` and `*` are regrouped to enable comparison.
+4. **Commutative reordering:** Operands of `+` and `*` are reordered to a canonical form.
+
+The implementation MAY apply additional algebraic simplifications, including distribution of multiplication over addition where beneficial for comparison.
+
+If normalization exceeds implementation limits (§1.4), the expressions MUST be treated as **not provably equivalent**.
+
+**Provable Disjointness for Indices:**
+
+Two index expressions $e_1$ and $e_2$ are **provably disjoint** if:
+1. Both are statically resolvable (per §13.6), AND
+2. Their static values differ
+
+$$\text{ProvablyDisjointIdx}(e_1, e_2) \iff \text{StaticResolvable}(e_1) \land \text{StaticResolvable}(e_2) \land \text{StaticValue}(e_1) \neq \text{StaticValue}(e_2)$$
 
 ##### Static Semantics
 
@@ -11744,6 +11846,17 @@ $$\frac{
     \text{ConcurrentAccess}(P, Q) \text{ is statically safe}
 }$$
 
+**Prefix for Coverage**
+
+When a held key's path is a prefix of an access path, the held key covers the access:
+
+**(K-Prefix-Coverage)**
+$$\frac{
+    \text{Prefix}(P, Q) \quad \text{Held}(P, M, \Gamma_{\text{keys}})
+}{
+    \text{Covers}((P, M), Q)
+}$$
+
 ##### Examples
 
 | Path P          | Path Q          | Prefix(P,Q) | Prefix(Q,P) | Disjoint | Concurrent Access   |
@@ -11753,6 +11866,8 @@ $$\frac{
 | `arr[0]`        | `arr[1]`        | false       | false       | true     | **Statically safe** |
 | `arr[0]`        | `arr[0].field`  | true        | false       | false    | Conflicts           |
 | `a.b.c`         | `a.b`           | false       | true        | false    | Conflicts           |
+| `arr[i]`        | `arr[i]`        | true        | true        | false    | Same path           |
+| `arr[i]`        | `arr[j]`        | unknown     | unknown     | unknown  | See §13.6           |
 
 ---
 
@@ -11771,20 +11886,41 @@ $$\text{Mode} ::= \text{Read} \mid \text{Write}$$
 | Read  | Read the value at the path | Shared: multiple Read keys to overlapping paths MAY coexist       |
 | Write | Read and write the value   | Exclusive: Write key excludes all other keys to overlapping paths |
 
+**Read Context and Write Context**
+
+The predicates $\text{ReadContext}(e)$ and $\text{WriteContext}(e)$ classify expression positions by their access requirements.
+
+**Formal Definition:**
+
+$$\text{ReadContext}(e) \iff e \text{ appears in a syntactic position requiring only read access}$$
+
+$$\text{WriteContext}(e) \iff e \text{ appears in a syntactic position requiring write access}$$
+
+**Classification Rules:**
+
+| Syntactic Position                                   | Context | Rationale                                |
+| :--------------------------------------------------- | :------ | :--------------------------------------- |
+| Right-hand side of `let`/`var` initializer           | Read    | Value is read for initialization         |
+| Right-hand side of assignment (`=`)                  | Read    | Value is read for assignment             |
+| Operand of arithmetic/logical operator               | Read    | Value is read for computation            |
+| Argument to `const` or `shared` parameter            | Read    | Callee does not require exclusive access |
+| Condition expression (`if`, `while`, `match`)        | Read    | Value is read for branching              |
+| Left-hand side of assignment (`=`)                   | Write   | Target location is mutated               |
+| Left-hand side of compound assignment (`+=`, etc.)   | Write   | Target is read and mutated               |
+| Receiver of method with `~!` (unique) receiver       | Write   | Method requires exclusive access         |
+| Receiver of method with `~%` (shared-write) receiver | Write   | Method requires write access             |
+| Argument to `unique` parameter                       | Write   | Callee requires exclusive access         |
+| Receiver of method with `~` (const) receiver         | Read    | Method requires only read access         |
+
+**Disambiguation Rule:**
+
+If an expression appears in multiple contexts (e.g., compound assignment target), the more restrictive context (Write) applies.
+
 ##### Static Semantics
 
 **Mode Determination**
 
 The required key mode is determined by the syntactic context of the access:
-
-| Context                       | Required Mode | Example                                     |
-| :---------------------------- | :------------ | :------------------------------------------ |
-| Value read                    | Read          | `let x = p.field`                           |
-| Assignment target             | Write         | `p.field = v`                               |
-| Compound assignment           | Write         | `p.field += v`                              |
-| Method receiver `~` (const)   | Read          | `p.method()` where method has `~` receiver  |
-| Method receiver `~%` (shared) | Write         | `p.method()` where method has `~%` receiver |
-| Method receiver `~!` (unique) | Write         | `p.method()` where method has `~!` receiver |
 
 **(K-Mode-Read)**
 $$\frac{
@@ -11804,9 +11940,9 @@ $$\frac{
 
 **Key Compatibility**
 
-Two keys $K_1$ and $K_2$ are **compatible** (may coexist) if and only if:
+Two keys $K_1 = (P_1, M_1, S_1)$ and $K_2 = (P_2, M_2, S_2)$ are **compatible** (may coexist) if and only if:
 
-$$\text{Compatible}(K_1, K_2) \iff \text{Disjoint}(K_1.\text{Path}, K_2.\text{Path}) \lor (K_1.\text{Mode} = \text{Read} \land K_2.\text{Mode} = \text{Read})$$
+$$\text{Compatible}(K_1, K_2) \iff \text{Disjoint}(P_1, P_2) \lor (M_1 = \text{Read} \land M_2 = \text{Read})$$
 
 **Compatibility Matrix:**
 
@@ -11816,7 +11952,7 @@ $$\text{Compatible}(K_1, K_2) \iff \text{Disjoint}(K_1.\text{Path}, K_2.\text{Pa
 | Read       | Write      | Yes            | No          |
 | Write      | Read       | Yes            | No          |
 | Write      | Write      | Yes            | No          |
-| Any        | Any        | No             | Yes         |
+| Any        | Any        | No (disjoint)  | Yes         |
 
 ##### Dynamic Semantics
 
@@ -11832,62 +11968,28 @@ If the compiler cannot statically prove that concurrent accesses are compatible,
 When runtime synchronization is active and a task attempts to acquire an incompatible key:
 
 1. The task MUST block until the conflicting key is released
-2. Implementations MUST guarantee eventual progress (no indefinite starvation)
-3. The blocking mechanism is implementation-defined (IDB)
+2. Blocked tasks MUST be queued in a manner that ensures eventual acquisition
+3. The blocking mechanism is Implementation-Defined Behavior (IDB)
 
----
+**Progress Guarantee**
 
-#### 13.1.3 Key Mode Upgrade
+Implementations MUST guarantee **eventual progress**: any task blocked waiting for a key MUST eventually acquire that key, provided the holder eventually releases it.
 
-##### Definition
+Formally, for any task $t$ blocked on key $K$ held by task $t'$:
 
-**Mode upgrade** occurs when a task holding a Read key to a path requires Write access to the same path within the same statement.
+$$\text{Blocked}(t, K) \land \text{Held}(K, t') \land \Diamond\text{Released}(K, t') \implies \Diamond\text{Acquired}(K, t)$$
 
-##### Static Semantics
+where $\Diamond$ is the temporal "eventually" operator.
 
-**(K-Mode-Upgrade)**
+**Implementation Note (Informative):** Implementations typically satisfy this via FIFO ordering of waiters, priority inheritance, or bounded retry with timeout. The specific mechanism MUST be documented in the Conformance Dossier.
 
-If a Read key to path $P$ is held and Write access to $P$ is subsequently required within the same statement, the key MUST be upgraded to Write.
+##### Constraints & Legality
 
-$$\frac{
-    \text{Held}(P, \text{Read}) \quad
-    \text{RequiredMode}(P) = \text{Write} \quad
-    \text{SameStatement}
-}{
-    \text{Upgrade}(P, \text{Read} \to \text{Write})
-}$$
+**Diagnostic Table**
 
-**Static vs. Runtime Upgrade**
-
-| Situation                            | Upgrade Handling                      |
-| :----------------------------------- | :------------------------------------ |
-| Single-task, no concurrency possible | Compile-time: no runtime cost         |
-| Concurrent access possible           | Runtime: atomic upgrade with blocking |
-
-##### Dynamic Semantics
-
-**Runtime Upgrade Procedure (When Required)**
-
-If runtime synchronization is active:
-
-1. The upgrading task retains Read access during the upgrade attempt
-2. The upgrade blocks until all other tasks release Read keys to overlapping paths
-3. No other task may acquire keys to overlapping paths while upgrade is pending
-4. Once complete, the task holds exclusive Write access
-
-**Upgrade Example:**
-
-```cursive
-player.health = player.health + 10
-```
-
-Compile-time key analysis:
-1. RHS `player.health`: Read access required
-2. LHS `player.health`: Write access required
-3. Same path in same statement: upgrade from Read to Write
-
-If statically safe (no concurrency): zero runtime cost.
-If concurrent access possible: runtime upgrade synchronization.
+| Code         | Severity | Condition                                     | Detection    | Effect    |
+| :----------- | :------- | :-------------------------------------------- | :----------- | :-------- |
+| `E-KEY-0005` | Error    | Write access required but only Read available | Compile-time | Rejection |
 
 ---
 
@@ -11909,54 +12011,89 @@ Let $\text{KeySet}(s)$ denote the set of keys logically acquired during evaluati
 
 **Compile-Time Key Tracking**
 
-The compiler MUST track key state at each program point:
+The compiler MUST track key state at each program point. For each `shared` path access, the compiler:
 
-$$\Gamma_{\text{keys}} : \text{ProgramPoint} \to \mathcal{P}(\text{Key})$$
-
-For each `shared` path access, the compiler:
-
-1. Computes the key path (per §13.2.4)
-2. Determines the required mode (per §13.2.1.2)
-3. Checks for coverage by an existing key (see below)
+1. Computes the key path (per §13.4)
+2. Determines the required mode (per §13.1.2)
+3. Checks for coverage by an existing key
 4. Adds the key to $\Gamma_{\text{keys}}$ if not covered
 5. Marks the key for release at scope exit
 
+**Covered Predicate**
+
+An access to path $Q$ requiring mode $M_Q$ is **covered** by the current key state if there exists a held key whose path is a prefix of $Q$ and whose mode is sufficient:
+
+$$\text{Covered}(Q, M_Q, \Gamma_{\text{keys}}) \iff \exists (P, M_P, S) \in \Gamma_{\text{keys}} : \text{Prefix}(P, Q) \land \text{ModeSufficient}(M_P, M_Q)$$
+
+**Mode Sufficiency:**
+
+$$\text{ModeSufficient}(M_{\text{held}}, M_{\text{required}}) \iff M_{\text{held}} = \text{Write} \lor M_{\text{required}} = \text{Read}$$
+
+| Held Mode | Required Mode | Sufficient?           |
+| :-------- | :------------ | :-------------------- |
+| Write     | Write         | Yes                   |
+| Write     | Read          | Yes                   |
+| Read      | Read          | Yes                   |
+| Read      | Write         | No (upgrade required) |
+
 **Acquisition Rules**
 
-**(K-Acquire-Read)**
+**(K-Acquire-New)**
+
+If an access requires a key and no covering key exists, a new key is acquired:
+
 $$\frac{
     \Gamma \vdash P : \texttt{shared}\ T \quad
-    \text{ReadContext}(P) \quad
-    \neg\text{Covered}(P, \Gamma_{\text{keys}})
+    M = \text{RequiredMode}(P) \quad
+    \neg\text{Covered}(P, M, \Gamma_{\text{keys}}) \quad
+    S = \text{CurrentScope}
 }{
-    \Gamma_{\text{keys}}' = \Gamma_{\text{keys}} \cup \{(P, \text{Read}, \text{CurrentScope})\}
+    \Gamma'_{\text{keys}} = \Gamma_{\text{keys}} \cup \{(P, M, S)\}
 }$$
 
-**(K-Acquire-Write)**
+**(K-Acquire-Covered)**
+
+If an access is covered by an existing key with sufficient mode, no acquisition occurs:
+
 $$\frac{
     \Gamma \vdash P : \texttt{shared}\ T \quad
-    \text{WriteContext}(P) \quad
-    \neg\text{Covered}(P, \Gamma_{\text{keys}})
+    M = \text{RequiredMode}(P) \quad
+    \text{Covered}(P, M, \Gamma_{\text{keys}})
 }{
-    \Gamma_{\text{keys}}' = \Gamma_{\text{keys}} \cup \{(P, \text{Write}, \text{CurrentScope})\}
+    \Gamma'_{\text{keys}} = \Gamma_{\text{keys}}
 }$$
 
-**Coverage**
+**(K-Acquire-Upgrade)**
 
-A held key **covers** finer-grained paths, preventing redundant acquisition:
+If an access is covered by an existing key but requires a stronger mode, the covering key is upgraded:
 
-**(K-Coverage)**
-$$\text{Held}(P, M, \Gamma_{\text{keys}}) \land \text{Prefix}(P, Q) \Longrightarrow \text{Covered}(Q, \Gamma_{\text{keys}})$$
+$$\frac{
+    \Gamma \vdash P : \texttt{shared}\ T \quad
+    \text{RequiredMode}(P) = \text{Write} \quad
+    \exists (Q, \text{Read}, S) \in \Gamma_{\text{keys}} : \text{Prefix}(Q, P)
+}{
+    \text{Upgrade}(Q, \Gamma_{\text{keys}})
+}$$
 
-**Coverage Mode Sufficiency:**
+**Release Rules**
 
-If a Read key covers a path requiring Write access, the covering key is upgraded:
+**(K-Release-Scope)**
 
-$$\text{Held}(P, \text{Read}) \land \text{Prefix}(P, Q) \land \text{RequiredMode}(Q) = \text{Write} \Longrightarrow \text{Upgrade}(P)$$
+When a scope $S$ exits, all keys with that scope are released:
+
+$$\frac{
+    \text{ScopeExit}(S)
+}{
+    \Gamma'_{\text{keys}} = \Gamma_{\text{keys}} \setminus \{(P, M, S') : S' = S\}
+}$$
+
+**(K-Release-Order)**
+
+Keys acquired within a scope are released in reverse acquisition order (LIFO). This mirrors the destruction order for RAII bindings.
 
 **Evaluation Order**
 
-Subexpressions MUST be evaluated **left-to-right, depth-first**. Key acquisition follows evaluation order. This order is deterministic.
+Subexpressions MUST be evaluated **left-to-right, depth-first**. Key acquisition follows evaluation order. This order is Defined Behavior.
 
 **(K-Eval-Order)** For expression $e_1 \oplus e_2$:
 
@@ -11985,6 +12122,35 @@ Keys MUST be released (logically, and at runtime if synchronized) when their sco
 | Panic propagation | Yes            |
 | Task cancellation | Yes            |
 
+**Panic Release Semantics**
+
+If a panic occurs while keys are held:
+
+1. All keys held by the panicking task MUST be released before unwinding propagates to the caller
+2. If panic occurs during key acquisition, any partially-acquired keys MUST be released
+3. If panic occurs during mode upgrade, the key MUST be released entirely (not left in original mode)
+4. Key release during panic MUST occur **before** any `Drop::drop` calls for bindings in the same scope
+
+**Defer Interaction**
+
+Keys acquired within a `defer` block are scoped to that block:
+
+```cursive
+{
+    defer { player.health = 100 }   // Key acquired when defer executes
+    // ... other code ...
+}  // defer executes here: key acquired, body runs, key released
+```
+
+Keys held when a scope exits are released **before** `defer` blocks execute:
+
+```cursive
+{
+    player.health = 50              // Key K1 acquired
+    defer { player.mana = 100 }     // Defer registered (not yet executed)
+}  // K1 released, then defer executes with fresh key K2 for player.mana
+```
+
 ##### Constraints & Legality
 
 **Scope Definitions**
@@ -11999,36 +12165,15 @@ Keys MUST be released (logically, and at runtime if synchronized) when their sco
 | `loop` condition               | Each iteration's condition | Before entering body   |
 | `#path { ... }` block          | The entire block           | Closing brace          |
 | Procedure body                 | Callee's body              | Procedure return       |
+| `defer` body                   | The defer block            | Defer completion       |
 
 **Diagnostic Table**
 
-| Code         | Severity | Condition                                          | Detection    | Effect  |
-| :----------- | :------- | :------------------------------------------------- | :----------- | :------ |
-| `W-KEY-0001` | Warning  | Fine-grained keys in tight loop (performance hint) | Compile-time | Warning |
-| `W-KEY-0002` | Warning  | Redundant key acquisition (already covered)        | Compile-time | Warning |
-
-##### Examples
-
-**Statically safe — No concurrency:**
-
-```cursive
-procedure process() {
-    let data: shared Data = Data::new()
-    data.value = 100      // Key tracked at compile time
-    data.count += 1       // Key tracked, upgrade to Write
-}
-// No runtime synchronization: data never escapes
-```
-
-**Statically safe — Disjoint paths:**
-
-```cursive
-parallel {
-    spawn { state.player.health = 100 }   // Key: state.player.health
-    spawn { state.enemy.health = 50 }     // Key: state.enemy.health
-}
-// Compiler proves paths are disjoint: no runtime synchronization between tasks
-```
+| Code         | Severity | Condition                                          | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------- | :----------- | :-------- |
+| `W-KEY-0001` | Warning  | Fine-grained keys in tight loop (performance hint) | Compile-time | Warning   |
+| `W-KEY-0002` | Warning  | Redundant key acquisition (already covered)        | Compile-time | Warning   |
+| `E-KEY-0006` | Error    | Key acquisition in `defer` escapes to outer scope  | Compile-time | Rejection |
 
 ---
 
@@ -12042,7 +12187,7 @@ When a `shared` value is passed to a procedure, key analysis occurs at the **poi
 
 **(K-Procedure-Boundary)**
 
-Passing a `shared` value as a procedure argument does not constitute key acquisition. The callee's accesses are analyzed independently.
+Passing a `shared` value as a procedure argument does not constitute key acquisition. The callee's accesses are analyzed independently:
 
 $$\frac{
     \Gamma \vdash f : (\texttt{shared}\ T) \to R \quad
@@ -12051,9 +12196,19 @@ $$\frac{
     \text{call}(f, v) \longrightarrow \text{no key acquisition at call site}
 }$$
 
-**Cross-Procedure Analysis**
+**Interprocedural Analysis**
 
-The compiler MAY perform interprocedural analysis to prove static safety across procedure boundaries. If the compiler can prove that a callee's accesses are compatible with the caller's context, no runtime synchronization is required.
+The compiler MAY perform interprocedural analysis to prove static safety across procedure boundaries, subject to the following constraints:
+
+**Soundness Requirement:** If interprocedural analysis concludes that no runtime synchronization is needed for a callee's accesses, then concurrent execution of that callee MUST be safe. The analysis MUST be sound—false negatives (missing synchronization) are forbidden.
+
+**Conservatism Requirement:** If interprocedural analysis cannot prove safety, the implementation MUST emit runtime synchronization for the callee's accesses.
+
+**Separate Compilation:** For procedures in separate compilation units whose source is not available:
+1. The implementation MUST assume the callee may access **any** path reachable from its `shared` parameters
+2. The implementation MUST assume the callee requires **Write** access unless the parameter is declared `const`
+
+**Inlining Interaction:** If a procedure is inlined, the inlined body MUST be analyzed as if its statements were written at the call site, with full visibility of the caller's key context.
 
 ##### Dynamic Semantics
 
@@ -12095,7 +12250,7 @@ procedure update_selective(p: shared Player) {
 
 ##### Constraints & Legality
 
-**Recursive Calls and Reentrancy**
+**Reentrancy**
 
 If a caller holds a key covering the callee's access paths, the callee's accesses are covered (reentrant):
 
@@ -12111,121 +12266,239 @@ procedure helper(p: shared Player) {
 }
 ```
 
+**(K-Reentrant)**
+$$\frac{
+    \text{Held}(P, M, \Gamma_{\text{keys}}) \quad
+    \text{Prefix}(P, Q) \quad
+    \text{CalleeAccesses}(Q)
+}{
+    \text{CalleeCovered}(Q)
+}$$
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                           | Detection    | Effect  |
+| :----------- | :------- | :-------------------------------------------------- | :----------- | :------ |
+| `W-KEY-0005` | Warning  | Callee access pattern unknown; assuming full access | Compile-time | Warning |
+
 ---
 
-### 13.4 The `#` Coarsening Operator
+### 13.4 The `#` Key Block
 
 ##### Definition
 
-The `#` operator controls key granularity. It instructs the compiler to use a coarser key path than the default fine-grained path.
+The **`#` key block** is the explicit key acquisition construct. It acquires a key to one or more paths at block entry and holds those keys until block exit.
 
-**Formal Definition — Key Path Extraction**
+The `#` operator serves three purposes:
 
-Given a path expression $P$, the **key path** $\text{KeyPath}(P)$ determines what path is used for key analysis.
+1. **Key coarsening:** Acquire a key to a path prefix rather than the full access path, reducing key granularity for atomicity or performance.
+2. **Consistent snapshots:** Hold a Read key across multiple reads to ensure atomicity.
+3. **Read-modify-write enablement:** With the `write` modifier, permit read-then-write patterns that would otherwise be prohibited.
 
-**Case 1: Explicit `#` marker**
+**Mode Semantics**
 
-If $P = p_1.\ldots.p_{k-1}.\#p_k.\ldots.p_n$:
+Following the language principle that immutability is the default and mutability requires explicit opt-in:
 
-$$\text{KeyPath}(P) = p_1.p_2.\ldots.p_k$$
+| Block Form        | Key Mode | Mutation Permitted |
+| :---------------- | :------- | :----------------- |
+| `#path { }`       | Read     | No                 |
+| `#path write { }` | Write    | Yes                |
 
-**Case 2: Type-level `#` boundary**
+This mirrors other Cursive constructs:
 
-If $P$ has no explicit `#` but passes through a `#`-declared field at position $b$:
-
-$$\text{KeyPath}(P) = p_1.p_2.\ldots.p_b$$
-
-**Case 3: No marker, no boundary**
-
-$$\text{KeyPath}(P) = P$$
-
-**Case 4: Both explicit and type-level**
-
-The coarser (shorter) path wins:
-
-$$\text{KeyPath}(P) = p_1.p_2.\ldots.\min(k, b)$$
+| Construct | Unmarked           | Explicit Mutation |
+| :-------- | :----------------- | :---------------- |
+| Binding   | `let` (const)      | `var`             |
+| Receiver  | `~` (const)        | `~!`, `~%`        |
+| Key block | `#path { }` (Read) | `#path write { }` |
 
 ##### Syntax & Declaration
 
-**Inline Coarsening Grammar**
+**Grammar**
 
 ```ebnf
-path_segment    ::= "#"? IDENTIFIER index_suffix?
+key_block       ::= "#" path_list mode_modifier? block
+
+path_list       ::= path_expr ("," path_expr)*
+
+mode_modifier   ::= "write"
 ```
 
-**Block Coarsening Grammar**
+The `path_expr`, `key_marker`, and `index_suffix` productions are defined in §13.1.
 
-```ebnf
-key_block       ::= "#" path_list block
-path_list       ::= path ("," path)*
-path            ::= IDENTIFIER ("." IDENTIFIER)* index_suffix?
-```
+**Read Mode (Default)**
 
-##### Static Semantics
-
-**Inline Coarsening**
-
-| Expression             | Key Path              |
-| :--------------------- | :-------------------- |
-| `player.stats.health`  | `player.stats.health` |
-| `#player.stats.health` | `player`              |
-| `player.#stats.health` | `player.stats`        |
-
-**Block Coarsening**
-
-Keys in a `#path { }` block are logically acquired at block entry and held until block exit:
+When no modifier is specified, the `#` block acquires Read keys. The body MUST NOT contain writes to keyed paths:
 
 ```cursive
 #player {
-    player.health = 100       // Covered by key to player
-    player.mana = 50          // Covered by key to player
+    let h = player.health
+    let m = player.mana
+    // Consistent snapshot; concurrent readers permitted
+}
+```
+
+**Write Mode (Explicit)**
+
+The `write` modifier acquires Write keys, enabling mutation and read-modify-write patterns:
+
+```cursive
+#player write {
+    let h = player.health
+    player.health = h + heal_amount    // Mutation permitted
 }
 ```
 
 **Multiple Paths**
 
+Both modes support multiple paths. Keys are acquired in canonical order (§13.7):
+
 ```cursive
 #player, enemy {
+    let diff = player.health - enemy.health
+}
+
+#player, enemy write {
     player.health -= enemy.damage
+    enemy.health -= player.damage
 }
 ```
 
-Keys MUST be acquired in **canonical order** (see §13.2.7).
+**Inline Coarsening**
 
-**Interaction with Method Calls**
-
-`#` MUST NOT appear immediately before a method name but MAY appear on preceding path segments:
+The `#` marker MAY appear inline within a path expression to specify the key granularity. Inline coarsening acquires keys in the mode determined by syntactic context (read context → Read key; write context → Write key):
 
 ```cursive
-player.#inventory.push(item)  // Valid: key to player.inventory
-#player.process()             // Valid: key to player
-player.inventory.#push(item)  // ERROR E-KEY-0020
+let x = #player.stats.health    // Read key to `player`
+#player.stats.health = 100      // Write key to `player`
 ```
+
+**Desugaring: Compound Assignment**
+
+Compound assignment operators desugar to `#` blocks with `write` modifier:
+
+$$P\ \oplus\texttt{=}\ e \quad \Longrightarrow \quad \#P\ \texttt{write}\ \{\ \texttt{let}\ v = P;\ P = v \oplus e\ \}$$
+
+| Source                    | Desugared Form                                                               |
+| :------------------------ | :--------------------------------------------------------------------------- |
+| `x += 1`                  | `#x write { let v = x; x = v + 1 }`                                          |
+| `player.health -= damage` | `#player.health write { let v = player.health; player.health = v - damage }` |
+
+**Desugaring: Increment and Decrement**
+
+$$\texttt{++}P \quad \Longrightarrow \quad \#P\ \texttt{write}\ \{\ \texttt{let}\ v = P;\ P = v + 1;\ v + 1\ \}$$
+$$P\texttt{++} \quad \Longrightarrow \quad \#P\ \texttt{write}\ \{\ \texttt{let}\ v = P;\ P = v + 1;\ v\ \}$$
+
+| Source | Desugared Form                             | Result Value |
+| :----- | :----------------------------------------- | :----------- |
+| `++x`  | `#x write { let v = x; x = v + 1; v + 1 }` | New value    |
+| `x++`  | `#x write { let v = x; x = v + 1; v }`     | Old value    |
+| `--x`  | `#x write { let v = x; x = v - 1; v - 1 }` | New value    |
+| `x--`  | `#x write { let v = x; x = v - 1; v }`     | Old value    |
+
+**Desugaring Phase**
+
+Compound assignment desugaring (as defined above) occurs during the Parsing phase (Translation Phase 1, per §2.12), before key analysis. Key analysis operates on the desugared form. Consequently, the expression `p += e` is analyzed as `#p write { let v = p; p = v + e }`, and a covering Write key is always present for the read-then-write pattern.
+
+##### Static Semantics
+
+**Block Key Acquisition Rule**
+
+**(K-Block-Acquire)**
+$$\frac{
+    \Gamma \vdash P_1, \ldots, P_m : \texttt{shared}\ T_i \quad
+    M = \text{BlockMode}(B) \quad
+    (Q_1, \ldots, Q_m) = \text{CanonicalSort}(P_1, \ldots, P_m) \quad
+    S = \text{NewScope}
+}{
+    \Gamma_{\text{keys}}' = \Gamma_{\text{keys}} \cup \{(Q_i, M, S) : i \in 1..m\}
+}$$
+
+where $\text{BlockMode}(B) = \text{Write}$ if `write` modifier is present, otherwise $\text{Read}$.
+
+**Read Mode Restriction**
+
+A `#` block without `write` modifier MUST NOT contain write accesses to keyed paths:
+
+**(K-Read-Block-No-Write)**
+$$\frac{
+    \text{BlockMode}(B) = \text{Read} \quad
+    P \in \text{KeyedPaths}(B) \quad
+    \text{WriteOf}(P) \in \text{Body}(B)
+}{
+    \text{Emit}(\texttt{E-KEY-0070})
+}$$
+
+**Read-Then-Write Permission**
+
+The read-then-write prohibition (`E-KEY-0060`) does not apply when a covering Write key is statically held:
+
+**(K-RMW-Permitted)**
+$$\frac{
+    \Gamma \vdash P : \texttt{shared}\ T \quad
+    \text{ReadThenWrite}(P, S) \quad
+    \exists (Q, \text{Write}, S') \in \Gamma_{\text{keys}} : \text{Prefix}(Q, P)
+}{
+    \text{Permitted}
+}$$
+
+**Inline Coarsening Rule**
+
+**(K-Coarsen-Inline)**
+$$\frac{
+    P = p_1.\ldots.p_{k-1}.\#p_k.\ldots.p_n \quad
+    \Gamma \vdash P : \texttt{shared}\ T \quad
+    M = \text{RequiredMode}(P)
+}{
+    \text{AcquireKey}(p_1.\ldots.p_k, M, \Gamma_{\text{keys}})
+}$$
+
+##### Dynamic Semantics
+
+**Execution Order**
+
+When a `#` block executes:
+
+1. Acquire keys (mode per block specification) to all listed paths in canonical order
+2. Execute the block body
+3. Release all keys in reverse acquisition order
+
+**Concurrent Access**
+
+| Block A        | Block B        | Same/Overlapping Path | Result                          |
+| :------------- | :------------- | :-------------------- | :------------------------------ |
+| `#p { }`       | `#p { }`       | Yes                   | Both proceed concurrently       |
+| `#p { }`       | `#p write { }` | Yes                   | One blocks until other releases |
+| `#p write { }` | `#p write { }` | Yes                   | One blocks until other releases |
+
+**Runtime Implementation**
+
+When runtime synchronization is required:
+
+| Block Mode | Typical Implementation                         |
+| :--------- | :--------------------------------------------- |
+| Read       | Shared/reader lock; atomic load for primitives |
+| Write      | Exclusive/writer lock; CAS for primitives      |
+
+The implementation strategy is Implementation-Defined Behavior (IDB).
 
 ##### Constraints & Legality
 
+**Negative Constraints**
+
+1. A `#` block without `write` modifier MUST NOT contain write operations to keyed paths.
+2. A program MUST NOT place `#` immediately before a method name.
+3. A program MUST NOT use `#` block syntax with a non-`shared` path.
+
 **Diagnostic Table**
 
-| Code         | Severity | Condition                             | Detection    | Effect    |
-| :----------- | :------- | :------------------------------------ | :----------- | :-------- |
-| `E-KEY-0003` | Error    | Multiple `#` markers in path          | Compile-time | Rejection |
-| `E-KEY-0020` | Error    | `#` immediately before method name    | Compile-time | Rejection |
-| `E-KEY-0031` | Error    | `#` block path not in scope           | Compile-time | Rejection |
-| `E-KEY-0032` | Error    | `#` block path is not `shared`        | Compile-time | Rejection |
-| `W-KEY-0003` | Warning  | `#` redundant (matches type boundary) | Compile-time | Warning   |
-
-##### Examples
-
-**Coarsening for atomicity:**
-
-```cursive
-#player {
-    let total = player.health + player.mana
-    player.health = total / 2
-    player.mana = total / 2
-}
-// Single key scope ensures atomic update of both fields
-```
+| Code         | Severity | Condition                                             | Detection    | Effect    |
+| :----------- | :------- | :---------------------------------------------------- | :----------- | :-------- |
+| `E-KEY-0020` | Error    | `#` immediately before method name                    | Compile-time | Rejection |
+| `E-KEY-0031` | Error    | `#` block path not in scope                           | Compile-time | Rejection |
+| `E-KEY-0032` | Error    | `#` block path is not `shared`                        | Compile-time | Rejection |
+| `E-KEY-0070` | Error    | Write operation in `#` block without `write` modifier | Compile-time | Rejection |
+| `W-KEY-0003` | Warning  | `#` redundant (matches type boundary)                 | Compile-time | Warning   |
 
 ---
 
@@ -12253,7 +12526,27 @@ record Player {
 
 ##### Static Semantics
 
-**Boundary Enforcement**
+**Boundary Propagation Rule**
+
+**(K-Type-Boundary)**
+
+Let $R$ be a record type with field $f$ declared as `#f: U`. For any path $P = r.f.q_1.\ldots.q_n$ where $r : R$:
+
+$$\text{KeyPath}(P) = r.f$$
+
+regardless of the suffix $q_1.\ldots.q_n$.
+
+**Formal Rule:**
+
+$$\frac{
+    \Gamma \vdash r : R \quad
+    R.\text{fields} \ni (\#f : U) \quad
+    P = r.f.q_1.\ldots.q_n
+}{
+    \text{KeyPath}(P) = r.f
+}$$
+
+**Boundary Enforcement Examples:**
 
 | Expression                 | Key Path           | Reason        |
 | :------------------------- | :----------------- | :------------ |
@@ -12263,37 +12556,39 @@ record Player {
 
 **Coarsening Beyond Boundaries**
 
-Expression `#` MAY coarsen beyond a type boundary:
+Expression-level `#` MAY coarsen beyond a type boundary:
 
 | Expression             | Key Path                       |
 | :--------------------- | :----------------------------- |
 | `#player.inventory[5]` | `player`                       |
 | `player.#inventory[5]` | `player.inventory` (redundant) |
 
-##### Examples
+**(K-Boundary-Override)**
 
-**Type boundary for reduced overhead:**
+If path $P$ contains both explicit `#` at position $k$ and type-level boundary at position $b$:
 
-```cursive
-record Cache {
-    #entries: [Entry; 1024],
-}
+$$\text{KeyPath}(P) = p_1.\ldots.p_{\min(k, b)}$$
 
-// All element accesses use same key path (cache.entries)
-// Trades parallelism for reduced synchronization overhead
-parallel {
-    spawn { cache.entries[0] = a }   // Key: cache.entries
-    spawn { cache.entries[1] = b }   // Key: cache.entries (same — serializes)
-}
-```
+The explicit `#` can coarsen further but cannot refine past a type boundary.
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                        | Detection    | Effect    |
+| :----------- | :------- | :----------------------------------------------- | :----------- | :-------- |
+| `E-KEY-0033` | Error    | `#` on field of non-record type                  | Compile-time | Rejection |
+| `W-KEY-0003` | Warning  | Expression `#` redundant (matches type boundary) | Compile-time | Warning   |
 
 ---
 
-### 13.6 Static Index Resolution
+### 13.6 Static Index Resolution and Disjointness Proofs
 
 ##### Definition
 
-An index expression's **static resolvability** determines whether the compiler can reason about path disjointness at compile time.
+An index expression's **static resolvability** and the availability of **disjointness proofs** determine whether the compiler can reason about path disjointness at compile time. This section defines the mechanisms by which the compiler proves that two dynamic indices refer to distinct array elements within the **same statement**.
+
+When multiple dynamic indices access the same array within a single statement, the compiler MUST either prove they are disjoint or reject the program. This is because same-statement accesses cannot be serialized by runtime key acquisition—they occur as part of one atomic key-holding scope. Cross-task access to `shared` data (where runtime synchronization may apply) is addressed in §13.9.
 
 **Formal Definition**
 
@@ -12302,34 +12597,266 @@ An index expression is **statically resolvable** if and only if it is:
 1. An integer literal
 2. A reference to a `const` binding with statically resolvable initializer
 3. A generic const parameter
-4. An arithmetic expression (`+`, `-`, `*`, `/`, `%`) with statically resolvable operands
+4. An arithmetic expression (`+`, `-`, `*`, `/`, `%`) where all operands are statically resolvable
 
 All other index expressions are **dynamic**.
 
+**Disjointness Classification**
+
+Two index expressions $e_1$ and $e_2$ accessing the same array are classified as:
+
+| Classification          | Condition                                                                  | Compiler Action              |
+| :---------------------- | :------------------------------------------------------------------------- | :--------------------------- |
+| Statically Disjoint     | Both statically resolvable with different values                           | Fine-grained keys permitted  |
+| Provably Disjoint       | Dynamic, but disjointness provable via contracts, refinements, or analysis | Fine-grained keys permitted  |
+| Potentially Overlapping | Disjointness cannot be proven                                              | **Rejection** (`E-KEY-0010`) |
+
 ##### Static Semantics
-
-**Classification**
-
-| Expression             | Classification        |
-| :--------------------- | :-------------------- |
-| `arr[0]`               | Statically resolvable |
-| `arr[BUFFER_SIZE - 1]` | Statically resolvable |
-| `arr[i]`               | Dynamic               |
-| `arr[get_index()]`     | Dynamic               |
 
 **Static Disjointness**
 
+| Expression             | Classification        | Reason                      |
+| :--------------------- | :-------------------- | :-------------------------- |
+| `arr[0]`               | Statically resolvable | Integer literal             |
+| `arr[BUFFER_SIZE - 1]` | Statically resolvable | Const binding in arithmetic |
+| `arr[N]` (generic)     | Statically resolvable | Generic const parameter     |
+| `arr[i]`               | Dynamic               | Runtime variable            |
+| `arr[get_index()]`     | Dynamic               | Function call               |
+
 Two statically resolvable indices are disjoint if their compile-time values differ:
 
-$$\text{StaticDisjoint}(a[i], a[j]) \iff \text{StaticValue}(i) \neq \text{StaticValue}(j)$$
+$$\text{StaticDisjoint}(a[e_1], a[e_2]) \iff \text{StaticValue}(e_1) \neq \text{StaticValue}(e_2)$$
 
-**Dynamic Index Conflict**
+**Provable Disjointness for Dynamic Indices**
 
-If a statement accesses the same array through multiple dynamic indices and disjointness cannot be proven, diagnostic `E-KEY-0010` MUST be emitted:
+Two dynamic index expressions $e_1$ and $e_2$ are **provably disjoint** ($\text{ProvablyDisjoint}(e_1, e_2)$) if any of the following conditions hold:
+
+$$\text{ProvablyDisjoint}(e_1, e_2) \iff \text{StaticDisjoint}(e_1, e_2) \lor \text{DynamicDisjoint}(e_1, e_2)$$
+
+where $\text{DynamicDisjoint}(e_1, e_2)$ is established by one or more of the following proof mechanisms:
+
+---
+
+#### 13.6.1 Proof Mechanism: Verification Facts from Control Flow
+
+A **Verification Fact** (§10.5) established by control flow analysis proves disjointness when it establishes $e_1 \neq e_2$:
+
+**(K-Disjoint-Fact)**
+$$\frac{
+    F(e_1 \neq e_2, L) \in \Gamma_{\text{facts}} \quad
+    L \text{ dom } S \quad
+    \text{Access}(a[e_1], a[e_2]) \text{ at } S
+}{
+    \text{ProvablyDisjoint}(e_1, e_2)
+}$$
+
+Verification Facts arise from conditional guards:
+
+```cursive
+procedure safe_swap(arr: shared [i32; N], i: usize, j: usize) {
+    if i != j {
+        // Fact F(i != j, _) generated at then-branch entry
+        #arr {
+            let tmp = arr[i]
+            arr[i] = arr[j]     // OK: i != j proven by control flow
+            arr[j] = tmp
+        }
+    }
+}
+```
+
+---
+
+#### 13.6.2 Proof Mechanism: Contract-Based Disjointness
+
+Procedure contracts (§10.2) establish Verification Facts at procedure entry that can prove index disjointness. When a precondition asserts $e_1 \neq e_2$, the compiler generates a Verification Fact that dominates the entire procedure body.
+
+**(K-Disjoint-Contract)**
+$$\frac{
+    \text{Procedure } P \text{ has precondition } e_1 \neq e_2 \quad
+    \text{Access}(a[e_1], a[e_2]) \text{ in body of } P
+}{
+    \text{ProvablyDisjoint}(e_1, e_2)
+}$$
+
+**Example — Explicit Precondition:**
+
+```cursive
+procedure swap(arr: shared [i32; N], i: usize, j: usize)
+    |= i != j
+{
+    // Precondition i != j generates Verification Fact at procedure entry
+    // Fact dominates all statements in body
+    let tmp = arr[i]
+    arr[i] = arr[j]         // OK: disjointness proven via contract
+    arr[j] = tmp
+}
+```
+
+**Example — Inline Parameter Constraint (Refinement Type):**
+
+```cursive
+procedure swap(
+    arr: shared [i32; N], 
+    i: usize, 
+    j: usize where { j != i }   // Inline constraint: type refinement (§7.3)
+) {
+    // Constraint j != i desugars to precondition, generates Verification Fact
+    let tmp = arr[i]
+    arr[i] = arr[j]         // OK: disjointness proven via refinement
+    arr[j] = tmp
+}
+```
+
+Per §10.1.3, the inline constraint `j: usize where { j != i }` is semantically equivalent to a procedure-level precondition `|= j != i`. Both generate the same Verification Fact.
+
+---
+
+#### 13.6.3 Proof Mechanism: Refinement Type Propagation
+
+When an index binding has a refinement type (§7.3) that constrains its relationship to another index, that constraint propagates as a Verification Fact throughout the binding's scope.
+
+**(K-Disjoint-Refine)**
+$$\frac{
+    \Gamma \vdash j : \texttt{usize where } \{ j \neq i \} \quad
+    \text{Access}(a[i], a[j]) \text{ in scope}
+}{
+    \text{ProvablyDisjoint}(i, j)
+}$$
+
+**Example — Refinement from Type Alias:**
+
+```cursive
+type DistinctIndex<other: usize> = usize where { self != other }
+
+procedure process(arr: shared [i32; N], i: usize, j: DistinctIndex<i>) {
+    // j has type usize where { self != i }
+    // Refinement predicate establishes Verification Fact
+    arr[i] = arr[j] * 2     // OK: disjointness proven via refinement type
+}
+```
+
+**Example — Refinement from Runtime Check:**
+
+```cursive
+procedure maybe_swap(arr: shared [i32; N], i: usize, j: usize) {
+    // Runtime check establishes refinement
+    if i == j { return }
+    
+    // After check: j effectively has type usize where { j != i }
+    // Verification Fact F(i != j, _) is active
+    let tmp = arr[i]
+    arr[i] = arr[j]         // OK: disjointness proven
+    arr[j] = tmp
+}
+```
+
+---
+
+#### 13.6.4 Proof Mechanism: Algebraic Analysis
+
+The compiler performs algebraic analysis to prove disjointness for index expressions that differ by a statically-known offset:
+
+**(K-Disjoint-Offset)**
+$$\frac{
+    e_1 = v + c_1 \quad e_2 = v + c_2 \quad c_1, c_2 \text{ statically resolvable} \quad c_1 \neq c_2
+}{
+    \text{ProvablyDisjoint}(e_1, e_2)
+}$$
+
+**Example — Constant Offset:**
+
+```cursive
+procedure adjacent_update(arr: shared [i32; N], i: usize)
+    |= i + 1 < N
+{
+    arr[i] = 0
+    arr[i + 1] = 1          // OK: i and i+1 are provably distinct
+}
+```
+
+**Canonical Form Normalization**
+
+Index expressions MUST be normalized according to the Canonical Form Normalization rules defined in §13.1.1 before comparison.
+
+If two normalized expressions share a common subexpression but differ by constant terms, they are provably disjoint.
+
+---
+
+#### 13.6.5 Proof Mechanism: Dispatch Iteration Variables
+
+Within a `dispatch` block (§14.3), accesses indexed by the iteration variable are automatically proven disjoint across iterations:
+
+**(K-Disjoint-Dispatch)**
+$$\frac{
+    \texttt{dispatch}\ v\ \texttt{in}\ r\ \{\ \ldots\ a[v]\ \ldots\ \}
+}{
+    \forall v_1, v_2 \in r,\ v_1 \neq v_2 \implies \text{ProvablyDisjoint}(a[v_1], a[v_2])
+}$$
+
+```cursive
+dispatch i in 0..arr.len() {
+    arr[i] *= 2             // Proven disjoint: each iteration touches distinct element
+}
+```
+
+**Nested Dispatch:**
+
+```cursive
+dispatch i in 0..rows {
+    dispatch j in 0..cols {
+        matrix[i][j] = 0    // Proven disjoint: (i,j) pairs are unique
+    }
+}
+```
+
+**Cross-Iteration Dependency Detection:**
+
+Accesses that reference a **different** iteration's index are rejected:
+
+```cursive
+dispatch i in 0..arr.len() - 1 {
+    arr[i] = arr[i + 1]     // ERROR E-DISPATCH-0001: cross-iteration dependency
+}
+```
+
+---
+
+#### 13.6.6 Proof Mechanism: Loop Iteration Variables from Disjoint Ranges
+
+When two index expressions reference iteration variables from nested loops with **non-overlapping ranges**, they are provably disjoint:
+
+**(K-Disjoint-Range)**
+$$\frac{
+    \texttt{loop}\ v_1\ \texttt{in}\ r_1\ \{ \ldots \} \quad
+    \texttt{loop}\ v_2\ \texttt{in}\ r_2\ \{ \ldots \} \quad
+    r_1 \cap r_2 = \emptyset
+}{
+    \text{ProvablyDisjoint}(v_1, v_2)
+}$$
+
+**Example:**
+
+```cursive
+// Process first half and second half in nested loops
+loop i in 0..N/2 {
+    loop j in N/2..N {
+        // i ∈ [0, N/2) and j ∈ [N/2, N) — ranges are disjoint
+        arr[i] = arr[j]     // OK: i and j cannot be equal
+    }
+}
+```
+
+---
+
+#### 13.6.7 Dynamic Index Conflict Detection
+
+If a statement accesses the same array through multiple dynamic indices and disjointness **cannot** be proven by any of the mechanisms above, the implementation MUST emit diagnostic `E-KEY-0010`:
 
 **(K-Dynamic-Index-Conflict)**
 $$\frac{
     P_1 = a[e_1] \quad P_2 = a[e_2] \quad
+    \text{SameStatement}(P_1, P_2) \quad
     (\text{Dynamic}(e_1) \lor \text{Dynamic}(e_2)) \quad
     \neg\text{ProvablyDisjoint}(e_1, e_2)
 }{
@@ -12338,27 +12865,77 @@ $$\frac{
 
 ##### Constraints & Legality
 
-**Resolution: Explicit Coarsening**
+**Resolution Strategies**
 
-```cursive
-procedure swap(arr: shared [i32; N], i: usize, j: usize) {
-    // ERROR E-KEY-0010
-    arr[i] = arr[j]
-}
+When `E-KEY-0010` is emitted, the programmer may resolve it by:
 
-// Resolution:
-procedure swap(arr: shared [i32; N], i: usize, j: usize) {
-    #arr {
-        arr[i] = arr[j]    // OK: single key to entire array
-    }
-}
-```
+1. **Add a precondition:** Use a contract clause to assert disjointness
+   ```cursive
+   procedure update(arr: shared [i32; N], i: usize, j: usize)
+       |= i != j                    // Contract proves disjointness
+   { ... }
+   ```
+
+2. **Use inline refinement:** Apply a refinement type constraint to a parameter
+   ```cursive
+   procedure update(arr: shared [i32; N], i: usize, j: usize where { j != i })
+   { ... }
+   ```
+
+3. **Add a runtime guard:** Insert a conditional that establishes a Verification Fact
+   ```cursive
+   if i != j {
+       // Verification Fact: i != j
+       arr[i] = arr[j]              // OK: disjointness proven
+   }
+   ```
+
+4. **Use explicit coarsening:** Acquire a key to the entire array, serializing access
+   ```cursive
+   #arr {
+       arr[i] = arr[j]              // OK: single key to entire array
+   }
+   ```
+
+5. **Separate into distinct statements:** Move accesses to separate statements where each acquires its own key
+   ```cursive
+   let tmp = arr[j]                 // Key acquired and released
+   arr[i] = tmp                     // Separate key acquired
+   ```
 
 **Diagnostic Table**
 
 | Code         | Severity | Condition                             | Detection    | Effect    |
 | :----------- | :------- | :------------------------------------ | :----------- | :-------- |
 | `E-KEY-0010` | Error    | Potential conflict on dynamic indices | Compile-time | Rejection |
+
+---
+
+##### Cross-Reference Notes
+
+**Related Sections:**
+
+| Concept              | Section | Relationship                                              |
+| :------------------- | :------ | :-------------------------------------------------------- |
+| Refinement Types     | §7.3    | Provides `where { P }` syntax for type-level constraints  |
+| Procedure Contracts  | §10.2   | Provides `\|= P => Q` syntax for preconditions            |
+| Inline Constraints   | §10.1.3 | Desugars to preconditions, generates Verification Facts   |
+| Verification Facts   | §10.5   | Compiler-internal proof mechanism for predicate validity  |
+| Verification Modes   | §10.4   | Determines static vs. dynamic verification of constraints |
+| Dispatch Parallelism | §14.3   | Automatic disjointness proof for iteration variables      |
+| Path Disjointness    | §13.1.1 | General definition of path disjointness for keys          |
+
+**Proof Mechanism Summary:**
+
+| Mechanism                   | Source                                       | Verification Fact Generated At   |
+| :-------------------------- | :------------------------------------------- | :------------------------------- |
+| Control Flow Guard          | `if i != j { ... }`                          | Entry of then-branch             |
+| Procedure Precondition      | `\|= i != j`                                 | Procedure entry (post-binding)   |
+| Inline Parameter Constraint | `j: usize where { j != i }`                  | Procedure entry (post-binding)   |
+| Refinement Type             | `j: DistinctIndex<i>`                        | Binding introduction             |
+| Algebraic Analysis          | `arr[i]` vs `arr[i + 1]`                     | Point of analysis                |
+| Dispatch Iteration          | `dispatch i in r { ... }`                    | Implicit per-iteration guarantee |
+| Disjoint Loop Ranges        | Nested loops with $r_1 \cap r_2 = \emptyset$ | Loop entry                       |
 
 ---
 
@@ -12370,57 +12947,244 @@ Cursive prevents deadlock through:
 
 1. **Scoped keys:** Keys are released at scope exit, limiting hold duration
 2. **Canonical ordering:** `#` blocks acquire keys in deterministic order
+3. **Await prohibition:** Keys cannot be held across suspension points
 
 ##### Static Semantics
 
 **Canonical Order**
 
-For paths $P$ and $Q$:
+A **canonical order** on paths ensures deterministic acquisition order to prevent circular wait conditions.
 
-$$P <_{\text{canon}} Q \iff \exists k : (\forall i < k,\ p_i = q_i) \land (p_k <_{\text{seg}} q_k \lor (k > m \land m < n))$$
+For paths $P = p_1.\ldots.p_m$ and $Q = q_1.\ldots.q_n$:
 
-**Segment Ordering:**
+$$P <_{\text{canon}} Q \iff \exists k \geq 1 : (\forall i < k,\ p_i =_{\text{seg}} q_i) \land (p_k <_{\text{seg}} q_k \lor (k > m \land m < n))$$
 
-1. Identifiers: lexicographic by UTF-8
-2. Indexed: by index value ($a[i] <_{\text{seg}} a[j] \iff i < j$)
-3. Bare identifier precedes indexed: $a <_{\text{seg}} a[i]$
+**Segment Ordering ($<_{\text{seg}}$):**
+
+1. **Identifiers:** Lexicographic by UTF-8 byte sequence
+2. **Indexed segments:** By index value for statically resolvable indices ($a[i] <_{\text{seg}} a[j] \iff \text{StaticValue}(i) < \text{StaticValue}(j)$)
+3. **Bare vs indexed:** Bare identifier precedes any indexed form ($a <_{\text{seg}} a[i]$ for all $i$)
+
+**Dynamic Index Ordering**
+
+If indices $i$ and $j$ in segments $a[i]$ and $a[j]$ cannot be statically compared:
+
+1. If $i$ and $j$ are the same binding: $a[i] =_{\text{seg}} a[i]$ (same segment)
+2. Otherwise: ordering is **Unspecified Behavior (USB)**
+
+**Consequence:** `#` blocks with dynamically-indexed paths to the same array where indices cannot be compared SHOULD use explicit coarsening to the array level:
+
+```cursive
+// HAZARD: Unspecified ordering
+#arr[i], arr[j] { ... }  // i and j are different dynamic variables
+
+// SAFE: Coarsen to array level
+#arr { ... }
+```
 
 **Statement Keys: Evaluation Order**
 
-Keys within a single statement are acquired in **evaluation order** (left-to-right). Cross-statement deadlock is programmer responsibility.
+Keys within a single statement are acquired in **evaluation order** (left-to-right, depth-first). This is Defined Behavior.
 
 **`#` Block Keys: Canonical Order**
 
-Keys in a `#` block MUST be acquired in canonical order:
+Keys in a `#` block MUST be acquired in canonical order, regardless of the order listed:
 
 ```cursive
 #zebra, alpha, mango {
-    // Acquired: alpha, mango, zebra
+    // Acquired: alpha, mango, zebra (canonical order)
+}
+```
+
+**(K-Block-Canonical)**
+$$\frac{
+    \text{Paths} = \{P_1, \ldots, P_n\} \quad
+    (Q_1, \ldots, Q_n) = \text{CanonicalSort}(\text{Paths})
+}{
+    \text{AcquireSequence} = [Q_1, Q_2, \ldots, Q_n]
+}$$
+
+**Nested `#` Block Semantics**
+
+Nested `#` blocks acquire keys independently. The outer block's keys remain held while the inner block executes:
+
+```cursive
+#alpha {                    // Acquires: alpha
+    // alpha held
+    #beta {                 // Acquires: beta (alpha still held)
+        // Both alpha and beta held
+    }                       // Releases: beta
+    // alpha still held
+}                           // Releases: alpha
+```
+
+**Nested `#` Block on Same or Overlapping Path**
+
+When a nested `#` block specifies a path that overlaps with an outer `#` block's path:
+
+1. **Identical path, same or weaker mode:** The inner block's key request is covered by the outer block's key. No additional acquisition occurs.
+
+2. **Identical path, stronger mode (Read → Write):** If the outer block holds a Read key and the inner block requests Write, the inner block MUST have the `write` modifier. The implementation MUST upgrade the key to Write mode for the duration of the inner block, then restore Read mode on inner block exit.
+
+3. **Prefix relationship:** If the inner path is a prefix of the outer path (coarser granularity), the inner block acquires a separate, coarser key. If the outer path is a prefix of the inner path (finer granularity), the inner block's access is covered by the outer key.
+
+**(K-Nested-Same-Path)**
+$$\frac{
+    \text{Held}(P, M_{\text{outer}}, \Gamma_{\text{keys}}) \quad
+    \#P\ M_{\text{inner}}\ \{\ \ldots\ \}
+}{
+    \begin{cases}
+    \text{Covered (no acquisition)} & \text{if } M_{\text{inner}} \leq M_{\text{outer}} \\
+    \text{Upgrade to } M_{\text{inner}} & \text{if } M_{\text{inner}} > M_{\text{outer}}
+    \end{cases}
+}$$
+
+where $\text{Read} < \text{Write}$.
+```cursive
+// Example: Outer Read, Inner Write (upgrade)
+#player {
+    let h = player.health          // Read access, covered
+    #player write {
+        player.health = h + 10     // Upgraded to Write for this block
+    }
+    let m = player.mana            // Back to Read after inner block exits
+}
+```
+
+**Nested Block Ordering:**
+
+Each `#` block orders its own listed paths canonically. The relative order of keys between nesting levels is determined by nesting structure (outer acquired before inner).
+
+**Deadlock Hazard from Inconsistent Nesting:**
+
+Nested `#` blocks that acquire overlapping keys in different orders across tasks create potential deadlock:
+
+```cursive
+// HAZARD: Potential deadlock
+// Task 1:              // Task 2:
+#alpha {                #beta {
+    #beta { }               #alpha { }
+}                       }
+```
+
+This is **programmer responsibility**. The compiler SHOULD detect this pattern when both blocks are visible:
+
+**(K-Nested-Cycle-Detection)**
+$$\frac{
+    \text{Block}_1 : \#P_1\ \{\ \#P_2\ \{\ \ldots\ \}\ \} \quad
+    \text{Block}_2 : \#P_2\ \{\ \#P_1\ \{\ \ldots\ \}\ \} \quad
+    \neg\text{Disjoint}(P_1, P_2)
+}{
+    \text{Emit}(\texttt{W-KEY-0012})
+}$$
+
+**Resolution:** Combine into a single `#` block:
+
+```cursive
+#alpha, beta { ... }    // Canonical order: alpha, beta — no deadlock
+```
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                       | Detection    | Effect    |
+| :----------- | :------- | :---------------------------------------------- | :----------- | :-------- |
+| `E-KEY-0011` | Error    | Detectable key ordering cycle within procedure  | Compile-time | Rejection |
+| `W-KEY-0011` | Warning  | `#` block contains incomparable dynamic indices | Compile-time | Warning   |
+| `W-KEY-0012` | Warning  | Nested `#` blocks with potential order cycle    | Compile-time | Warning   |
+
+
+#### 13.7.1 Read-Then-Write Prohibition
+
+##### Definition
+
+The **read-then-write prohibition** prevents patterns where a `shared` path is read and then written within the same statement without holding a covering Write key. Such patterns risk upgrade deadlock when multiple tasks attempt simultaneous read-to-write upgrades.
+
+**Formal Definition**
+
+A **read-then-write pattern** occurs when an expression $e$ contains both a read and a write to the same `shared` path $P$ within a single statement.
+
+$$\text{ReadThenWrite}(P, S) \iff \text{ReadOf}(P) \in \text{Subexpressions}(S) \land \text{WriteOf}(P) \in \text{Subexpressions}(S)$$
+
+##### Static Semantics
+
+**Prohibition Rule**
+
+The compiler MUST reject read-then-write patterns when no covering Write key is statically held:
+
+**(K-Read-Write-Reject)**
+$$\frac{
+    \Gamma \vdash P : \texttt{shared}\ T \quad
+    \text{ReadThenWrite}(P, S) \quad
+    \neg\exists (Q, \text{Write}, S') \in \Gamma_{\text{keys}} : \text{Prefix}(Q, P)
+}{
+    \text{Emit}(\texttt{E-KEY-0060})
+}$$
+
+**Pattern Classification**
+
+| Pattern            | Covering Write Key?         | Classification      | Action                |
+| :----------------- | :-------------------------- | :------------------ | :-------------------- |
+| `p += e`           | Yes (desugars to `#` block) | Compound assignment | Permitted             |
+| `#p { p = p + e }` | Yes                         | Explicit `#` block  | Permitted             |
+| `p = p + e`        | No                          | Read-then-write     | **Reject E-KEY-0060** |
+| `p = f(p)`         | No                          | Read-then-write     | **Reject E-KEY-0060** |
+| `p.a = p.b + 1`    | No, but disjoint paths      | Disjoint fields     | Permitted             |
+
+**Separate Statements**
+
+Reading and writing the **same** `shared` path in **separate statements** is permitted. Keys are released between statements:
+
+```cursive
+let current = player.health    // Read key acquired, released at semicolon
+// ... other code ...
+player.health = current + 10   // Write key acquired fresh — no conflict
+```
+
+This is safe because no key is held across statements; no upgrade occurs.
+
+> **Note:** The implementation SHOULD emit `W-KEY-0004` when a read-then-write pattern in separate statements occurs within a procedure that captures `shared` data and may later be invoked from a `parallel` context. This warns developers of potential contention if the code is parallelized.
+
+**Aliasing Considerations**
+
+When the compiler cannot prove that two paths are distinct, it MUST assume they may alias:
+
+```cursive
+procedure update(a: shared Player, b: shared Player) {
+    a.health = b.health + 10   // Potentially a == b — E-KEY-0060
+}
+
+procedure update_distinct(a: shared Player, b: shared Player)
+    |= a != b                  // Contract proves distinctness
+{
+    a.health = b.health + 10   // OK — proven distinct
 }
 ```
 
 ##### Constraints & Legality
 
-**Nested `#` Blocks**
+**Negative Constraints**
 
-Nested `#` blocks acquire keys independently. Deadlock from inconsistent nesting is programmer responsibility:
+1. A program MUST NOT read and write the same `shared` path in the same statement without a covering Write key.
+2. A program MUST NOT rely on implicit read-to-write key upgrade semantics; no such operation exists.
 
-```cursive
-// HAZARD: Potential deadlock
-// Task 1:          // Task 2:
-#alpha {            #beta {
-    #beta { }           #alpha { }
-}                   }
+**Resolution Strategies**
 
-// Resolution: single block
-#alpha, beta { ... }
-```
+When `E-KEY-0060` is emitted, the programmer MUST resolve it by one of:
+
+1. **Use compound assignment:** `p += e` instead of `p = p + e`
+2. **Use explicit `#` block:** `#p { p = p + e }`
+3. **Separate into distinct statements:** `let tmp = p; p = tmp + e`
+4. **Prove path distinctness:** Add contract or use disjoint paths
 
 **Diagnostic Table**
 
-| Code         | Severity | Condition                     | Detection    | Effect    |
-| :----------- | :------- | :---------------------------- | :----------- | :-------- |
-| `E-KEY-0011` | Error    | Detectable key ordering cycle | Compile-time | Rejection |
+| Code         | Severity | Condition                                                                   | Detection    | Effect    |
+| :----------- | :------- | :-------------------------------------------------------------------------- | :----------- | :-------- |
+| `E-KEY-0060` | Error    | Read-then-write on same `shared` path without covering Write key            | Compile-time | Rejection |
+| `W-KEY-0006` | Warning  | Explicit read-then-write form used; compound assignment available           | Compile-time | Warning   |
+| `W-KEY-0004` | Warning  | Read-then-write in sequential context; may cause contention if parallelized | Compile-time | Warning   |
 
 ---
 
@@ -12435,13 +13199,29 @@ Keys MUST NOT be held across async suspension points (`.await`). This is enforce
 **(K-No-Await-Holding)**
 
 $$\frac{
-    \text{KeysHeld}(\Gamma_{\text{keys}}) \neq \emptyset \quad
-    e = \text{expr}.\texttt{await}
+    \Gamma_{\text{keys}}(p) \neq \emptyset \quad
+    \text{IsAwait}(p)
 }{
     \text{Emit}(\texttt{E-KEY-0050})
 }$$
 
-The compiler tracks key state and rejects programs where `.await` occurs while keys are logically held.
+The compiler tracks key state and MUST reject programs where `.await` occurs while keys are logically held.
+
+**Scope Interaction**
+
+The prohibition applies to keys held at the `.await` program point, not to keys in enclosing scopes that have already been released:
+
+```cursive
+// VALID: Key released before await
+player.health += 1             // Key acquired and released at semicolon
+save().await                   // No keys held at await point
+
+// INVALID: Key held at await point
+#player {
+    player.health += 1
+    save().await               // ERROR E-KEY-0050: key to player still held
+}
+```
 
 ##### Dynamic Semantics
 
@@ -12461,8 +13241,14 @@ The compiler tracks key state and rejects programs where `.await` occurs while k
     save().await               // ERROR E-KEY-0050
 }
 
-// VALID:
+// VALID — Release before await:
 player.health += 1             // Key released at semicolon
+save().await                   // No keys held
+
+// VALID — Separate scopes:
+{
+    #player { player.health += 1 }
+}   // Key released at block exit
 save().await                   // No keys held
 ```
 
@@ -12495,22 +13281,23 @@ Keys are a **compile-time abstraction**. The compiler performs static key analys
 
 The compiler MUST perform key analysis for all `shared` path accesses:
 
-1. Compute the key path
-2. Determine the required mode
+1. Compute the key path (per §13.4, §13.5)
+2. Determine the required mode (per §13.1.2)
 3. Track key state through control flow
 4. Verify no conflicting accesses
+5. Determine if static safety can be proven
 
 **Static Safety Conditions**
 
-An access is **statically safe** if the compiler proves:
+An access is **statically safe** if the compiler proves one of the following:
 
-| Condition              | Description                                                 |
-| :--------------------- | :---------------------------------------------------------- |
-| **No escape**          | `shared` value never escapes to another task                |
-| **Disjoint paths**     | Concurrent accesses target provably disjoint paths          |
-| **Sequential context** | No `parallel` block encloses the access                     |
-| **Unique origin**      | Value is `unique` at origin, temporarily viewed as `shared` |
-| **Dispatch-indexed**   | Access indexed by `dispatch` iteration variable             |
+| Condition              | Description                                                 | Rule   |
+| :--------------------- | :---------------------------------------------------------- | :----- |
+| **No escape**          | `shared` value never escapes to another task                | K-SS-1 |
+| **Disjoint paths**     | Concurrent accesses target provably disjoint paths          | K-SS-2 |
+| **Sequential context** | No `parallel` block encloses the access                     | K-SS-3 |
+| **Unique origin**      | Value is `unique` at origin, temporarily viewed as `shared` | K-SS-4 |
+| **Dispatch-indexed**   | Access indexed by `dispatch` iteration variable             | K-SS-5 |
 
 **(K-Static-Safe)**
 $$\frac{
@@ -12528,133 +13315,164 @@ $$\frac{
 | Dynamic indices to same array      | Cannot prove disjointness     |
 | External `shared` parameter        | Caller context unknown        |
 | `shared` captured from outer scope | May be accessed concurrently  |
+| Cross-compilation-unit call        | Callee access pattern unknown |
 
 ##### Dynamic Semantics
 
 **Runtime Realization**
 
-When required, runtime synchronization MUST provide:
+When runtime synchronization is required, the implementation MUST provide:
 
-1. Mutual exclusion per key compatibility rules
+1. Mutual exclusion per key compatibility rules (§13.1.2)
 2. Blocking when incompatible keys are held
-3. Release on scope exit
+3. Release on scope exit (including panic)
+4. Progress guarantee (no indefinite starvation)
 
 **Implementation Strategies (IDB)**
 
-| Data Characteristic     | Typical Implementation       |
-| :---------------------- | :--------------------------- |
-| Small primitive         | Atomic operations            |
-| Record/struct           | Reader-writer lock           |
-| Array (static indices)  | Per-element or segment locks |
-| Array (dynamic indices) | Address-keyed lock table     |
-| `#` boundary            | Single lock for subtree      |
+| Data Characteristic         | Typical Implementation       |
+| :-------------------------- | :--------------------------- |
+| Small primitive (≤ 8 bytes) | Atomic operations            |
+| Record/struct               | Reader-writer lock           |
+| Array (static indices)      | Per-element or segment locks |
+| Array (dynamic indices)     | Address-keyed lock table     |
+| `#` boundary                | Single lock for subtree      |
 
 Implementations MUST document their strategy in the Conformance Dossier.
 
+**Observational Equivalence**
+
+Program behavior MUST be identical whether safety is proven statically or enforced at runtime. The only permitted difference is performance:
+
+$$\forall P : \text{Observable}(\text{StaticSafe}(P)) = \text{Observable}(\text{RuntimeSync}(P))$$
+
 ##### Memory & Layout
 
-**No Guaranteed Runtime Representation**
+**Static Case — No Overhead**
 
-A `shared` type does NOT necessarily differ in representation from its non-`shared` equivalent. When statically safe, layout MAY be identical to `unique`.
+When all accesses to a `shared` value are statically safe:
+- No synchronization metadata is required
+- Layout MAY be identical to `unique` equivalent
+- No runtime code is generated for key operations
 
-**Runtime Metadata**
+**Runtime Case — Implementation-Defined**
 
-If runtime synchronization is required, the implementation MAY associate metadata with `shared` values. The presence and format of this metadata is implementation-defined and MUST NOT be observable by conforming programs.
+When runtime synchronization is required:
+
+| Aspect              | Specification                             |
+| :------------------ | :---------------------------------------- |
+| Metadata location   | IDB: inline or external                   |
+| Metadata size       | IDB: MUST be documented                   |
+| Lock granularity    | IDB: per-value, per-field, or per-element |
+| Lock implementation | IDB: spinlock, mutex, RwLock, etc.        |
+
+
 
 ##### Constraints & Legality
 
-**Requirements**
+**Requirements Summary**
 
-| Requirement                                      | Level |
-| :----------------------------------------------- | :---- |
-| Perform static key analysis                      | MUST  |
-| Prove safety when possible                       | MUST  |
-| Emit runtime sync when static proof fails        | MUST  |
-| Runtime sync must conform to key semantics       | MUST  |
-| Static proof must not change observable behavior | MUST  |
-| Document realization strategy                    | MUST  |
+| Requirement                                          | Level |
+| :--------------------------------------------------- | :---- |
+| Perform static key analysis                          | MUST  |
+| Prove safety when possible                           | MUST  |
+| Emit runtime sync when static proof fails            | MUST  |
+| Runtime sync must conform to key semantics           | MUST  |
+| Static proof must not change observable behavior     | MUST  |
+| Document realization strategy in Conformance Dossier | MUST  |
 
-**Observational Equivalence**
+**Generic Code and Key Analysis**
 
-Program behavior MUST be identical whether safety is proven statically or enforced at runtime. The only difference is performance.
+Key analysis operates on monomorphized code. For generic procedures parameterized over permission:
 
-##### Examples
+1. **Monomorphization:** When a generic procedure is instantiated with `shared` as the permission parameter, key analysis applies to the instantiated procedure body.
 
-**Zero-cost — No escape:**
+2. **Permission-Polymorphic Code:** A procedure with signature `procedure f<P: Permission>(x: P T)` is analyzed separately for each instantiation. When `P = shared`, key analysis rules apply; when `P = const` or `P = unique`, key analysis is not required.
 
-```cursive
-procedure process() {
-    let data: shared Data = Data::new()
-    data.value = 100
-}
-// data never escapes: no runtime synchronization
-```
+3. **Trait Bounds:** If a generic procedure requires `P: Shareable` or similar bounds, the implementation MUST perform key analysis for all instantiations satisfying those bounds.
 
-**Zero-cost — Disjoint paths:**
-
-```cursive
-parallel {
-    spawn { state.player.health = 100 }
-    spawn { state.enemy.health = 50 }
-}
-// Paths disjoint: no synchronization between tasks
-```
-
-**Zero-cost — Dispatch-indexed:**
-
-```cursive
-dispatch i in 0..arr.len() {
-    arr[i] = i as i32
-}
-// Iteration variable guarantees disjointness: no synchronization
-```
-
-**Runtime sync — Escaping shared:**
-
-```cursive
-parallel {
-    spawn { counter.value += 1 }
-    spawn { counter.value += 1 }
-}
-// Same path, concurrent: runtime synchronization required
-```
+**(K-Generic-Instantiation)**
+$$\frac{
+    \text{Generic } f\langle P \rangle \text{ instantiated with } P = \texttt{shared} \quad
+    \Gamma \vdash \text{body}(f) : \texttt{shared}\ T
+}{
+    \text{KeyAnalysis applies to } f\langle\texttt{shared}\rangle
+}$$
 
 ---
 
 ### 13.10 Cross-Reference Notes `[INFORMATIVE]`
 
-**Terms Defined in §13.2**
+**Terms Defined in Clause 13**
 
-| Term                  | Section   | Description                                    |
-| :-------------------- | :-------- | :--------------------------------------------- |
-| Key                   | §13.2.1   | Static proof of access rights to `shared` path |
-| Key Mode              | §13.2.1.2 | Read or Write access grant                     |
-| Path Prefix           | §13.2.1.1 | Relation for coverage determination            |
-| Path Disjointness     | §13.2.1.1 | Relation for static safety proofs              |
-| Mode Upgrade          | §13.2.1.3 | Read to Write transition                       |
-| Key Path              | §13.2.4   | Path used for key analysis                     |
-| Coverage              | §13.2.2   | When held key subsumes finer access            |
-| Type-Level Boundary   | §13.2.5   | Permanent granularity constraint               |
-| Statically Resolvable | §13.2.6   | Index evaluable at compile time                |
-| Canonical Order       | §13.2.7   | Deterministic path ordering                    |
-| Static Safety         | §13.2.9   | Compiler-proven access safety                  |
+| Term                    | Section | Description                                           |
+| :---------------------- | :------ | :---------------------------------------------------- |
+| Key                     | §13.1   | Static proof of access rights to `shared` path        |
+| Program Point           | §13.1   | Unique location in control flow for state tracking    |
+| Lexical Scope           | §13.1   | Bounded code region defining key lifetime             |
+| Held (predicate)        | §13.1   | Key membership in state context                       |
+| Path Prefix             | §13.1.1 | Relation for coverage determination                   |
+| Path Disjointness       | §13.1.1 | Relation for static safety proofs                     |
+| Segment Equivalence     | §13.1.1 | Equality of path segments including index equivalence |
+| Index Equivalence       | §13.1.1 | Provable equality of index expressions                |
+| Key Mode                | §13.1.2 | Read or Write access grant                            |
+| Read Context            | §13.1.2 | Syntactic position requiring read access              |
+| Write Context           | §13.1.2 | Syntactic position requiring write access             |
+| Key Compatibility       | §13.1.2 | When two keys may coexist                             |
+| Read-Then-Write Pattern | §13.7.1 | Read and write to same path within single statement   |
+| Covered (predicate)     | §13.2   | When held key subsumes finer access                   |
+| Mode Sufficiency        | §13.2   | When held mode satisfies required mode                |
+| Key Path                | §13.4   | Path used for key analysis after coarsening           |
+| Type-Level Boundary     | §13.5   | Permanent granularity constraint on field             |
+| Statically Resolvable   | §13.6   | Index evaluable at compile time                       |
+| Canonical Order         | §13.7   | Deterministic path ordering for deadlock prevention   |
+| Static Safety           | §13.9   | Compiler-proven access safety                         |
 
-**Terms Referenced**
+**Terms Referenced from Other Clauses**
 
-| Term                | Source | Usage                       |
-| :------------------ | :----- | :-------------------------- |
-| `shared` permission | §4.5.4 | Data requiring key analysis |
-| `const` permission  | §4.5.4 | Immutable, no keys needed   |
-| `unique` permission | §4.5.4 | Exclusive, no keys needed   |
-| `.await` expression | §13.5  | Async suspension point      |
-| `dispatch`          | §13.6  | Data-parallel iteration     |
+| Term                    | Source | Usage in Clause 13                                  |
+| :---------------------- | :----- | :-------------------------------------------------- |
+| `shared` permission     | §4.5.4 | Data requiring key analysis                         |
+| `const` permission      | §4.5.4 | Immutable, no keys needed                           |
+| `unique` permission     | §4.5.4 | Exclusive, no keys needed                           |
+| Scope (name resolution) | §8.4   | Distinct from LexicalScope; used for binding lookup |
+| `.await` expression     | §15    | Async suspension point                              |
+| `dispatch`              | §14.3  | Data-parallel iteration                             |
+| `parallel` block        | §14.1  | Structured concurrency primitive                    |
+| `defer` statement       | §11.12 | Deferred execution at scope exit                    |
+| Drop                    | §9.7   | Destructor trait for cleanup                        |
+| Panic                   | §11.15 | Unwinding error propagation                         |
 
-**Related Diagnostics**
+**Diagnostic Code Summary**
 
-| §13.2 Code   | Related           | Category                |
-| :----------- | :---------------- | :---------------------- |
-| `E-KEY-0001` | `E-TYP-1604`      | Shared access violation |
-| `E-KEY-0010` | `E-DISPATCH-0001` | Dynamic index conflict  |
+| Code         | Severity | Section | Condition                                                                   |
+| :----------- | :------- | :------ | :-------------------------------------------------------------------------- |
+| `E-KEY-0001` | Error    | §13.1   | Access to `shared` path outside valid key context                           |
+| `E-KEY-0002` | Error    | §13.1   | `#` annotation on non-`shared` path                                         |
+| `E-KEY-0003` | Error    | §13.1   | Multiple `#` markers in single path expression                              |
+| `E-KEY-0004` | Error    | §13.1   | Key escapes its defining scope                                              |
+| `E-KEY-0005` | Error    | §13.1.2 | Write access required but only Read available                               |
+| `E-KEY-0006` | Error    | §13.2   | Key acquisition in `defer` escapes to outer scope                           |
+| `E-KEY-0010` | Error    | §13.6   | Potential conflict on dynamic indices                                       |
+| `E-KEY-0011` | Error    | §13.7   | Detectable key ordering cycle within procedure                              |
+| `E-KEY-0020` | Error    | §13.4   | `#` immediately before method name                                          |
+| `E-KEY-0031` | Error    | §13.4   | `#` block path not in scope                                                 |
+| `E-KEY-0032` | Error    | §13.4   | `#` block path is not `shared`                                              |
+| `E-KEY-0033` | Error    | §13.5   | `#` on field of non-record type                                             |
+| `E-KEY-0050` | Error    | §13.8   | `.await` while key is held                                                  |
+| `W-KEY-0001` | Warning  | §13.2   | Fine-grained keys in tight loop (performance hint)                          |
+| `W-KEY-0002` | Warning  | §13.2   | Redundant key acquisition (already covered)                                 |
+| `W-KEY-0003` | Warning  | §13.4   | `#` redundant (matches type boundary)                                       |
+| `W-KEY-0004` | Warning  | §13.7.1 | Read-then-write in sequential context; may cause contention if parallelized |
+| `W-KEY-0005` | Warning  | §13.3   | Callee access pattern unknown; assuming full access                         |
+| `W-KEY-0011` | Warning  | §13.7   | `#` block contains incomparable dynamic indices                             |
+| `W-KEY-0012` | Warning  | §13.7   | Nested `#` blocks with potential order cycle                                |
+| `E-KEY-0060` | Error    | §13.7.1 | Read-then-write on same `shared` path without covering Write key            |
+| `E-KEY-0070` | Error    | §13.4   | Write operation in `#` block without `write` modifier                       |
+| `W-KEY-0006` | Warning  | §13.7.1 | Explicit read-then-write form; compound assignment available                |
+
+---
+
 ## Clause 14: Concurrency Structures
 
 ### 14.1 The `parallel` Block
@@ -13208,13 +14026,13 @@ This provides the strongest guarantees—all tasks observe operations in a consi
 For performance-critical code, weaker orderings are available via annotation:
 
 ```cursive
-#[relaxed]
+[[relaxed]]
 counter += 1
 
-#[acquire]
+[[acquire]]
 let ready = flag
 
-#[release]
+[[release]]
 flag = true
 ```
 
@@ -13309,41 +14127,13 @@ parallel {
 
 ---
 
-### Clause 13 Cross-Reference Notes `[INFORMATIVE]`
-
-**Terms defined in Clause 13 that MUST NOT be redefined elsewhere:**
-
-| Term                   | Section | Description                                     |
-| :--------------------- | :------ | :---------------------------------------------- |
-| Key                    | §13.2   | Runtime proof of access rights to shared path   |
-| Key Mode               | §13.2   | Read or Write access grant                      |
-| Key Coarsening         | §13.2   | The `#` annotation for explicit key granularity |
-| Parallel Block         | §13.3   | Structured concurrency primitive                |
-| Spawn                  | §13.3   | Task creation within parallel block             |
-| Structured Concurrency | §13.3   | Tasks complete before enclosing scope exits     |
-| Capture Semantics      | §13.4   | Rules for binding capture in tasks              |
-| Future                 | §13.5   | Deferred computation                            |
-| Dispatch               | §13.6   | Data-parallel iteration primitive               |
-| Channel                | §13.7   | Ownership-transferring communication            |
-| Wait Expression        | §13.8   | Condition-based blocking primitive              |
-
-**Terms referenced from other clauses:**
-
-| Term             | Source | Usage in Clause 13                     |
-| :--------------- | :----- | :------------------------------------- |
-| Permission Types | §4.5   | Govern capture and access semantics    |
-| Region           | §3.7   | Memory arena for region-allocated data |
-| Modal Types      | §4.8   | Task handle is a modal type            |
-
----
-
 # Part 5: Advanced Features
 
 ## Clause 18: Metaprogramming
 
 This clause defines the Cursive metaprogramming system. Cursive provides a deterministic, declarative code generation mechanism based on **compile-time execution**, **type introspection**, **quasiquoting**, and **explicit AST emission**. This system adheres to the **Two-Phase Compilation Model** defined in §2.12. Metaprogramming occurs strictly between the **Parsing** and **Semantic Analysis** phases.
 
-### 14.1 The Metaprogramming Model
+### 18.1 The Metaprogramming Model
 
 ##### Definition
 
@@ -13400,7 +14190,7 @@ Implementations **SHOULD** cache the result of `comptime` blocks and procedures 
 
 ---
 
-### 14.2 AST Representation
+### 18.2 AST Representation
 
 ##### Definition
 
@@ -13437,7 +14227,7 @@ The metaprogramming system operates on Abstract Syntax Tree (AST) node types. Th
 
 ---
 
-### 14.3 Type Introspection
+### 18.3 Type Introspection
 
 ##### Definition
 
@@ -13511,7 +14301,7 @@ comptime procedure reflect_type<T>(): TypeInfo
 
 ---
 
-### 14.4 Compile-Time Procedures and Blocks
+### 18.4 Compile-Time Procedures and Blocks
 
 ##### Definition
 
@@ -13585,7 +14375,7 @@ let x = comptime { 1 + 1 }  // x = 2, computed at compile time
 
 ---
 
-### 14.5 Quasiquoting and Interpolation
+### 18.5 Quasiquoting and Interpolation
 
 ##### Definition
 
@@ -13668,7 +14458,7 @@ A string used for identifier splicing **MUST** conform to the identifier grammar
 
 ---
 
-### 14.6 Code Emission
+### 18.6 Code Emission
 
 ##### Definition
 
@@ -13716,7 +14506,7 @@ Type errors in emitted code **MUST** be reported with a diagnostic trace pointin
 
 ---
 
-### 14.7 Implementation Limits
+### 18.7 Implementation Limits
 
 ##### Definition
 
@@ -13741,7 +14531,7 @@ Exceeding these limits **MUST** result in error `E-MET-3402`.
 
 ---
 
-### Clause 14: Metaprogramming Cross-Reference Notes
+### Clause 18: Metaprogramming Cross-Reference Notes
 
 **Terms defined in Clause 11 that MUST NOT be redefined elsewhere:**
 
@@ -13789,7 +14579,7 @@ Exceeding these limits **MUST** result in error `E-MET-3402`.
 
 This clause defines the Foreign Function Interface (FFI) mechanisms for interacting with code adhering to C-compatible Application Binary Interfaces (ABIs). It specifies extern declaration syntax, the safety boundary enforced by `unsafe` blocks, memory layout guarantees via representation attributes, and the strict categorization of types permitted across the language boundary.
 
-### 15.1 Foundational Definitions
+### 19.1 Foundational Definitions
 
 ##### Definition
 
@@ -13831,7 +14621,7 @@ Implementations **MUST** support `"C"` and `"system"` ABI strings. Unknown ABI s
 
 ---
 
-### 15.2 FFI-Safe Types
+### 19.2 FFI-Safe Types
 
 ##### Definition
 
@@ -13905,7 +14695,7 @@ $$
 | `E-FFI-3301` | Error    | Non-FFI-Safe type used in `extern` signature. |
 
 ---
-### 15.2.1 FFI String Types
+### 19.2.1 FFI String Types
 
 ##### Definition
 
@@ -14050,51 +14840,6 @@ record CStr [[layout(C)]] <: Copy {
 
 `*imm u8` and `*mut u8` are FFI-safe. The `CString` and `CStr` record types are **not** directly FFI-safe; use `as_ptr()` to obtain the raw pointer for FFI boundaries.
 
-##### Examples
-
-**Calling C Functions**
-
-```cursive
-extern "C" procedure puts(s: *imm u8) -> i32
-
-procedure print_message(msg: string@View, ctx: Context) {
-    let cstr = CString::from_string(msg, ctx.heap) match {
-        ok: CString => ok,
-        err: NullByteError => {
-            CString::from_string_lossy(msg, ctx.heap)
-        }
-    }
-    
-    unsafe {
-        puts(cstr~>as_ptr())
-    }
-}
-```
-
-**Receiving Strings from C**
-
-```cursive
-extern "C" procedure getenv(name: *imm u8) -> *imm u8
-
-procedure get_env_var(
-    name: string@View,
-    ctx: Context
-) -> string@Managed | EnvError | NullByteError | Utf8Error {
-    let name_c = CString::from_string(name, ctx.heap)?  // Propagates NullByteError
-    
-    let result_ptr = unsafe { getenv(name_c~>as_ptr()) }
-    
-    if result_ptr == null {
-        return EnvError::NotFound
-    }
-    
-    let cstr = unsafe { CStr::from_ptr(result_ptr) }
-    let value = cstr~>to_string()?  // Propagates Utf8Error
-    
-    // Copy to managed string (getenv result has static lifetime but we want owned)
-    string::from(value, ctx.heap)
-}
-```
 
 ##### Constraints & Legality
 
@@ -14118,7 +14863,7 @@ The review correctly identified the lack of FFI string helpers as a gap. This ad
 ---
 
 
-### 15.3 Type Representation
+### 19.3 Type Representation
 
 ##### Definition
 
@@ -14173,7 +14918,7 @@ For an `enum` marked `[[layout(C)]]`:
 
 ---
 
-### 15.4 Extern Declarations
+### 19.4 Extern Declarations
 
 ##### Definition
 
@@ -14259,7 +15004,7 @@ Procedures exported via FFI **MUST** satisfy:
 
 ---
 
-### 15.5 FFI Safety Boundary
+### 19.5 FFI Safety Boundary
 
 ##### Definition
 
@@ -14326,7 +15071,7 @@ When `[[unwind(catch)]]` is specified:
 
 ---
 
-### Clause 15: Interoperability Cross-Reference Notes
+### Clause 19: Interoperability Cross-Reference Notes
 
 **Terms defined in Clause 12 that MUST NOT be redefined elsewhere:**
 

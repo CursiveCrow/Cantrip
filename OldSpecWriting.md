@@ -158,31 +158,35 @@ Provide the formal judgments ($\Gamma \vdash ...$).
 **Equivalence & Subtyping**
 Define when two instances of this type are equal ($T \equiv U$) or related ($T
 <: U$).
-    **Validation**
-    Define well-formedness checks (e.g., "Recursion limits" , "Duplicate fields" ).
-    ##### Dynamic Semantics
-    **Evaluation**
-    Define the runtime behavior, initialization, or state transitions.
-    ##### Memory & Layout
-    **Representation**
-    Define size (`sizeof`), alignment (`alignof`), and physical layout (padding, field ordering).
-    **ABI Guarantees**
-    Specify if the layout is **Defined**, **Implementation-Defined (IDB)**, or **Unspecified**.
-    ##### Constraints & Legality
-    **Negative Constraints**
-    List specific forbidden usages (e.g., "Must not be used in FFI" ).
-    **Diagnostic Table**
-    | Code         | Severity | Condition                |
-    | :----------- | :------- | :----------------------- |
-    | `E-CAT-####` | Error    | Description of violation |
-    ##### Examples
-    Provide 1-2 short, high-clarity examples.
-    - **Valid:** Shows correct usage.
-    - **Invalid:** Shows code triggering specific diagnostics defined above.
+**Validation**
+Define well-formedness checks (e.g., "Recursion limits" , "Duplicate fields" ).
+
+##### Dynamic Semantics
+**Evaluation**
+Define the runtime behavior, initialization, or state transitions.
+
+##### Memory & Layout
+**Representation**
+Define size (`sizeof`), alignment (`alignof`), and physical layout (padding, field ordering).
+**ABI Guarantees**
+Specify if the layout is **Defined**, **Implementation-Defined (IDB)**, or **Unspecified**.
+
+##### Constraints & Legality
+**Negative Constraints**
+List specific forbidden usages (e.g., "Must not be used in FFI" ).
+**Diagnostic Table**
+| Code         | Severity | Condition                |
+| :----------- | :------- | :----------------------- |
+| `E-CAT-####` | Error    | Description of violation |
+
+##### Examples
+Provide 1-2 short, high-clarity examples.
+- **Valid:** Shows correct usage.
+- **Invalid:** Shows code triggering specific diagnostics defined above.
 
 </section_template>
 
-----
+---
 
 # Task
 
