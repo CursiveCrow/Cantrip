@@ -676,7 +676,7 @@ in          interrupt   let         loop        match       modal
 mod         module      move        mut         override    pool
 private     procedure   protected   public      quote       record
 region      result      return      select      self        Self
-set         simd        spawn       sync        then        trait
+set         simd        spawn       sync        then        form
 transition  transmute   true        type        union       unique
 unsafe      using       var         volatile    where       while
 witness
@@ -1756,7 +1756,7 @@ The use of an `unsafe` block constitutes a normative assertion by the programmer
 | Permission Types | §4.5   | Define type annotations for aliasing rules |
 | Modal Types      | §4.8   | Arena is a modal type                      |
 | Pointer Types    | §4.13  | Raw pointers defined there; semantics here |
-| Drop Trait       | §9.7   | Destructor mechanism                       |
+| Drop Form        | §9.7   | Destructor mechanism                       |
 | Place Expression | §8.1   | Required for `move` operand                |
 | HeapAllocator    | §9.3   | Capability for dynamic allocation          |
 
@@ -1913,9 +1913,9 @@ $$\frac{\Gamma \vdash e : S \quad \Gamma \vdash S <: T}{\Gamma \vdash e : T} \qu
 
 Permission types form a linear subtype lattice. The complete lattice structure, formal subtyping rules, and the prohibition on implicit upgrades are all defined in §4.5.
 
-**Trait Implementation Subtyping**
+**Form Implementation Subtyping**
 
-A concrete type that implements a trait is a subtype of that trait. See §6.3 for the formal rule (Sub-Trait).
+A concrete type that implements a form is a subtype of that form. See §6.3 for the formal rule (Sub-Form).
 
 **Additional Subtyping Rules**
 
@@ -2556,7 +2556,7 @@ See Appendix J (§J.1) for the cross-reference matrix mapping permission diagnos
 | String Type    | §5.6        | Built-in modal string      |
 | Pointer Type   | §6.2        | Safe and raw pointer types |
 | Generic Type   | §7.1        | Static polymorphism        |
-| Trait          | Clause 8    | Polymorphism system        |
+| Form           | Clause 8    | Polymorphism system        |
 
 ---
 
@@ -3311,7 +3311,7 @@ This rule applies to all generic range types. The type `RangeFull` unconditional
 
 **Iteration**
 
-Range types `Range<T>` and `RangeInclusive<T>` implement the `Iterator` trait when `T` implements `Step`. This enables their use in `for` loops:
+Range types `Range<T>` and `RangeInclusive<T>` implement the `Iterator` form when `T` implements `Step`. This enables their use in `for` loops:
 
 ```cursive
 for i in 0..10 { /* i: i32, values 0 through 9 */ }
@@ -3381,14 +3381,14 @@ A **record** is a nominal product type with named fields. A record aggregates ze
 
 Let $\mathcal{R}$ denote the set of all record types. A record type $R$ is defined by:
 
-$$R = (\text{Name}, \text{Params}, \text{Fields}, \text{Traits}, \text{Invariant})$$
+$$R = (\text{Name}, \text{Params}, \text{Fields}, \text{Forms}, \text{Invariant})$$
 
 where:
 
 - $\text{Name}$ is the unique type identifier within its declaring module
 - $\text{Params}$ is an optional list of generic type parameters
 - $\text{Fields} = \{(f_1, V_1, T_1), \ldots, (f_n, V_n, T_n)\}$ is an ordered sequence of field declarations, where $f_i$ is the field name, $V_i$ is the field visibility, and $T_i$ is the field type
-- $\text{Traits}$ is the set of traits the record implements (possibly empty)
+- $\text{Forms}$ is the set of forms the record implements (possibly empty)
 - $\text{Invariant}$ is an optional predicate that constrains valid instances
 
 Two record types are **equivalent** if and only if they refer to the same declaration:
@@ -3409,8 +3409,8 @@ field_decl       ::= [visibility] identifier ":" type
 
 partition_decl   ::= "partition" identifier "{" field_decl ("," field_decl)* ","? "}"
 
-implements_clause ::= "<:" trait_list
-trait_list       ::= type_path ("," type_path)*
+implements_clause ::= "<:" form_list
+form_list       ::= type_path ("," type_path)*
 
 type_invariant   ::= "where" "{" predicate "}"
 ```
@@ -3481,9 +3481,9 @@ The default visibility for record fields is `private` (accessible only within th
 
 Field visibility MUST NOT exceed the visibility of the enclosing record type.
 
-**Trait Implementation**
+**Form Implementation**
 
-A record declaration MAY specify the traits it implements using the subtype operator (`<:`) followed by a comma-separated list of trait identifiers. The record body MUST provide implementations for all required trait procedures. Trait implementation semantics are defined in §6.3.
+A record declaration MAY specify the forms it implements using the subtype operator (`<:`) followed by a comma-separated list of form identifiers. The record body MUST provide implementations for all required form procedures. Form implementation semantics are defined in §6.3.
 
 **Invariant Enforcement**
 
@@ -3501,9 +3501,9 @@ The permission of a record value propagates to field access. If binding `r` has 
 
 **Subtyping**
 
-Record types do not participate in structural subtyping. A record type $R$ is a subtype of a trait type $\textit{Tr}$ if and only if $R$ implements $\textit{Tr}$:
+Record types do not participate in structural subtyping. A record type $R$ is a subtype of a form type $\textit{Tr}$ if and only if $R$ implements $\textit{Tr}$:
 
-$$\frac{R\ \texttt{<:}\ \textit{Tr}}{\Gamma \vdash R <: \textit{Tr}} \quad \text{(Sub-Record-Trait)}$$
+$$\frac{R\ \texttt{<:}\ \textit{Tr}}{\Gamma \vdash R <: \textit{Tr}} \quad \text{(Sub-Record-Form)}$$
 
 **Parallel Field Access**
 
@@ -3604,14 +3604,14 @@ A **discriminant** is a compile-time-assigned integer value that uniquely identi
 
 Let $\mathcal{E}$ denote the set of all enum types. An enum type $E$ is defined by:
 
-$$E = (\text{Name}, \text{Params}, \text{Variants}, \text{Traits}, \text{Invariant})$$
+$$E = (\text{Name}, \text{Params}, \text{Variants}, \text{Forms}, \text{Invariant})$$
 
 where:
 
 - $\text{Name}$ is the unique type identifier within its declaring module
 - $\text{Params}$ is an optional list of generic type parameters
 - $\text{Variants} = \{(v_1, D_1, P_1), \ldots, (v_n, D_n, P_n)\}$ is a non-empty sequence of variant declarations, where $v_i$ is the variant name, $D_i$ is the discriminant value, and $P_i$ is the optional payload type
-- $\text{Traits}$ is the set of traits the enum implements (possibly empty)
+- $\text{Forms}$ is the set of forms the enum implements (possibly empty)
 - $\text{Invariant}$ is an optional predicate that constrains valid instances
 
 Two enum types are **equivalent** if and only if they refer to the same declaration:
@@ -3639,9 +3639,9 @@ field_decl_list  ::= field_decl ("," field_decl)* ","?
 
 field_decl       ::= identifier ":" type
 
-implements_clause ::= "<:" trait_list
+implements_clause ::= "<:" form_list
 
-trait_list       ::= type_path ("," type_path)*
+form_list       ::= type_path ("," type_path)*
 
 type_invariant   ::= "where" "{" predicate "}"
 ```
@@ -3749,9 +3749,9 @@ Accessing the data stored within an enum variant MUST be performed using a `matc
 
 A `match` expression on an enum type MUST be exhaustive: the set of patterns in its arms, taken together, MUST cover every variant of the enum. Exhaustiveness checking is mandatory for all enum types. See §8.4 for pattern matching semantics.
 
-**Trait Implementation**
+**Form Implementation**
 
-An enum declaration MAY specify the traits it implements using the subtype operator (`<:`) followed by a comma-separated list of trait identifiers. The enum body MUST provide implementations for all required trait procedures. Trait implementation semantics are defined in §6.3.
+An enum declaration MAY specify the forms it implements using the subtype operator (`<:`) followed by a comma-separated list of form identifiers. The enum body MUST provide implementations for all required form procedures. Form implementation semantics are defined in §6.3.
 
 **Invariant Enforcement**
 
@@ -3765,9 +3765,9 @@ Invariant enforcement modes and verification strategies are defined in §7.3.
 
 **Subtyping**
 
-Enum types do not participate in structural subtyping. An enum type $E$ is a subtype of a trait type $\textit{Tr}$ if and only if $E$ implements $\textit{Tr}$:
+Enum types do not participate in structural subtyping. An enum type $E$ is a subtype of a form type $\textit{Tr}$ if and only if $E$ implements $\textit{Tr}$:
 
-$$\frac{E\ \texttt{<:}\ \textit{Tr}}{\Gamma \vdash E <: \textit{Tr}} \quad \text{(Sub-Enum-Trait)}$$
+$$\frac{E\ \texttt{<:}\ \textit{Tr}}{\Gamma \vdash E <: \textit{Tr}} \quad \text{(Sub-Enum-Form)}$$
 
 ##### Memory & Layout
 
@@ -4296,8 +4296,8 @@ impl<T: Copy> Volatile<T> {
 | Type Equivalence | §4.1   | Structural vs. nominal rules       |
 | Subtyping        | §4.2   | Covariance rules for composites    |
 | Variance         | §4.3   | Container type variance            |
-| Copy Trait       | §9.2   | Required for array repeat literals |
-| Drop Trait       | §9.3   | Destructor typing                  |
+| Copy Form        | §9.2   | Required for array repeat literals |
+| Drop Form        | §9.3   | Destructor typing                  |
 
 **Terms Deferred to Later Clauses:**
 
@@ -4500,7 +4500,7 @@ Fields declared within a state payload are implicitly `protected`. They are acce
 
 1. Procedures declared within the same modal type's state blocks.
 2. Transition implementations for the modal type.
-3. Associated trait implementations for the modal type.
+3. Associated form implementations for the modal type.
 
 External code MUST NOT directly access payload fields; access is mediated through methods and pattern matching.
 
@@ -4883,7 +4883,7 @@ $$\frac{S \in \{\texttt{@Managed}, \texttt{@View}\}}{\Gamma \vdash \texttt{strin
 
 A procedure accepting the general type `string` may receive either state; the active state is determined via pattern matching.
 
-**Trait Implementations**
+**Form Implementations**
 
 | State            | `Copy` | `Clone` | `Drop` |
 | :--------------- | :----- | :------ | :----- |
@@ -5232,7 +5232,7 @@ process_ptr(valid_ptr)  // Implicit widening — no `widen` keyword required
 
 > **Note:** The `@Expired` state is compile-time only (see Dynamic Semantics below) and cannot be widened to the general type; the compiler statically prevents use of expired pointers before they could reach widening contexts.
 
-**Trait Implementations**
+**Form Implementations**
 
 | State            | `Copy` | `Clone` | `Drop` |
 | :--------------- | :----- | :------ | :----- |
@@ -5688,7 +5688,7 @@ The following constraints apply when invoking a function type value:
 | Provenance       | §3.3   | Pointer lifetime tracking           |
 | Unsafe Block     | §3.10  | Required for raw pointer operations |
 | Region           | §3.9   | Pointer provenance source           |
-| Drop Trait       | §9.3   | Destructor for pointer cleanup      |
+| Drop Form        | §9.3   | Destructor for pointer cleanup      |
 
 **Terms Deferred to Later Clauses:**
 
@@ -5712,7 +5712,7 @@ This clause defines mechanisms that extend or constrain the type system: static 
 
 **Static polymorphism** (also called **generics**) is the mechanism by which a single type or procedure definition operates uniformly over multiple concrete types. A **generic declaration** introduces one or more **type parameters** that serve as placeholders for concrete types supplied at instantiation. Generic declarations are resolved entirely at compile time via **monomorphization**: the compiler generates specialized code for each distinct combination of type arguments.
 
-Static polymorphism provides zero-overhead polymorphism on *inputs* resolved at compile time. It contrasts with dynamic polymorphism (§9.5), which uses runtime dispatch via trait objects.
+Static polymorphism provides zero-overhead polymorphism on *inputs* resolved at compile time. It contrasts with dynamic polymorphism (§9.5), which uses runtime dispatch via form objects.
 
 **Formal Definition**
 
@@ -5733,9 +5733,9 @@ $$P_i = (\text{name}_i, \text{Bounds}_i)$$
 where:
 
 - $\text{name}_i$ is an identifier serving as the parameter name
-- $\text{Bounds}_i \subseteq \mathcal{T}_{\text{trait}}$ is a (possibly empty) set of trait bounds that constrain valid type arguments
+- $\text{Bounds}_i \subseteq \mathcal{T}_{\text{form}}$ is a (possibly empty) set of form bounds that constrain valid type arguments
 
-A type parameter with $\text{Bounds}_i = \emptyset$ is **unconstrained**; any type may be substituted. A type parameter with $\text{Bounds}_i \neq \emptyset$ is **constrained**; only types implementing all traits in $\text{Bounds}_i$ may be substituted.
+A type parameter with $\text{Bounds}_i = \emptyset$ is **unconstrained**; any type may be substituted. A type parameter with $\text{Bounds}_i \neq \emptyset$ is **constrained**; only types implementing all forms in $\text{Bounds}_i$ may be substituted.
 
 **Monomorphization**
 
@@ -5749,13 +5749,13 @@ A type parameter with $\text{Bounds}_i = \emptyset$ is **unconstrained**; any ty
 generic_params     ::= "<" generic_param_list ">"
 generic_param_list ::= generic_param ("," generic_param)*
 generic_param      ::= identifier [bound_clause]
-bound_clause       ::= "<:" trait_bound_list
-trait_bound_list   ::= trait_bound ("," trait_bound)*
-trait_bound        ::= type_path
+bound_clause       ::= "<:" form_bound_list
+form_bound_list   ::= form_bound ("," form_bound)*
+form_bound        ::= type_path
 
 where_clause       ::= "where" where_predicate_list
 where_predicate_list ::= where_predicate ("," where_predicate)*
-where_predicate    ::= identifier "<:" trait_bound_list
+where_predicate    ::= identifier "<:" form_bound_list
 
 generic_args       ::= "<" type_arg_list ">"
 type_arg_list      ::= type ("," type)*
@@ -5774,7 +5774,7 @@ procedure sort<T <: Ord>(arr: unique [T]) { ... }
 
 **Bound Clause Syntax**
 
-A type parameter MAY be followed by a bound clause using the `<:` operator. Multiple trait bounds are separated by commas:
+A type parameter MAY be followed by a bound clause using the `<:` operator. Multiple form bounds are separated by commas:
 
 ```cursive
 <T>                         // Unconstrained
@@ -5802,11 +5802,11 @@ When both inline bounds and a `where` clause specify constraints for the same pa
 
 **Parsing Disambiguation**
 
-The comma character serves as a separator for both trait bounds (within a single parameter's bound list) and generic parameters. Parsing is disambiguated as follows:
+The comma character serves as a separator for both form bounds (within a single parameter's bound list) and generic parameters. Parsing is disambiguated as follows:
 
-1. After parsing `<:` and a trait bound, if a comma is encountered:
+1. After parsing `<:` and a form bound, if a comma is encountered:
    - If the token following the comma is an identifier followed by `<:`, the identifier begins a new bounded parameter.
-   - Otherwise, the identifier is another trait bound for the current parameter.
+   - Otherwise, the identifier is another form bound for the current parameter.
 
 2. Identifiers NOT preceded by `<:` in the current parse state are unconstrained type parameters.
 
@@ -5820,7 +5820,7 @@ This rule implies:
 > ```cursive
 > // INCORRECT interpretation: T bounded by A, U unconstrained
 > // ACTUAL interpretation: T bounded by both A and U
-> procedure wrong<T <: A, U>(x: T, y: U) { ... }  // COMPILE ERROR if U is not a trait
+> procedure wrong<T <: A, U>(x: T, y: U) { ... }  // COMPILE ERROR if U is not a form
 >
 > // CORRECT: Use where clause
 > procedure correct<T, U>(x: T, y: U) where T <: A { ... }
@@ -5838,8 +5838,8 @@ procedure example<T, U>(x: T, y: U) where T <: Display { ... }
 | :-------------------- | :--------------------------------------------------------- |
 | `<T>`                 | One unconstrained parameter `T`                            |
 | `<T, U>`              | Two unconstrained parameters `T` and `U`                   |
-| `<T <: A>`            | Parameter `T` bounded by trait `A`                         |
-| `<T <: A, B>`         | Parameter `T` bounded by traits `A` AND `B`                |
+| `<T <: A>`            | Parameter `T` bounded by form `A`                          |
+| `<T <: A, B>`         | Parameter `T` bounded by forms `A` AND `B`                 |
 | `<T <: A, U <: B>`    | Parameter `T` bounded by `A`, parameter `U` bounded by `B` |
 | `<T, U> where T <: A` | Equivalent to above; preferred for readability             |
 
@@ -5865,11 +5865,11 @@ let default_val = Default::default::<Config>()
 
 **Well-Formedness of Generic Parameters (WF-Generic-Param)**
 
-A generic parameter list is well-formed if all parameter names are distinct and all trait bounds reference valid trait types:
+A generic parameter list is well-formed if all parameter names are distinct and all form bounds reference valid form types:
 
 $$\frac{
     \forall i \neq j,\ \text{name}_i \neq \text{name}_j \quad
-    \forall i,\ \forall B \in \text{Bounds}_i,\ \Gamma \vdash B : \text{Trait}
+    \forall i,\ \forall B \in \text{Bounds}_i,\ \Gamma \vdash B : \text{Form}
 }{
     \Gamma \vdash \langle P_1, \ldots, P_n \rangle\ \text{wf}
 } \quad \text{(WF-Generic-Param)}$$
@@ -5900,7 +5900,7 @@ $$\frac{
 
 **Constraint Satisfaction (T-Constraint-Sat)**
 
-A type argument $A$ satisfies a constraint set $\text{Bounds}$ if $A$ implements all traits in $\text{Bounds}$:
+A type argument $A$ satisfies a constraint set $\text{Bounds}$ if $A$ implements all forms in $\text{Bounds}$:
 
 $$\frac{
     \forall B \in \text{Bounds},\ \Gamma \vdash A <: B
@@ -5985,9 +5985,9 @@ $$\text{alignof}(\text{Name}\langle A_1, \ldots, A_n \rangle) = \text{alignof}(\
 The following constraints apply to generic declarations and instantiations:
 
 1. A generic parameter list MUST NOT contain duplicate parameter names.
-2. A trait bound MUST reference a valid trait type; bounding by non-trait types is forbidden.
+2. A form bound MUST reference a valid form type; bounding by non-form types is forbidden.
 3. A generic instantiation MUST provide exactly the number of type arguments declared by the generic; partial application is not permitted.
-4. Type arguments MUST satisfy all constraints (trait bounds) declared for their corresponding parameters.
+4. Type arguments MUST satisfy all constraints (form bounds) declared for their corresponding parameters.
 5. Generic parameters are **prohibited** in `extern` procedure signatures. FFI boundaries require monomorphic types.
 6. Infinite monomorphization recursion MUST be detected and rejected.
 7. The monomorphization depth MUST NOT exceed the implementation's documented limit.
@@ -5997,10 +5997,10 @@ The following constraints apply to generic declarations and instantiations:
 | Code         | Severity | Condition                                                           | Detection    | Effect    |
 | :----------- | :------- | :------------------------------------------------------------------ | :----------- | :-------- |
 | `E-TYP-2301` | Error    | Type arguments cannot be inferred; explicit instantiation required. | Compile-time | Rejection |
-| `E-TYP-2302` | Error    | Type argument does not satisfy trait bound.                         | Compile-time | Rejection |
+| `E-TYP-2302` | Error    | Type argument does not satisfy form bound.                          | Compile-time | Rejection |
 | `E-TYP-2303` | Error    | Wrong number of type arguments for generic instantiation.           | Compile-time | Rejection |
 | `E-TYP-2304` | Error    | Duplicate type parameter name in generic declaration.               | Compile-time | Rejection |
-| `E-TYP-2305` | Error    | Trait bound references a non-trait type.                            | Compile-time | Rejection |
+| `E-TYP-2305` | Error    | Form bound references a non-form type.                              | Compile-time | Rejection |
 | `E-TYP-2306` | Error    | Generic parameter in `extern` procedure signature.                  | Compile-time | Rejection |
 | `E-TYP-2307` | Error    | Infinite monomorphization recursion detected.                       | Compile-time | Rejection |
 | `E-TYP-2308` | Error    | Monomorphization depth limit exceeded.                              | Compile-time | Rejection |
@@ -6603,7 +6603,7 @@ The following constraints apply to refinement types:
 | :----------------- | :------ | :----------------------------------------------------- |
 | Generic Type       | §7.1    | Type parameterized by type variables                   |
 | Type Parameter     | §7.1    | Placeholder for a concrete type in generic definitions |
-| Type Constraint    | §7.1    | Trait bound on a type parameter                        |
+| Type Constraint    | §7.1    | Form bound on a type parameter                         |
 | Monomorphization   | §7.1    | Instantiation of generics to concrete types            |
 | Attribute          | §7.2    | Compile-time metadata annotation                       |
 | Built-in Attribute | §7.2    | Language-defined attribute with special semantics      |
@@ -6616,7 +6616,7 @@ The following constraints apply to refinement types:
 | :-------- | :----- | :--------------------------------- |
 | Variance  | §4.3   | Generic parameter variance         |
 | Subtyping | §4.2   | Constrained type relationships     |
-| Trait     | §9.1   | Type constraints use traits        |
+| Form      | §9.1   | Type constraints use forms         |
 | Contract  | §10.1  | Refinement predicates as contracts |
 | Comptime  | §14.1  | Attribute evaluation context       |
 
@@ -6624,7 +6624,7 @@ The following constraints apply to refinement types:
 
 | Term                  | Deferred To | Reason                        |
 | :-------------------- | :---------- | :---------------------------- |
-| Trait Definition      | Clause 9    | Constraint semantics          |
+| Form Definition       | Clause 9    | Constraint semantics          |
 | Contract Verification | Clause 10   | Predicate verification modes  |
 | Comptime Evaluation   | Clause 14   | Attribute argument evaluation |
 
@@ -6681,11 +6681,11 @@ top_level_item ::= import_decl
                  | static_decl
                  | procedure_decl
                  | type_decl
-                 | trait_decl
+                 | form_decl
 
 static_decl    ::= visibility? ("let" | "var") binding
 type_decl      ::= visibility? ("record" | "enum" | "modal" | "type") identifier ...
-trait_decl     ::= visibility? "trait" identifier ...
+form_decl     ::= visibility? "form" identifier ...
 procedure_decl ::= visibility? "procedure" identifier ...
 ```
 
@@ -6959,7 +6959,7 @@ Cursive **MUST** be implemented with a single, **unified namespace** per scope. 
 
 This single namespace **MUST** be shared by all declaration kinds:
 1. **Terms**: Bindings for variables, constants, and procedures
-2. **Types**: Bindings for type declarations (`record`, `enum`, `modal`, `type`, `trait`)
+2. **Types**: Bindings for type declarations (`record`, `enum`, `modal`, `type`, `form`)
 3. **Modules**: Bindings for module import aliases
 
 ##### Static Semantics
@@ -6979,7 +6979,7 @@ $$\Gamma, x : T \equiv [S_{local} \cup \{x \mapsto T\}, S_{proc}, S_{module}, S_
 Each scope $S$ maintains a mapping from identifiers to **entities**. An entity is one of:
 - A term (variable, constant, procedure)
 - A type (record, enum, modal, type alias)
-- A trait
+- A form
 - A module reference
 
 ##### Constraints & Legality
@@ -7002,12 +7002,12 @@ Every top-level declaration has a **visibility level** that controls its accessi
 
 **Visibility Levels**
 
-| Modifier    | Scope of Accessibility                                              |
-| :---------- | :------------------------------------------------------------------ |
-| `public`    | Visible to any module in any assembly that depends on it            |
-| `internal`  | (Default) Visible only to modules within the **same assembly**      |
-| `private`   | Visible only within the **defining module** (same directory)        |
-| `protected` | Visible only within the **defining type** and trait implementations |
+| Modifier    | Scope of Accessibility                                             |
+| :---------- | :----------------------------------------------------------------- |
+| `public`    | Visible to any module in any assembly that depends on it           |
+| `internal`  | (Default) Visible only to modules within the **same assembly**     |
+| `private`   | Visible only within the **defining module** (same directory)       |
+| `protected` | Visible only within the **defining type** and form implementations |
 
 **Accessibility**
 
@@ -7053,9 +7053,9 @@ $$
 \frac{\text{visibility}(item) = \text{protected} \quad \Gamma \subseteq T_{def}}{\Gamma \vdash \text{can\_access}(item)}
 $$
 
-**(WF-Access-Protected-Trait):**
+**(WF-Access-Protected-Form):**
 $$
-\frac{\text{visibility}(item) = \text{protected} \quad \Gamma \subseteq \text{trait } Tr \text{ for } T_{def} \quad A(\Gamma) = A(T_{def})}{\Gamma \vdash \text{can\_access}(item)}
+\frac{\text{visibility}(item) = \text{protected} \quad \Gamma \subseteq \text{form } Tr \text{ for } T_{def} \quad A(\Gamma) = A(T_{def})}{\Gamma \vdash \text{can\_access}(item)}
 $$
 
 ##### Constraints & Legality
@@ -7351,10 +7351,10 @@ The **Module Dependency Graph** is a directed graph $G = (V, E)$ where:
 
 Each edge in $E$ is classified as either **Type-Level** or **Value-Level**:
 
-| Edge Type   | Definition                                                                    |
-| :---------- | :---------------------------------------------------------------------------- |
-| Value-Level | Module $A$ contains an expression that evaluates a binding defined in $B$     |
-| Type-Level  | Module $A$ refers to a type, trait, or constant signature defined in $B$ only |
+| Edge Type   | Definition                                                                   |
+| :---------- | :--------------------------------------------------------------------------- |
+| Value-Level | Module $A$ contains an expression that evaluates a binding defined in $B$    |
+| Type-Level  | Module $A$ refers to a type, form, or constant signature defined in $B$ only |
 
 **Eager vs Lazy Dependencies**
 
@@ -7541,46 +7541,46 @@ record Context {
 
 | Term               | Deferred To           | Reason                                            |
 | :----------------- | :-------------------- | :------------------------------------------------ |
-| witness FileSystem | §10.2                 | Capability trait definition                       |
-| witness Network    | §10.2                 | Capability trait definition                       |
-| System             | §10.2                 | System capability trait                           |
-| HeapAllocator      | §10.2                 | Allocator capability trait                        |
+| witness FileSystem | §10.2                 | Capability form definition                        |
+| witness Network    | §10.2                 | Capability form definition                        |
+| System             | §10.2                 | System capability form                            |
+| HeapAllocator      | §10.2                 | Allocator capability form                         |
 | Panic propagation  | §9 (Concurrency)      | Error handling semantics                          |
 | comptime           | §11 (Metaprogramming) | Compile-time evaluation for static initialization |
 
 ---
 
-## Clause 9: Traits and Polymorphism
+## Clause 9: Forms and Polymorphism
 
-This clause defines the Cursive trait system: the unified mechanism for defining interfaces, sharing implementations, and enabling polymorphism. Traits replace separate "behavior" and "contract" declarations from earlier designs, unifying them into a single `trait` keyword.
+This clause defines the Cursive form system: the unified mechanism for defining interfaces, sharing implementations, and enabling polymorphism. Forms replace separate "behavior" and "contract" declarations from earlier designs, unifying them into a single `form` keyword.
 
-### 9.1 Introduction to Traits
+### 9.1 Introduction to Forms
 
 ##### Definition
 
-A **trait** is a named declaration that defines an abstract interface consisting of procedure signatures and associated type declarations. Traits establish behavioral contracts that implementing types MUST satisfy.
+A **form** is a named declaration that defines an abstract interface consisting of procedure signatures and associated type declarations. Forms establish behavioral contracts that implementing types MUST satisfy.
 
 **Formal Definition**
 
-A trait $Tr$ is defined as a tuple:
+A form $Tr$ is defined as a tuple:
 
 $$Tr = (N, G, S, P_{abs}, P_{con}, A_{abs}, A_{con})$$
 
 where:
 
-- $N$ is the trait name (an identifier)
+- $N$ is the form name (an identifier)
 - $G$ is the (possibly empty) set of generic type parameters
-- $S$ is the (possibly empty) set of supertrait bounds
+- $S$ is the (possibly empty) set of superform bounds
 - $P_{abs}$ is the set of abstract procedure signatures
 - $P_{con}$ is the set of concrete procedure definitions (default implementations)
 - $A_{abs}$ is the set of abstract associated type declarations
 - $A_{con}$ is the set of concrete associated type bindings (defaults)
 
-The **interface** of trait $Tr$ is defined as:
+The **interface** of form $Tr$ is defined as:
 
 $$\text{interface}(Tr) = P_{abs} \cup P_{con} \cup A_{abs} \cup A_{con}$$
 
-A type $T$ **implements** trait $Tr$ (written $T <: Tr$) when $T$ provides concrete definitions for all abstract members:
+A type $T$ **implements** form $Tr$ (written $T <: Tr$) when $T$ provides concrete definitions for all abstract members:
 
 $$T <: Tr \iff \forall p \in P_{abs}.\ T \text{ defines } p\ \land\ \forall a \in A_{abs}.\ T \text{ binds } a$$
 
@@ -7608,62 +7608,62 @@ The polymorphism path is determined by usage context:
 
 ---
 
-### 9.2 Trait Declarations
+### 9.2 Form Declarations
 
 ##### Definition
 
-A trait declaration introduces a named interface that types MAY implement. Traits define requirements through abstract procedures and MAY provide default implementations through concrete procedures.
+A form declaration introduces a named interface that types MAY implement. Forms define requirements through abstract procedures and MAY provide default implementations through concrete procedures.
 
 **Abstract Procedure**
 
-An **abstract procedure** is a procedure signature within a trait that lacks a body. Implementing types MUST provide a concrete implementation.
+An **abstract procedure** is a procedure signature within a form that lacks a body. Implementing types MUST provide a concrete implementation.
 
 **Concrete Procedure (Default Implementation)**
 
-A **concrete procedure** is a procedure definition within a trait that includes a body. Implementing types automatically inherit this procedure but MAY override it using the `override` keyword.
+A **concrete procedure** is a procedure definition within a form that includes a body. Implementing types automatically inherit this procedure but MAY override it using the `override` keyword.
 
 **Associated Type**
 
-An **associated type** is a type declaration within a trait:
+An **associated type** is a type declaration within a form:
 - If abstract (no `= T`): implementing types MUST provide a concrete type binding
 - If concrete (`= T`): provides a default type that MAY be overridden
 
 **The `Self` Type**
 
-Within a trait declaration, the identifier `Self` denotes the (unknown) implementing type. `Self` MUST be used for the receiver parameter and MAY be used in any other type position.
+Within a form declaration, the identifier `Self` denotes the (unknown) implementing type. `Self` MUST be used for the receiver parameter and MAY be used in any other type position.
 
-**Generic Trait Parameters**
+**Generic Form Parameters**
 
-A trait MAY declare generic type parameters that parameterize the entire trait definition. These parameters are distinct from associated types:
-- Generic parameters (`trait Foo<T>`) are specified at use-site by the implementer/consumer
+A form MAY declare generic type parameters that parameterize the entire form definition. These parameters are distinct from associated types:
+- Generic parameters (`form Foo<T>`) are specified at use-site by the implementer/consumer
 - Associated types are specified by the implementer within the type body
 
-**Supertrait (Trait Bounds)**
+**Superform (Form Bounds)**
 
-A trait MAY extend one or more supertraits using the `<:` operator. A type implementing a subtrait MUST also implement all of its supertraits.
+A form MAY extend one or more superforms using the `<:` operator. A type implementing a subform MUST also implement all of its superforms.
 
-**Trait Alias**
+**Form Alias**
 
-A **trait alias** declares a new name that is equivalent to a combination of one or more trait bounds. Trait aliases enable concise expression of compound bounds.
+A **form alias** declares a new name that is equivalent to a combination of one or more form bounds. Form aliases enable concise expression of compound bounds.
 
 ##### Syntax & Declaration
 
 **Grammar**
 
 ```ebnf
-trait_declaration ::=
-    [ <visibility> ] "trait" <identifier> [ <generic_params> ]
-    [ "<:" <supertrait_bounds> ] "{"
-        <trait_item>*
+form_declaration ::=
+    [ <visibility> ] "form" <identifier> [ <generic_params> ]
+    [ "<:" <superform_bounds> ] "{"
+        <form_item>*
     "}"
 
-supertrait_bounds ::= <trait_bound> ( "+" <trait_bound> )*
-trait_bound ::= <type_path> [ <generic_args> ]
+superform_bounds ::= <form_bound> ( "+" <form_bound> )*
+form_bound ::= <type_path> [ <generic_args> ]
 
 generic_params ::= "<" <generic_param> ( "," <generic_param> )* ">"
-generic_param ::= <identifier> [ "<:" <trait_bounds> ]
+generic_param ::= <identifier> [ "<:" <form_bounds> ]
 
-trait_item ::=
+form_item ::=
     <abstract_procedure>
   | <concrete_procedure>
   | <associated_type>
@@ -7679,22 +7679,22 @@ contract_clause ::= "|=" <precondition_expr> [ "=>" <postcondition_expr> ]
 associated_type ::=
     "type" <identifier> [ "=" <type> ] ";"
 
-trait_alias ::=
+form_alias ::=
     [ <visibility> ] "type" <identifier> [ <generic_params> ]
-    "=" <trait_bound> ( "+" <trait_bound> )* ";"
+    "=" <form_bound> ( "+" <form_bound> )* ";"
 ```
 
 ##### Static Semantics
 
-**Well-Formedness (WF-Trait)**
+**Well-Formedness (WF-Form)**
 
-A trait declaration is well-formed if:
+A form declaration is well-formed if:
 1. The identifier is unique within its namespace
 2. All procedure signatures are well-formed
-3. All associated types have unique names within the trait
+3. All associated types have unique names within the form
 4. No procedure name conflicts with an associated type name
-5. All supertrait bounds refer to valid traits
-6. No cyclic supertrait dependencies exist
+5. All superform bounds refer to valid forms
+6. No cyclic superform dependencies exist
 
 **Formal Well-Formedness Rule**
 
@@ -7704,34 +7704,34 @@ $$\frac{
   \forall a \in A.\ \Gamma \vdash a\ \text{wf} \quad
   \neg\text{cyclic}(S)
 }{
-  \Gamma \vdash \text{trait } N\ [<: S]\ \{P, A\}\ \text{wf}
-} \quad \text{(WF-Trait)}$$
+  \Gamma \vdash \text{form } N\ [<: S]\ \{P, A\}\ \text{wf}
+} \quad \text{(WF-Form)}$$
 
 where:
-- $N$ is the trait name
+- $N$ is the form name
 - $P$ is the set of procedure declarations
 - $A$ is the set of associated type declarations
-- $S$ is the set of supertrait bounds
+- $S$ is the set of superform bounds
 
 **Typing Rule for Self**
 
-$$\frac{\Gamma, \text{Self} : \text{Type} \vdash \text{body} : \text{ok}}{\Gamma \vdash \text{trait } T\ \{\ \text{body}\ \} : \text{Trait}}$$
-\tag{WF-Trait-Self}
+$$\frac{\Gamma, \text{Self} : \text{Type} \vdash \text{body} : \text{ok}}{\Gamma \vdash \text{form } T\ \{\ \text{body}\ \} : \text{Form}}$$
+\tag{WF-Form-Self}
 
-**Supertrait Inheritance (T-Supertrait)**
+**Superform Inheritance (T-Superform)**
 
-$$\frac{\text{trait } A <: B \quad T <: A}{\Gamma \vdash T <: B}$$
-\tag{T-Supertrait}
+$$\frac{\text{form } A <: B \quad T <: A}{\Gamma \vdash T <: B}$$
+\tag{T-Superform}
 
-A type implementing subtrait `A` transitively implements all supertraits.
+A type implementing subform `A` transitively implements all superforms.
 
-**Generic Trait Instantiation**
+**Generic Form Instantiation**
 
-For a generic trait `trait Foo<T>`:
-- Each use-site `Foo<ConcreteType>` produces a distinct trait bound
-- `T` is available within the trait body as a type parameter
+For a generic form `form Foo<T>`:
+- Each use-site `Foo<ConcreteType>` produces a distinct form bound
+- `T` is available within the form body as a type parameter
 
-**Trait Alias Equivalence (T-Alias-Equiv)**
+**Form Alias Equivalence (T-Alias-Equiv)**
 
 $$\frac{\text{type } Alias = A + B}{\Gamma \vdash T <: Alias \iff \Gamma \vdash T <: A \land \Gamma \vdash T <: B}$$
 \tag{T-Alias-Equiv}
@@ -7742,28 +7742,28 @@ $$\frac{\text{type } Alias = A + B}{\Gamma \vdash T <: Alias \iff \Gamma \vdash 
 
 | Code         | Severity | Condition                                      | Detection    | Effect    |
 | :----------- | :------- | :--------------------------------------------- | :----------- | :-------- |
-| `E-TRS-2900` | Error    | Duplicate procedure name in trait.             | Compile-time | Rejection |
-| `E-TRS-2904` | Error    | Duplicate associated type name in trait.       | Compile-time | Rejection |
+| `E-TRS-2900` | Error    | Duplicate procedure name in form.              | Compile-time | Rejection |
+| `E-TRS-2904` | Error    | Duplicate associated type name in form.        | Compile-time | Rejection |
 | `E-TRS-2905` | Error    | Procedure name conflicts with associated type. | Compile-time | Rejection |
-| `E-TRS-2908` | Error    | Cyclic supertrait dependency detected.         | Compile-time | Rejection |
-| `E-TRS-2909` | Error    | Supertrait bound refers to undefined trait.    | Compile-time | Rejection |
+| `E-TRS-2908` | Error    | Cyclic superform dependency detected.          | Compile-time | Rejection |
+| `E-TRS-2909` | Error    | Superform bound refers to undefined form.      | Compile-time | Rejection |
 
 ---
 
-### 9.3 Trait Implementation
+### 9.3 Form Implementation
 
 ##### Definition
 
-**Trait Implementation**
+**Form Implementation**
 
-A type implements a trait by:
-1. Declaring the trait in its "implements clause" using the `<:` operator
+A type implements a form by:
+1. Declaring the form in its "implements clause" using the `<:` operator
 2. Providing implementations for all abstract procedures
 3. Providing type bindings for all abstract associated types
 
 **Implementation Site**
 
-Trait implementation MUST occur at the type's definition site. Extension implementations (implementing a trait for a type defined elsewhere) are PROHIBITED.
+Form implementation MUST occur at the type's definition site. Extension implementations (implementing a form for a type defined elsewhere) are PROHIBITED.
 
 ##### Syntax & Declaration
 
@@ -7772,20 +7772,20 @@ Trait implementation MUST occur at the type's definition site. Extension impleme
 ```ebnf
 record_declaration ::=
     [ <visibility> ] "record" <identifier> [ <generic_params> ]
-    [ "<:" <trait_list> ]
+    [ "<:" <form_list> ]
     <record_body>
 
 enum_declaration ::=
     [ <visibility> ] "enum" <identifier> [ <generic_params> ]
-    [ "<:" <trait_list> ]
+    [ "<:" <form_list> ]
     <enum_body>
 
 modal_declaration ::=
     [ <visibility> ] "modal" <identifier> [ <generic_params> ]
-    [ "<:" <trait_list> ]
+    [ "<:" <form_list> ]
     <modal_body>
 
-trait_list ::= <type_path> ( "," <type_path> )*
+form_list ::= <type_path> ( "," <type_path> )*
 ```
 
 ##### Static Semantics
@@ -7797,7 +7797,7 @@ $$\frac{T <: Tr \quad \forall p \in \text{abstract\_procs}(Tr),\ T \text{ define
 
 **Implementation Well-Formedness (WF-Impl)**
 
-A trait implementation `T <: Tr` is well-formed if:
+A form implementation `T <: Tr` is well-formed if:
 
 $$\frac{
   \Gamma \vdash T\ \text{wf} \quad
@@ -7815,7 +7815,7 @@ $$\frac{
 
 **Coherence Rule**
 
-A type `T` MAY implement a trait `Tr` at most once. Multiple implementations of the same trait for the same type are forbidden.
+A type `T` MAY implement a form `Tr` at most once. Multiple implementations of the same form for the same type are forbidden.
 
 **Orphan Rule**
 
@@ -7829,13 +7829,13 @@ This rule prevents external code from creating conflicting implementations.
 
 **Diagnostic Table**
 
-| Code         | Severity | Condition                                               | Detection    | Effect    |
-| :----------- | :------- | :------------------------------------------------------ | :----------- | :-------- |
-| `E-TRS-2901` | Error    | `override` used on abstract procedure implementation.   | Compile-time | Rejection |
-| `E-TRS-2902` | Error    | Missing `override` on concrete procedure replacement.   | Compile-time | Rejection |
-| `E-TRS-2903` | Error    | Type does not implement required procedure from trait.  | Compile-time | Rejection |
-| `E-TRS-2906` | Error    | Coherence violation: duplicate trait implementation.    | Compile-time | Rejection |
-| `E-TRS-2907` | Error    | Orphan rule violation: neither type nor trait is local. | Compile-time | Rejection |
+| Code         | Severity | Condition                                              | Detection    | Effect    |
+| :----------- | :------- | :----------------------------------------------------- | :----------- | :-------- |
+| `E-TRS-2901` | Error    | `override` used on abstract procedure implementation.  | Compile-time | Rejection |
+| `E-TRS-2902` | Error    | Missing `override` on concrete procedure replacement.  | Compile-time | Rejection |
+| `E-TRS-2903` | Error    | Type does not implement required procedure from form.  | Compile-time | Rejection |
+| `E-TRS-2906` | Error    | Coherence violation: duplicate form implementation.    | Compile-time | Rejection |
+| `E-TRS-2907` | Error    | Orphan rule violation: neither type nor form is local. | Compile-time | Rejection |
 
 ---
 
@@ -7845,11 +7845,11 @@ This rule prevents external code from creating conflicting implementations.
 
 **Static Polymorphism**
 
-Static polymorphism is zero-cost, compile-time dispatch using generic parameters constrained by traits.
+Static polymorphism is zero-cost, compile-time dispatch using generic parameters constrained by forms.
 
 **Constrained Generic**
 
-A **constrained generic** is a generic parameter `T` constrained by trait `Tr` (written `T <: Tr`), which restricts `T` to types implementing `Tr`.
+A **constrained generic** is a generic parameter `T` constrained by form `Tr` (written `T <: Tr`), which restricts `T` to types implementing `Tr`.
 
 **Monomorphization**
 
@@ -7860,8 +7860,8 @@ A **constrained generic** is a generic parameter `T` constrained by trait `Tr` (
 **Grammar**
 
 ```ebnf
-generic_param_constrained ::= <identifier> "<:" <trait_list>
-trait_list ::= <type_path> ( "," <type_path> )*
+generic_param_constrained ::= <identifier> "<:" <form_list>
+form_list ::= <type_path> ( "," <type_path> )*
 ```
 
 ##### Static Semantics
@@ -7885,13 +7885,13 @@ $$\frac{
 } \quad \text{(T-Generic-Inst)}$$
 
 Where:
-- $f$ is a generic procedure with type parameter $T$ constrained by trait $Tr$
+- $f$ is a generic procedure with type parameter $T$ constrained by form $Tr$
 - $C$ is a concrete type satisfying the constraint $C <: Tr$
 - $R[C/T]$ denotes the return type with all occurrences of $T$ substituted by $C$
 
 **Multiple Constraints (T-Multi-Constraint)**
 
-When a type parameter has multiple trait bounds, all constraints MUST be satisfied:
+When a type parameter has multiple form bounds, all constraints MUST be satisfied:
 
 $$\frac{
   \Gamma \vdash f : \forall T <: Tr_1, Tr_2, \ldots, Tr_n.\ (T) \to R \quad
@@ -7904,7 +7904,7 @@ $$\frac{
 
 For a generic procedure:
 ```cursive
-procedure process<T <: Trait>(item: T) { item~>method() }
+procedure process<T <: Form>(item: T) { item~>method() }
 ```
 
 A call `process<Point>(p)` MUST be compiled as:
@@ -7920,10 +7920,10 @@ Static polymorphism MUST incur zero runtime overhead compared to non-generic cod
 
 **Diagnostic Table**
 
-| Code         | Severity | Condition                                          | Detection    | Effect    |
-| :----------- | :------- | :------------------------------------------------- | :----------- | :-------- |
-| `E-TRS-2930` | Error    | Type argument does not satisfy trait constraint.   | Compile-time | Rejection |
-| `E-TRS-2931` | Error    | Unconstrained type parameter used in trait method. | Compile-time | Rejection |
+| Code         | Severity | Condition                                         | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------ | :----------- | :-------- |
+| `E-TRS-2930` | Error    | Type argument does not satisfy form constraint.   | Compile-time | Rejection |
+| `E-TRS-2931` | Error    | Unconstrained type parameter used in form method. | Compile-time | Rejection |
 
 ---
 
@@ -7933,15 +7933,15 @@ Static polymorphism MUST incur zero runtime overhead compared to non-generic cod
 
 **Dynamic Polymorphism**
 
-Dynamic polymorphism is opt-in runtime dispatch using trait witnesses. It enables heterogeneous collections and runtime polymorphism at the cost of one vtable lookup per call.
+Dynamic polymorphism is opt-in runtime dispatch using form witnesses. It enables heterogeneous collections and runtime polymorphism at the cost of one vtable lookup per call.
 
 **Witness**
 
-A **witness** (`witness Trait`) is a concrete, sized type representing any value implementing a witness-safe trait. It is implemented as a dense pointer (dense pointer).
+A **witness** (`witness Form`) is a concrete, sized type representing any value implementing a witness-safe form. It is implemented as a dense pointer (dense pointer).
 
 **Witness Safety (Object Safety)**
 
-A trait is **witness-safe** if every procedure in the trait (including inherited ones) is either:
+A form is **witness-safe** if every procedure in the form (including inherited ones) is either:
 1. **VTable-eligible**, OR
 2. **Explicitly excluded** via `where Self: Sized`
 
@@ -7958,14 +7958,14 @@ A procedure is **vtable-eligible** if **ALL** of the following are true:
 **Grammar**
 
 ```ebnf
-witness_type ::= "witness" <trait_path>
+witness_type ::= "witness" <form_path>
 ```
 
 ##### Static Semantics
 
 **Witness Formation (T-Witness-Form)**
 
-A value of concrete type `T` implementing witness-safe trait `Tr` MAY be coerced to `witness Tr`:
+A value of concrete type `T` implementing witness-safe form `Tr` MAY be coerced to `witness Tr`:
 
 $$\frac{\Gamma \vdash v : T \quad \Gamma \vdash T <: Tr \quad \text{witness\_safe}(Tr)}{\Gamma \vdash v : \text{witness } Tr}$$
 \tag{T-Witness-Form}
@@ -7980,7 +7980,7 @@ Formation of a witness from a concrete value proceeds as follows:
 
 1. Let `v` be a value of concrete type `T` where `T <: Tr` and `witness_safe(Tr)`.
 2. Let `dp` be a pointer to the storage of `v`.
-3. Let `vt` be the static vtable for the `(T, Tr)` type-trait pair.
+3. Let `vt` be the static vtable for the `(T, Tr)` type-form pair.
 4. Construct the witness value as the pair `(dp, vt)`.
 
 **Formal Witness Formation Rule**
@@ -7998,7 +7998,7 @@ $$\frac{
 A procedure call `w~>method(args)` on witness `w: witness Tr` executes as follows:
 
 1. Let `(dp, vt)` be the data pointer and vtable pointer components of `w`.
-2. Let `offset` be the vtable offset for `method` (determined at compile time from trait declaration order, offset by header size).
+2. Let `offset` be the vtable offset for `method` (determined at compile time from form declaration order, offset by header size).
 3. Let `fp` be the function pointer at `vt + 3 * sizeof(usize) + offset * sizeof(usize)`.
 4. Return the result of calling `fp(dp, args)`.
 
@@ -8016,12 +8016,12 @@ $$\frac{
 
 **Dense Pointer Layout**
 
-A witness (`witness Trait`) is represented as a two-word structure:
+A witness (`witness Form`) is represented as a two-word structure:
 
 ```
 struct WitnessRepr {
     data: *imm (),      // Pointer to concrete instance
-    vtable: *imm VTable // Pointer to trait vtable
+    vtable: *imm VTable // Pointer to form vtable
 }
 ```
 
@@ -8034,7 +8034,7 @@ VTable entries MUST appear in this exact order:
 1. `size: usize` — Size of concrete type in bytes
 2. `align: usize` — Alignment requirement of concrete type
 3. `drop: *imm fn` — Destructor function pointer (null if no `Drop`)
-4. `methods[..]` — Function pointers in trait declaration order
+4. `methods[..]` — Function pointers in form declaration order
 
 > **Rationale:** Fixed layout enables separate compilation and FFI vtable compatibility.
 
@@ -8042,11 +8042,11 @@ VTable entries MUST appear in this exact order:
 
 **Diagnostic Table**
 
-| Code         | Severity | Condition                                                | Detection    | Effect    |
-| :----------- | :------- | :------------------------------------------------------- | :----------- | :-------- |
-| `E-TRS-2940` | Error    | Procedure with `where Self: Sized` called on witness.    | Compile-time | Rejection |
-| `E-TRS-2941` | Error    | Witness created from non-witness-safe trait.             | Compile-time | Rejection |
-| `E-TRS-2942` | Error    | Generic procedure in trait without `Self: Sized` clause. | Compile-time | Rejection |
+| Code         | Severity | Condition                                               | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------------ | :----------- | :-------- |
+| `E-TRS-2940` | Error    | Procedure with `where Self: Sized` called on witness.   | Compile-time | Rejection |
+| `E-TRS-2941` | Error    | Witness created from non-witness-safe form.             | Compile-time | Rejection |
+| `E-TRS-2942` | Error    | Generic procedure in form without `Self: Sized` clause. | Compile-time | Rejection |
 
 ---
 
@@ -8056,27 +8056,27 @@ VTable entries MUST appear in this exact order:
 
 **Opaque Polymorphism**
 
-Opaque polymorphism is zero-cost compile-time polymorphism for return types. The concrete type is hidden from callers; only the trait interface is accessible.
+Opaque polymorphism is zero-cost compile-time polymorphism for return types. The concrete type is hidden from callers; only the form interface is accessible.
 
 **Opaque Type**
 
-An **opaque return type** (`opaque Trait`) exposes only the trait's interface while hiding the concrete implementation type.
+An **opaque return type** (`opaque Form`) exposes only the form's interface while hiding the concrete implementation type.
 
 ##### Syntax & Declaration
 
 **Grammar**
 
 ```ebnf
-return_type ::= ... | "opaque" <trait_path>
+return_type ::= ... | "opaque" <form_path>
 ```
 
 ##### Static Semantics
 
 **Type Encapsulation**
 
-For a procedure returning `opaque Trait`:
-- The callee returns a concrete type implementing `Trait`
-- The caller observes only `Trait` members
+For a procedure returning `opaque Form`:
+- The callee returns a concrete type implementing `Form`
+- The caller observes only `Form` members
 - Access to concrete type members is forbidden
 
 **Opaque Return Typing (T-Opaque-Return)**
@@ -8093,12 +8093,12 @@ $$\frac{
 
 Where:
 - The procedure body evaluates to a value of concrete type $T$
-- The concrete type $T$ implements trait $Tr$
+- The concrete type $T$ implements form $Tr$
 - The declared return type is `opaque Tr`
 
 **Opaque Type Projection (T-Opaque-Project)**
 
-At call sites, the opaque type is treated as an existential; callers may invoke only trait methods:
+At call sites, the opaque type is treated as an existential; callers may invoke only form methods:
 
 $$\frac{
   \Gamma \vdash f() : \text{opaque } Tr \quad
@@ -8109,8 +8109,8 @@ $$\frac{
 } \quad \text{(T-Opaque-Project)}$$
 
 Where:
-- $f()$ returns an opaque type with trait bound $Tr$
-- $m$ is a procedure declared in trait $Tr$ (or its supertraits)
+- $f()$ returns an opaque type with form bound $Tr$
+- $m$ is a procedure declared in form $Tr$ (or its superforms)
 - The call is well-typed if arguments match the procedure signature
 
 **Opaque Type Equality**
@@ -8133,23 +8133,23 @@ Opaque types MUST incur zero runtime overhead. The returned value is the concret
 
 **Diagnostic Table**
 
-| Code         | Severity | Condition                                             | Detection    | Effect    |
-| :----------- | :------- | :---------------------------------------------------- | :----------- | :-------- |
-| `E-TRS-2910` | Error    | Accessing member not defined on opaque type's trait.  | Compile-time | Rejection |
-| `E-TRS-2911` | Error    | Opaque return type does not implement required trait. | Compile-time | Rejection |
-| `E-TRS-2912` | Error    | Attempting to assign incompatible opaque types.       | Compile-time | Rejection |
+| Code         | Severity | Condition                                            | Detection    | Effect    |
+| :----------- | :------- | :--------------------------------------------------- | :----------- | :-------- |
+| `E-TRS-2910` | Error    | Accessing member not defined on opaque type's form.  | Compile-time | Rejection |
+| `E-TRS-2911` | Error    | Opaque return type does not implement required form. | Compile-time | Rejection |
+| `E-TRS-2912` | Error    | Attempting to assign incompatible opaque types.      | Compile-time | Rejection |
 
 ---
 
-### 9.7 Foundational Traits
+### 9.7 Foundational Forms
 
 ##### Definition
 
-**Foundational Traits**
+**Foundational Forms**
 
-Foundational traits are traits fundamental to language semantics. The normative definitions reside in **Appendix D.1**. This section provides a summary and cross-reference.
+Foundational forms are forms fundamental to language semantics. The normative definitions reside in **Appendix D.1**. This section provides a summary and cross-reference.
 
-| Trait      | Purpose                      | Key Constraint               |
+| Form       | Purpose                      | Key Constraint               |
 | :--------- | :--------------------------- | :--------------------------- |
 | `Drop`     | Deterministic cleanup (RAII) | Compiler-invoked only        |
 | `Copy`     | Implicit bitwise duplication | Mutual exclusion with `Drop` |
@@ -8166,7 +8166,7 @@ Foundational traits are traits fundamental to language semantics. The normative 
 
 **Copy Semantics (Summary)**
 
-- Marker trait (no procedures)
+- Marker form (no procedures)
 - Enables implicit bitwise duplication instead of move
 - A type MUST NOT implement both `Copy` and `Drop`
 - All fields of a `Copy` type MUST also be `Copy`
@@ -8195,43 +8195,43 @@ Foundational traits are traits fundamental to language semantics. The normative 
 
 ---
 
-### Clause 9: Traits and Polymorphism Cross-Reference Notes `[INFORMATIVE]`
+### Clause 9: Forms and Polymorphism Cross-Reference Notes `[INFORMATIVE]`
 
 **Terms defined in Clause 9 that MUST NOT be redefined elsewhere:**
 
-| Term                    | Section | Description                                                                  |
-| :---------------------- | :------ | :--------------------------------------------------------------------------- |
-| Trait                   | §9.1    | A declaration defining an abstract interface of procedures and types.        |
-| Abstract Procedure      | §9.2    | A procedure signature in a trait without a body.                             |
-| Concrete Procedure      | §9.2    | A procedure definition in a trait with a body (default implementation).      |
-| Associated Type         | §9.2    | A type declaration within a trait, either abstract or with a default.        |
-| Generic Trait Parameter | §9.2    | Type parameters declared on a trait, specified at use-site.                  |
-| Supertrait              | §9.2    | A trait required by another trait via `<:` in trait declaration.             |
-| Trait Alias             | §9.2    | A named alias for a combination of trait bounds.                             |
-| Trait Implementation    | §9.3    | The act of a type satisfying a trait's requirements via `<:`.                |
-| Coherence Rule          | §9.3    | A type MAY implement a trait at most once.                                   |
-| Orphan Rule             | §9.3    | Trait implementation requires locality of type or trait to current assembly. |
-| Monomorphization        | §9.4    | Compile-time specialization of generic code for concrete types.              |
-| Constrained Generic     | §9.4    | A generic parameter bounded by one or more traits.                           |
-| Witness                 | §9.5    | A dense pointer type enabling runtime polymorphism over a trait.             |
-| Witness Safety          | §9.5    | Property of a trait permitting witness creation.                             |
-| VTable Eligibility      | §9.5    | Criteria for procedure inclusion in a witness vtable.                        |
-| Opaque Type             | §9.6    | A return type hiding the concrete implementation behind a trait interface.   |
+| Term                   | Section | Description                                                                |
+| :--------------------- | :------ | :------------------------------------------------------------------------- |
+| Form                   | §9.1    | A declaration defining an abstract interface of procedures and types.      |
+| Abstract Procedure     | §9.2    | A procedure signature in a form without a body.                            |
+| Concrete Procedure     | §9.2    | A procedure definition in a form with a body (default implementation).     |
+| Associated Type        | §9.2    | A type declaration within a form, either abstract or with a default.       |
+| Generic Form Parameter | §9.2    | Type parameters declared on a form, specified at use-site.                 |
+| Superform              | §9.2    | A form required by another form via `<:` in form declaration.              |
+| Form Alias             | §9.2    | A named alias for a combination of form bounds.                            |
+| Form Implementation    | §9.3    | The act of a type satisfying a form's requirements via `<:`.               |
+| Coherence Rule         | §9.3    | A type MAY implement a form at most once.                                  |
+| Orphan Rule            | §9.3    | Form implementation requires locality of type or form to current assembly. |
+| Monomorphization       | §9.4    | Compile-time specialization of generic code for concrete types.            |
+| Constrained Generic    | §9.4    | A generic parameter bounded by one or more forms.                          |
+| Witness                | §9.5    | A dense pointer type enabling runtime polymorphism over a form.            |
+| Witness Safety         | §9.5    | Property of a form permitting witness creation.                            |
+| VTable Eligibility     | §9.5    | Criteria for procedure inclusion in a witness vtable.                      |
+| Opaque Type            | §9.6    | A return type hiding the concrete implementation behind a form interface.  |
 
 **Terms referenced:**
 
-| Term                    | Source | Usage in Clause 9                                  |
-| :---------------------- | :----- | :------------------------------------------------- |
-| Type Context ($\Gamma$) | §4.1   | Used in typing judgments for trait bounds.         |
-| Subtype Relation ($<:$) | §4.2   | Trait implementation creates subtype relationship. |
-| Permission              | §4.5   | Receiver shorthands (`~`, `~!`, `~                 | `) imply permissions. |
-| `const`                 | §4.5   | Default permission for `self` in trait methods.    |
-| `unique`                | §4.5   | Permission required for `Drop::drop` receiver.     |
-| Record                  | §4.8   | Primary type that implements traits.               |
-| Enum                    | §4.9   | May implement traits.                              |
-| Modal Type              | §4.11  | May implement traits.                              |
-| Visibility              | §5.2   | Controls trait and procedure accessibility.        |
-| Assembly                | §5.1   | Compilation unit for orphan rule.                  |
+| Term                    | Source | Usage in Clause 9                                 |
+| :---------------------- | :----- | :------------------------------------------------ |
+| Type Context ($\Gamma$) | §4.1   | Used in typing judgments for form bounds.         |
+| Subtype Relation ($<:$) | §4.2   | Form implementation creates subtype relationship. |
+| Permission              | §4.5   | Receiver shorthands (`~`, `~!`, `~                | `) imply permissions. |
+| `const`                 | §4.5   | Default permission for `self` in form methods.    |
+| `unique`                | §4.5   | Permission required for `Drop::drop` receiver.    |
+| Record                  | §4.8   | Primary type that implements forms.               |
+| Enum                    | §4.9   | May implement forms.                              |
+| Modal Type              | §4.11  | May implement forms.                              |
+| Visibility              | §5.2   | Controls form and procedure accessibility.        |
+| Assembly                | §5.1   | Compilation unit for orphan rule.                 |
 
 **Terms deferred to later clauses/appendices:**
 
@@ -9312,11 +9312,11 @@ Implementations SHOULD use Verification Facts as optimization hints:
 
 ##### Definition
 
-When a type implements a trait (Clause 9), procedure implementations MUST adhere to the **Behavioral Subtyping Principle** (Liskov Substitution Principle) with respect to trait-defined contracts.
+When a type implements a form (Clause 9), procedure implementations MUST adhere to the **Behavioral Subtyping Principle** (Liskov Substitution Principle) with respect to form-defined contracts.
 
 **Formal Statement**
 
-For trait $T$ with procedure $f$ and implementing type $S$ with implementation $f'$:
+For form $T$ with procedure $f$ and implementing type $S$ with implementation $f'$:
 
 $$S <: T \implies \forall x.\ (\text{Pre}_T(x) \implies \text{Pre}_S(x)) \land (\text{Post}_S(x) \implies \text{Post}_T(x))$$
 
@@ -9324,17 +9324,17 @@ $$S <: T \implies \forall x.\ (\text{Pre}_T(x) \implies \text{Pre}_S(x)) \land (
 
 **Precondition Weakening**
 
-An implementation MAY weaken (require less than) the preconditions defined in the trait. An implementation MUST NOT strengthen (require more than) the preconditions.
+An implementation MAY weaken (require less than) the preconditions defined in the form. An implementation MUST NOT strengthen (require more than) the preconditions.
 
-$$P_{trait} \implies P_{impl}$$
+$$P_{form} \implies P_{impl}$$
 
-*Intuition:* If the trait says "caller must provide X", the implementation may accept X or something weaker (easier to satisfy).
+*Intuition:* If the form says "caller must provide X", the implementation may accept X or something weaker (easier to satisfy).
 
 **Formal Rule**
 
 $$
 \frac{
-    \text{trait } T \text{ defines } f \text{ with precondition } P_T \\
+    \text{form } T \text{ defines } f \text{ with precondition } P_T \\
     \text{type } S \text{ implements } f \text{ with precondition } P_S \\
     \nvdash P_T \implies P_S
 }{
@@ -9345,17 +9345,17 @@ $$
 
 **Postcondition Strengthening**
 
-An implementation MAY strengthen (guarantee more than) the postconditions defined in the trait. An implementation MUST NOT weaken (guarantee less than) the postconditions.
+An implementation MAY strengthen (guarantee more than) the postconditions defined in the form. An implementation MUST NOT weaken (guarantee less than) the postconditions.
 
-$$Q_{impl} \implies Q_{trait}$$
+$$Q_{impl} \implies Q_{form}$$
 
-*Intuition:* If the trait promises "callee will provide Y", the implementation must deliver Y or something stronger (more informative).
+*Intuition:* If the form promises "callee will provide Y", the implementation must deliver Y or something stronger (more informative).
 
 **Formal Rule**
 
 $$
 \frac{
-    \text{trait } T \text{ defines } f \text{ with postcondition } Q_T \\
+    \text{form } T \text{ defines } f \text{ with postcondition } Q_T \\
     \text{type } S \text{ implements } f \text{ with postcondition } Q_S \\
     \nvdash Q_S \implies Q_T
 }{
@@ -9367,7 +9367,7 @@ $$
 **Example**
 
 ```cursive
-trait Container {
+form Container {
     procedure get(~, idx: usize) -> i32
         |= idx < self.len() => @result != 0;
 }
@@ -9399,10 +9399,10 @@ record BadList <: Container {
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                                      | Detection    | Effect    |
-| :----------- | :------- | :--------------------------------------------- | :----------- | :-------- |
-| `E-CON-2803` | Error    | Implementation strengthens trait precondition. | Compile-time | Rejection |
-| `E-CON-2804` | Error    | Implementation weakens trait postcondition.    | Compile-time | Rejection |
+| Code         | Severity | Condition                                     | Detection    | Effect    |
+| :----------- | :------- | :-------------------------------------------- | :----------- | :-------- |
+| `E-CON-2803` | Error    | Implementation strengthens form precondition. | Compile-time | Rejection |
+| `E-CON-2804` | Error    | Implementation weakens form postcondition.    | Compile-time | Rejection |
 
 ---
 
@@ -9437,8 +9437,8 @@ record BadList <: Container {
 | Unverifiable Behavior | §1.2       | `trusted` mode violations produce UVB                 |
 | Unsafe Block          | §3.10      | Required context for `[[verify(trusted)]]`            |
 | Panic                 | §3.6       | Runtime contract failure triggers panic               |
-| `Copy` / `Clone`      | §9.7       | Required traits for `@entry` capture types            |
-| Trait                 | §9.1       | Behavioral subtyping applies to trait implementations |
+| `Copy` / `Clone`      | §9.7       | Required forms for `@entry` capture types             |
+| Form                  | §9.1       | Behavioral subtyping applies to form implementations  |
 | Permission System     | §4.5       | Contracts must respect permission constraints         |
 | Refinement Type       | §4.19      | Type narrowing produces refinement types              |
 | Control Flow Graph    | (Implicit) | Fact dominance defined via CFG structure              |
@@ -9896,7 +9896,7 @@ A **literal** (integer, float, string, character, or boolean) is a primary expre
 
 **Identifiers**
 
-An **identifier** in expression position MUST resolve to a value binding according to the name resolution rules in Clause 8. If the identifier resolves to a type, module, or trait (rather than a value), the program is ill-formed.
+An **identifier** in expression position MUST resolve to a value binding according to the name resolution rules in Clause 8. If the identifier resolves to a type, module, or form (rather than a value), the program is ill-formed.
 
 **(T-Ident)** Identifier Typing:
 $$\frac{(x : T) \in \Gamma}{\Gamma \vdash x : T}$$
@@ -10061,17 +10061,17 @@ $$\frac{\Gamma \vdash r : T \quad \text{method } m(self : T', \ldots) \to R \in 
 **Receiver Dispatch Algorithm**
 
 1. Search for method `m` in the inherent methods of the receiver's type $T$.
-2. If not found, search for method `m` in all traits implemented by $T$ that are visible in the current scope.
-3. If multiple traits provide method `m`, the call is ambiguous. Disambiguation via qualified syntax `Trait::m(receiver, ...)` is required.
+2. If not found, search for method `m` in all forms implemented by $T$ that are visible in the current scope.
+3. If multiple forms provide method `m`, the call is ambiguous. Disambiguation via qualified syntax `Form::m(receiver, ...)` is required.
 4. **Strict Receiver Matching**: The receiver type MUST match the method's `self` parameter type exactly. Auto-dereference and auto-reference are NOT performed.
 
 **Static/Qualified Dispatch (`::`)**
 
-The scope resolution operator `::` invokes a method without an instance receiver, or disambiguates trait methods:
+The scope resolution operator `::` invokes a method without an instance receiver, or disambiguates form methods:
 
 ```cursive
 Type::method(args)           // Static method (no self parameter)
-Trait::method(receiver, ...) // Disambiguated trait method
+Form::method(receiver, ...) // Disambiguated form method
 ```
 
 ##### Constraints & Legality
@@ -10241,9 +10241,9 @@ $$\frac{\Gamma \vdash e_1 : T \quad \Gamma \vdash e_2 : T}{\Gamma \vdash e_1\ \t
 
 Comparison operators require homogeneous operand types. The result type is always `bool`.
 
-Equality operators (`==`, `!=`) are defined for all types implementing the `Eq` trait.
+Equality operators (`==`, `!=`) are defined for all types implementing the `Eq` form.
 
-Ordering operators (`<`, `<=`, `>`, `>=`) are defined for types implementing the `Ord` trait.
+Ordering operators (`<`, `<=`, `>`, `>=`) are defined for types implementing the `Ord` form.
 
 **Logical Operators (`&&`, `||`)**
 
@@ -10635,7 +10635,7 @@ A conditional loop (`loop condition { ... }`) has type `()`.
 **(T-Loop-Iterator)**
 $$\frac{\Gamma \vdash e_{iter} : I \quad I : \texttt{Iterator}\langle\texttt{Item} = T\rangle \quad \Gamma, x : T \vdash e_b : ()}{\Gamma \vdash \texttt{loop } x : T\ \texttt{in } e_{iter}\ \{ e_b \} : ()}$$
 
-An iterator loop has type `()`. The iterator expression MUST implement the `Iterator` trait.
+An iterator loop has type `()`. The iterator expression MUST implement the `Iterator` form.
 
 **Loop with Break Value**
 
@@ -11093,8 +11093,8 @@ If a panic occurs during execution of a deferred block:
 | Unsafe Operations         | §3.10  | Unsafe block, raw pointer dereference           |
 | Ptr<T>@State              | §6.2   | Address-of result type, dereference constraints |
 | Statement Termination     | §2.11  | Statement boundary rules                        |
-| Drop Trait                | §9.7   | Assignment drop semantics, scope exit           |
-| Iterator Trait            | §9.x   | Iterator loop desugaring                        |
+| Drop Form                 | §9.7   | Assignment drop semantics, scope exit           |
+| Iterator Form             | §9.x   | Iterator loop desugaring                        |
 | Name Resolution           | §8.4   | Identifier lookup                               |
 
 **Terms Deferred to Other Clauses**
@@ -11127,7 +11127,7 @@ $$\text{Capability} ::= (\text{Authority}, \text{Interface}, \text{Provenance})$
 
 Where:
 - **Authority**: The set of permitted operations (e.g., read files, connect to network)
-- **Interface**: The trait defining available methods
+- **Interface**: The form defining available methods
 - **Provenance**: The derivation chain from the root capability
 
 **No Ambient Authority Principle**
@@ -11170,7 +11170,7 @@ All system-level capabilities originate from the Cursive runtime and are injecte
 
 **Runtime Injection**
 
-The Cursive runtime constructs the `Context` record before program execution begins. This record contains concrete implementations of all system capability traits, initialized with full authority over system resources.
+The Cursive runtime constructs the `Context` record before program execution begins. This record contains concrete implementations of all system capability forms, initialized with full authority over system resources.
 
 ##### Static Semantics
 
@@ -11231,13 +11231,13 @@ $$\forall c_{child} \in \text{Attenuate}(c_{parent}, \_) : \text{Authority}(c_{c
 
 Attenuation methods (e.g., `restrict`, `with_quota`) **MUST** return a capability that:
 
-1. Implements the same capability trait as the parent
+1. Implements the same capability form as the parent
 2. Enforces the specified restrictions on all operations
 3. Delegates authorized operations to the parent capability
 
 **Type Preservation Rule**
 
-Attenuation preserves the capability trait:
+Attenuation preserves the capability form:
 
 $$\frac{\Gamma \vdash c : \text{witness } T \quad \Gamma \vdash c.restrict(r) : \text{witness } T'}{\Gamma \vdash T' \equiv T}$$
 
@@ -11253,8 +11253,8 @@ Capabilities travel through the call graph as explicit parameters. A procedure r
 
 **Granular Capability Pattern**
 
-Low-level or reusable procedures **SHOULD** accept only the specific capability traits they require. This enables:
-- Maximum code reuse (works with any implementation of the trait)
+Low-level or reusable procedures **SHOULD** accept only the specific capability forms they require. This enables:
+- Maximum code reuse (works with any implementation of the form)
 - Clear documentation of required authority
 - Easy testing via mock implementations
 
@@ -11295,7 +11295,7 @@ procedure run_server(ctx: AppContext) {
 
 **Witness Parameter Rule**
 
-A parameter of type `witness Trait` accepts any concrete type `T` where `T` implements `Trait`.
+A parameter of type `witness Form` accepts any concrete type `T` where `T` implements `Form`.
 
 **Permission Requirements for Capability Methods**
 
@@ -11320,18 +11320,18 @@ A procedure **MUST NOT** access capabilities not explicitly provided as paramete
 
 ---
 
-### 12.5 System Capability Traits
+### 12.5 System Capability Forms
 
 ##### Definition
 
-System capabilities are defined by **Traits** (interfaces). This design enables:
+System capabilities are defined by **Forms** (interfaces). This design enables:
 - **Attenuation**: Restricted implementations can wrap full-authority implementations
 - **Virtualization**: Mock implementations for testing
 - **Abstraction**: Code depends on interface, not implementation
 
-**Cross-Reference**: The normative definitions of these traits are provided in **Appendix D.2** (System Capability Traits).
+**Cross-Reference**: The normative definitions of these forms are provided in **Appendix D.2** (System Capability Forms).
 
-**FileSystem Trait**
+**FileSystem Form**
 
 Governs access to the host filesystem.
 
@@ -11340,7 +11340,7 @@ Governs access to the host filesystem.
 | Operations         | File read, write, open (returning `FileHandle`) |
 | Attenuation Method | `restrict(path)` - limits to directory subtree  |
 
-**Network Trait**
+**Network Form**
 
 Governs access to network sockets.
 
@@ -11349,7 +11349,7 @@ Governs access to network sockets.
 | Operations         | `connect` to remote hosts, bind listeners               |
 | Attenuation Method | `restrict_to_host(addr)` - limits to specific hosts/IPs |
 
-**HeapAllocator Trait**
+**HeapAllocator Form**
 
 Governs dynamic memory allocation.
 
@@ -11360,7 +11360,7 @@ Governs dynamic memory allocation.
 
 **System Record**
 
-Aggregates miscellaneous system-level primitives. Unlike the traits above, `System` is a concrete record (not a trait) because it bundles unrelated operations.
+Aggregates miscellaneous system-level primitives. Unlike the forms above, `System` is a concrete record (not a form) because it bundles unrelated operations.
 
 | Method    | Signature                         | Description                 |
 | :-------- | :-------------------------------- | :-------------------------- |
@@ -11400,7 +11400,7 @@ Users **MAY** define application-level capability types representing domain-spec
 
 A user-defined capability is typically implemented as a `record` that:
 
-1. Implements a domain-specific trait defining the capability interface
+1. Implements a domain-specific form defining the capability interface
 2. Holds system capabilities internally as `private` or `protected` fields
 3. Provides methods that use internal capabilities to perform authorized operations
 
@@ -11410,11 +11410,11 @@ By wrapping system capabilities in `private` fields, the user-defined capability
 
 ##### Syntax & Declaration
 
-**Domain Trait Definition**
+**Domain Form Definition**
 
 ```cursive
 // Define the capability interface
-trait DatabaseAccess {
+form DatabaseAccess {
     procedure query(~%, sql: string@View): QueryResult
     procedure execute(~%, sql: string@View): u64
 }
@@ -11487,28 +11487,28 @@ record ReadOnlyPostgres <: DatabaseAccess {
 | Attenuation                 | §10.3   | Process of deriving restricted capability from parent     |
 | Attenuation Invariant       | §10.3   | Child capability cannot exceed parent authority           |
 | Capability Propagation      | §10.4   | Explicit parameter passing of capabilities                |
-| Granular Capability Pattern | §10.4   | Accept only the specific capability traits required       |
+| Granular Capability Pattern | §10.4   | Accept only the specific capability forms required        |
 | Capability Bundle Pattern   | §10.4   | Aggregate multiple capabilities in a record               |
 | User-Defined Capability     | §10.6   | Application-level capability wrapping system capabilities |
 
 **Terms referenced:**
 
-| Term                     | Source       | Usage in Clause 10                             |
-| :----------------------- | :----------- | :--------------------------------------------- |
-| `main` procedure         | §5.6         | Entry point for capability injection           |
-| `Context` record         | §5.6         | Root capability container                      |
-| Permission types         | §4.5         | `shared`, `const` for method receivers         |
-| `shared` permission      | §4.5         | Required for side-effecting capability methods |
-| `witness` types          | §6.3         | Dynamic polymorphism for capability traits     |
-| Trait                    | §6.1         | Interface defining capability methods          |
-| System Capability Traits | Appendix D.2 | Normative trait definitions                    |
+| Term                    | Source       | Usage in Clause 10                             |
+| :---------------------- | :----------- | :--------------------------------------------- |
+| `main` procedure        | §5.6         | Entry point for capability injection           |
+| `Context` record        | §5.6         | Root capability container                      |
+| Permission types        | §4.5         | `shared`, `const` for method receivers         |
+| `shared` permission     | §4.5         | Required for side-effecting capability methods |
+| `witness` types         | §6.3         | Dynamic polymorphism for capability forms      |
+| Form                    | §6.1         | Interface defining capability methods          |
+| System Capability Forms | Appendix D.2 | Normative form definitions                     |
 
 **Terms deferred to later clauses:**
 
-| Term         | Deferred To  | Reason                        |
-| :----------- | :----------- | :---------------------------- |
-| `FileHandle` | Appendix D.2 | Defined with FileSystem trait |
-| `Timestamp`  | Appendix D.2 | Defined with System record    |
+| Term         | Deferred To  | Reason                       |
+| :----------- | :----------- | :--------------------------- |
+| `FileHandle` | Appendix D.2 | Defined with FileSystem form |
+| `Timestamp`  | Appendix D.2 | Defined with System record   |
 
 ---
 # Part 4: Concurrency 
@@ -11654,6 +11654,35 @@ index_suffix    ::= "[" expression "]"
 - The **root** of a path is the first identifier (e.g., `player` in `player.stats.health`)
 - A **segment** is a single field access or indexed access
 - The **depth** of a path is the number of segments (e.g., `player.stats.health` has depth 3)
+
+**Path Root Extraction**
+
+The **root** of an expression, written $\text{Root}(e)$, extracts the base identifier from which key path analysis begins. The operation is defined recursively:
+
+**Formal Definition**
+
+$$\text{Root}(e) ::= \begin{cases}
+x & \text{if } e = x \text{ (identifier)} \\
+\text{Root}(e') & \text{if } e = e'.f \text{ (field access)} \\
+\text{Root}(e') & \text{if } e = e'[i] \text{ (index access)} \\
+\text{Root}(e') & \text{if } e = e'.m(\ldots) \text{ (method call)} \\
+\bot_{\text{boundary}} & \text{if } e = (*e') \text{ (dereference)}
+\end{cases}$$
+
+where $\bot_{\text{boundary}}$ indicates a **key boundary**—the dereferenced value establishes an independent key context (see "Pointer Indirection and Key Boundaries" below).
+
+**Key Boundary Semantics**
+
+When $\text{Root}(e) = \bot_{\text{boundary}}$, the expression $e$ introduces a new key path rooted at the runtime identity of the dereferenced value:
+
+$$\frac{
+    e = (*e').p \quad
+    \text{Root}(e) = \bot_{\text{boundary}}
+}{
+    \text{KeyPath}(e) = \text{id}(*e').p
+}$$
+
+The $\text{id}$ operation is defined in §13.3.3.
 
 **Examples:**
 
@@ -11862,6 +11891,25 @@ Two paths $P$ and $Q$ are **disjoint** (written $\text{Disjoint}(P, Q)$) if neit
 
 $$\text{Disjoint}(P, Q) \iff \neg\text{Prefix}(P, Q) \land \neg\text{Prefix}(Q, P)$$
 
+**Path Overlap**
+
+Two paths $P$ and $Q$ **overlap** (written $\text{Overlaps}(P, Q)$) if they are not disjoint—that is, if one is a prefix of the other:
+
+$$\text{Overlaps}(P, Q) \iff \neg\text{Disjoint}(P, Q)$$
+
+Equivalently:
+
+$$\text{Overlaps}(P, Q) \iff \text{Prefix}(P, Q) \lor \text{Prefix}(Q, P)$$
+
+**Overlap Semantics**
+
+| Relationship         | Overlaps? | Implication for Keys                |
+| :------------------- | :-------- | :---------------------------------- |
+| $P$ is prefix of $Q$ | Yes       | Key to $P$ covers access to $Q$     |
+| $Q$ is prefix of $P$ | Yes       | Key to $Q$ covers access to $P$     |
+| Neither is prefix    | No        | Keys to $P$ and $Q$ are independent |
+| $P = Q$              | Yes       | Same path                           |
+
 **Segment Equivalence:**
 
 Two segments are equivalent ($\equiv_{\text{seg}}$) if they have the same identifier and, for indexed segments, provably equivalent index expressions:
@@ -11888,16 +11936,41 @@ Two index expressions $e_1$ and $e_2$ are **provably equivalent** ($e_1 \equiv_{
 
 **Canonical Form Normalization**
 
-The implementation MUST normalize index expressions using the following transformations:
+The implementation MUST normalize index expressions using the following transformations. Two expressions that normalize to the same canonical form are **provably equivalent**.
 
-1. **Identity elimination:** $x + 0 = x$, $x \times 1 = x$, $x - 0 = x$
-2. **Constant folding:** Literal arithmetic expressions are evaluated to their result.
-3. **Associative regrouping:** Operands of `+` and `*` are regrouped to enable comparison.
-4. **Commutative reordering:** Operands of `+` and `*` are reordered to a canonical form.
+**Required Transformations (MUST)**
 
-The implementation MAY apply additional algebraic simplifications, including distribution of multiplication over addition where beneficial for comparison.
+| Transformation          | Before                     | After                   |
+| :---------------------- | :------------------------- | :---------------------- |
+| Additive identity       | $x + 0$, $0 + x$           | $x$                     |
+| Subtractive identity    | $x - 0$                    | $x$                     |
+| Multiplicative identity | $x \times 1$, $1 \times x$ | $x$                     |
+| Constant folding        | $2 + 3$                    | $5$                     |
+| Associative regrouping  | $(a + b) + c$              | $a + (b + c)$           |
+| Commutative reordering  | $b + a$                    | $a + b$ (lexicographic) |
 
-If normalization exceeds implementation limits (§1.4), the expressions MUST be treated as **not provably equivalent**.
+**Optional Transformations (MAY)**
+
+The implementation MAY apply additional algebraic simplifications beyond the required set. Common optional transformations include:
+
+- Distribution: $a \times (b + c) \to (a \times b) + (a \times c)$
+- Factoring: $(a \times b) + (a \times c) \to a \times (b + c)$
+- Cancellation: $a - a \to 0$, $a + (-a) \to 0$
+
+**Conservative Fallback**
+
+If normalization exceeds implementation limits (§1.4), or if optional transformations would be required to prove equivalence, the expressions MUST be treated as **not provably equivalent**. In such cases:
+
+1. If the expressions appear in the same statement accessing the same array, the implementation MUST emit `E-KEY-0010` (potential conflict on dynamic indices).
+2. If the expressions appear in different tasks, runtime synchronization MUST be emitted.
+
+**Implementation-Defined Documentation**
+
+The implementation MUST document in the Conformance Dossier:
+
+1. Which optional transformations are applied
+2. The maximum complexity of expressions for which normalization is attempted
+3. Examples of expressions that normalize to equivalent forms
 
 **Provable Disjointness for Indices:**
 
@@ -12104,6 +12177,22 @@ $$\text{Release}(P, \Gamma_{\text{keys}}) = \Gamma_{\text{keys}} \setminus \{(P,
 
 **(Release by Scope)**
 $$\text{ReleaseScope}(S, \Gamma_{\text{keys}}) = \Gamma_{\text{keys}} \setminus \{(P, M, S') : S' = S\}$$
+
+**(Upgrade)**
+
+The upgrade operation replaces a Read key with a Write key for the same path and scope. This is a compile-time transformation of the key state context; runtime behavior follows release-and-reacquire semantics (§13.7.2).
+
+$$\text{Upgrade}(P, \Gamma_{\text{keys}}) = (\Gamma_{\text{keys}} \setminus \{(P, \text{Read}, S)\}) \cup \{(P, \text{Write}, S)\}$$
+
+where $S$ is the scope of the existing Read key.
+
+**Precondition**: A Read key to path $P$ MUST exist in $\Gamma_{\text{keys}}$:
+
+$$\text{Upgrade}(P, \Gamma_{\text{keys}}) \text{ is defined} \iff \exists S : (P, \text{Read}, S) \in \Gamma_{\text{keys}}$$
+
+**Dynamic Realization**
+
+At runtime, key upgrade follows the release-and-reacquire protocol defined in §13.7.2. The compile-time `Upgrade` operation reflects the intended final state; the runtime achieves this state through the five-step sequence.
 
 **Panic Release Semantics**
 
@@ -12432,8 +12521,8 @@ $$\frac{
 
 ##### Definition
 
-A `shared witness Trait` type permits polymorphic read access to shared data. 
-Because dynamic dispatch erases the concrete type, only traits with exclusively read-only methods (`~` receiver) are compatible with `shared` permission.
+A `shared witness Form` type permits polymorphic read access to shared data. 
+Because dynamic dispatch erases the concrete type, only forms with exclusively read-only methods (`~` receiver) are compatible with `shared` permission.
 
 ##### Static Semantics
 
@@ -12444,9 +12533,9 @@ $$\frac{
     \Gamma \vdash \texttt{shared witness } Tr\ \text{wf}
 }$$
 
-where $\text{AllMethods}(Tr)$ includes inherited methods from supertraits.
+where $\text{AllMethods}(Tr)$ includes inherited methods from superforms.
 
-When invoking a method on `shared witness Trait`:
+When invoking a method on `shared witness Form`:
 
 **(K-Witness-Call)**
 $$\frac{
@@ -12461,9 +12550,9 @@ $$\frac{
 
 **Diagnostic Table**
 
-| Code         | Severity | Condition                                          | Detection    | Effect    |
-| :----------- | :------- | :------------------------------------------------- | :----------- | :-------- |
-| `E-KEY-0083` | Error    | `shared witness Trait` where Trait has `~%` method | Compile-time | Rejection |
+| Code         | Severity | Condition                                        | Detection    | Effect    |
+| :----------- | :------- | :----------------------------------------------- | :----------- | :-------- |
+| `E-KEY-0083` | Error    | `shared witness Form` where Form has `~%` method | Compile-time | Rejection |
 
 > **Note:** To mutate through a polymorphic interface, use concrete types or 
 > restructure to pass the witness with `unique` permission and downgrade within 
@@ -12513,6 +12602,79 @@ A closure is **escaping** if it is:
 1. Bound to a `let` or `var` binding
 2. Returned from a procedure
 3. Stored in a data structure field
+
+**Object Identity**
+
+The **identity** of a reference $r$, written $\text{id}(r)$, is a unique value representing the storage location to which $r$ refers at runtime.
+
+**Formal Definition**
+
+$$\text{id} : \text{Reference} \to \text{Identity}$$
+
+Two references have equal identity if and only if they refer to the same storage location:
+
+$$\text{id}(r_1) = \text{id}(r_2) \iff r_1 \text{ and } r_2 \text{ refer to the same storage location}$$
+
+**Properties**
+
+| Property      | Guarantee                                                                      |
+| :------------ | :----------------------------------------------------------------------------- |
+| Uniqueness    | Distinct storage locations produce distinct identity values                    |
+| Stability     | The identity of a reference remains constant for the reference's lifetime      |
+| Comparability | Identity values support equality comparison                                    |
+| Non-forgeable | Identity values cannot be constructed except by taking identity of a reference |
+
+**Usage in Key Analysis**
+
+Identity values serve as key path roots when the original binding name is not available—specifically, for:
+
+1. Dereferenced pointers: `(*ptr).field` uses `id(*ptr)` as root
+2. Escaping closures: captured references use their identity as key roots
+
+**Shared Dependency Type Annotation**
+
+An escaping closure that captures `shared` bindings carries a **shared dependency set** in its type. This annotation enables key analysis at invocation sites where the original binding names are not in scope.
+
+**Grammar**
+
+```ebnf
+closure_type        ::= "|" param_list "|" "->" return_type shared_deps?
+
+shared_deps         ::= "[" "shared" ":" dep_list "]"
+
+dep_list            ::= "{" dep_entry ("," dep_entry)* "}"
+
+dep_entry           ::= IDENTIFIER ":" type
+```
+
+**Type Notation**
+
+The type of an escaping closure with shared dependencies is written:
+
+$$|\vec{T}| \to R\ [\texttt{shared}: \{x_1 : T_1, \ldots, x_n : T_n\}]$$
+
+where:
+- $|\vec{T}|$ is the parameter type list
+- $R$ is the return type
+- $\{x_1 : T_1, \ldots, x_n : T_n\}$ is the shared dependency set
+
+**Well-Formedness**
+
+**(WF-Closure-SharedDeps)**
+$$\frac{
+    \forall i \in 1..n : \Gamma \vdash T_i\ \text{wf} \quad
+    \forall i \in 1..n : x_i \text{ is a valid identifier}
+}{
+    \Gamma \vdash |\vec{T}| \to R\ [\texttt{shared}: \{x_1 : T_1, \ldots, x_n : T_n\}]\ \text{wf}
+}$$
+
+**Subtyping**
+
+A closure type with shared dependencies is a subtype of the corresponding closure type without dependencies when the dependency set is empty:
+
+$$|\vec{T}| \to R\ [\texttt{shared}: \{\}] \equiv |\vec{T}| \to R$$
+
+Closure types with non-empty shared dependencies are invariant in their dependency sets—no subtyping relationship exists between closures with different dependencies.
 
 ##### Static Semantics
 
@@ -12645,6 +12807,18 @@ mode_modifier   ::= "write" | "upgrade" | "ordered" | "speculative"
 The `path_expr`, `key_marker`, and `index_suffix` productions are defined in §13.1.
 
 The `upgrade` modifier is used for nested mode escalation; see §13.7.2 for semantics.
+
+**Desugaring**
+
+The `#` block without explicit mode modifier desugars to Read mode. The `write` modifier specifies Write mode:
+
+$$\texttt{\#}P\ \{\ B\ \} \quad \equiv \quad \texttt{\#}P\ \texttt{with mode=Read}\ \{\ B\ \}$$
+
+$$\texttt{\#}P\ \texttt{write}\ \{\ B\ \} \quad \equiv \quad \texttt{\#}P\ \texttt{with mode=Write}\ \{\ B\ \}$$
+
+For multiple paths, mode applies uniformly:
+
+$$\texttt{\#}P_1, P_2\ \texttt{write}\ \{\ B\ \} \quad \equiv \quad \texttt{\#}P_1\ \texttt{write},\ P_2\ \texttt{write}\ \{\ B\ \}$$
 
 **Read Mode (Default)**
 
@@ -13374,6 +13548,40 @@ A program SHOULD use explicit coarsening when `#` blocks contain dynamically-ind
 
 The implementation MUST emit diagnostic `W-KEY-0011` when this pattern is detected.
 
+**Atomic Key Acquisition**
+
+When a `#` block lists multiple paths, the implementation acquires keys to all listed paths before executing the block body. This acquisition is **atomic** in the following sense:
+
+**Formal Definition**
+
+Let $\text{Paths} = \{P_1, \ldots, P_n\}$ be the paths listed in a `#` block, sorted into canonical order as $Q_1, \ldots, Q_n$. Atomic acquisition proceeds as follows:
+
+1. For $i = 1$ to $n$:
+   - Attempt to acquire key $(Q_i, M, S)$
+   - If a conflicting key is held by another task, **block** until the conflict is resolved
+   - Keys $Q_1, \ldots, Q_{i-1}$ remain held during blocking
+
+2. Once all keys are acquired, execute the block body.
+
+**Properties**
+
+| Property             | Guarantee                                                          |
+| :------------------- | :----------------------------------------------------------------- |
+| No rollback          | Partially-acquired keys are retained during blocking, not released |
+| Eventual acquisition | Each key is eventually acquired (per progress guarantee, §13.1.2)  |
+| Order preservation   | Keys are acquired in canonical order                               |
+| Body precondition    | Block body executes only after all keys are held                   |
+
+**Deadlock Avoidance**
+
+Canonical ordering ensures that all tasks acquiring the same set of keys do so in the same order, preventing circular wait conditions. A task holding keys $Q_1, \ldots, Q_{i-1}$ while blocking on $Q_i$ cannot be blocked by another task that needs $Q_j$ where $j < i$, because canonical ordering guarantees that task would have acquired $Q_j$ before $Q_i$.
+
+**Single-Task Guarantee**
+
+A single task cannot deadlock with itself. All keys in a `#` block are acquired sequentially by one task; the task either:
+1. Acquires all keys and proceeds, or
+2. Blocks on a key held by another task (not itself)
+
 **Statement Keys: Evaluation Order**
 
 Keys within a single statement are acquired in **evaluation order** (left-to-right, depth-first). This is Defined Behavior.
@@ -13507,9 +13715,17 @@ The **read-then-write prohibition** prevents patterns where a `shared` path is r
 
 **Formal Definition**
 
-A **read-then-write pattern** occurs when an expression $e$ contains both a read and a write to the same `shared` path $P$ within a single statement.
+Let $\text{Subexpressions}(S)$ denote the set of all subexpressions within statement $S$. Define:
 
-$$\text{ReadThenWrite}(P, S) \iff \text{ReadOf}(P) \in \text{Subexpressions}(S) \land \text{WriteOf}(P) \in \text{Subexpressions}(S)$$
+$$\text{ReadsPath}(e, P) \iff \text{Accesses}(e, P) \land \text{ReadContext}(e)$$
+
+$$\text{WritesPath}(e, P) \iff \text{Accesses}(e, P) \land \text{WriteContext}(e)$$
+
+where $\text{Accesses}(e, P)$ holds when expression $e$ accesses path $P$ (directly or through a prefix), and $\text{ReadContext}$ and $\text{WriteContext}$ are defined in §13.1.2.
+
+A **read-then-write pattern** occurs when a statement contains both a read and a write to the same `shared` path:
+
+$$\text{ReadThenWrite}(P, S) \iff \exists e_r, e_w \in \text{Subexpressions}(S) : \text{ReadsPath}(e_r, P) \land \text{WritesPath}(e_w, P)$$
 
 ##### Static Semantics
 
@@ -14184,7 +14400,7 @@ Key analysis operates on monomorphized code. For generic procedures parameterize
 
 2. **Permission-Polymorphic Code:** A procedure with signature `procedure f<P: Permission>(x: P T)` is analyzed separately for each instantiation. When `P = shared`, key analysis rules apply; when `P = const` or `P = unique`, key analysis is not required.
 
-3. **Trait Bounds:** If a generic procedure requires `P: Shareable` or similar bounds, the implementation MUST perform key analysis for all instantiations satisfying those bounds.
+3. **Form Bounds:** If a generic procedure requires `P: Shareable` or similar bounds, the implementation MUST perform key analysis for all instantiations satisfying those bounds.
 
 **(K-Generic-Instantiation)**
 $$\frac{
@@ -14194,15 +14410,15 @@ $$\frac{
     \text{KeyAnalysis applies to } f\langle\texttt{shared}\rangle
 }$$
 
-**Generic Procedures and Trait Bounds**
+**Generic Procedures and Form Bounds**
 
-When a generic procedure has a trait bound `T: Trait` and is instantiated with a `shared` type, key analysis proceeds as follows:
+When a generic procedure has a form bound `T: Form` and is instantiated with a `shared` type, key analysis proceeds as follows:
 
-1. Each trait method call on the `shared` parameter is analyzed for key requirements.
+1. Each form method call on the `shared` parameter is analyzed for key requirements.
 2. The key mode is determined by the method's receiver permission: `~` requires Read, `~%` requires Write.
-3. Trait methods with `~!` receivers are not callable through `shared` paths (per §4.5.6).
+3. Form methods with `~!` receivers are not callable through `shared` paths (per §4.5.6).
 
-**(K-Generic-Trait-Method)**
+**(K-Generic-Form-Method)**
 $$\frac{
     \Gamma \vdash e : \texttt{shared}\ T \quad
     T : Tr \quad
@@ -14218,9 +14434,9 @@ $$\frac{
 
 **Conservative Fallback for Opaque Types**
 
-When the concrete type is unknown (e.g., `witness Trait`), the implementation MUST assume the most restrictive key requirements compatible with the trait's method signatures:
+When the concrete type is unknown (e.g., `witness Form`), the implementation MUST assume the most restrictive key requirements compatible with the form's method signatures:
 
-- If any method in the trait has a `~%` receiver, assume Write mode may be required
+- If any method in the form has a `~%` receiver, assume Write mode may be required
 - If all methods have `~` receivers, Read mode is sufficient
 
 ---
@@ -14271,7 +14487,7 @@ When the concrete type is unknown (e.g., `witness Trait`), the implementation MU
 | `dispatch`              | §14.3  | Data-parallel iteration                             |
 | `parallel` block        | §14.1  | Structured concurrency primitive                    |
 | `defer` statement       | §11.12 | Deferred execution at scope exit                    |
-| Drop                    | §9.7   | Destructor trait for cleanup                        |
+| Drop                    | §9.7   | Destructor form for cleanup                         |
 | Panic                   | §11.15 | Unwinding error propagation                         |
 
 **Diagnostic Code Summary**
@@ -14302,7 +14518,7 @@ When the concrete type is unknown (e.g., `witness Trait`), the implementation MU
 | `W-KEY-0012` | Warning  | §13.7   | Nested `#` blocks with potential order cycle                                |
 | `E-KEY-0060` | Error    | §13.7.1 | Read-then-write on same `shared` path without covering Write key            |
 | `E-KEY-0070` | Error    | §13.4   | Write operation in `#` block without `write` modifier                       |
-| `E-KEY-0083` | Error    | §13.3.1 | `shared witness Trait` where Trait has `~%` method                          |
+| `E-KEY-0083` | Error    | §13.3.1 | `shared witness Form` where Form has `~%` method                            |
 | `E-KEY-0085` | Error    | §13.3.3 | Escaping closure with `shared` capture lacks type annotation                |
 | `E-KEY-0086` | Error    | §13.3.3 | Escaping closure outlives captured `shared` binding                         |
 | `W-KEY-0006` | Warning  | §13.7.1 | Explicit read-then-write form; compound assignment available                |
@@ -14322,180 +14538,169 @@ When the concrete type is unknown (e.g., `witness Trait`), the implementation MU
 
 ## Clause 14: Structured Parallelism
 
-This clause defines Cursive's parallelism model: how code executes concurrently across CPU threads, GPU compute units, and other execution domains. The model is built on three orthogonal concepts that compose freely:
-
-| Concept              | Mechanism                   | Purpose                     |
-| -------------------- | --------------------------- | --------------------------- |
-| **Execution Domain** | `parallel` block            | Where code runs             |
-| **Suspension**       | `wait` / `Async<T>`         | Yield until external event  |
-| **Coordination**     | `key` / `shared` permission | Safe concurrent data access |
+This clause defines Cursive's structured parallelism model. Parallelism enables concurrent execution of code across multiple workers within a bounded scope. The model guarantees that all spawned work completes before the parallel scope exits, ensuring deterministic resource cleanup and composable concurrency.
 
 ---
 
-### 14.1 The Parallel Block
+### 14.1 Parallelism Overview
 
 ##### Definition
 
-A **parallel block** establishes an execution scope where work can be distributed across multiple workers. The block specifies the execution domain (CPU, GPU, etc.) via a capability from the `Context`, and all work within the block MUST complete before execution continues past the block boundary.
+**Structured parallelism** is a concurrency model in which all concurrent work spawned within a scope completes before that scope exits. This guarantee enables safe capture of stack-local bindings, deterministic destruction ordering, and composable parallel regions.
+
+Cursive's parallelism model comprises three orthogonal concepts:
+
+| Concept           | Mechanism           | Purpose                              |
+| :---------------- | :------------------ | :----------------------------------- |
+| Execution Domain  | `parallel` block    | Specifies where work executes        |
+| Work Distribution | `spawn`, `dispatch` | Creates concurrent work items        |
+| Coordination      | Key system (§13)    | Synchronizes access to `shared` data |
 
 **Formal Definition**
 
-A parallel block $P$ is defined as:
+Let $\mathcal{W}$ denote the set of work items spawned within a parallel block $P$. The **structured concurrency invariant** states:
 
-$$P = (D, C, B)$$
+$$\forall w \in \mathcal{W}.\ \text{lifetime}(w) \subseteq \text{lifetime}(P)$$
+
+A **work item** is a unit of computation queued for execution by a worker. Work items are created by `spawn` and `dispatch` expressions. A **worker** is an execution context (typically an OS thread or GPU compute unit) that executes work items.
+
+**Task** is the runtime representation of a work item during execution. A task may suspend (at `wait` expressions) and resume. Tasks are associated with key state per §13.1.
+
+---
+
+### 14.2 The Parallel Block
+
+##### Definition
+
+A **parallel block** establishes a scope within which work may execute concurrently across multiple workers. The block specifies an execution domain and contains `spawn` and `dispatch` expressions that create work items. All work items MUST complete before execution proceeds past the block's closing brace.
+
+**Formal Definition**
+
+A parallel block $P$ is defined as a tuple:
+
+$$P = (D, A, B)$$
 
 where:
-- $D$ is the execution domain (a capability expression)
-- $C$ is the (possibly empty) set of constraints/attributes  
-- $B$ is the block body containing parallel work
+- $D$ is the execution domain expression
+- $A$ is the (possibly empty) set of block attributes
+- $B$ is the block body containing statements and work-creating expressions
 
-The **structured concurrency invariant** states:
-
-$$\forall w \in \text{work}(B).\ \text{lifetime}(w) \subseteq \text{lifetime}(P)$$
-
-All work spawned within the block completes before the block exits.
-
-##### Syntax
+##### Syntax & Declaration
 
 **Grammar**
 
 ```ebnf
-parallel_block    ::= "parallel" domain_expr constraint_list? "{" parallel_body "}"
+parallel_block    ::= "parallel" domain_expr attribute_list? block
 
-domain_expr       ::= context_path "." domain_method "(" domain_args? ")"
+domain_expr       ::= expression
 
-domain_method     ::= "cpu" | "gpu" | "inline"
+attribute_list    ::= "[" attribute ("," attribute)* "]"
 
-domain_args       ::= domain_arg ("," domain_arg)*
-
-domain_arg        ::= identifier ":" expression
-
-constraint_list   ::= "[" constraint ("," constraint)* "]"
-
-constraint        ::= "cancel" ":" expression
+attribute         ::= "cancel" ":" expression
                     | "name" ":" string_literal
 
-parallel_body     ::= (spawn_expr | dispatch_expr | statement)*
+block             ::= "{" statement* "}"
 ```
 
-**Examples**
+The `domain_expr` MUST evaluate to a type that implements the `ExecutionDomain` form (§14.6).
 
-```cursive
-// Basic CPU parallelism
-parallel ctx.cpu(workers: 4) {
-    spawn { work_a() }
-    spawn { work_b() }
-}
+**Attribute Semantics**
 
-// GPU compute
-parallel ctx.gpu(device: 0) {
-    dispatch i in 0..n {
-        output[i] = input[i] * 2.0
-    }
-}
-
-// With cancellation token
-parallel ctx.cpu(workers: 8) [cancel: token] {
-    dispatch i in 0..n {
-        if token.is_cancelled() { return }
-        process(i)
-    }
-}
-
-// Inline (sequential) for testing
-parallel ctx.inline() {
-    spawn { work_a() }  // Runs immediately
-    spawn { work_b() }  // Runs after work_a
-}
-```
+| Attribute | Type          | Purpose                                      |
+| :-------- | :------------ | :------------------------------------------- |
+| `cancel`  | `CancelToken` | Provides cooperative cancellation capability |
+| `name`    | `string`      | Labels the block for debugging and profiling |
 
 ##### Static Semantics
 
-**Typing Rule (T-Parallel)**
+**Typing Rule**
 
 $$\frac{
   \Gamma \vdash D : \text{witness ExecutionDomain} \quad
-  \Gamma_P \vdash B : T \quad
-  \Gamma_P = \Gamma[\text{parallel\_context} \mapsto D]
+  \Gamma_P = \Gamma[\text{parallel\_context} \mapsto D] \quad
+  \Gamma_P \vdash B : T
 }{
   \Gamma \vdash \texttt{parallel } D\ \{B\} : T
 } \quad \text{(T-Parallel)}$$
 
-The domain expression must evaluate to a type implementing the `ExecutionDomain` trait. The body is typed in an extended environment that includes the parallel context.
+The type of a parallel block is determined by its contents per §14.9.
 
-**Well-Formedness (WF-Parallel)**
+**Well-Formedness**
 
-A parallel block is well-formed if:
-1. The domain expression is a valid capability access
-2. All `spawn` and `dispatch` expressions within directly reference this block
-3. No `spawn` or `dispatch` appears outside a parallel block
-4. Captured bindings satisfy permission requirements (§14.2)
+A parallel block is well-formed if and only if:
+
+1. The domain expression evaluates to a type implementing `ExecutionDomain`.
+2. All `spawn` and `dispatch` expressions within the block body reference the enclosing parallel block.
+3. No `spawn` or `dispatch` expression appears outside a parallel block.
+4. All captured bindings satisfy the permission requirements of §14.3.
 
 ##### Dynamic Semantics
 
 **Evaluation**
 
-Evaluation of `parallel D { B }` proceeds as follows:
+Evaluation of `parallel D [attrs] { B }` proceeds as follows:
 
-1. Evaluate domain expression $D$ to obtain execution context $ctx$
-2. Initialize worker pool according to domain parameters
-3. Evaluate body $B$, queuing work items from `spawn`/`dispatch`
-4. Block at closing brace until all queued work completes
-5. Propagate first panic (if any) after all work settles
-6. Release workers back to domain
-7. Return collected results (if applicable)
+1. Let $d$ be the result of evaluating domain expression $D$.
+2. Initialize the worker pool according to $d$'s configuration.
+3. If the `cancel` attribute is present, associate its token with the block.
+4. Evaluate statements in $B$ sequentially; `spawn` and `dispatch` expressions enqueue work items to the worker pool.
+5. Block at the closing brace until all enqueued work items complete.
+6. If any work item panicked, propagate the first panic (by completion order) after all work settles.
+7. Release workers back to the domain.
+8. Return the collected results (per §14.9).
 
 **Completion Ordering**
 
-Work items complete in unspecified order. The parallel block only guarantees that ALL work completes before the block exits, not any particular completion order.
+Work items complete in Unspecified order. The parallel block guarantees only that ALL work completes before the block exits.
 
-##### Constraints
+##### Constraints & Legality
 
 **Negative Constraints**
 
-1. `spawn` MUST NOT appear outside a parallel block
-2. `dispatch` inside a parallel block MUST use the block's domain
-3. A parallel block MUST have a valid execution domain capability
-4. Parallel blocks MUST NOT be `async` (use `wait` inside instead)
+1. A `spawn` expression MUST NOT appear outside a parallel block.
+2. A `dispatch` expression MUST NOT appear outside a parallel block.
+3. Parallel blocks MUST NOT be nested within `async` procedure bodies without an intervening `wait` expression.
 
 **Diagnostic Table**
 
-| Code         | Severity | Condition                      | Detection    | Effect    |
-| :----------- | :------- | :----------------------------- | :----------- | :-------- |
-| `E-PAR-0001` | Error    | `spawn` outside parallel block | Compile-time | Rejection |
-| `E-PAR-0002` | Error    | Invalid domain capability      | Compile-time | Rejection |
-| `E-PAR-0003` | Error    | Domain parameter type mismatch | Compile-time | Rejection |
-| `E-PAR-0010` | Error    | `async` parallel block         | Compile-time | Rejection |
+| Code         | Severity | Condition                              | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------- | :----------- | :-------- |
+| `E-PAR-0001` | Error    | `spawn` or `dispatch` outside parallel | Compile-time | Rejection |
+| `E-PAR-0002` | Error    | Domain expression not ExecutionDomain  | Compile-time | Rejection |
+| `E-PAR-0003` | Error    | Invalid domain parameter type          | Compile-time | Rejection |
 
 ---
 
-### 14.2 Capture Semantics
+### 14.3 Capture Semantics
 
 ##### Definition
 
-When a `spawn` or `dispatch` body references bindings from enclosing scopes, those bindings are **captured** into the work item. Capture rules ensure memory safety by preventing data races and use-after-free.
+When a `spawn` or `dispatch` body references bindings from enclosing scopes, those bindings are **captured** into the work item. Capture rules ensure memory safety by preventing data races and use-after-free errors.
 
-**Capture Rules by Permission**
+**Formal Definition**
 
-| Source Permission   | Capture Mode | In Work Item | Source After Capture | Rationale                          |
-| :------------------ | :----------- | :----------- | :------------------- | :--------------------------------- |
-| `const`             | Reference    | `const`      | Unchanged            | Immutable, freely shareable        |
-| `shared`            | Reference    | `shared`     | Unchanged            | Key system handles synchronization |
-| `unique` (implicit) | **ERROR**    | —            | —                    | Would create aliased mutation      |
-| `unique` + `move`   | Move         | `unique`     | Moved (invalid)      | Explicit ownership transfer        |
+Let $\text{FreeVars}(e)$ denote the set of free variables in expression $e$. For each $v \in \text{FreeVars}(e)$ where $e$ is a spawn or dispatch body, the **capture mode** is determined by $v$'s permission:
+
+| Source Permission | Capture Mode | Work Item Permission | Source After Capture |
+| :---------------- | :----------- | :------------------- | :------------------- |
+| `const`           | Reference    | `const`              | Unchanged            |
+| `shared`          | Reference    | `shared`             | Unchanged            |
+| `unique`          | Move         | `unique`             | Moved (invalid)      |
 
 ##### Static Semantics
 
-**Capture Analysis (T-Capture)**
+**Capture Analysis Rules**
 
-For each free variable $v$ in a spawn/dispatch body:
+For `const` and `shared` bindings, capture occurs by reference:
 
 $$\frac{
-  \Gamma \vdash v : \pi\ T \quad
-  \pi \in \{\texttt{const}, \texttt{shared}\}
+  \Gamma \vdash v : P\ T \quad
+  P \in \{\texttt{const}, \texttt{shared}\}
 }{
-  \Gamma_{\text{capture}} \vdash v : \pi\ T
+  \Gamma_{\text{capture}} \vdash v : P\ T
 } \quad \text{(T-Capture-Ref)}$$
+
+For `unique` bindings, capture requires explicit `move`:
 
 $$\frac{
   \Gamma \vdash v : \texttt{unique}\ T \quad
@@ -14505,60 +14710,21 @@ $$\frac{
   \Gamma' = \Gamma[v \mapsto \text{Moved}]
 } \quad \text{(T-Capture-Move)}$$
 
+Implicit capture of `unique` bindings is forbidden:
+
 $$\frac{
   \Gamma \vdash v : \texttt{unique}\ T \quad
+  v \in \text{FreeVars}(\text{body}) \quad
   \texttt{move}\ v \notin \text{body}
 }{
-  \text{ERROR: E-PAR-0020}
+  \text{Emit}(\texttt{E-PAR-0020})
 } \quad \text{(T-Capture-Unique-Error)}$$
 
-**Examples**
+**Lifetime Safety**
 
-```cursive
-let x: const Data = ...
-let y: shared State = ...
-let z: unique Buffer = ...
-let w: unique Buffer = ...
+Captured references are guaranteed valid for the duration of all work items because structured concurrency ensures all work completes before the parallel block exits. The parallel block's lifetime contains all work item lifetimes.
 
-parallel ctx.cpu() {
-    spawn {
-        use(x)       // OK: const captured by reference
-        use(y)       // OK: shared captured by reference
-        use(z)       // ERROR E-PAR-0020: can't capture unique implicitly
-        use(move w)  // OK: w moved into this spawn
-    }
-    
-    spawn {
-        use(x)       // OK: const can be captured multiple times
-        use(y)       // OK: shared can be captured multiple times
-        use(w)       // ERROR E-MEM-3001: w was moved above
-    }
-}
-```
-
-##### Lifetime Safety
-
-Because all work MUST complete before the parallel block exits, captured references are guaranteed valid for the duration of all work items:
-
-```cursive
-procedure safe_capture() {
-    let local_data: const [i32; 100] = [0; 100]
-    
-    parallel ctx.cpu() {
-        spawn {
-            // local_data is valid here because:
-            // 1. It's captured by reference (const)
-            // 2. This spawn MUST complete before parallel block exits
-            // 3. Parallel block exits before safe_capture returns
-            // 4. local_data lives until safe_capture returns
-            process(local_data)
-        }
-    }
-    // Spawn has completed; local_data still valid until function returns
-}
-```
-
-##### Constraints
+##### Constraints & Legality
 
 **Diagnostic Table**
 
@@ -14570,47 +14736,37 @@ procedure safe_capture() {
 
 ---
 
-### 14.3 The Spawn Expression
+### 14.4 The Spawn Expression
 
 ##### Definition
 
-A **spawn expression** queues a unit of work for concurrent execution within the enclosing parallel block's domain. Spawn expressions are only valid directly within parallel blocks.
+A **spawn expression** creates a work item for concurrent execution within the enclosing parallel block. The work item executes independently and produces a result that may be collected.
 
-##### Syntax
+##### Syntax & Declaration
 
 **Grammar**
 
 ```ebnf
-spawn_expr      ::= "spawn" spawn_attrs? "{" expression "}"
+spawn_expr      ::= "spawn" attribute_list? block
 
-spawn_attrs     ::= "[" spawn_attr ("," spawn_attr)* "]"
+attribute_list  ::= "[" attribute ("," attribute)* "]"
 
-spawn_attr      ::= "name" ":" string_literal
+attribute       ::= "name" ":" string_literal
                   | "affinity" ":" expression
                   | "priority" ":" expression
 ```
 
-**Examples**
+**Attribute Semantics**
 
-```cursive
-parallel ctx.cpu(workers: 4) {
-    // Basic spawn
-    spawn { compute_a() }
-    
-    // Named spawn (for debugging/profiling)
-    spawn [name: "physics"] { step_physics() }
-    
-    // With affinity hint
-    spawn [affinity: cores(0..2)] { latency_sensitive_work() }
-    
-    // With priority
-    spawn [priority: Priority::High] { important_work() }
-}
-```
+| Attribute  | Type       | Default            | Purpose                        |
+| :--------- | :--------- | :----------------- | :----------------------------- |
+| `name`     | `string`   | Anonymous          | Labels for debugging/profiling |
+| `affinity` | `CpuSet`   | Domain default     | CPU core affinity hint         |
+| `priority` | `Priority` | `Priority::Normal` | Scheduling priority hint       |
 
 ##### Static Semantics
 
-**Typing Rule (T-Spawn)**
+**Typing Rule**
 
 $$\frac{
   \Gamma[\text{parallel\_context}] = D \quad
@@ -14619,482 +14775,400 @@ $$\frac{
   \Gamma \vdash \texttt{spawn}\ \{e\} : \text{SpawnHandle}\langle T \rangle
 } \quad \text{(T-Spawn)}$$
 
-A spawn expression returns a `SpawnHandle<T>` that can be used to retrieve the result.
+A spawn expression returns a `SpawnHandle<T>` representing the pending result.
 
-**Attribute Typing**
+**SpawnHandle Type**
 
-| Attribute  | Expected Type    | Default            |
-| :--------- | :--------------- | :----------------- |
-| `name`     | `string` literal | Anonymous          |
-| `affinity` | `CpuSet`         | Domain default     |
-| `priority` | `Priority`       | `Priority::Normal` |
+```cursive
+modal SpawnHandle<T> {
+    @Pending { }
+    
+    @Ready {
+        value: T,
+    }
+}
+```
+
+The `SpawnHandle<T>` type supports the `wait` expression (§15.4) for result retrieval.
 
 ##### Dynamic Semantics
 
 **Evaluation**
 
-Evaluation of `spawn { e }` proceeds as follows:
+Evaluation of `spawn [attrs] { e }` proceeds as follows:
 
-1. Capture free variables from enclosing scope per §14.2
-2. Package captured environment with expression into work item
-3. Enqueue work item to parallel block's worker pool
-4. Return `SpawnHandle<T>` immediately (non-blocking)
-5. Worker eventually dequeues and evaluates `e`
-6. Result stored in handle; waiters notified
+1. Capture free variables from enclosing scope per §14.3.
+2. Package the captured environment with expression $e$ into a work item.
+3. Enqueue the work item to the parallel block's worker pool.
+4. Return a `SpawnHandle<T>@Pending` immediately (non-blocking).
+5. A worker eventually dequeues and evaluates $e$.
+6. Upon completion, the handle transitions to `@Ready` with the result value.
 
 **Result Collection**
 
-Spawn results can be collected in several ways:
+Spawn results are collected through three mechanisms:
 
-**Implicit Collection (Block Returns Tuple)**
+1. **Implicit collection**: When a parallel block contains only spawn expressions, results form a tuple in declaration order.
+2. **Explicit wait**: Use `wait handle` to retrieve a specific result.
+3. **Ignored**: Results not collected are discarded; work still completes.
 
-```cursive
-let (a, b, c) = parallel ctx.cpu() {
-    spawn { compute_a() }
-    spawn { compute_b() }
-    spawn { compute_c() }
-}
-// Results collected in spawn-declaration order
-```
-
-**Explicit Handle**
-
-```cursive
-parallel ctx.cpu() {
-    let handle_a = spawn { compute_a() }
-    let handle_b = spawn { compute_b() }
-    
-    // Do other work...
-    
-    // Explicitly wait for specific result
-    let result_a = wait handle_a
-}
-```
-
-**Ignore Result**
-
-```cursive
-parallel ctx.cpu() {
-    spawn { fire_and_forget_work() }
-    // No result collected; work still completes before block exits
-}
-```
-
-##### Constraints
+##### Constraints & Legality
 
 **Negative Constraints**
 
-1. `spawn` MUST appear directly within a `parallel` block body
-2. `spawn` MUST NOT appear within a nested function/closure that escapes
-3. Spawn attributes MUST match expected types
+1. A `spawn` expression MUST appear directly within a parallel block body.
+2. A `spawn` expression MUST NOT appear within an escaping closure.
 
 **Diagnostic Table**
 
-| Code         | Severity | Condition                      | Detection    | Effect    |
-| :----------- | :------- | :----------------------------- | :----------- | :-------- |
-| `E-PAR-0030` | Error    | `spawn` outside parallel block | Compile-time | Rejection |
-| `E-PAR-0031` | Error    | Invalid spawn attribute type   | Compile-time | Rejection |
-| `E-PAR-0032` | Error    | `spawn` in escaping closure    | Compile-time | Rejection |
+| Code         | Severity | Condition                    | Detection    | Effect    |
+| :----------- | :------- | :--------------------------- | :----------- | :-------- |
+| `E-PAR-0030` | Error    | Invalid spawn attribute type | Compile-time | Rejection |
+| `E-PAR-0031` | Error    | `spawn` in escaping closure  | Compile-time | Rejection |
 
 ---
 
-### 14.4 The Dispatch Expression
+### 14.5 The Dispatch Expression
 
 ##### Definition
 
-A **dispatch expression** expresses data-parallel iteration where each iteration may execute concurrently. The key system determines which iterations can safely parallelize based on their access patterns.
+A **dispatch expression** expresses data-parallel iteration where each iteration may execute concurrently. The key system (§13) determines which iterations can safely parallelize based on their access patterns to `shared` data.
 
-##### Syntax
+##### Syntax & Declaration
 
 **Grammar**
 
 ```ebnf
-dispatch_expr   ::= "dispatch" identifier "in" range_expr 
+dispatch_expr   ::= "dispatch" pattern "in" range_expr 
                     key_clause?
-                    dispatch_attrs?
-                    "{" expression "}"
+                    attribute_list?
+                    block
 
-key_clause      ::= "key" key_pattern key_mode
-
-key_pattern     ::= path_expression  // May reference iteration variable
+key_clause      ::= "key" path_expr key_mode
 
 key_mode        ::= "read" | "write"
 
-dispatch_attrs  ::= "[" dispatch_attr ("," dispatch_attr)* "]"
+attribute_list  ::= "[" attribute ("," attribute)* "]"
 
-dispatch_attr   ::= "reduce" ":" reduce_op
+attribute       ::= "reduce" ":" reduce_op
                   | "ordered"
                   | "chunk" ":" expression
 
 reduce_op       ::= "+" | "*" | "min" | "max" | "and" | "or" | identifier
 ```
 
-**Examples**
+**Key Clause**
 
-```cursive
-parallel ctx.cpu(workers: 4) {
-    // Basic dispatch with inferred keys
-    dispatch i in 0..n {
-        data[i] = compute(i)
-    }
-    
-    // Explicit key annotation
-    dispatch i in 0..n key data[i] write {
-        data[i] = transform(data[i])
-    }
-    
-    // With reduction
-    let sum = dispatch i in 0..n key data[i] read [reduce: +] {
-        data[i]
-    }
-    
-    // Ordered (preserves side-effect order)
-    dispatch i in 0..n [ordered] {
-        println(f"Processing {i}")  // Prints in order 0, 1, 2, ...
-    }
-    
-    // Chunked (control granularity)
-    dispatch i in 0..n [chunk: 64] {
-        fine_grained_work(i)
-    }
-}
-```
+The optional key clause explicitly declares the key path and mode for each iteration. When omitted, the compiler infers key requirements from the body's access patterns.
 
-**Key Clause Semantics**
+**Attribute Semantics**
 
-The key clause declares what path each iteration accesses:
-
-**Key Pattern Analysis**
-
-| Key Pattern  | Keys Generated     | Parallelism           |
-| :----------- | :----------------- | :-------------------- |
-| `data[i]`    | n distinct keys    | Full parallel         |
-| `data[i/2]`  | n/2 distinct keys  | Pairs serialize       |
-| `data[i%k]`  | k distinct keys    | k-way parallel        |
-| `data[f(i)]` | Unknown            | Runtime serialization |
-| (omitted)    | Inferred from body | Depends on analysis   |
-
-**Key Inference**
-
-When no key clause is provided, the compiler analyzes the body to infer key patterns:
-
-```cursive
-dispatch i in 0..n {
-    data[i] = compute(i)  // Inferred: key data[i] write
-}
-
-dispatch i in 0..n {
-    result[i] = source[i] * 2  // Inferred: key (result[i] write, source[i] read)
-}
-```
-
-If inference fails or is ambiguous, an explicit key clause is required.
+| Attribute | Type         | Purpose                                       |
+| :-------- | :----------- | :-------------------------------------------- |
+| `reduce`  | Reduction op | Combines iteration results using specified op |
+| `ordered` | (flag)       | Forces sequential side-effect ordering        |
+| `chunk`   | `usize`      | Groups iterations into chunks for granularity |
 
 ##### Static Semantics
 
-**Typing Rule (T-Dispatch)**
+**Typing Rule (Without Reduction)**
 
 $$\frac{
   \Gamma \vdash \text{range} : \text{Range}\langle I \rangle \quad
-  \Gamma, i : I, \text{Key}(P, M) \vdash e : T
+  \Gamma, i : I \vdash B : T
 }{
-  \Gamma \vdash \texttt{dispatch } i \texttt{ in range key } P\ M\ \{e\} : ()
+  \Gamma \vdash \texttt{dispatch } i \texttt{ in range } \{B\} : ()
 } \quad \text{(T-Dispatch)}$$
 
-**Typing Rule (T-Dispatch-Reduce)**
+**Typing Rule (With Reduction)**
 
 $$\frac{
   \Gamma \vdash \text{range} : \text{Range}\langle I \rangle \quad
-  \Gamma, i : I \vdash e : T \quad
+  \Gamma, i : I \vdash B : T \quad
   \Gamma \vdash \oplus : (T, T) \to T
 }{
-  \Gamma \vdash \texttt{dispatch } i \texttt{ in range [reduce: } \oplus \texttt{]}\ \{e\} : T
+  \Gamma \vdash \texttt{dispatch } i \texttt{ in range [reduce: } \oplus \texttt{] } \{B\} : T
 } \quad \text{(T-Dispatch-Reduce)}$$
+
+**Key Inference**
+
+When no key clause is provided, the compiler analyzes the body to infer key paths and modes:
+
+| Body Access Pattern       | Inferred Key Path        | Inferred Mode   |
+| :------------------------ | :----------------------- | :-------------- |
+| `data[i] = ...`           | `data[i]`                | `write`         |
+| `... = data[i]`           | `data[i]`                | `read`          |
+| `data[i] = data[i] + ...` | `data[i]`                | `write`         |
+| `result[i] = source[j]`   | `result[i]`, `source[j]` | `write`, `read` |
+
+If inference fails or is ambiguous, diagnostic `E-PAR-0041` is emitted.
+
+**Disjointness Guarantee**
+
+Within a dispatch expression, accesses indexed by the iteration variable to the same array are proven disjoint across iterations:
+
+$$\frac{
+  \texttt{dispatch}\ v\ \texttt{in}\ r\ \{\ \ldots\ a[v]\ \ldots\ \}
+}{
+  \forall v_1, v_2 \in r,\ v_1 \neq v_2 \implies \text{ProvablyDisjoint}(a[v_1], a[v_2])
+} \quad \text{(K-Disjoint-Dispatch)}$$
+
+Per §13.6.5, this enables full parallelization when iterations access disjoint array elements.
 
 ##### Dynamic Semantics
 
 **Evaluation**
 
-Evaluation of `dispatch i in range { e }` proceeds as follows:
+Evaluation of `dispatch i in range [attrs] { B }` proceeds as follows:
 
-1. Evaluate range to determine iteration count $n$
-2. Analyze key patterns to partition iterations into conflict-free groups
-3. For each group, queue iterations as work items
-4. Workers execute iterations, acquiring keys as needed
-5. If `[reduce: op]`, combine partial results using `op`
-6. Block until all iterations complete
-7. Return reduced value (if reduction) or unit
+1. Evaluate `range` to determine iteration count $n$.
+2. Analyze key patterns to partition iterations into conflict-free groups.
+3. For each group, enqueue iterations as work items to the worker pool.
+4. Workers execute iterations, acquiring keys as needed per §13.2.
+5. If `[reduce: op]` is present, combine partial results using `op`.
+6. Block until all iterations complete.
+7. Return the reduced value (if reduction) or unit.
 
 **Parallelism Determination**
 
-The key system partitions iterations:
+The key system partitions iterations based on key paths:
 
-```
-Iterations: [0, 1, 2, 3, 4, 5, 6, 7]
-Key pattern: data[i % 3]
-Keys: {data[0], data[1], data[2]}
-
-Partitions:
-  Key data[0]: iterations [0, 3, 6]  -- serialize
-  Key data[1]: iterations [1, 4, 7]  -- serialize  
-  Key data[2]: iterations [2, 5]     -- serialize
-  
-Partitions execute in parallel with each other.
-```
+| Key Pattern   | Keys Generated      | Parallelism Degree    |
+| :------------ | :------------------ | :-------------------- |
+| `data[i]`     | $n$ distinct keys   | Full parallel         |
+| `data[i / 2]` | $n/2$ distinct keys | Pairs serialize       |
+| `data[i % k]` | $k$ distinct keys   | $k$-way parallel      |
+| `data[f(i)]`  | Unknown at compile  | Runtime serialization |
 
 **Reduction Semantics**
 
-**Associativity Requirement**
-
-Reduction operators MUST be associative for parallel reduction:
+Reduction operators MUST be associative:
 
 $$\forall a, b, c.\ (a \oplus b) \oplus c = a \oplus (b \oplus c)$$
 
-Non-associative operations require `[ordered]` attribute.
+For non-associative operations, the `[ordered]` attribute is required, which forces sequential execution.
 
-**Parallel Reduction Algorithm**
+Parallel reduction proceeds as follows:
 
-1. Partition iterations across workers
-2. Each worker reduces its partition to partial result
-3. Partial results combined in tree pattern
-4. Final result returned
+1. Partition iterations across workers.
+2. Each worker reduces its partition to a partial result.
+3. Combine partial results in a deterministic tree pattern.
+4. Return the final result.
 
-**Determinism**
+The tree combination order is deterministic based on iteration indices, ensuring reproducible results for non-commutative associative operators.
 
-For non-commutative associative operators (e.g., matrix multiplication), reduction order follows a deterministic tree pattern based on iteration indices, ensuring reproducible results.
+##### Constraints & Legality
 
-##### Constraints
+**Cross-Iteration Dependency**
+
+Accesses that reference a different iteration's data are rejected:
+
+```cursive
+dispatch i in 0..arr.len() - 1 {
+    arr[i] = arr[i + 1]     // ERROR E-PAR-0042: cross-iteration dependency
+}
+```
 
 **Diagnostic Table**
 
 | Code         | Severity | Condition                                     | Detection    | Effect    |
 | :----------- | :------- | :-------------------------------------------- | :----------- | :-------- |
 | `E-PAR-0040` | Error    | Dispatch outside parallel block               | Compile-time | Rejection |
-| `E-PAR-0041` | Error    | Key inference failed                          | Compile-time | Rejection |
-| `E-PAR-0042` | Error    | Non-associative reduction without `[ordered]` | Compile-time | Rejection |
-| `E-PAR-0043` | Warning  | Dynamic key pattern (runtime serialization)   | Compile-time | Warning   |
+| `E-PAR-0041` | Error    | Key inference failed; explicit key required   | Compile-time | Rejection |
+| `E-PAR-0042` | Error    | Cross-iteration dependency detected           | Compile-time | Rejection |
+| `E-PAR-0043` | Error    | Non-associative reduction without `[ordered]` | Compile-time | Rejection |
+| `W-PAR-0040` | Warning  | Dynamic key pattern; runtime serialization    | Compile-time | Warning   |
 
 ---
 
-### 14.5 Execution Domains
+### 14.6 Execution Domains
 
 ##### Definition
 
-An **execution domain** is a capability that provides access to computational resources. Domains are accessed through the `Context` record and configured via method parameters.
+An **execution domain** is a capability that provides access to computational resources. Domains are accessed through the `Context` record and implement the `ExecutionDomain` form.
 
-**The ExecutionDomain Trait**
+**Formal Definition**
 
 ```cursive
-/// Base trait for all execution domains
-trait ExecutionDomain {
-    /// Human-readable name for debugging
-    procedure name(~) -> string;
+form ExecutionDomain {
+    /// Human-readable name for debugging and profiling.
+    procedure name(~) -> string
     
-    /// Maximum concurrent work items
-    procedure max_concurrency(~) -> usize;
+    /// Maximum concurrent work items supported.
+    procedure max_concurrency(~) -> usize
 }
 ```
 
-This trait is witness-safe, allowing heterogeneous domain handling where needed.
+This form is witness-safe, enabling heterogeneous domain handling.
 
-#### 14.5.3 CPU Domain
+#### 14.6.1 CPU Domain
 
 ##### Definition
 
-The CPU domain executes work on operating system threads.
+The **CPU domain** executes work items on operating system threads managed by the runtime.
+
+##### Syntax & Declaration
 
 **Access**
 
 ```cursive
-ctx.cpu(parameters...)
+ctx.cpu(workers: n, affinity: cpus, priority: p, stack_size: s)
 ```
 
 **Parameters**
 
-| Parameter    | Type       | Default          | Description                |
-| :----------- | :--------- | :--------------- | :------------------------- |
-| `workers`    | `usize`    | System CPU count | Number of worker threads   |
-| `affinity`   | `CpuSet`   | All CPUs         | CPU cores workers may use  |
-| `priority`   | `Priority` | `Normal`         | Thread scheduling priority |
-| `stack_size` | `usize`    | System default   | Stack size per worker      |
+| Parameter    | Type       | Default                | Purpose                  |
+| :----------- | :--------- | :--------------------- | :----------------------- |
+| `workers`    | `usize`    | System CPU count       | Number of worker threads |
+| `affinity`   | `CpuSet`   | All CPUs               | CPU core affinity mask   |
+| `priority`   | `Priority` | `Priority::Normal`     | Thread scheduling hint   |
+| `stack_size` | `usize`    | Implementation-defined | Stack size per worker    |
 
-**CpuSet Type**
+**Supporting Types**
 
 ```cursive
 record CpuSet {
     mask: [bool; MAX_CPUS],
 
-    /// All available CPUs
     procedure all() -> CpuSet
-    
-    /// Specific core indices
-    procedure cores(indices: [usize]) -> CpuSet
-    
-    /// Range of cores
+    procedure cores(indices: const [usize]) -> CpuSet
     procedure range(start: usize, end: usize) -> CpuSet
-    
-    /// NUMA node
     procedure numa_node(node: usize) -> CpuSet
 }
-```
 
-**Priority Type**
-
-```cursive
 enum Priority {
     Idle,
     Low,
     Normal,
     High,
-    Realtime,  // Requires elevated privileges
+    Realtime,
 }
 ```
 
-**Example**
+The `Realtime` priority requires elevated OS privileges. Attempting to use `Realtime` without sufficient privileges results in Implementation-Defined Behavior; implementations SHOULD fall back to `High` and emit a warning.
 
-```cursive
-// High-priority physics on dedicated cores
-parallel ctx.cpu(workers: 2, affinity: CpuSet::cores([0, 1]), priority: Priority::High) {
-    dispatch i in 0..physics_bodies.len() key physics_bodies[i] write {
-        integrate(physics_bodies[i])
-    }
-}
-```
+##### Dynamic Semantics
 
-#### 14.5.4 GPU Domain
+**Thread Pool Management**
+
+1. On first parallel block entry with a given configuration, worker threads are created.
+2. Worker threads execute work items from a shared queue.
+3. Threads MAY be reused across parallel blocks with compatible configurations.
+4. Thread creation and destruction timing is Implementation-Defined.
+
+#### 14.6.2 GPU Domain
 
 ##### Definition
 
-The GPU domain executes work on graphics processing units via compute shaders.
+The **GPU domain** executes work items on graphics processing unit compute shaders.
+
+##### Syntax & Declaration
 
 **Access**
 
 ```cursive
-ctx.gpu(parameters...)
+ctx.gpu(device: d, queue: q)
 ```
 
 **Parameters**
 
-| Parameter | Type    | Default | Description         |
+| Parameter | Type    | Default | Purpose             |
 | :-------- | :------ | :------ | :------------------ |
 | `device`  | `usize` | 0       | GPU device index    |
 | `queue`   | `usize` | 0       | Command queue index |
 
-**GPU Memory Model**
+##### Static Semantics
 
-GPU and CPU have separate memory spaces. Data must be explicitly transferred:
+**GPU Capture Rules**
+
+Code within GPU dispatch may capture only:
+
+| Capturable Type       | Reason                       |
+| :-------------------- | :--------------------------- |
+| `GpuBuffer<T>`        | Device-accessible memory     |
+| Primitive constants   | Embedded in shader constants |
+| `const` small records | Uniform buffer compatible    |
+
+The following are NOT capturable:
+
+| Forbidden Type       | Reason                        |
+| :------------------- | :---------------------------- |
+| `shared` types       | Key system unavailable on GPU |
+| Host pointers        | Different address space       |
+| Heap-allocated types | Host memory inaccessible      |
+
+##### Dynamic Semantics
+
+**Memory Model**
+
+GPU and CPU have separate memory spaces. Data transfer is explicit:
 
 ```cursive
 parallel ctx.gpu() {
-    // Allocate device memory
     let d_input: GpuBuffer<f32> = gpu::alloc(n)
     let d_output: GpuBuffer<f32> = gpu::alloc(n)
     
-    // Upload host -> device
     gpu::upload(host_input, d_input)
     
-    // Compute
     dispatch i in 0..n {
         d_output[i] = d_input[i] * 2.0
     }
     
-    // Download device -> host
     gpu::download(d_output, host_output)
 }
-// Implicit sync at block exit
 ```
 
 **GPU Intrinsics**
 
-Within `parallel ctx.gpu()`, the following intrinsics are available:
+The following intrinsics are available within GPU parallel blocks:
 
-| Intrinsic                        | Description                       |
-| :------------------------------- | :-------------------------------- |
-| `gpu::alloc<T>(count)`           | Allocate device buffer            |
-| `gpu::upload(src, dst)`          | Copy host to device               |
-| `gpu::download(src, dst)`        | Copy device to host               |
-| `gpu::global_id()`               | Global thread index               |
-| `gpu::local_id()`                | Workgroup-local thread index      |
-| `gpu::workgroup_id()`            | Workgroup index                   |
-| `gpu::barrier()`                 | Workgroup synchronization barrier |
-| `gpu::atomic_add(ptr, val)`      | Atomic addition                   |
-| `gpu::atomic_min(ptr, val)`      | Atomic minimum                    |
-| `gpu::atomic_max(ptr, val)`      | Atomic maximum                    |
-| `gpu::atomic_cas(ptr, cmp, val)` | Atomic compare-and-swap           |
+| Intrinsic                        | Type           | Purpose                       |
+| :------------------------------- | :------------- | :---------------------------- |
+| `gpu::alloc<T>(count: usize)`    | `GpuBuffer<T>` | Allocate device buffer        |
+| `gpu::upload(src, dst)`          | `()`           | Copy host to device           |
+| `gpu::download(src, dst)`        | `()`           | Copy device to host           |
+| `gpu::global_id()`               | `usize`        | Global thread index           |
+| `gpu::local_id()`                | `usize`        | Workgroup-local index         |
+| `gpu::workgroup_id()`            | `usize`        | Workgroup index               |
+| `gpu::barrier()`                 | `()`           | Workgroup sync barrier        |
+| `gpu::atomic_add(ptr, val)`      | `T`            | Atomic add; returns old value |
+| `gpu::atomic_min(ptr, val)`      | `T`            | Atomic min; returns old value |
+| `gpu::atomic_max(ptr, val)`      | `T`            | Atomic max; returns old value |
+| `gpu::atomic_cas(ptr, cmp, new)` | `T`            | Compare-and-swap; returns old |
 
-**GPU Shared Memory**
-
-Workgroup-shared memory for fast intra-workgroup communication:
+**Dispatch Dimensions**
 
 ```cursive
-parallel ctx.gpu() {
-    dispatch workgroup in 0..num_workgroups {
-        // Declare shared memory (per-workgroup)
-        let shared: gpu::Shared<[f32; 256]> = gpu::shared()
-        
-        let local_id = gpu::local_id()
-        
-        // Load into shared memory
-        shared[local_id] = global_input[gpu::global_id()]
-        
-        gpu::barrier()  // Ensure all loads complete
-        
-        // Use shared memory
-        let neighbor = shared[(local_id + 1) % 256]
-        
-        gpu::barrier()  // Ensure all reads complete before next iteration
-    }
-}
+// 1D dispatch
+dispatch i in 0..n { ... }
+
+// 2D dispatch
+dispatch (x, y) in (0..width, 0..height) { ... }
+
+// 3D dispatch
+dispatch (x, y, z) in (0..w, 0..h, 0..d) { ... }
+
+// Explicit workgroup size
+dispatch i in 0..n [workgroup: 256] { ... }
 ```
 
-**GPU Dispatch Configuration**
+##### Constraints & Legality
 
-```cursive
-parallel ctx.gpu() {
-    // 1D dispatch
-    dispatch i in 0..n { ... }
-    
-    // 2D dispatch
-    dispatch (x, y) in (0..width, 0..height) { ... }
-    
-    // 3D dispatch  
-    dispatch (x, y, z) in (0..w, 0..h, 0..d) { ... }
-    
-    // Explicit workgroup size
-    dispatch i in 0..n [workgroup: 256] { ... }
-}
-```
+**Diagnostic Table**
 
-**GPU Capture Rules**
+| Code         | Severity | Condition                        | Detection    | Effect    |
+| :----------- | :------- | :------------------------------- | :----------- | :-------- |
+| `E-PAR-0050` | Error    | Host memory access in GPU code   | Compile-time | Rejection |
+| `E-PAR-0051` | Error    | `shared` capture in GPU dispatch | Compile-time | Rejection |
+| `E-PAR-0052` | Error    | Nested GPU parallel block        | Compile-time | Rejection |
 
-Code inside GPU dispatch can only capture:
-
-| Type                     | Allowed | Reason                  |
-| :----------------------- | :------ | :---------------------- |
-| `GpuBuffer<T>`           | Yes     | Device memory           |
-| Primitive constants      | Yes     | Embedded in shader      |
-| `const` small structs    | Yes     | Uniform buffer          |
-| `shared` types           | **No**  | No key system on GPU    |
-| Host pointers/references | **No**  | Different address space |
-
-```cursive
-let host_array: [f32] = ...
-let gpu_buffer: GpuBuffer<f32> = ...
-let constant: f32 = 3.14
-
-parallel ctx.gpu() {
-    dispatch i in 0..n {
-        // gpu_buffer[i] = host_array[i]  // ERROR: can't access host memory
-        gpu_buffer[i] = gpu_buffer[i] * constant  // OK
-    }
-}
-```
-
-#### 14.5.5 Inline Domain
+#### 14.6.3 Inline Domain
 
 ##### Definition
 
-The inline domain executes work sequentially on the current thread. Useful for testing, debugging, and single-threaded contexts.
+The **inline domain** executes work items sequentially on the current thread. This domain is useful for testing, debugging, and single-threaded execution contexts.
+
+##### Syntax & Declaration
 
 **Access**
 
@@ -15102,168 +15176,126 @@ The inline domain executes work sequentially on the current thread. Useful for t
 ctx.inline()
 ```
 
-**Semantics**
+##### Dynamic Semantics
 
-- `spawn { e }` evaluates `e` immediately, blocks until complete
-- `dispatch i in range { e }` executes as sequential loop
-- No actual parallelism occurs
-- All parallel semantics preserved (capture rules, etc.)
+**Evaluation**
 
-**Use Cases**
+- `spawn { e }` evaluates $e$ immediately and blocks until complete.
+- `dispatch i in range { e }` executes as a sequential loop.
+- No actual parallelism occurs.
+- All capture rules and permission requirements remain enforced.
 
-```cursive
-// Testing: deterministic execution
-[[test]]
-procedure test_parallel_algorithm() {
-    parallel ctx.inline() {
-        // Executes sequentially, easier to debug
-        dispatch i in 0..n {
-            data[i] = compute(i)
-        }
-    }
-    assert(verify(data))
-}
+#### 14.6.4 Domain in Context Record
 
-// Conditional parallelism
-let domain = if n > threshold { ctx.cpu(workers: 4) } else { ctx.inline() }
-parallel domain {
-    dispatch i in 0..n { ... }
-}
-```
+##### Definition
 
-### 14.5.6 Domain in Context Record
+Execution domains are accessed through factory methods on the `Context` record:
 
 ```cursive
 record Context {
     // ... other capabilities ...
     
-    /// CPU execution domain factory
     cpu: CpuDomainFactory,
-    
-    /// GPU execution domain factory (None if no GPU)
     gpu: GpuDomainFactory | None,
-    
-    /// Inline (sequential) domain factory
     inline: InlineDomainFactory,
 }
 
 record CpuDomainFactory {
     sys: witness System,
 
-    procedure call(~, 
+    procedure call(~,
         workers: usize = cpu_count(),
         affinity: CpuSet = CpuSet::all(),
         priority: Priority = Priority::Normal,
         stack_size: usize = default_stack_size()
     ) -> CpuDomain
 }
-```
 
----
-
-### 14.6 Async Integration
-
-##### Definition
-
-Async operations (`wait`, `Async<T>`) compose freely with parallel blocks. Workers can suspend on async operations, yielding to other work.
-
-**Wait Inside Parallel**
-
-```cursive
-parallel ctx.cpu(workers: 4) {
-    spawn {
-        // Async I/O inside spawn
-        let data = wait ctx.fs~>read(file)
-        process(data)
-    }
-    
-    dispatch i in 0..n key results[i] write {
-        // Async network inside dispatch
-        let response = wait ctx.net~>get(urls[i])
-        results[i] = parse(response)
-    }
+record InlineDomainFactory { 
+    procedure call(~) -> InlineDomain
 }
 ```
 
-**Semantics**
+The `gpu` field is `None` when no GPU is available.
 
-When a worker hits `wait`:
-1. Worker suspends current work item
-2. Worker picks up another queued work item (if available)
-3. When async operation completes, work item becomes ready
-4. Some worker resumes the work item
+---
 
-This enables efficient I/O + compute overlap without blocking threads.
+### 14.7 Async Integration
 
-**Key Prohibition Across Wait**
+##### Definition
 
-Per §13.8, keys MUST NOT be held across suspension points:
+Async operations (`wait`, `Async<T>` per §15) compose with parallel blocks. Workers may suspend on async operations, yielding to other work items while waiting.
+
+##### Dynamic Semantics
+
+**Wait Inside Parallel**
+
+When a worker evaluates a `wait` expression:
+
+1. The worker suspends the current work item.
+2. The worker picks up another queued work item (if available).
+3. When the async operation completes, the suspended work item becomes ready.
+4. Some worker resumes the work item.
+
+This enables efficient I/O and compute overlap without blocking threads.
+
+**Key Prohibition**
+
+Per §13.8, keys MUST NOT be held across `wait` suspension points:
 
 ```cursive
+// INVALID
 parallel ctx.cpu() {
     spawn {
-        key data write {
+        #data write {
             wait ctx.io~>read(file)  // ERROR E-KEY-0050
         }
     }
 }
-```
 
-**Correct Pattern**
-
-```cursive
+// VALID
 parallel ctx.cpu() {
     spawn {
-        // Do async work first
         let content = wait ctx.io~>read(file)
-        
-        // Then acquire key for synchronous processing
-        key data write {
+        #data write {
             data.update(content)
         }
     }
 }
 ```
 
-**Async Spawn Result**
+**SpawnHandle and Wait**
 
-`SpawnHandle<T>` implements async waiting:
+`SpawnHandle<T>` supports the `wait` expression:
 
 ```cursive
 parallel ctx.cpu() {
     let handle = spawn { expensive_compute() }
     
-    // Do other work while spawn executes
     other_work()
     
-    // Async wait for spawn result
     let result = wait handle
 }
 ```
 
 ---
 
-### 14.7 Cancellation
+### 14.8 Cancellation
 
 ##### Definition
 
-**Cancellation** is the cooperative mechanism by which in-progress parallel work can be requested to stop early. Cursive uses cooperative cancellation—work items must explicitly check for cancellation.
+**Cancellation** is the cooperative mechanism by which in-progress parallel work may be requested to stop early. Work items MUST explicitly check for cancellation; the runtime does not forcibly terminate work.
+
+##### Syntax & Declaration
 
 **CancelToken Type**
 
 ```cursive
 modal CancelToken {
     @Active { } {
-        /// Request cancellation
         procedure cancel(~%)
-        
-        /// Check if cancellation requested
         procedure is_cancelled(~) -> bool
-        
-        /// Wait until cancelled
         procedure wait_cancelled(~) -> Async<()>
-        
-        /// Create child token (cancelled when parent is)
         procedure child(~) -> CancelToken@Active
     }
     
@@ -15271,293 +15303,239 @@ modal CancelToken {
         procedure is_cancelled(~) -> bool { result true }
     }
 
-    /// Create new independent token
     procedure new() -> CancelToken@Active
 }
 ```
 
 **Usage**
 
-**Attaching to Parallel Block**
-
 ```cursive
 let token = CancelToken::new()
 
-// In another context (e.g., UI thread):
-// token~>cancel()
-
 parallel ctx.cpu() [cancel: token] {
     dispatch i in 0..n {
-        // Check for cancellation
         if token.is_cancelled() {
-            return  // Exit this iteration early
+            return
         }
         
         expensive_work(i)
         
-        // Check periodically in long operations
-        if token.is_cancelled() { return }
+        if token.is_cancelled() {
+            return
+        }
         
         more_work(i)
     }
 }
 ```
 
-**Automatic Propagation**
+##### Dynamic Semantics
 
-When a cancel token is attached to a parallel block, spawned work automatically inherits it:
+**Propagation**
 
-```cursive
-parallel ctx.cpu() [cancel: token] {
-    spawn {
-        // token is implicitly available
-        loop {
-            if token.is_cancelled() { break }
-            do_work()
-        }
-    }
-}
-```
+When a cancel token is attached to a parallel block via the `cancel` attribute, the token is implicitly available within all `spawn` and `dispatch` bodies.
 
 **Cancellation vs Completion**
 
 Cancellation is a request, not a guarantee:
 
-| Scenario                       | Behavior                        |
-| :----------------------------- | :------------------------------ |
-| Work checks and returns        | Iteration completes early       |
-| Work ignores cancellation      | Iteration runs to completion    |
-| Work is queued but not started | May be dequeued without running |
-| Work is mid-execution          | Continues until next check      |
-
-**Cancellation and Results**
-
-When work is cancelled:
-
-```cursive
-let token = CancelToken::new()
-
-let results = parallel ctx.cpu() [cancel: token] {
-    spawn { 
-        if token.is_cancelled() { return None }
-        Some(compute_a())
-    }
-    spawn {
-        if token.is_cancelled() { return None }
-        Some(compute_b())
-    }
-}
-// results: (Option<A>, Option<B>)
-// Cancelled spawns return None (or whatever early-return value)
-```
+| Scenario                       | Behavior                          |
+| :----------------------------- | :-------------------------------- |
+| Work checks and returns early  | Iteration completes immediately   |
+| Work ignores cancellation      | Iteration runs to completion      |
+| Work is queued but not started | MAY be dequeued without executing |
+| Work is mid-execution          | Continues until next check point  |
 
 ---
 
-### 14.8 Panic Handling
+### 14.9 Parallel Block Result Types
 
 ##### Definition
 
-When work within a parallel block panics, the panic must be handled in a way that maintains structured concurrency guarantees.
+A parallel block is an expression that yields a value. The result type depends on the block's contents.
 
-#### Semantics
+##### Static Semantics
+
+**Result Type Determination**
+
+| Block Contents                     | Result Type          |
+| :--------------------------------- | :------------------- |
+| No `spawn` or `dispatch`           | `()`                 |
+| Single `spawn { e }` where $e : T$ | $T$                  |
+| Multiple spawns $e_1, \ldots, e_n$ | $(T_1, \ldots, T_n)$ |
+| `dispatch` without `[reduce]`      | `()`                 |
+| `dispatch ... [reduce: op] { e }`  | $T$ where $e : T$    |
+| Mixed spawns and reducing dispatch | Tuple of all results |
+
+**Typing Rules**
+
+$$\frac{
+  \Gamma \vdash \texttt{parallel } D\ \{\}\ : ()
+}{} \quad \text{(T-Parallel-Empty)}$$
+
+$$\frac{
+  \Gamma \vdash \texttt{spawn } \{e\} : \text{SpawnHandle}\langle T \rangle
+}{
+  \Gamma \vdash \texttt{parallel } D\ \{\texttt{spawn } \{e\}\} : T
+} \quad \text{(T-Parallel-Single)}$$
+
+$$\frac{
+  \Gamma \vdash \texttt{spawn } \{e_i\} : \text{SpawnHandle}\langle T_i \rangle \quad \forall i \in 1..n
+}{
+  \Gamma \vdash \texttt{parallel } D\ \{\texttt{spawn } \{e_1\}; \ldots; \texttt{spawn } \{e_n\}\} : (T_1, \ldots, T_n)
+} \quad \text{(T-Parallel-Multi)}$$
+
+---
+
+### 14.10 Panic Handling
+
+##### Definition
+
+When a work item panics within a parallel block, the panic is captured and propagated after all work settles.
+
+##### Dynamic Semantics
 
 **Single Panic**
 
-1. Panicking work item captures panic info
-2. Other work items continue to completion (or cancellation if token attached)
-3. After all work settles, first panic is re-raised at block boundary
+1. The panicking work item captures panic information.
+2. Other work items continue to completion (or cancellation if a token is attached).
+3. After all work settles, the panic is re-raised at the block boundary.
 
 **Multiple Panics**
 
-1. Each panic is captured independently
-2. All work completes or is cancelled
-3. First panic (by completion time) is raised
-4. Other panics are logged/discarded (implementation-defined)
+1. Each panic is captured independently.
+2. All work completes or is cancelled.
+3. The first panic (by completion order) is raised.
+4. Other panics are discarded; implementations MAY log them.
 
-**Panic and Cancellation Interaction**
+**Panic and Cancellation**
 
-```cursive
-let token = CancelToken::new()
-
-parallel ctx.cpu() [cancel: token] {
-    spawn {
-        panic("oops")  // First panic
-    }
-    
-    spawn {
-        // This continues running (panic doesn't auto-cancel)
-        // Unless the implementation requests cancellation
-        important_cleanup()
-    }
-}
-// Panic re-raised here after all work completes
-```
-
-**Implementation Note:** Implementations MAY request cancellation on first panic to expedite block completion. This is implementation-defined behavior.
+Implementations MAY request cancellation on first panic to expedite block completion. This behavior is Implementation-Defined.
 
 **Catching Panics**
 
-To handle panics within the block:
+To handle panics within the block without propagation:
 
 ```cursive
 let results = parallel ctx.cpu() {
-    spawn { 
-        catch_panic(|| risky_work_a())
-    }
-    spawn {
-        catch_panic(|| risky_work_b())
-    }
+    spawn { catch_panic(|| risky_work_a()) }
+    spawn { catch_panic(|| risky_work_b()) }
 }
 // results: (Result<A, PanicInfo>, Result<B, PanicInfo>)
-// No panic propagates; caller handles errors
 ```
 
 ---
 
-### 14.9 Nested Parallelism
+### 14.11 Nested Parallelism
 
 ##### Definition
 
 Parallel blocks may be nested. Inner blocks execute within the context established by outer blocks.
 
+##### Dynamic Semantics
+
 **CPU Nesting**
+
+Inner CPU parallel blocks share the worker pool with outer blocks. The `workers` parameter on inner blocks is a hint or limit, not additional workers.
 
 ```cursive
 parallel ctx.cpu(workers: 8) {
     dispatch i in 0..4 {
-        // Each iteration can have nested parallelism
         parallel ctx.cpu(workers: 2) {
-            dispatch j in 0..100 key data[i][j] write {
-                data[i][j] = compute(i, j)
+            dispatch j in 0..100 {
+                #data[i][j] write {
+                    data[i][j] = compute(i, j)
+                }
             }
         }
     }
 }
 ```
 
-**Resource Sharing**
-
-Inner parallel blocks share the worker pool with outer blocks. The `workers` parameter on inner blocks is a hint/limit, not additional workers.
-
 **Heterogeneous Nesting**
+
+CPU and GPU blocks may be nested:
 
 ```cursive
 parallel ctx.cpu(workers: 4) {
     spawn {
-        // CPU preprocessing
         let preprocessed = cpu_preprocess(data)
         
-        // Launch GPU work from CPU spawn
         parallel ctx.gpu() {
             dispatch i in 0..n {
                 gpu_process(preprocessed, i)
             }
         }
-        // GPU work complete
         
-        // CPU postprocessing
         cpu_postprocess(preprocessed)
-    }
-    
-    spawn {
-        // Independent CPU work
-        other_cpu_work()
     }
 }
 ```
 
+##### Constraints & Legality
+
 **Nesting Constraints**
 
-1. GPU blocks MUST NOT be nested inside other GPU blocks
-2. Inner CPU blocks share outer block's worker pool
-3. Capture rules apply at each nesting level independently
+1. GPU parallel blocks MUST NOT be nested inside other GPU parallel blocks.
+2. Inner CPU blocks share the outer block's worker pool.
+3. Capture rules apply independently at each nesting level.
 
 ---
 
-### 14.10 Determinism
+### 14.12 Determinism
 
 ##### Definition
 
-**Determinism** guarantees that given identical inputs and the same parallel structure, execution produces identical results.
+**Determinism** guarantees that given identical inputs and parallel structure, execution produces identical results.
+
+##### Static Semantics
 
 **Sources of Non-Determinism**
 
-| Source                                 | Mitigation                             |
-| :------------------------------------- | :------------------------------------- |
-| Execution order of spawns              | Results collected in declaration order |
-| Execution order of dispatch iterations | Key partitioning is deterministic      |
-| Reduction combination order            | Tree-based deterministic reduction     |
-| Floating-point reassociation           | `[ordered]` forces sequential          |
+| Source                       | Mitigation                              |
+| :--------------------------- | :-------------------------------------- |
+| Spawn execution order        | Results collected in declaration order  |
+| Dispatch iteration order     | Key partitioning is deterministic       |
+| Reduction combination order  | Tree-based deterministic reduction      |
+| Floating-point reassociation | `[ordered]` forces sequential execution |
 
 **Deterministic Dispatch**
 
 Dispatch is deterministic when:
-1. Key patterns produce the same partitioning
-2. Iterations with same key execute in index order
-3. Reduction uses deterministic tree combination
 
-```cursive
-// Deterministic (same result every run)
-parallel ctx.cpu() {
-    dispatch i in 0..n key data[i] write {
-        data[i] = f(i)  // Each iteration independent
-    }
-}
-
-// Deterministic reduction
-parallel ctx.cpu() {
-    let sum = dispatch i in 0..n key data[i] read [reduce: +] {
-        data[i]
-    }
-    // sum is reproducible across runs
-}
-```
+1. Key patterns produce identical partitioning across runs.
+2. Iterations with the same key execute in index order.
+3. Reduction uses deterministic tree combination.
 
 **Ordered Dispatch**
 
-The `[ordered]` attribute forces sequential side-effect order:
+The `[ordered]` attribute forces sequential side-effect ordering:
 
 ```cursive
 parallel ctx.cpu() {
     dispatch i in 0..n [ordered] {
-        print(f"Processing {i}")  // Prints 0, 1, 2, ... in order
+        println(f"Processing {i}")  // Prints 0, 1, 2, ... in order
     }
 }
 ```
 
-**Semantics:** Iterations may execute in parallel, but side effects (I/O, shared mutation) are buffered and applied in index order.
-
-**Non-Deterministic Patterns**
-
-Some patterns are inherently non-deterministic:
-
-```cursive
-parallel ctx.cpu() {
-    dispatch i in 0..n {
-        // Race to update shared counter
-        shared_counter += 1  // Order depends on scheduling
-    }
-}
-```
-
-The key system prevents data races, but the final value depends on execution order. Use atomic operations or reduction for deterministic results.
+Iterations MAY execute in parallel, but side effects (I/O, shared mutation) are buffered and applied in index order.
 
 ---
 
-### 14.11 Memory Allocation in Parallel Blocks
+### 14.13 Memory Allocation in Parallel Blocks
 
 ##### Definition
 
-Work items may need to allocate memory. Allocation follows Cursive's capability model.
+Work items may allocate memory using captured allocator capabilities.
 
-**Allocation Patterns**
+##### Dynamic Semantics
 
-**Capture Allocator**
+**Captured Allocator**
 
 ```cursive
 parallel ctx.cpu() {
     spawn {
-        // Captured ctx.heap is available
         let buffer = ctx.heap~>alloc::<[u8; 1024]>()
         use(buffer)
     }
@@ -15570,214 +15548,130 @@ parallel ctx.cpu() {
 region work_arena {
     parallel ctx.cpu() {
         dispatch i in 0..n {
-            // Allocate in captured region
-            let temp = work_arena^compute_result(i)
+            let temp = ^work_arena compute_result(i)
             process(temp)
         }
     }
-    // Region freed after parallel block completes
-}
-```
-
-**Worker-Local Allocation**
-
-For high-performance scenarios, avoid contention with per-worker allocators:
-
-```cursive
-parallel ctx.cpu(workers: 4) {
-    dispatch i in 0..n {
-        // Access worker-local allocator
-        let local_alloc = parallel::worker_local_allocator()
-        let temp = local_alloc~>alloc::<TempData>()
-        // temp freed when dispatch iteration completes
-    }
 }
 ```
 
 ---
 
-### 14.12 Parallel Block as Expression
+### 14.14 Diagnostic Summary
 
 ##### Definition
 
-A parallel block is an expression that yields a value. The value depends on the block contents.
-
-**Result Types**
-
-**No Spawns/Dispatch: Unit**
-
-```cursive
-let _: () = parallel ctx.cpu() {
-    // Just statements, no spawn/dispatch
-    let x = 1 + 1
-}
-```
-
-**Single Spawn: Spawn Result Type**
-
-```cursive
-let result: i32 = parallel ctx.cpu() {
-    spawn { compute() }
-}
-```
-
-**Multiple Spawns: Tuple of Results**
-
-```cursive
-let (a, b, c): (i32, String, bool) = parallel ctx.cpu() {
-    spawn { compute_int() }
-    spawn { compute_string() }
-    spawn { compute_bool() }
-}
-```
-
-**Dispatch without Reduce: Unit**
-
-```cursive
-let _: () = parallel ctx.cpu() {
-    dispatch i in 0..n {
-        data[i] = f(i)
-    }
-}
-```
-
-**Dispatch with Reduce: Reduced Type**
-
-```cursive
-let sum: i64 = parallel ctx.cpu() {
-    dispatch i in 0..n [reduce: +] {
-        data[i] as i64
-    }
-}
-```
-
-**Mixed: Tuple of All Results**
-
-```cursive
-let (spawn_result, reduce_result): (i32, i64) = parallel ctx.cpu() {
-    spawn { compute() }
-    dispatch i in 0..n [reduce: +] { data[i] }
-}
-```
-
----
-
-### 14.13 Diagnostics Summary
+This section consolidates all diagnostic codes defined in Clause 14.
 
 **Error Codes**
 
-| Code         | Condition                                     |
-| :----------- | :-------------------------------------------- |
-| `E-PAR-0001` | `spawn` outside parallel block                |
-| `E-PAR-0002` | Invalid domain capability                     |
-| `E-PAR-0003` | Domain parameter type mismatch                |
-| `E-PAR-0010` | `async` parallel block                        |
-| `E-PAR-0020` | Implicit capture of `unique` binding          |
-| `E-PAR-0021` | Move of already-moved binding                 |
-| `E-PAR-0022` | Move from outer parallel scope                |
-| `E-PAR-0030` | `spawn` outside parallel block                |
-| `E-PAR-0031` | Invalid spawn attribute type                  |
-| `E-PAR-0032` | `spawn` in escaping closure                   |
-| `E-PAR-0040` | `dispatch` outside parallel block             |
-| `E-PAR-0041` | Key inference failed                          |
-| `E-PAR-0042` | Non-associative reduction without `[ordered]` |
-| `E-PAR-0050` | Host memory access in GPU dispatch            |
-| `E-PAR-0051` | `shared` capture in GPU dispatch              |
-| `E-PAR-0052` | Nested GPU parallel block                     |
-| `E-PAR-0060` | Panic in parallel block (runtime)             |
+| Code         | Section | Condition                                     |
+| :----------- | :------ | :-------------------------------------------- |
+| `E-PAR-0001` | §14.2   | `spawn` or `dispatch` outside parallel block  |
+| `E-PAR-0002` | §14.2   | Domain expression not ExecutionDomain         |
+| `E-PAR-0003` | §14.2   | Invalid domain parameter type                 |
+| `E-PAR-0020` | §14.3   | Implicit capture of `unique` binding          |
+| `E-PAR-0021` | §14.3   | Move of already-moved binding                 |
+| `E-PAR-0022` | §14.3   | Move of binding from outer parallel scope     |
+| `E-PAR-0030` | §14.4   | Invalid spawn attribute type                  |
+| `E-PAR-0031` | §14.4   | `spawn` in escaping closure                   |
+| `E-PAR-0040` | §14.5   | Dispatch outside parallel block               |
+| `E-PAR-0041` | §14.5   | Key inference failed                          |
+| `E-PAR-0042` | §14.5   | Cross-iteration dependency detected           |
+| `E-PAR-0043` | §14.5   | Non-associative reduction without `[ordered]` |
+| `E-PAR-0050` | §14.6.2 | Host memory access in GPU code                |
+| `E-PAR-0051` | §14.6.2 | `shared` capture in GPU dispatch              |
+| `E-PAR-0052` | §14.6.2 | Nested GPU parallel block                     |
 
 **Warning Codes**
 
-| Code         | Condition                                   |
-| :----------- | :------------------------------------------ |
-| `W-PAR-0043` | Dynamic key pattern (runtime serialization) |
-| `W-PAR-0044` | Large capture in dispatch iteration         |
-| `W-PAR-0045` | Spawn without result usage                  |
+| Code         | Section | Condition                                  |
+| :----------- | :------ | :----------------------------------------- |
+| `W-PAR-0040` | §14.5   | Dynamic key pattern; runtime serialization |
+| `W-PAR-0041` | §14.5   | Large capture in dispatch iteration        |
+| `W-PAR-0042` | §14.4   | Spawn result not used                      |
 
 ---
 
-### 14.14 Cross-Reference Notes [INFORMATIVE]
+### 14.15 Cross-Reference Notes [INFORMATIVE]
 
 **Terms Defined in This Clause**
 
-| Term                   | Section | Description                                                   |
-| :--------------------- | :------ | :------------------------------------------------------------ |
-| Parallel Block         | §14.1   | Scoped execution context for concurrent work                  |
-| Execution Domain       | §14.5   | Capability providing computational resources                  |
-| Spawn                  | §14.3   | Concurrent work unit within parallel block                    |
-| Dispatch               | §14.4   | Data-parallel iteration                                       |
-| CancelToken            | §14.7   | Cooperative cancellation mechanism                            |
-| Structured Concurrency | §14.1   | Guarantee that child work completes before parent scope exits |
+| Term                   | Section | Description                                         |
+| :--------------------- | :------ | :-------------------------------------------------- |
+| Structured parallelism | §14.1   | Concurrency model with bounded work lifetime        |
+| Work item              | §14.1   | Unit of computation queued for execution            |
+| Worker                 | §14.1   | Execution context that executes work items          |
+| Task                   | §14.1   | Runtime representation of executing work item       |
+| Parallel block         | §14.2   | Scoped concurrent execution region                  |
+| Capture                | §14.3   | Binding reference from enclosing scope in work item |
+| Spawn                  | §14.4   | Work item creation expression                       |
+| SpawnHandle            | §14.4   | Handle to pending spawn result                      |
+| Dispatch               | §14.5   | Data-parallel iteration expression                  |
+| Execution domain       | §14.6   | Capability providing computational resources        |
+| CancelToken            | §14.8   | Cooperative cancellation mechanism                  |
 
 **Terms Referenced from Other Clauses**
 
-| Term                | Source | Usage                               |
+| Term                | Source | Usage in This Clause                |
 | :------------------ | :----- | :---------------------------------- |
 | Key                 | §13.1  | Synchronization for `shared` access |
-| Key Prohibition     | §13.8  | Keys cannot span `wait`             |
-| `shared` Permission | §4.4   | Concurrent access permission        |
+| Key prohibition     | §13.8  | Keys cannot span `wait` expressions |
+| `shared` permission | §4.5   | Concurrent access permission        |
+| `const` permission  | §4.5   | Immutable shared access             |
+| `unique` permission | §4.5   | Exclusive access requiring move     |
 | `Async<T>`          | §15.2  | Async operation type                |
-| `wait`              | §15.4  | Suspension until completion         |
-| Region              | §12.1  | Scoped memory allocation            |
-| Capability          | §6.3   | Authority for effects               |
+| `wait`              | §15.4  | Suspension until async completion   |
+| Region              | §3.3   | Scoped memory allocation            |
 | Context             | §8.9   | Root capability record              |
-
-**Related Clauses**
-
-| Clause              | Relationship                                   |
-| :------------------ | :--------------------------------------------- |
-| §13 Key System      | Keys synchronize access within parallel blocks |
-| §15 Async           | `wait` composes with parallel execution        |
-| §12 Regions         | Region allocation available in parallel work   |
-| §17 Memory Ordering | Ordering guarantees for parallel access        |
+| `#` key block       | §13.4  | Explicit key acquisition construct  |
 
 ---
 
-### 14.15 Examples [INFORMATIVE]
+### 14.16 Examples [INFORMATIVE]
+
+**Basic Parallel Computation**
+
+```cursive
+procedure parallel_sum(data: const [f64], ctx: Context) -> f64 {
+    parallel ctx.cpu(workers: 4) {
+        dispatch i in 0..data.len() [reduce: +] {
+            data[i]
+        }
+    }
+}
+```
 
 **Game Frame Update**
 
 ```cursive
 procedure game_frame(game: shared GameState, ctx: Context) {
-    // Phase 1: Input (single-threaded)
     let input = gather_input(ctx.input)
     
-    // Phase 2: Parallel Update
     parallel ctx.cpu(workers: 6) {
-        // Physics subsystem
         spawn [affinity: CpuSet::cores([0, 1])] {
-            key game.physics write {
-                step_physics(game.physics, input, dt: 1.0/60.0)
+            #game.physics write {
+                step_physics(game.physics, input, dt: 1.0 / 60.0)
             }
         }
         
-        // AI subsystem  
         spawn [affinity: CpuSet::cores([2, 3])] {
-            dispatch i in 0..game.ai_agents.len() key game.ai_agents[i] write {
-                game.ai_agents[i].think(game.world)
+            dispatch i in 0..game.ai_agents.len() {
+                #game.ai_agents[i] write {
+                    game.ai_agents[i].think(game.world)
+                }
             }
         }
         
-        // Entity updates
         spawn [affinity: CpuSet::cores([4, 5])] {
-            dispatch i in 0..game.entities.len() key game.entities[i] write {
-                game.entities[i].update(input)
+            dispatch i in 0..game.entities.len() {
+                #game.entities[i] write {
+                    game.entities[i].update(input)
+                }
             }
         }
     }
-    // All updates complete, safe to render
     
-    // Phase 3: GPU Render Prep
-    parallel ctx.gpu() {
-        gpu::upload(game.entities, entity_buffer)
-        
-        // Frustum culling on GPU
-        dispatch i in 0..game.entities.len() {
-            visible_buffer[i] = frustum_cull(entity_buffer[i], camera)
-        }
-    }
-    
-    // Phase 4: Present
     ctx.display~>present()
 }
 ```
@@ -15785,26 +15679,23 @@ procedure game_frame(game: shared GameState, ctx: Context) {
 **Data Processing Pipeline**
 
 ```cursive
-procedure process_files(files: [Path], ctx: Context) -> [Result] {
+procedure process_files(files: const [Path], ctx: Context) -> [Result | Error] {
     let results: shared [Result | Error] = ctx.heap~>alloc_slice(files.len())
     
     parallel ctx.cpu(workers: 8) {
-        dispatch i in 0..files.len() key results[i] write {
-            // Async I/O (worker yields while waiting)
+        dispatch i in 0..files.len() {
             let raw = match wait ctx.fs~>read(files[i]) {
                 data: [u8] => data,
                 err: IoError => {
-                    results[i] = Error::Io(err)
+                    #results[i] write { results[i] = Error::Io(err) }
                     return
                 }
             }
             
-            // CPU parsing
             let parsed = parse(raw)
             
-            // GPU-accelerated processing
             let enhanced = parallel ctx.gpu() {
-                let d_data = gpu::alloc(parsed.len())
+                let d_data: GpuBuffer<f32> = gpu::alloc(parsed.len())
                 gpu::upload(parsed, d_data)
                 
                 dispatch j in 0..parsed.len() {
@@ -15816,7 +15707,7 @@ procedure process_files(files: [Path], ctx: Context) -> [Result] {
                 result
             }
             
-            results[i] = Result::Ok(enhanced)
+            #results[i] write { results[i] = Result::Ok(enhanced) }
         }
     }
     
@@ -15824,114 +15715,44 @@ procedure process_files(files: [Path], ctx: Context) -> [Result] {
 }
 ```
 
-**Parallel Reduction**
-
-```cursive
-procedure parallel_sum(data: const [f64], ctx: Context) -> f64 {
-    parallel ctx.cpu(workers: 4) {
-        dispatch i in 0..data.len() key data[i] read [reduce: +] {
-            data[i]
-        }
-    }
-}
-
-procedure parallel_histogram(data: const [u8], ctx: Context) -> [usize; 256] {
-    let histogram: shared [usize; 256] = [0; 256]
-    
-    parallel ctx.cpu(workers: 4) {
-        // Each worker builds local histogram, then merge
-        let local: [usize; 256] = [0; 256]
-        
-        dispatch i in 0..data.len() {
-            local[data[i] as usize] += 1
-        }
-        
-        // Merge into shared histogram (needs key per bucket)
-        dispatch bucket in 0..256 key histogram[bucket] write {
-            histogram[bucket] += local[bucket]
-        }
-    }
-    
-    result histogram
-}
-```
-
-**Producer-Consumer with Async**
-
-```cursive
-procedure producer_consumer(ctx: Context) {
-    let queue: shared Queue<WorkItem> = Queue::new(capacity: 100)
-    let done: shared bool = false
-    
-    parallel ctx.cpu(workers: 5) {
-        // Producer
-        spawn {
-            loop item in generate_items() {
-                // Wait for queue space (async, yields worker)
-                wait queue~>when(|q| !q.is_full(), |q| q.push(item))
-            }
-            key done write { done = true }
-        }
-        
-        // Consumers (4 workers)
-        dispatch _ in 0..4 {
-            loop {
-                // Check for completion
-                let is_done = key done read { done }
-                if is_done && queue.is_empty() { break }
-                
-                // Wait for item (async, yields worker)
-                let item = wait queue~>when(|q| !q.is_empty(), |q| q.pop())
-                process(item)
-            }
-        }
-    }
-}
-```
-
-**Cancellable Long-Running Task**
+**Cancellable Search with Timeout**
 
 ```cursive
 procedure search_with_timeout(
     query: Query,
+    shards: const [Shard],
     timeout: Duration,
     ctx: Context
-) -> SearchResult | Timeout | Cancelled {
+) -> SearchResult | Timeout {
     let token = CancelToken::new()
+    let results: shared [SearchResult | None] = ctx.heap~>alloc_slice(shards.len())
     
-    // Timeout task
     spawn {
         wait ctx.time~>after(timeout)
         token.cancel()
     }
     
-    // Search task
-    let result = parallel ctx.cpu(workers: 4) [cancel: token] {
-        dispatch i in 0..shards.len() key results[i] write {
+    parallel ctx.cpu(workers: 4) [cancel: token] {
+        dispatch i in 0..shards.len() {
             if token.is_cancelled() {
-                results[i] = None
+                #results[i] write { results[i] = None }
                 return
             }
             
-            results[i] = search_shard(shards[i], query)
+            let r = search_shard(shards[i], query)
             
-            // Check periodically
-            if token.is_cancelled() {
-                return
-            }
+            #results[i] write { results[i] = Some(r) }
         }
-        
-        // Merge results
-        merge(results)
     }
     
     if token.is_cancelled() {
         result Timeout
     } else {
-        result result
+        result merge(results)
     }
 }
 ```
+
 ---
 
 ## Clause 15: Asynchronous Operations
@@ -16975,7 +16796,7 @@ The metaprogramming system operates on Abstract Syntax Tree (AST) node types. Th
 
 | Type   | Description                                                             |
 | :----- | :---------------------------------------------------------------------- |
-| `Node` | Base trait for all syntax elements.                                     |
+| `Node` | Base form for all syntax elements.                                      |
 | `Expr` | Tagged union of expression nodes (Binary, Call, Literal, If, etc.).     |
 | `Stmt` | Tagged union of statement nodes (Let, Return, ExprStmt, Loop, etc.).    |
 | `Decl` | Tagged union of declaration nodes (Procedure, Record, Enum, etc.).      |
@@ -17438,7 +17259,7 @@ The following types are expressly **excluded** from FFI signatures:
 - Closures (non-extern function types that capture environment)
 - Modal types not marked `[[layout(C)]]`
 - Generic type parameters (must be monomorphized first)
-- Trait witness types (`witness Trait`)
+- Form witness types (`witness Form`)
 
 ##### Static Semantics
 
@@ -17890,7 +17711,7 @@ When `[[unwind(catch)]]` is specified:
   <u>Syntax & Declaration</u>
     **Grammar Structure**:
     *   **Lexer Rules**: Keywords, identifiers (XID_START/XID_Continue), literals (integer/float/string/char), operators, comments
-    *   **Parser Rules**: All declarations (record, enum, modal, trait, procedure), expressions (precedence-encoded), statements, patterns
+    *   **Parser Rules**: All declarations (record, enum, modal, form, procedure), expressions (precedence-encoded), statements, patterns
     *   **Operator Precedence**: Encoded in grammar hierarchy (14 levels from Postfix to Assignment)
     *   **Comment Nesting**: Block comments (`/* ... */`) MUST nest recursively; lexer maintains nesting counter
     *   **Maximal Munch Exception**: Sequence `>>` inside generic argument list MUST be split into two `>` tokens (context-sensitive lexing)
@@ -17964,7 +17785,7 @@ The following tables define the "Feature Bucket" (`FF`) values for each Category
 
 | Category | FF   | Feature Name        | Relevant Chapters |
 | :------- | :--- | :------------------ | :---------------- |
-| **TRS**  | 29   | Traits              | §29               |
+| **TRS**  | 29   | Forms               | §29               |
 | **MEM**  | 30   | Memory Model        | §30               |
 |          | 31   | Object Capabilities | §31               |
 | **FFI**  | 33   | FFI & ABI           | §33               |
@@ -18141,14 +17962,14 @@ The following tables list all diagnostic codes required by this specification, o
 | `W-KEY-0001`      | Warning  | Fine-grained keys in tight loop.                        |
 | `W-KEY-0002`      | Warning  | Redundant key acquisition (covered by held key).        |
 
-##### B.3.8 TRS (Traits)
+##### B.3.8 TRS (Forms)
 
 | Code         | Severity | Description                                            |
 | :----------- | :------- | :----------------------------------------------------- |
 | `E-TRS-2901` | Error    | Abstract implementation incorrectly marked `override`. |
 | `E-TRS-2902` | Error    | Concrete override missing `override` keyword.          |
-| `E-TRS-2903` | Error    | Missing implementation for required trait procedure.   |
-| `E-TRS-2910` | Error    | Accessing non-trait member on opaque type.             |
+| `E-TRS-2903` | Error    | Missing implementation for required form procedure.    |
+| `E-TRS-2910` | Error    | Accessing non-form member on opaque type.              |
 | `E-TRS-2920` | Error    | Explicit call to `Drop::drop`.                         |
 | `E-TRS-2921` | Error    | Type implements both `Copy` and `Drop`.                |
 | `E-TRS-2922` | Error    | `Copy` implementation on type with non-Copy fields.    |
@@ -18305,21 +18126,21 @@ The dossier **MUST** be a valid JSON document encoded in UTF-8.
 }
 ```
 
-## Appendix D: Standard Trait Catalog
+## Appendix D: Standard Form Catalog
 
-This appendix provides normative definitions for foundational traits and system capability traits built into Cursive or its core library.
+This appendix provides normative definitions for foundational forms and system capability forms built into Cursive or its core library.
 
   <u>Definition</u>
-    Normative definitions for foundational traits and system capability traits that are deeply integrated with language mechanics.
+    Normative definitions for foundational forms and system capability forms that are deeply integrated with language mechanics.
   
   <u>Syntax & Declaration</u>
-    **Foundational Traits** (§D.1):
+    **Foundational Forms** (§D.1):
     *   `Drop`: `procedure drop(~!)` - RAII cleanup, compiler-invoked only
-    *   `Copy`: Marker trait for implicit bitwise duplication
+    *   `Copy`: Marker form for implicit bitwise duplication
     *   `Clone`: `procedure clone(~): Self` - explicit deep copy
 
     
-    **System Capability Traits** (§D.2):
+    **System Capability Forms** (§D.2):
     *   `FileSystem`:
         -   `open(path: string@View, mode: FileMode): FileHandle | IoError`
         -   `exists(path: string@View): bool`
@@ -18344,13 +18165,13 @@ This appendix provides normative definitions for foundational traits and system 
     *   `Copy` and `Drop` are mutually exclusive on same type (E-TRS-2921)
     *   `Copy` requires all fields implement `Copy` (E-TRS-2922)
     *   `HeapAllocator::alloc` MUST panic on OOM (never return null)
-    *   Variadic implementations across all trait types are prohibited
+    *   Variadic implementations across all form types are prohibited
   
   <u>Static Semantics</u>
     *   Compiler automatically inserts `Drop::drop` calls at scope exit for responsible bindings
     *   `Copy` types are duplicated (not moved) on assignment/parameter passing
     *   Static invalidation applies to aliases when Drop is invoked on owner
-    *   Capability traits enable attenuation patterns (e.g., `with_quota` on HeapAllocator)
+    *   Capability forms enable attenuation patterns (e.g., `with_quota` on HeapAllocator)
   
   <u>Dynamic Semantics</u>
     *   Drop execution grants temporary exclusive (unique) access to self
@@ -18358,7 +18179,7 @@ This appendix provides normative definitions for foundational traits and system 
     *   HeapAllocator failures cause panic (no null returns)
   
   <u>Examples</u>
-    Complete trait signatures must be provided for: Drop, Copy, Clone, HeapAllocator, FileSystem, Network, Time, System (which implements Time and provides `exit`, `get_env`).
+    Complete form signatures must be provided for: Drop, Copy, Clone, HeapAllocator, FileSystem, Network, Time, System (which implements Time and provides `exit`, `get_env`).
 
 ## Appendix E: Core Library Specification
 
@@ -18376,7 +18197,7 @@ This appendix provides normative definitions for foundational traits and system 
     *(Note: `Option` and `Result` are removed. Optionality is handled via Union Types e.g., `T | ()`, and failure via `T | Error`. Pointers handle nullability via `Ptr<T>@Null` states).*
   
   <u>Constraints & Legality</u>
-    *   `Context` field types MUST match the capability trait witnesses defined in Appendix D
+    *   `Context` field types MUST match the capability form witnesses defined in Appendix D
     *   Core library types (`Option`, `Result`, `Context`, primitives) MUST be available in the universe scope (no import required)
     *   `main` procedure MUST accept `Context` parameter as defined
   
@@ -18677,7 +18498,7 @@ This appendix provides the authoritative allocation of diagnostic code ranges to
 | `E-STM-`      | 2650–2659     | Clause 11: Defer Statements             |
 | `E-STM-`      | 2660–2669     | Clause 11: Control Flow Statements      |
 | `E-PAT-`      | 2710–2759     | Clause 11: Patterns                     |
-| `E-TRS-`      | 2900–2999     | Clause 9: Traits                        |
+| `E-TRS-`      | 2900–2999     | Clause 9: Forms                         |
 | `E-CON-`      | 3200–3299     | Clause 12: Contracts                    |
 | `E-KEY-`      | 0001–0099     | Clause 13: Key System                   |
 | `E-SPAWN-`    | 0001–0099     | Clause 13: Task Spawning                |
