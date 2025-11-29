@@ -671,7 +671,7 @@ The reserved keywords are:
 and         as          async       atomic      break       comptime
 shared      const       continue    defer       dispatch    do
 drop        else        emit        enum        escape      extern
-false       for         gpu         if          impl        import
+false       for         gpu         if          import
 in          interrupt   let         loop        match       modal
 mod         module      move        mut         override    pool
 private     procedure   protected   public      quote       record
@@ -2254,8 +2254,7 @@ The following table specifies which operations are permitted through a `shared` 
 | Read  | Read         | Yes              | Read access  |
 | Write | Read + Write | No               | Write access |
 
-See §4.5.6 for the complete receiver compatibility matrix and §13.2 for the full key
-system specification including coarsening (`#`), deadlock prevention, and key elision.
+> **Cross-Reference:** The complete key system specification, including acquisition, release, deadlock prevention, and compile-time verification, is defined in §13. See §4.5.6 for the receiver compatibility matrix.
 
 > **Rationale:** The key system provides fine-grained, path-based synchronization with
 > zero syntactic overhead for the common case. Disjoint paths to the same `shared`
@@ -7462,7 +7461,8 @@ record Context {
     fs: witness FileSystem,
     net: witness Network,
     sys: System,
-    heap: witness HeapAllocator
+    heap: witness HeapAllocator,
+    exec: witness Executor
 }
 ```
 
@@ -8199,24 +8199,24 @@ Foundational traits are traits fundamental to language semantics. The normative 
 
 **Terms defined in Clause 9 that MUST NOT be redefined elsewhere:**
 
-| Term                    | Section | Description                                                                |
-| :---------------------- | :------ | :------------------------------------------------------------------------- |
-| Trait                   | §9.1    | A declaration defining an abstract interface of procedures and types.      |
-| Abstract Procedure      | §9.2    | A procedure signature in a trait without a body.                           |
-| Concrete Procedure      | §9.2    | A procedure definition in a trait with a body (default implementation).    |
-| Associated Type         | §9.2    | A type declaration within a trait, either abstract or with a default.      |
-| Generic Trait Parameter | §9.2    | Type parameters declared on a trait, specified at use-site.                |
-| Supertrait              | §9.2    | A trait required by another trait via `<:` in trait declaration.           |
-| Trait Alias             | §9.2    | A named alias for a combination of trait bounds.                           |
-| Trait Implementation    | §9.3    | The act of a type satisfying a trait's requirements via `<:`.              |
-| Coherence Rule          | §9.3    | A type MAY implement a trait at most once.                                 |
-| Orphan Rule             | §9.3    | Trait impl requires locality of type or trait to current assembly.         |
-| Monomorphization        | §9.4    | Compile-time specialization of generic code for concrete types.            |
-| Constrained Generic     | §9.4    | A generic parameter bounded by one or more traits.                         |
-| Witness                 | §9.5    | A dense pointer type enabling runtime polymorphism over a trait.           |
-| Witness Safety          | §9.5    | Property of a trait permitting witness creation.                           |
-| VTable Eligibility      | §9.5    | Criteria for procedure inclusion in a witness vtable.                      |
-| Opaque Type             | §9.6    | A return type hiding the concrete implementation behind a trait interface. |
+| Term                    | Section | Description                                                                  |
+| :---------------------- | :------ | :--------------------------------------------------------------------------- |
+| Trait                   | §9.1    | A declaration defining an abstract interface of procedures and types.        |
+| Abstract Procedure      | §9.2    | A procedure signature in a trait without a body.                             |
+| Concrete Procedure      | §9.2    | A procedure definition in a trait with a body (default implementation).      |
+| Associated Type         | §9.2    | A type declaration within a trait, either abstract or with a default.        |
+| Generic Trait Parameter | §9.2    | Type parameters declared on a trait, specified at use-site.                  |
+| Supertrait              | §9.2    | A trait required by another trait via `<:` in trait declaration.             |
+| Trait Alias             | §9.2    | A named alias for a combination of trait bounds.                             |
+| Trait Implementation    | §9.3    | The act of a type satisfying a trait's requirements via `<:`.                |
+| Coherence Rule          | §9.3    | A type MAY implement a trait at most once.                                   |
+| Orphan Rule             | §9.3    | Trait implementation requires locality of type or trait to current assembly. |
+| Monomorphization        | §9.4    | Compile-time specialization of generic code for concrete types.              |
+| Constrained Generic     | §9.4    | A generic parameter bounded by one or more traits.                           |
+| Witness                 | §9.5    | A dense pointer type enabling runtime polymorphism over a trait.             |
+| Witness Safety          | §9.5    | Property of a trait permitting witness creation.                             |
+| VTable Eligibility      | §9.5    | Criteria for procedure inclusion in a witness vtable.                        |
+| Opaque Type             | §9.6    | A return type hiding the concrete implementation behind a trait interface.   |
 
 **Terms referenced:**
 
@@ -11629,7 +11629,7 @@ The following invariants are enforced by the compiler and, when necessary, by ru
 
 4. **Reentrancy:** If a key covering path $P$ is already held by the current task, nested access to $P$ or any path prefixed by $P$ succeeds without conflict.
 
-5. **Task locality:** Keys are associated with tasks, not procedures or bindings. A key held by a task remains valid until its scope exits, even across procedure calls within that task.
+5. **Task locality:** Keys are associated with tasks (§14.1), not procedures or bindings. A key held by a task remains valid until its scope exits, even across procedure calls within that task.
 
 ##### Syntax & Declaration
 
@@ -11663,6 +11663,48 @@ player.health               // Depth 2: root + one field
 player.stats.health         // Depth 3: root + two fields
 player.inventory[5]         // Depth 2: root + indexed field
 team.players[0].health      // Depth 3: root + indexed field + field
+```
+
+**Pointer Indirection and Key Boundaries**
+
+A pointer dereference creates a **key boundary**: the dereferenced value establishes a new, independent key context. Key paths do not extend across pointer indirections.
+
+For path `(*e).p` where `e : shared Ptr<T>@Valid`:
+- A key is first acquired for `e` (to safely dereference)
+- A separate key is then acquired for `(*e).p`, rooted at the dereferenced value
+
+This rule ensures that concurrent access to different nodes in recursive structures (e.g., linked lists, trees) can proceed in parallel without contention, provided the nodes themselves are distinct allocations.
+
+**Key Boundary Rules:**
+
+1. **Direct field paths:** `a.b.c` is a single key path (no indirection)
+2. **Pointer field access:** Accessing a pointer field (e.g., `list.next`) acquires a fine-grained key to that field path (`list.next`), following normal key acquisition behavior
+3. **Pointer dereference:** `(*ptr).field` starts a new key path rooted at the dereferenced value
+4. **Coarsening applies:** The `#` operator can coarsen pointer field access to the containing node (e.g., `#list.next` acquires key to `list`)
+
+**(K-Deref-Boundary)**
+$$\frac{
+    \Gamma \vdash e : \texttt{shared}\ \text{Ptr}\langle T \rangle@\text{Valid} \quad
+    \Gamma \vdash (*e).p : \texttt{shared}\ U
+}{
+    \text{KeyPath}((*e).p) = \text{id}(*e).p \quad
+    \text{(independent of KeyPath}(e)\text{)}
+}$$
+
+**Examples:**
+
+```cursive
+// Linked list traversal
+let list: shared List<i32> = ...
+
+list.value          // Key: list.value (path within first node)
+(*list.next).value  // Key: (*list.next).value (new key context)
+
+// Each node access is independent
+parallel {
+    spawn { list.value = 1 }           // Key to list.value
+    spawn { (*list.next).value = 2 }   // Key to (*list.next).value — DISJOINT
+}
 ```
 
 ##### Static Semantics
@@ -11755,6 +11797,25 @@ When runtime synchronization is necessary, key metadata representation is Implem
 1. A program MUST NOT access a `shared` path outside a valid key context.
 2. A program MUST NOT apply the `#` annotation to a non-`shared` path.
 3. A program MUST NOT include multiple `#` markers in a single path expression.
+4. A program MUST NOT cause a key to escape its defining scope.
+
+**Key Escape**
+
+A key **escapes** its defining scope $S$ if any of the following conditions hold:
+
+1. A reference to a `shared` path $P$ for which a key is held in $S$ is stored in a binding whose lifetime exceeds $S$
+2. A reference to such a path is returned from a procedure whose body contains $S$
+3. A reference to such a path is captured by a closure that outlives $S$
+4. A reference to such a path is passed to a `spawn` expression (transferring to another task)
+
+**(K-No-Escape)**
+$\frac{
+    \text{Held}(P, M, S) \quad
+    \text{Ref}(P) \text{ stored in } B \quad
+    \text{Lifetime}(B) > \text{Lifetime}(S)
+}{
+    \text{Emit}(\texttt{E-KEY-0004})
+}$
 
 **Diagnostic Table**
 
@@ -11765,6 +11826,19 @@ When runtime synchronization is necessary, key metadata representation is Implem
 | `E-KEY-0003` | Error    | Multiple `#` markers in single path expression    | Compile-time | Rejection |
 | `E-KEY-0004` | Error    | Key escapes its defining scope                    | Compile-time | Rejection |
 
+**Diagnostic Examples**
+
+`E-KEY-0001` is emitted when the compiler cannot establish a valid key context for a `shared` access:
+
+```cursive
+// Example: E-KEY-0001 — shared access without key acquisition capability
+unsafe {
+    let raw_ptr: *shared Player = get_raw_shared_ptr()
+    (*raw_ptr).health = 100   // ERROR E-KEY-0001: unsafe dereference bypasses key system
+}
+```
+
+> **Note:** In safe code, key acquisition is implicit and E-KEY-0001 is rare. It typically indicates a violation of the key system's invariants, such as accessing `shared` data through raw pointers in `unsafe` blocks where key acquisition has been bypassed.
 
 ---
 
@@ -11981,7 +12055,7 @@ $$\text{Blocked}(t, K) \land \text{Held}(K, t') \land \Diamond\text{Released}(K,
 
 where $\Diamond$ is the temporal "eventually" operator.
 
-**Implementation Note (Informative):** Implementations typically satisfy this via FIFO ordering of waiters, priority inheritance, or bounded retry with timeout. The specific mechanism MUST be documented in the Conformance Dossier.
+> **Note (Informative):** Implementations MAY satisfy the progress guarantee via FIFO ordering of waiters, priority inheritance, bounded retry with timeout, or other mechanisms. The specific mechanism MUST be documented in the Conformance Dossier.
 
 ##### Constraints & Legality
 
@@ -12007,6 +12081,41 @@ Let $\text{KeySet}(s)$ denote the set of keys logically acquired during evaluati
 2. **Execution Phase:** The statement or block body executes with all keys logically held
 3. **Release Phase:** All keys in $\text{KeySet}(s)$ become invalid when $s$'s scope exits
 
+##### Formal Operation Definitions
+
+**Mode Ordering and Sufficiency**
+
+Key modes form a total order (§13.1.2): $\text{Read} < \text{Write}$.
+
+A held mode is **sufficient** for a required mode when the held mode is at least as strong:
+
+$$\text{ModeSufficient}(M_{\text{held}}, M_{\text{required}}) \iff M_{\text{required}} \leq M_{\text{held}}$$
+
+**Key Set Operations**
+
+Let $\Gamma_{\text{keys}}$ be the current key set, a collection of $(P, M, S)$ triples 
+where $P$ is a path, $M$ is a mode, and $S$ is the scope identifier.
+
+**(Acquire)**
+$$\text{Acquire}(P, M, S, \Gamma_{\text{keys}}) = \Gamma_{\text{keys}} \cup \{(P, M, S)\}$$
+
+**(Release)**
+$$\text{Release}(P, \Gamma_{\text{keys}}) = \Gamma_{\text{keys}} \setminus \{(P, M, S) : (P, M, S) \in \Gamma_{\text{keys}}\}$$
+
+**(Release by Scope)**
+$$\text{ReleaseScope}(S, \Gamma_{\text{keys}}) = \Gamma_{\text{keys}} \setminus \{(P, M, S') : S' = S\}$$
+
+**Panic Release Semantics**
+
+When a panic occurs in scope $S$:
+
+$$\text{PanicRelease}(S, \Gamma_{\text{keys}}) = \Gamma_{\text{keys}} \setminus \{(P, M, S') : S' \leq_{\text{nest}} S\}$$
+
+where $S' \leq_{\text{nest}} S$ indicates $S'$ is $S$ or any scope nested within $S$.
+
+All keys held by the panicking scope and its nested scopes are released atomically 
+before panic unwinding proceeds. Keys held by enclosing scopes are unaffected.
+
 ##### Static Semantics
 
 **Compile-Time Key Tracking**
@@ -12025,9 +12134,7 @@ An access to path $Q$ requiring mode $M_Q$ is **covered** by the current key sta
 
 $$\text{Covered}(Q, M_Q, \Gamma_{\text{keys}}) \iff \exists (P, M_P, S) \in \Gamma_{\text{keys}} : \text{Prefix}(P, Q) \land \text{ModeSufficient}(M_P, M_Q)$$
 
-**Mode Sufficiency:**
-
-$$\text{ModeSufficient}(M_{\text{held}}, M_{\text{required}}) \iff M_{\text{held}} = \text{Write} \lor M_{\text{required}} = \text{Read}$$
+Mode Sufficiency is defined in §13.2 (Formal Operation Definitions). The truth table is:
 
 | Held Mode | Required Mode | Sufficient?           |
 | :-------- | :------------ | :-------------------- |
@@ -12099,6 +12206,36 @@ Subexpressions MUST be evaluated **left-to-right, depth-first**. Key acquisition
 
 $$\text{eval}(e_1 \oplus e_2) \longrightarrow \text{eval}(e_1);\ \text{eval}(e_2);\ \text{apply}(\oplus)$$
 
+**Destructuring Patterns**
+
+When a `shared` value is destructured via pattern matching, a single key is acquired to the root of the matched expression:
+
+```cursive
+let (a, b) = shared_pair   // Key to shared_pair (Read mode)
+```
+
+The key is held for the duration of pattern evaluation and binding initialization. All bindings introduced by the pattern receive copies/moves of the destructured values; they do not retain key requirements.
+
+**(K-Destructure)**
+$$\frac{
+    \Gamma \vdash e : \texttt{shared}\ (T_1, \ldots, T_n) \quad
+    \texttt{let}\ (p_1, \ldots, p_n) = e
+}{
+    \text{KeyPath} = \text{Root}(e) \quad
+    \text{KeyMode} = \text{Read}
+}$$
+
+**Pattern Destructuring Key Behavior:**
+
+| Pattern                       | Expression             | Key Path                   | Mode     |
+| :---------------------------- | :--------------------- | :------------------------- | :------- |
+| `let (a, b) = tuple`          | `tuple: shared (T, U)` | `tuple`                    | Read     |
+| `let Point { x, y } = point`  | `point: shared Point`  | `point`                    | Read     |
+| `match shared_enum { ... }`   | scrutinee              | Root of scrutinee          | Read     |
+| `let (a, b) = (expr1, expr2)` | tuple literal          | Each expression separately | Per-expr |
+
+> **Note:** When the RHS is a tuple literal (not a binding), each component is a separate expression and keys are acquired per component.
+
 ##### Dynamic Semantics
 
 **Runtime Realization (When Required)**
@@ -12126,10 +12263,18 @@ Keys MUST be released (logically, and at runtime if synchronized) when their sco
 
 If a panic occurs while keys are held:
 
-1. All keys held by the panicking task MUST be released before unwinding propagates to the caller
-2. If panic occurs during key acquisition, any partially-acquired keys MUST be released
-3. If panic occurs during mode upgrade, the key MUST be released entirely (not left in original mode)
-4. Key release during panic MUST occur **before** any `Drop::drop` calls for bindings in the same scope
+1. All keys held by the panicking task MUST be released before unwinding propagates to the caller.
+2. If panic occurs during key acquisition, any partially-acquired keys MUST be released.
+3. If panic occurs during mode upgrade—whether while blocked waiting for conflicting keys to be released or during the atomic state transition—the key MUST be released entirely (not left in original mode).
+4. Key release during panic MUST occur **before** any `Drop::drop` calls for bindings in the same scope.
+
+**Upgrade Panic Clarification**
+
+"During mode upgrade" encompasses:
+- The period while the task is blocked waiting for conflicting keys to be released
+- The atomic state transition from Read to Write mode
+
+In either case, the original Read key (if any) is released, and no Write key is acquired.
 
 **Defer Interaction**
 
@@ -12212,8 +12357,9 @@ The compiler MAY perform interprocedural analysis to prove static safety across 
 
 ##### Dynamic Semantics
 
-**Consequence — Fine-Grained Parallelism:**
+**Fine-Grained Parallelism**
 
+When interprocedural analysis proves that callees access disjoint paths, the implementation MAY execute those callees concurrently without synchronization:
 ```cursive
 procedure increment_health(p: shared Player) {
     p.health += 1              // Key analysis: p.health (Write)
@@ -12230,8 +12376,9 @@ parallel {
 // Compiler proves disjoint paths: both may execute without synchronization
 ```
 
-**Consequence — Callee Determines Granularity:**
+**Callee-Determined Granularity**
 
+The callee determines key granularity through its access patterns. A callee MAY use explicit `#` blocks to coarsen granularity or rely on implicit fine-grained key acquisition:
 ```cursive
 procedure update_all(p: shared Player) {
     #p {
@@ -12281,6 +12428,173 @@ $$\frac{
 | :----------- | :------- | :-------------------------------------------------- | :----------- | :------ |
 | `W-KEY-0005` | Warning  | Callee access pattern unknown; assuming full access | Compile-time | Warning |
 
+#### 13.3.1 Witness Types and Shared Permission
+
+##### Definition
+
+A `shared witness Trait` type permits polymorphic read access to shared data. 
+Because dynamic dispatch erases the concrete type, only traits with exclusively read-only methods (`~` receiver) are compatible with `shared` permission.
+
+##### Static Semantics
+
+**(K-Witness-Shared-WF)**
+$$\frac{
+    \forall m \in \text{AllMethods}(Tr) : m.\text{receiver} = \texttt{\sim}
+}{
+    \Gamma \vdash \texttt{shared witness } Tr\ \text{wf}
+}$$
+
+where $\text{AllMethods}(Tr)$ includes inherited methods from supertraits.
+
+When invoking a method on `shared witness Trait`:
+
+**(K-Witness-Call)**
+$$\frac{
+    \Gamma \vdash e : \texttt{shared witness } Tr \quad
+    m \in \text{Methods}(Tr)
+}{
+    \text{KeyPath}(e.m(\ldots)) = \text{Root}(e) \quad
+    \text{KeyMode} = \text{Read}
+}$$
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                          | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------- | :----------- | :-------- |
+| `E-KEY-0083` | Error    | `shared witness Trait` where Trait has `~%` method | Compile-time | Rejection |
+
+> **Note:** To mutate through a polymorphic interface, use concrete types or 
+> restructure to pass the witness with `unique` permission and downgrade within 
+> a controlled scope.
+
+#### 13.3.2 Modal Type Transitions
+
+##### Definition
+
+A state transition modifies the discriminant of a modal value, which constitutes mutation. When a transition is invoked on a `shared` modal value, a Write key MUST be acquired.
+
+##### Static Semantics
+
+**(K-Modal-Transition)**
+$$\frac{
+    \Gamma \vdash e : \texttt{shared}\ M@S_1 \quad
+    t : (M@S_1) \to M@S_2 \in \text{Transitions}(M)
+}{
+    \text{KeyPath}(e.t(\ldots)) = \text{Root}(e) \quad
+    \text{KeyMode} = \text{Write}
+}$$
+
+State-specific field access follows standard rules:
+- Reading a payload field requires a Read key
+- Writing a payload field requires a Write key
+- The key path is the modal value's root (not the individual field)
+
+> **Rationale:** A transition may change which payload fields exist. Acquiring a key to the root ensures exclusive access during the structural change.
+
+#### 13.3.3 Closure Capture of Shared Bindings
+
+##### Definition
+
+Closures capturing `shared` bindings are subject to **escape-based classification**. 
+The analysis and type requirements differ based on whether the closure escapes its 
+defining scope.
+
+**Classification**
+
+A closure is **local** if it appears in one of the following contexts:
+1. Argument position of a procedure or method call
+2. Body of a `spawn` expression
+3. Body of a `dispatch` expression
+4. Operand of immediate invocation
+
+A closure is **escaping** if it is:
+1. Bound to a `let` or `var` binding
+2. Returned from a procedure
+3. Stored in a data structure field
+
+##### Static Semantics
+
+**Local Closure Analysis**
+
+For local closures, key analysis uses the **defining scope's paths**:
+
+**(K-Closure-Local)**
+$$\frac{
+    C \text{ is local} \quad
+    x \in \text{SharedCaptures}(C) \quad
+    x : \texttt{shared}\ T \in \Gamma_{\text{def}}
+}{
+    \text{KeyPath}(C, x.p) = x.p
+}$$
+
+Key acquisition occurs when the closure is invoked. The defining scope's binding 
+serves as the key path root. Fine-grained path analysis is preserved.
+
+**Escaping Closure Type Requirement**
+
+For escaping closures, the type MUST include a **shared dependency set**:
+
+**(K-Closure-Escape-Type)**
+$$\frac{
+    C \text{ is escaping} \quad
+    \text{SharedCaptures}(C) = \{x_1, \ldots, x_n\}
+}{
+    \text{Type}(C) = |\vec{T}| \to R\ [\texttt{shared}: \{x_1 : T_1, \ldots, x_n : T_n\}]
+}$$
+
+**Escaping Closure Key Analysis**
+
+For escaping closures, key analysis uses **object identity**:
+
+**(K-Closure-Escape-Keys)**
+$$\frac{
+    C : |\vec{T}| \to R\ [\texttt{shared}: \{x : T\}] \quad
+    \text{Access}(x.p, M) \in C.\text{body}
+}{
+    \text{KeyPath}(C, x.p) = \text{id}(C.x).p \quad \text{KeyMode} = M
+}$$
+
+At invocation, keys are acquired using the captured reference's identity as the 
+root, preserving fine-grained path analysis.
+
+##### Dynamic Semantics
+
+**Local Closure Invocation**
+
+1. Analyze accessed paths using defining scope's bindings
+2. Acquire keys for accessed paths
+3. Execute closure body
+4. Release keys
+
+**Escaping Closure Invocation**
+
+1. For each shared dependency $(x, T)$ in the closure's type:
+   - Let $r$ be the captured reference to $x$
+   - Acquire keys for paths in $\text{AccessedPaths}(C, x)$ using $\text{id}(r)$ as root
+2. Execute closure body
+3. Release keys
+
+##### Constraints & Legality
+
+**Negative Constraints**
+
+1. An escaping closure capturing `shared` bindings MUST have an explicitly annotated 
+   type or be assigned to a binding with inferred dependency type.
+2. An escaping closure MUST NOT outlive any of its captured `shared` bindings.
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                                    | Detection    | Effect    |
+| :----------- | :------- | :----------------------------------------------------------- | :----------- | :-------- |
+| `E-KEY-0085` | Error    | Escaping closure with `shared` capture lacks type annotation | Compile-time | Rejection |
+| `E-KEY-0086` | Error    | Escaping closure outlives captured `shared` binding          | Compile-time | Rejection |
+| `W-KEY-0009` | Warning  | Closure captures `shared` data                               | Compile-time | Warning   |
+
+> **Note:** The warning `W-KEY-0009` is advisory. It alerts programmers to shared 
+> captures that may affect concurrent behavior, but does not indicate an error.
+
 ---
 
 ### 13.4 The `#` Key Block
@@ -12304,27 +12618,33 @@ Following the language principle that immutability is the default and mutability
 | `#path { }`       | Read     | No                 |
 | `#path write { }` | Write    | Yes                |
 
-This mirrors other Cursive constructs:
-
-| Construct | Unmarked           | Explicit Mutation |
-| :-------- | :----------------- | :---------------- |
-| Binding   | `let` (const)      | `var`             |
-| Receiver  | `~` (const)        | `~!`, `~%`        |
-| Key block | `#path { }` (Read) | `#path write { }` |
+> **Note:** This mirrors other Cursive constructs where immutability is the default:
+> - Bindings: `let` (const) vs `var` (mutable)
+> - Receivers: `~` (const) vs `~!`, `~%` (mutable)
+> - Key blocks: `#path { }` (Read) vs `#path write { }` (Write)
 
 ##### Syntax & Declaration
 
 **Grammar**
 
 ```ebnf
-key_block       ::= "#" path_list mode_modifier? block
+key_block       ::= "#" path_list mode_modifier* block
 
 path_list       ::= path_expr ("," path_expr)*
 
-mode_modifier   ::= "write"
+mode_modifier   ::= "write" | "upgrade" | "ordered" | "speculative"
 ```
 
+**Modifier Constraints:**
+- `upgrade` MUST be followed by `write` (either immediately or with `ordered` between)
+- `ordered` MAY combine with any other modifiers
+- `speculative` MUST be followed by `write`; speculative read-only blocks are ill-formed
+- `speculative` MUST NOT combine with `upgrade`
+- Modifier order is not significant: `ordered write` ≡ `write ordered`
+
 The `path_expr`, `key_marker`, and `index_suffix` productions are defined in §13.1.
+
+The `upgrade` modifier is used for nested mode escalation; see §13.7.2 for semantics.
 
 **Read Mode (Default)**
 
@@ -12363,6 +12683,51 @@ Both modes support multiple paths. Keys are acquired in canonical order (§13.7)
     enemy.health -= player.damage
 }
 ```
+
+**Ordered Mode**
+
+The `ordered` modifier forces runtime evaluation and comparison of dynamic indices, establishing a deterministic acquisition order across all tasks. This is necessary when multiple tasks may execute `#` blocks with incomparable dynamic indices on overlapping paths.
+
+```cursive
+// Without ordered: acquisition order is USB when i and j cannot be statically compared
+#arr[i], arr[j] { ... }           // HAZARD: potential cross-task deadlock
+
+// With ordered: indices evaluated at runtime, keys acquired in sorted order
+#arr[i], arr[j] ordered {
+    let a = arr[i]
+    let b = arr[j]
+}
+
+// Ordered with write mode
+#arr[i], arr[j] ordered write {
+    arr[i] = arr[j] + 1
+}
+
+// Ordered with upgrade (from enclosing Read block)
+#arr[i], arr[j] ordered upgrade write {
+    // Release-and-reacquire with deterministic ordering
+}
+```
+
+For paths with the same array base and dynamic indices:
+- Indices are evaluated to values $v_1, \ldots, v_n$
+- Paths are acquired in ascending order of index value
+- If two indices have equal values, the paths are identical (single acquisition)
+
+> **Note:** The `ordered` modifier incurs runtime overhead (index evaluation and comparison). Use it only when cross-task deadlock prevention is required without sacrificing fine-grained parallelism. When indices are statically comparable, canonical ordering applies automatically and `ordered` is unnecessary.
+
+**Speculative Mode**
+
+The `speculative write` modifier requests optimistic concurrency semantics. Instead of blocking until an exclusive key is available, the block executes immediately and attempts an atomic commit at block exit. If the commit fails due to concurrent modification, the block re-executes.
+
+```cursive
+#counter speculative write {
+    let v = counter
+    counter = v + 1
+}
+```
+
+Speculative blocks are suitable for contended paths where blocking would cause unacceptable latency and the block body is cheap to re-execute. See §13.7.3 for complete semantics.
 
 **Inline Coarsening**
 
@@ -12490,15 +12855,30 @@ The implementation strategy is Implementation-Defined Behavior (IDB).
 2. A program MUST NOT place `#` immediately before a method name.
 3. A program MUST NOT use `#` block syntax with a non-`shared` path.
 
+**Method Receiver Coarsening**
+
+To coarsen the key path when accessing `shared` data through a method call, place the `#` marker on the receiver expression, not on the method name:
+
+| Expression                | Key Path       | Validity               |
+| :------------------------ | :------------- | :--------------------- |
+| `#player.get_health()`    | `player`       | Valid                  |
+| `player.#get_health()`    | —              | Invalid (`E-KEY-0020`) |
+| `#player.stats.compute()` | `player`       | Valid                  |
+| `player.#stats.compute()` | `player.stats` | Valid                  |
+
+The `#` marker coarsens from that point in the path; subsequent segments (including method calls) are covered by the coarsened key.
+
 **Diagnostic Table**
 
-| Code         | Severity | Condition                                             | Detection    | Effect    |
-| :----------- | :------- | :---------------------------------------------------- | :----------- | :-------- |
-| `E-KEY-0020` | Error    | `#` immediately before method name                    | Compile-time | Rejection |
-| `E-KEY-0031` | Error    | `#` block path not in scope                           | Compile-time | Rejection |
-| `E-KEY-0032` | Error    | `#` block path is not `shared`                        | Compile-time | Rejection |
-| `E-KEY-0070` | Error    | Write operation in `#` block without `write` modifier | Compile-time | Rejection |
-| `W-KEY-0003` | Warning  | `#` redundant (matches type boundary)                 | Compile-time | Warning   |
+| Code         | Severity | Condition                                                  | Detection    | Effect    |
+| :----------- | :------- | :--------------------------------------------------------- | :----------- | :-------- |
+| `E-KEY-0014` | Error    | `ordered` modifier on paths with different array bases     | Compile-time | Rejection |
+| `E-KEY-0020` | Error    | `#` immediately before method name                         | Compile-time | Rejection |
+| `E-KEY-0031` | Error    | `#` block path not in scope                                | Compile-time | Rejection |
+| `E-KEY-0032` | Error    | `#` block path is not `shared`                             | Compile-time | Rejection |
+| `E-KEY-0070` | Error    | Write operation in `#` block without `write` modifier      | Compile-time | Rejection |
+| `W-KEY-0003` | Warning  | `#` redundant (matches type boundary)                      | Compile-time | Warning   |
+| `W-KEY-0013` | Warning  | `ordered` modifier used with statically-comparable indices | Compile-time | Warning   |
 
 ---
 
@@ -12972,15 +13352,27 @@ If indices $i$ and $j$ in segments $a[i]$ and $a[j]$ cannot be statically compar
 1. If $i$ and $j$ are the same binding: $a[i] =_{\text{seg}} a[i]$ (same segment)
 2. Otherwise: ordering is **Unspecified Behavior (USB)**
 
-**Consequence:** `#` blocks with dynamically-indexed paths to the same array where indices cannot be compared SHOULD use explicit coarsening to the array level:
+**Deadlock Safety Under USB Ordering**
 
+When acquisition order is unspecified, deadlock remains impossible within a single task because:
+1. A task acquires all keys in a `#` block atomically before executing the block body
+2. USB affects only the order of acquisition, not whether acquisition eventually succeeds
+3. Deadlock requires circular wait across multiple tasks; a single task cannot deadlock with itself
+
+However, when multiple tasks execute `#` blocks with incomparable dynamic indices on overlapping paths, USB ordering MAY cause different tasks to attempt acquisition in different orders, potentially creating circular wait conditions.
+
+**Mitigation Requirement**
+
+A program SHOULD use explicit coarsening when `#` blocks contain dynamically-indexed paths to the same array where indices cannot be statically compared:
 ```cursive
-// HAZARD: Unspecified ordering
+// HAZARD: Unspecified ordering across tasks
 #arr[i], arr[j] { ... }  // i and j are different dynamic variables
 
 // SAFE: Coarsen to array level
 #arr { ... }
 ```
+
+The implementation MUST emit diagnostic `W-KEY-0011` when this pattern is detected.
 
 **Statement Keys: Evaluation Order**
 
@@ -13024,7 +13416,9 @@ When a nested `#` block specifies a path that overlaps with an outer `#` block's
 
 1. **Identical path, same or weaker mode:** The inner block's key request is covered by the outer block's key. No additional acquisition occurs.
 
-2. **Identical path, stronger mode (Read → Write):** If the outer block holds a Read key and the inner block requests Write, the inner block MUST have the `write` modifier. The implementation MUST upgrade the key to Write mode for the duration of the inner block, then restore Read mode on inner block exit.
+2. **Identical path, stronger mode (Read → Write):** If the outer block holds a Read key and the inner block requests Write, the inner block MUST use the `upgrade write` modifier. This triggers release-and-reacquire semantics as defined in §13.7.2. The `upgrade` keyword is required to acknowledge that interleaving may occur between the release of the Read key and acquisition of the Write key.
+
+   Omitting the `upgrade` keyword when escalating mode is a compile-time error (`E-KEY-0012`).
 
 3. **Prefix relationship:** If the inner path is a prefix of the outer path (coarser granularity), the inner block acquires a separate, coarser key. If the outer path is a prefix of the inner path (finer granularity), the inner block's access is covered by the outer key.
 
@@ -13035,19 +13429,29 @@ $$\frac{
 }{
     \begin{cases}
     \text{Covered (no acquisition)} & \text{if } M_{\text{inner}} \leq M_{\text{outer}} \\
-    \text{Upgrade to } M_{\text{inner}} & \text{if } M_{\text{inner}} > M_{\text{outer}}
+    \text{Release-and-Reacquire per §13.7.2} & \text{if } M_{\text{inner}} > M_{\text{outer}} \land \texttt{upgrade} \in \text{modifiers} \\
+    \text{Emit}(\texttt{E-KEY-0012}) & \text{if } M_{\text{inner}} > M_{\text{outer}} \land \texttt{upgrade} \notin \text{modifiers}
     \end{cases}
 }$$
 
 where $\text{Read} < \text{Write}$.
 ```cursive
-// Example: Outer Read, Inner Write (upgrade)
+// Example: Outer Read, Inner Write (release-and-reacquire)
 #player {
     let h = player.health          // Read access, covered
-    #player write {
-        player.health = h + 10     // Upgraded to Write for this block
+    #player upgrade write {
+        // WARNING: h may be stale after reacquisition
+        player.health = h + 10     // Write access via upgrade
     }
-    let m = player.mana            // Back to Read after inner block exits
+    let m = player.mana            // Read key reacquired after inner block
+}
+
+// ERROR: Missing `upgrade` keyword
+#player {
+    let h = player.health
+    #player write {                // E-KEY-0012: nested escalation requires `upgrade`
+        player.health = h + 10
+    }
 }
 ```
 
@@ -13067,7 +13471,7 @@ Nested `#` blocks that acquire overlapping keys in different orders across tasks
 }                       }
 ```
 
-This is **programmer responsibility**. The compiler SHOULD detect this pattern when both blocks are visible:
+The programmer MUST ensure consistent nesting order across tasks to avoid deadlock. The compiler SHOULD detect this pattern when both blocks are visible:
 
 **(K-Nested-Cycle-Detection)**
 $$\frac{
@@ -13178,13 +13582,397 @@ When `E-KEY-0060` is emitted, the programmer MUST resolve it by one of:
 3. **Separate into distinct statements:** `let tmp = p; p = tmp + e`
 4. **Prove path distinctness:** Add contract or use disjoint paths
 
+**Advisory Warnings**
+
+The implementation SHOULD emit `W-KEY-0006` when a programmer writes an explicit `#path write { let v = path; path = v + e }` block that could be expressed as compound assignment (`path += e`). This warning is advisory; the explicit form is valid but unnecessarily verbose.
+
 **Diagnostic Table**
 
 | Code         | Severity | Condition                                                                   | Detection    | Effect    |
 | :----------- | :------- | :-------------------------------------------------------------------------- | :----------- | :-------- |
 | `E-KEY-0060` | Error    | Read-then-write on same `shared` path without covering Write key            | Compile-time | Rejection |
-| `W-KEY-0006` | Warning  | Explicit read-then-write form used; compound assignment available           | Compile-time | Warning   |
 | `W-KEY-0004` | Warning  | Read-then-write in sequential context; may cause contention if parallelized | Compile-time | Warning   |
+| `W-KEY-0006` | Warning  | Explicit read-then-write form used; compound assignment available           | Compile-time | Warning   |
+
+---
+
+#### 13.7.2 Nested Block Mode Escalation
+
+##### Definition
+
+A nested `#` block that requests a stronger mode than its enclosing block performs a **key upgrade**. Because true atomic upgrade risks deadlock when multiple tasks attempt simultaneous upgrades, Cursive uses **release-and-reacquire** semantics.
+
+The `upgrade` keyword MUST be present to indicate the programmer understands and accepts potential interleaving between the release and reacquisition.
+
+##### Syntax & Declaration
+
+**Grammar**
+
+The `upgrade write` modifier is part of the `key_block` grammar defined in §13.4.
+
+**Usage**
+```cursive
+#player {                          // Acquires Read key
+    let h = player.health
+    if should_heal(h) {
+        #player upgrade write {    // Release Read, acquire Write
+            player.health = h + 10
+        }                          // Release Write, reacquire Read
+    }
+    let m = player.mana            // Continues with Read key
+}
+```
+
+##### Static Semantics
+
+**(K-Upgrade-Required)**
+$$\frac{
+    \text{Held}(P, M_{\text{outer}}, \Gamma_{\text{keys}}) \quad
+    \#Q\ M_{\text{inner}}\ \{\ \ldots\ \} \quad
+    \text{Overlaps}(P, Q) \quad
+    M_{\text{inner}} > M_{\text{outer}} \quad
+    \texttt{upgrade} \notin \text{modifiers}
+}{
+    \text{Emit}(\texttt{E-KEY-0012})
+}$$
+
+**(K-Upgrade-Prohibited)**
+$$\frac{
+    \#Q\ \texttt{upgrade}\ M\ \{\ \ldots\ \} \quad
+    \neg\exists (P, M', \_) \in \Gamma_{\text{keys}} : \text{Overlaps}(P, Q) \land M > M'
+}{
+    \text{Emit}(\texttt{E-KEY-0013})
+}$$
+
+##### Dynamic Semantics
+
+**Release-and-Reacquire Sequence**
+
+When entering `#path upgrade write { body }` while holding a Read key to an 
+overlapping path:
+
+1. **Release:** Release the Read key held by the enclosing block
+2. **Acquire:** Acquire a Write key to `path` (blocking if contended)
+3. **Execute:** Evaluate `body`
+4. **Release:** Release the Write key
+5. **Reacquire:** Acquire a Read key for the enclosing block's remaining scope
+
+**(K-Upgrade-Sequence)**
+$$\frac{
+    \text{Held}(P, \text{Read}, S_{\text{outer}}) \quad
+    \#P\ \texttt{upgrade write}\ \{\ B\ \}
+}{
+    \begin{array}{l}
+    \text{Release}(P, \Gamma_{\text{keys}});\
+    \text{Acquire}(P, \text{Write}, S_{\text{inner}});\
+    \text{Eval}(B);\ \\
+    \text{Release}(P, \Gamma_{\text{keys}});\
+    \text{Acquire}(P, \text{Read}, S_{\text{outer}})
+    \end{array}
+}$$
+
+**Reacquisition Semantics**
+
+Step 5 (Reacquire) follows normal key acquisition semantics:
+
+1. If another task holds a Write key to an overlapping path, the current task blocks until the key is released.
+2. Multiple tasks MAY hold Read keys concurrently after reacquisition.
+3. An interleaving window exists between steps 4 and 5, during which other tasks MAY acquire and release keys.
+
+**Optimization: Eliding Reacquisition**
+
+The implementation MAY elide step 5 if static analysis proves that no statements in the enclosing block's remaining scope access paths covered by the original Read key. This is an optimization; observable behavior MUST be equivalent to performing the reacquisition.
+
+**(K-Upgrade-Reacquire-Elision)**
+$$\frac{
+    \text{RemainingStatements}(S_{\text{outer}}) \cap \text{AccessPaths}(P) = \emptyset
+}{
+    \text{Step 5 MAY be elided}
+}$$
+
+**Interleaving Window**
+
+Between steps 1 and 2, other tasks MAY:
+- Acquire keys to the same path
+- Modify the shared data
+- Complete their operations
+
+The programmer MUST account for this interleaving. Values read before the `upgrade` 
+block MAY be stale after it completes.
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                        | Detection    | Effect    |
+| :----------- | :------- | :----------------------------------------------- | :----------- | :-------- |
+| `E-KEY-0012` | Error    | Nested mode escalation without `upgrade` keyword | Compile-time | Rejection |
+| `E-KEY-0013` | Error    | `upgrade` keyword on non-escalating block        | Compile-time | Rejection |
+| `W-KEY-0010` | Warning  | `upgrade` block permits interleaving             | Compile-time | Warning   |
+
+> **Note:** If atomicity between read and write operations is required, declare `write` mode on the outermost `#` block. The `upgrade` keyword is for cases where reduced exclusion duration is worth the interleaving trade-off.
+
+---
+
+#### 13.7.3 Speculative Block Semantics
+
+##### Definition
+
+A **speculative key block** executes without acquiring an exclusive key, instead relying on optimistic concurrency control. The block body executes against a snapshot of the keyed paths; at block exit, the implementation attempts to atomically commit all writes if and only if the snapshot values remain unchanged.
+
+**Formal Definition**
+
+A speculative block `#P speculative write { B }` has three components:
+
+1. **Read set** $R(B)$: The set of $(path, value)$ pairs read during evaluation of $B$
+2. **Write set** $W(B)$: The set of $(path, value)$ pairs to be written by $B$
+3. **Commit predicate**: $\bigwedge_{(p,v) \in R(B)} (\text{current}(p) = v)$
+
+$$\text{SpeculativeCommit}(R, W) \iff \text{Atomic}\left(\bigwedge_{(p,v) \in R} p = v \implies \bigwedge_{(q,w) \in W} q := w\right)$$
+
+##### Syntax & Declaration
+
+**Grammar**
+
+The `speculative write` modifier is part of the `key_block` grammar defined in §13.4.
+
+**Usage Patterns**
+
+```cursive
+// Single-value atomic update
+#counter speculative write {
+    let v = counter
+    counter = v + 1
+}
+
+// Multi-field atomic update
+#point speculative write {
+    let x = point.x
+    let y = point.y
+    point.x = y
+    point.y = x
+}
+
+// With computation
+#balance speculative write {
+    let current = balance
+    if current >= amount {
+        balance = current - amount
+    }
+}
+```
+
+##### Static Semantics
+
+**Well-Formedness Rules**
+
+A speculative block is well-formed if and only if all of the following conditions hold:
+
+**(K-Spec-Write-Required)**
+$$\frac{
+    \#P\ \texttt{speculative}\ M\ \{B\} \quad M \neq \texttt{write}
+}{
+    \text{Emit}(\texttt{E-KEY-0095})
+}$$
+
+**(K-Spec-Pure-Body)**
+
+The block body MUST be **effect-pure** with respect to paths outside the keyed set. Formally:
+
+$$\frac{
+    \#P\ \texttt{speculative write}\ \{B\} \quad
+    \text{Writes}(B) \not\subseteq \text{CoveredPaths}(P)
+}{
+    \text{Emit}(\texttt{E-KEY-0091})
+}$$
+
+where $\text{CoveredPaths}(P)$ is the set of all paths for which $P$ is a prefix.
+
+**Permitted operations** within a speculative block:
+- Read from keyed paths
+- Write to keyed paths
+- Pure computation (arithmetic, logic, local bindings)
+- Procedure calls to `const` receiver methods on keyed data
+- Procedure calls to pure procedures (no `shared` or `unique` parameters)
+
+**Prohibited operations** within a speculative block:
+- Write to paths outside the keyed set
+- Nested key blocks (speculative or blocking)
+- `wait` expressions
+- Procedure calls with side effects
+- `defer` statements
+- Panic-inducing operations (bounds checks are permitted; panic aborts the speculation)
+
+**(K-Spec-No-Nested-Key)**
+$$\frac{
+    \#P\ \texttt{speculative write}\ \{B\} \quad
+    \#Q\ \_\ \{\ldots\} \in \text{Subexpressions}(B)
+}{
+    \text{Emit}(\texttt{E-KEY-0090})
+}$$
+
+**(K-Spec-No-Wait)**
+$$\frac{
+    \#P\ \texttt{speculative write}\ \{B\} \quad
+    \texttt{wait}\ e \in \text{Subexpressions}(B)
+}{
+    \text{Emit}(\texttt{E-KEY-0092})
+}$$
+
+**(K-Spec-No-Defer)**
+$$\frac{
+    \#P\ \texttt{speculative write}\ \{B\} \quad
+    \texttt{defer}\ \{\ldots\} \in \text{Statements}(B)
+}{
+    \text{Emit}(\texttt{E-KEY-0093})
+}$$
+
+**(K-Spec-No-Upgrade)**
+$$\frac{
+    \#P\ \texttt{speculative upgrade write}\ \{B\}
+}{
+    \text{Emit}(\texttt{E-KEY-0094})
+}$$
+
+**Type of Speculative Block**
+
+A speculative block has the same type as its body expression:
+
+$$\frac{
+    \Gamma \vdash B : T
+}{
+    \Gamma \vdash \#P\ \texttt{speculative write}\ \{B\} : T
+}$$
+
+The block is an expression and may produce a value. The value is that of the successful execution.
+
+##### Dynamic Semantics
+
+**Execution Model**
+
+Evaluation of `#path speculative write { body }` proceeds as follows:
+
+1. **Initialize**: Set $\text{retries} := 0$
+2. **Snapshot**: Read all paths in the keyed set, recording $(path, value)$ pairs in the read set $R$
+3. **Execute**: Evaluate $body$, collecting writes in the write set $W$
+4. **Commit**: Atomically verify $\bigwedge_{(p,v) \in R} (\text{current}(p) = v)$ and, if true, apply all writes in $W$
+5. **On success**: Return the value of $body$
+6. **On failure**:
+   - Increment $\text{retries}$
+   - If $\text{retries} < \text{MAX\_SPECULATIVE\_RETRIES}$: goto step 2
+   - Otherwise: proceed to fallback (step 7)
+7. **Fallback**: Acquire a blocking Write key (per §13.2), execute $body$, release key, return value
+
+**Retry Limit**
+
+The constant $\text{MAX\_SPECULATIVE\_RETRIES}$ is Implementation-Defined Behavior (IDB). Implementations MUST document this value in the Conformance Dossier. A typical value is 3–10 retries.
+
+**Snapshot Granularity**
+
+The snapshot (step 2) captures the state of keyed paths at a single instant. The mechanism is Implementation-Defined:
+
+| Data Type             | Typical Snapshot Mechanism                      |
+| :-------------------- | :---------------------------------------------- |
+| Primitive (≤ 8 bytes) | Atomic load                                     |
+| Small struct          | Seqlock read or atomic load of version + fields |
+| Large struct          | Copy under brief lock or seqlock                |
+
+**Commit Atomicity**
+
+The commit operation (step 4) MUST be atomic with respect to all other key operations (speculative or blocking) on overlapping paths. The mechanism is Implementation-Defined:
+
+| Data Type                  | Typical Commit Mechanism             |
+| :------------------------- | :----------------------------------- |
+| Single primitive           | Compare-and-swap                     |
+| Single pointer-sized value | Compare-and-swap                     |
+| Two pointer-sized values   | Double-word CAS (DCAS) or lock-based |
+| Struct with version field  | CAS on version + write fields        |
+| Large struct               | Acquire lock, verify, write, release |
+
+**Interaction with Blocking Keys**
+
+Speculative blocks and blocking key blocks operate on the same underlying synchronization state:
+
+- A blocking Write key acquisition waits for in-flight speculative commits to complete
+- A speculative commit fails if a blocking Write key is held
+- Multiple concurrent speculative blocks may race; at most one succeeds per commit attempt
+
+| Concurrent Operation      | Speculative Block Behavior                  |
+| :------------------------ | :------------------------------------------ |
+| Another speculative block | Race; one commits, others retry             |
+| Blocking Read key held    | Speculative may commit (compatible)         |
+| Blocking Write key held   | Speculative commit fails, retry or fallback |
+
+**Panic During Speculation**
+
+If a panic occurs during step 3 (Execute):
+
+1. The write set $W$ is discarded (no writes are committed)
+2. No key is held (nothing to release)
+3. The panic propagates normally
+
+This ensures speculative execution has no observable effect on failure.
+
+**Memory Ordering**
+
+Speculative blocks use the following memory ordering:
+
+- Snapshot reads: Acquire semantics
+- Successful commit: Release semantics
+- Failed commit: No ordering guarantees (writes discarded)
+
+Memory ordering annotations (`[[relaxed]]`, etc.) MUST NOT appear inside speculative blocks. The implementation controls ordering to ensure correctness.
+
+##### Memory & Layout
+
+**Version Counters**
+
+To implement speculative commits on non-primitive data, implementations MAY add hidden version counters to `shared` values. This is Implementation-Defined Behavior:
+
+| Aspect                         | Specification                       |
+| :----------------------------- | :---------------------------------- |
+| Presence of version field      | IDB                                 |
+| Size of version field          | IDB; if present, MUST be documented |
+| Location (inline vs. external) | IDB                                 |
+
+When version counters are used:
+- Increment version on every successful Write key release or speculative commit
+- Speculative snapshot records version
+- Speculative commit verifies version unchanged
+
+**No-Overhead Elision**
+
+If the compiler proves a `shared` value is never accessed speculatively (no `speculative write` blocks target it), the implementation MAY omit version counter overhead. This analysis is Implementation-Defined.
+
+##### Constraints & Legality
+
+**Negative Constraints**
+
+1. A speculative block MUST include the `write` modifier.
+2. A speculative block MUST NOT contain nested key blocks.
+3. A speculative block MUST NOT contain `wait` expressions.
+4. A speculative block MUST NOT contain `defer` statements.
+5. A speculative block MUST NOT write to paths outside the keyed set.
+6. A speculative block MUST NOT combine with the `upgrade` modifier.
+7. Memory ordering annotations MUST NOT appear inside speculative blocks.
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                              | Detection    | Effect    |
+| :----------- | :------- | :----------------------------------------------------- | :----------- | :-------- |
+| `E-KEY-0090` | Error    | Nested key block inside speculative block              | Compile-time | Rejection |
+| `E-KEY-0091` | Error    | Write to path outside keyed set in speculative block   | Compile-time | Rejection |
+| `E-KEY-0092` | Error    | `wait` expression inside speculative block             | Compile-time | Rejection |
+| `E-KEY-0093` | Error    | `defer` statement inside speculative block             | Compile-time | Rejection |
+| `E-KEY-0094` | Error    | `speculative` combined with `upgrade`                  | Compile-time | Rejection |
+| `E-KEY-0095` | Error    | `speculative` without `write` modifier                 | Compile-time | Rejection |
+| `E-KEY-0096` | Error    | Memory ordering annotation inside speculative block    | Compile-time | Rejection |
+| `W-KEY-0020` | Warning  | Speculative block on large struct (may be inefficient) | Compile-time | Warning   |
+| `W-KEY-0021` | Warning  | Speculative block body may be expensive to re-execute  | Compile-time | Warning   |
+
+> **Note:** `W-KEY-0020` is emitted when `sizeof(T) > 2 * sizeof(usize)` for the keyed type. Speculative operations on large types may degrade to lock-based fallback frequently. Consider using blocking keys or restructuring data.
+
+> **Note:** `W-KEY-0021` is emitted when the block body contains loops, recursive calls, or procedure calls that are not provably cheap. Speculative blocks work best with small, deterministic bodies.
 
 ---
 
@@ -13192,73 +13980,77 @@ When `E-KEY-0060` is emitted, the programmer MUST resolve it by one of:
 
 ##### Definition
 
-Keys MUST NOT be held across async suspension points (`.await`). This is enforced at compile time.
+Keys MUST NOT be held across async suspension points (`wait` expressions). This is enforced at compile time.
 
 ##### Static Semantics
 
-**(K-No-Await-Holding)**
+**(K-No-Wait-Holding)**
 
 $$\frac{
     \Gamma_{\text{keys}}(p) \neq \emptyset \quad
-    \text{IsAwait}(p)
+    \text{IsWait}(p)
 }{
     \text{Emit}(\texttt{E-KEY-0050})
 }$$
 
-The compiler tracks key state and MUST reject programs where `.await` occurs while keys are logically held.
+The compiler tracks key state and MUST reject programs where `wait` occurs while keys are logically held.
 
 **Scope Interaction**
 
-The prohibition applies to keys held at the `.await` program point, not to keys in enclosing scopes that have already been released:
+The prohibition applies to keys held at the `wait` program point, not to keys in enclosing scopes that have already been released:
 
 ```cursive
-// VALID: Key released before await
+// VALID: Key released before wait
 player.health += 1             // Key acquired and released at semicolon
-save().await                   // No keys held at await point
+wait ctx.io~>save(player)      // No keys held at wait point
 
-// INVALID: Key held at await point
+// INVALID: Key held at wait point
 #player {
     player.health += 1
-    save().await               // ERROR E-KEY-0050: key to player still held
+    wait ctx.io~>save(player)  // ERROR E-KEY-0050: key to player still held
 }
 ```
 
 ##### Dynamic Semantics
 
-**Rationale:**
+**Resolution Patterns**
 
-| Problem    | Description                                                                                       |
-| :--------- | :------------------------------------------------------------------------------------------------ |
-| Deadlock   | Task holds key, suspends; other task needs key, blocks; first task's completion depends on second |
-| Starvation | Long async operation blocks all other tasks needing the key                                       |
+When a key is held at a `wait` point, the programmer MUST restructure the code to release the key before suspension. Valid patterns include:
 
-**Resolution Pattern:**
-
+1. **Release before wait:** Move the `wait` expression outside the key-holding scope
+2. **Separate scopes:** Use explicit block boundaries to release keys before the `wait`
 ```cursive
 // INVALID:
 #player {
     player.health += 1
-    save().await               // ERROR E-KEY-0050
+    wait ctx.io~>save(player)  // ERROR E-KEY-0050
 }
 
-// VALID — Release before await:
+// VALID — Release before wait:
 player.health += 1             // Key released at semicolon
-save().await                   // No keys held
+wait ctx.io~>save(player)      // No keys held
 
 // VALID — Separate scopes:
 {
     #player { player.health += 1 }
 }   // Key released at block exit
-save().await                   // No keys held
+wait ctx.io~>save(player)      // No keys held
 ```
+
+> **Rationale:** Prohibiting keys across suspension points prevents two classes of concurrency bugs:
+>
+> | Problem    | Description                                                                                       |
+> | :--------- | :------------------------------------------------------------------------------------------------ |
+> | Deadlock   | Task holds key, suspends; other task needs key, blocks; first task's completion depends on second |
+> | Starvation | Long async operation blocks all other tasks needing the key                                       |
 
 ##### Constraints & Legality
 
 **Diagnostic Table**
 
-| Code         | Severity | Condition                  | Detection    | Effect    |
-| :----------- | :------- | :------------------------- | :----------- | :-------- |
-| `E-KEY-0050` | Error    | `.await` while key is held | Compile-time | Rejection |
+| Code         | Severity | Condition                | Detection    | Effect    |
+| :----------- | :------- | :----------------------- | :----------- | :-------- |
+| `E-KEY-0050` | Error    | `wait` while key is held | Compile-time | Rejection |
 
 ---
 
@@ -13291,13 +14083,14 @@ The compiler MUST perform key analysis for all `shared` path accesses:
 
 An access is **statically safe** if the compiler proves one of the following:
 
-| Condition              | Description                                                 | Rule   |
-| :--------------------- | :---------------------------------------------------------- | :----- |
-| **No escape**          | `shared` value never escapes to another task                | K-SS-1 |
-| **Disjoint paths**     | Concurrent accesses target provably disjoint paths          | K-SS-2 |
-| **Sequential context** | No `parallel` block encloses the access                     | K-SS-3 |
-| **Unique origin**      | Value is `unique` at origin, temporarily viewed as `shared` | K-SS-4 |
-| **Dispatch-indexed**   | Access indexed by `dispatch` iteration variable             | K-SS-5 |
+| Condition              | Description                                                       | Rule   |
+| :--------------------- | :---------------------------------------------------------------- | :----- |
+| **No escape**          | `shared` value never escapes to another task                      | K-SS-1 |
+| **Disjoint paths**     | Concurrent accesses target provably disjoint paths                | K-SS-2 |
+| **Sequential context** | No `parallel` block encloses the access                           | K-SS-3 |
+| **Unique origin**      | Value is `unique` at origin, temporarily viewed as `shared`       | K-SS-4 |
+| **Dispatch-indexed**   | Access indexed by `dispatch` iteration variable                   | K-SS-5 |
+| **Speculative-only**   | All accesses are within speculative blocks and fallback permitted | K-SS-6 |
 
 **(K-Static-Safe)**
 $$\frac{
@@ -13337,6 +14130,8 @@ When runtime synchronization is required, the implementation MUST provide:
 | Array (static indices)      | Per-element or segment locks |
 | Array (dynamic indices)     | Address-keyed lock table     |
 | `#` boundary                | Single lock for subtree      |
+| Speculative on primitive    | Compare-and-swap loop        |
+| Speculative on struct       | Seqlock or versioned commit  |
 
 Implementations MUST document their strategy in the Conformance Dossier.
 
@@ -13399,34 +14194,70 @@ $$\frac{
     \text{KeyAnalysis applies to } f\langle\texttt{shared}\rangle
 }$$
 
+**Generic Procedures and Trait Bounds**
+
+When a generic procedure has a trait bound `T: Trait` and is instantiated with a `shared` type, key analysis proceeds as follows:
+
+1. Each trait method call on the `shared` parameter is analyzed for key requirements.
+2. The key mode is determined by the method's receiver permission: `~` requires Read, `~%` requires Write.
+3. Trait methods with `~!` receivers are not callable through `shared` paths (per §4.5.6).
+
+**(K-Generic-Trait-Method)**
+$$\frac{
+    \Gamma \vdash e : \texttt{shared}\ T \quad
+    T : Tr \quad
+    m \in \text{Methods}(Tr) \quad
+    m.\text{receiver} = P\ \texttt{Self}
+}{
+    \text{KeyMode}(e.m(\ldots)) = \begin{cases}
+    \text{Read} & \text{if } P = \texttt{const} \\
+    \text{Write} & \text{if } P = \texttt{shared} \\
+    \text{Reject} & \text{if } P = \texttt{unique}
+    \end{cases}
+}$$
+
+**Conservative Fallback for Opaque Types**
+
+When the concrete type is unknown (e.g., `witness Trait`), the implementation MUST assume the most restrictive key requirements compatible with the trait's method signatures:
+
+- If any method in the trait has a `~%` receiver, assume Write mode may be required
+- If all methods have `~` receivers, Read mode is sufficient
+
 ---
 
 ### 13.10 Cross-Reference Notes `[INFORMATIVE]`
 
 **Terms Defined in Clause 13**
 
-| Term                    | Section | Description                                           |
-| :---------------------- | :------ | :---------------------------------------------------- |
-| Key                     | §13.1   | Static proof of access rights to `shared` path        |
-| Program Point           | §13.1   | Unique location in control flow for state tracking    |
-| Lexical Scope           | §13.1   | Bounded code region defining key lifetime             |
-| Held (predicate)        | §13.1   | Key membership in state context                       |
-| Path Prefix             | §13.1.1 | Relation for coverage determination                   |
-| Path Disjointness       | §13.1.1 | Relation for static safety proofs                     |
-| Segment Equivalence     | §13.1.1 | Equality of path segments including index equivalence |
-| Index Equivalence       | §13.1.1 | Provable equality of index expressions                |
-| Key Mode                | §13.1.2 | Read or Write access grant                            |
-| Read Context            | §13.1.2 | Syntactic position requiring read access              |
-| Write Context           | §13.1.2 | Syntactic position requiring write access             |
-| Key Compatibility       | §13.1.2 | When two keys may coexist                             |
-| Read-Then-Write Pattern | §13.7.1 | Read and write to same path within single statement   |
-| Covered (predicate)     | §13.2   | When held key subsumes finer access                   |
-| Mode Sufficiency        | §13.2   | When held mode satisfies required mode                |
-| Key Path                | §13.4   | Path used for key analysis after coarsening           |
-| Type-Level Boundary     | §13.5   | Permanent granularity constraint on field             |
-| Statically Resolvable   | §13.6   | Index evaluable at compile time                       |
-| Canonical Order         | §13.7   | Deterministic path ordering for deadlock prevention   |
-| Static Safety           | §13.9   | Compiler-proven access safety                         |
+| Term                    | Section | Description                                               |
+| :---------------------- | :------ | :-------------------------------------------------------- |
+| Key                     | §13.1   | Static proof of access rights to `shared` path            |
+| Program Point           | §13.1   | Unique location in control flow for state tracking        |
+| Lexical Scope           | §13.1   | Bounded code region defining key lifetime                 |
+| Held (predicate)        | §13.1   | Key membership in state context                           |
+| Path Prefix             | §13.1.1 | Relation for coverage determination                       |
+| Path Disjointness       | §13.1.1 | Relation for static safety proofs                         |
+| Segment Equivalence     | §13.1.1 | Equality of path segments including index equivalence     |
+| Index Equivalence       | §13.1.1 | Provable equality of index expressions                    |
+| Key Mode                | §13.1.2 | Read or Write access grant                                |
+| Read Context            | §13.1.2 | Syntactic position requiring read access                  |
+| Write Context           | §13.1.2 | Syntactic position requiring write access                 |
+| Key Compatibility       | §13.1.2 | When two keys may coexist                                 |
+| Read-Then-Write Pattern | §13.7.1 | Read and write to same path within single statement       |
+| Covered (predicate)     | §13.2   | When held key subsumes finer access                       |
+| Mode Sufficiency        | §13.2   | When held mode satisfies required mode                    |
+| Key Path                | §13.4   | Path used for key analysis after coarsening               |
+| Type-Level Boundary     | §13.5   | Permanent granularity constraint on field                 |
+| Statically Resolvable   | §13.6   | Index evaluable at compile time                           |
+| Provably Disjoint       | §13.6   | Index expressions with statically provable inequality     |
+| Canonical Order         | §13.7   | Deterministic path ordering for deadlock prevention       |
+| Key Upgrade             | §13.7.2 | Mode escalation from Read to Write                        |
+| Release-and-Reacquire   | §13.7.2 | Non-atomic upgrade semantics avoiding deadlock            |
+| Speculative Block       | §13.7.3 | Optimistic concurrency with validation and rollback       |
+| Conflict Detection      | §13.7.3 | Detection of concurrent modification during commit        |
+| Validated Commit        | §13.7.3 | Atomic verification and application of speculative writes |
+| Fallback Execution      | §13.7.3 | Pessimistic retry after speculative conflict              |
+| Static Safety           | §13.9   | Compiler-proven access safety                             |
 
 **Terms Referenced from Other Clauses**
 
@@ -13436,7 +14267,7 @@ $$\frac{
 | `const` permission      | §4.5.4 | Immutable, no keys needed                           |
 | `unique` permission     | §4.5.4 | Exclusive, no keys needed                           |
 | Scope (name resolution) | §8.4   | Distinct from LexicalScope; used for binding lookup |
-| `.await` expression     | §15    | Async suspension point                              |
+| `wait` expression       | §15    | Async suspension point                              |
 | `dispatch`              | §14.3  | Data-parallel iteration                             |
 | `parallel` block        | §14.1  | Structured concurrency primitive                    |
 | `defer` statement       | §11.12 | Deferred execution at scope exit                    |
@@ -13455,11 +14286,13 @@ $$\frac{
 | `E-KEY-0006` | Error    | §13.2   | Key acquisition in `defer` escapes to outer scope                           |
 | `E-KEY-0010` | Error    | §13.6   | Potential conflict on dynamic indices                                       |
 | `E-KEY-0011` | Error    | §13.7   | Detectable key ordering cycle within procedure                              |
+| `E-KEY-0012` | Error    | §13.7.2 | Nested mode escalation without `upgrade` keyword                            |
+| `E-KEY-0013` | Error    | §13.7.2 | `upgrade` keyword on non-escalating block                                   |
 | `E-KEY-0020` | Error    | §13.4   | `#` immediately before method name                                          |
 | `E-KEY-0031` | Error    | §13.4   | `#` block path not in scope                                                 |
 | `E-KEY-0032` | Error    | §13.4   | `#` block path is not `shared`                                              |
 | `E-KEY-0033` | Error    | §13.5   | `#` on field of non-record type                                             |
-| `E-KEY-0050` | Error    | §13.8   | `.await` while key is held                                                  |
+| `E-KEY-0050` | Error    | §13.8   | `wait` while key is held                                                    |
 | `W-KEY-0001` | Warning  | §13.2   | Fine-grained keys in tight loop (performance hint)                          |
 | `W-KEY-0002` | Warning  | §13.2   | Redundant key acquisition (already covered)                                 |
 | `W-KEY-0003` | Warning  | §13.4   | `#` redundant (matches type boundary)                                       |
@@ -13469,141 +14302,170 @@ $$\frac{
 | `W-KEY-0012` | Warning  | §13.7   | Nested `#` blocks with potential order cycle                                |
 | `E-KEY-0060` | Error    | §13.7.1 | Read-then-write on same `shared` path without covering Write key            |
 | `E-KEY-0070` | Error    | §13.4   | Write operation in `#` block without `write` modifier                       |
+| `E-KEY-0083` | Error    | §13.3.1 | `shared witness Trait` where Trait has `~%` method                          |
+| `E-KEY-0085` | Error    | §13.3.3 | Escaping closure with `shared` capture lacks type annotation                |
+| `E-KEY-0086` | Error    | §13.3.3 | Escaping closure outlives captured `shared` binding                         |
 | `W-KEY-0006` | Warning  | §13.7.1 | Explicit read-then-write form; compound assignment available                |
+| `W-KEY-0009` | Warning  | §13.3.3 | Closure captures `shared` data                                              |
+| `W-KEY-0010` | Warning  | §13.7.2 | `upgrade` block permits interleaving                                        |
+| `E-KEY-0090` | Error    | §13.7.3 | Missing `else` block for speculative `#` block                              |
+| `E-KEY-0091` | Error    | §13.7.3 | `else` block on non-speculative `#` block                                   |
+| `E-KEY-0092` | Error    | §13.7.3 | Speculative block body contains non-local control flow                      |
+| `E-KEY-0093` | Error    | §13.7.3 | Nested speculative blocks on overlapping paths                              |
+| `E-KEY-0094` | Error    | §13.7.3 | `wait` expression inside speculative block                                  |
+| `E-KEY-0095` | Error    | §13.7.3 | Procedure call with `shared` capture inside speculative block               |
+| `E-KEY-0096` | Error    | §13.7.3 | Observable side effect (I/O, allocation) inside speculative block           |
+| `E-KEY-0097` | Error    | §13.7.3 | Speculative block value escapes to non-speculative context                  |
+| `W-KEY-0020` | Warning  | §13.7.3 | High conflict rate detected for speculative block (profile-guided)          |
 
 ---
 
-## Clause 14: Concurrency Structures
+## Clause 14: Structured Parallelism
 
-### 14.1 The `parallel` Block
+This clause defines Cursive's parallelism model: how code executes concurrently across CPU threads, GPU compute units, and other execution domains. The model is built on three orthogonal concepts that compose freely:
+
+| Concept              | Mechanism                   | Purpose                     |
+| -------------------- | --------------------------- | --------------------------- |
+| **Execution Domain** | `parallel` block            | Where code runs             |
+| **Suspension**       | `wait` / `Async<T>`         | Yield until external event  |
+| **Coordination**     | `key` / `shared` permission | Safe concurrent data access |
+
+---
+
+### 14.1 The Parallel Block
 
 ##### Definition
 
-**Separation of Concerns**
+A **parallel block** establishes an execution scope where work can be distributed across multiple workers. The block specifies the execution domain (CPU, GPU, etc.) via a capability from the `Context`, and all work within the block MUST complete before execution continues past the block boundary.
 
-Cursive separates memory management from task execution:
+**Formal Definition**
 
-| Construct  | Responsibility                    |
-| :--------- | :-------------------------------- |
-| `region`   | Memory arena lifetime             |
-| `parallel` | Task grouping + executor          |
-| `spawn`    | Create task (requires `parallel`) |
+A parallel block $P$ is defined as:
 
-**The `parallel` Block**
+$$P = (D, C, B)$$
 
-The `parallel` block is the structured concurrency primitive. It groups tasks and ensures all complete before continuing.
+where:
+- $D$ is the execution domain (a capability expression)
+- $C$ is the (possibly empty) set of constraints/attributes  
+- $B$ is the block body containing parallel work
 
-##### Syntax & Declaration
+The **structured concurrency invariant** states:
+
+$$\forall w \in \text{work}(B).\ \text{lifetime}(w) \subseteq \text{lifetime}(P)$$
+
+All work spawned within the block completes before the block exits.
+
+##### Syntax
 
 **Grammar**
 
 ```ebnf
-<parallel_block>   ::= "parallel" <executor>? <block_options>? "{" <parallel_body> "}"
+parallel_block    ::= "parallel" domain_expr constraint_list? "{" parallel_body "}"
 
-<executor>         ::= "pool" "(" <expr> ")"
-                     | "async" "(" <expr> ")"
+domain_expr       ::= context_path "." domain_method "(" domain_args? ")"
 
-<block_options>    ::= <block_option>*
-<block_option>     ::= "." "collect_errors" "()"
-                     | "." "name" "(" <expr> ")"
+domain_method     ::= "cpu" | "gpu" | "inline"
 
-<parallel_body>    ::= <statement>*
+domain_args       ::= domain_arg ("," domain_arg)*
+
+domain_arg        ::= identifier ":" expression
+
+constraint_list   ::= "[" constraint ("," constraint)* "]"
+
+constraint        ::= "cancel" ":" expression
+                    | "name" ":" string_literal
+
+parallel_body     ::= (spawn_expr | dispatch_expr | statement)*
 ```
 
-**Executor Types**
-
-| Executor         | Description                        |
-| :--------------- | :--------------------------------- |
-| (none)           | System default pool                |
-| `pool(n)`        | Thread pool with n workers         |
-| `async(runtime)` | Async executor for I/O concurrency |
-
-**Default Executor**
-
-Bare `parallel` uses the system default thread pool:
+**Examples**
 
 ```cursive
-parallel {
-    spawn { task_a() }
-    spawn { task_b() }
+// Basic CPU parallelism
+parallel ctx.cpu(workers: 4) {
+    spawn { work_a() }
+    spawn { work_b() }
 }
 
-// Equivalent to:
-parallel pool(System.cpu_count()) {
-    spawn { task_a() }
-    spawn { task_b() }
+// GPU compute
+parallel ctx.gpu(device: 0) {
+    dispatch i in 0..n {
+        output[i] = input[i] * 2.0
+    }
+}
+
+// With cancellation token
+parallel ctx.cpu(workers: 8) [cancel: token] {
+    dispatch i in 0..n {
+        if token.is_cancelled() { return }
+        process(i)
+    }
+}
+
+// Inline (sequential) for testing
+parallel ctx.inline() {
+    spawn { work_a() }  // Runs immediately
+    spawn { work_b() }  // Runs after work_a
 }
 ```
 
 ##### Static Semantics
 
-**Typing Rules**
+**Typing Rule (T-Parallel)**
 
-**(T-Parallel)**
-$$\frac{\Gamma, \text{parallel} \vdash \textit{body} : T}{\Gamma \vdash \texttt{parallel } \{ \textit{body} \} : T}$$
+$$\frac{
+  \Gamma \vdash D : \text{witness ExecutionDomain} \quad
+  \Gamma_P \vdash B : T \quad
+  \Gamma_P = \Gamma[\text{parallel\_context} \mapsto D]
+}{
+  \Gamma \vdash \texttt{parallel } D\ \{B\} : T
+} \quad \text{(T-Parallel)}$$
 
-**(T-Spawn)**
-$$\frac{\Gamma \vdash e : T \quad \text{InParallel}(\Gamma)}{\Gamma \vdash \texttt{spawn } \{ e \} : \texttt{Task}\langle T \rangle}$$
+The domain expression must evaluate to a type implementing the `ExecutionDomain` trait. The body is typed in an extended environment that includes the parallel context.
 
-**Structured Concurrency Invariant**
+**Well-Formedness (WF-Parallel)**
 
-All tasks spawned within a `parallel` block MUST complete before the block exits:
+A parallel block is well-formed if:
+1. The domain expression is a valid capability access
+2. All `spawn` and `dispatch` expressions within directly reference this block
+3. No `spawn` or `dispatch` appears outside a parallel block
+4. Captured bindings satisfy permission requirements (§14.2)
 
-$$\forall t \in \text{Tasks}(p) : \text{Completed}(t) \text{ before } \text{Exit}(p)$$
+##### Dynamic Semantics
 
-**Implicit Joining**
+**Evaluation**
 
-All tasks spawned within a `parallel` block are implicitly joined when the block exits:
+Evaluation of `parallel D { B }` proceeds as follows:
 
-```cursive
-parallel {
-    let task_a = spawn { compute_a() }
-    let task_b = spawn { compute_b() }
+1. Evaluate domain expression $D$ to obtain execution context $ctx$
+2. Initialize worker pool according to domain parameters
+3. Evaluate body $B$, queuing work items from `spawn`/`dispatch`
+4. Block at closing brace until all queued work completes
+5. Propagate first panic (if any) after all work settles
+6. Release workers back to domain
+7. Return collected results (if applicable)
 
-    let result_a = task_a.join()      // Join a early
-    use(result_a)
+**Completion Ordering**
 
-    // task_b implicitly joined here
-}
-```
+Work items complete in unspecified order. The parallel block only guarantees that ALL work completes before the block exits, not any particular completion order.
 
-**Task Handle API**
+##### Constraints
 
-```cursive
-modal Task<T> {
-    @Running { }
-    @Completed { value: T }
-    @Panicked { error: PanicInfo }
+**Negative Constraints**
 
-    // Block until complete, return result
-    procedure join(~!) -> T
-
-    // Check completion without blocking
-    procedure is_complete(~) -> bool
-
-    // Non-blocking attempt to get result
-    procedure try_join(~!) -> Option<T>
-}
-```
-
-##### Constraints & Legality
-
-**Nesting**
-
-`parallel` blocks nest naturally. Inner blocks complete before the outer block continues.
-
-**Panic Propagation**
-
-Default behavior: All tasks run to completion (or their own panic). After all tasks finish, the first panic propagates.
+1. `spawn` MUST NOT appear outside a parallel block
+2. `dispatch` inside a parallel block MUST use the block's domain
+3. A parallel block MUST have a valid execution domain capability
+4. Parallel blocks MUST NOT be `async` (use `wait` inside instead)
 
 **Diagnostic Table**
 
-| Code           | Severity | Condition                                     |
-| :------------- | :------- | :-------------------------------------------- |
-| `E-SPAWN-0001` | Error    | `spawn` outside `parallel` block              |
-| `E-SPAWN-0002` | Error    | Captured reference outlives task              |
-| `E-SPAWN-0003` | Error    | Cannot capture downgraded ref outside struct. |
-| `E-SPAWN-0004` | Error    | `detach` prohibited inside `parallel` block   |
+| Code         | Severity | Condition                      | Detection    | Effect    |
+| :----------- | :------- | :----------------------------- | :----------- | :-------- |
+| `E-PAR-0001` | Error    | `spawn` outside parallel block | Compile-time | Rejection |
+| `E-PAR-0002` | Error    | Invalid domain capability      | Compile-time | Rejection |
+| `E-PAR-0003` | Error    | Domain parameter type mismatch | Compile-time | Rejection |
+| `E-PAR-0010` | Error    | `async` parallel block         | Compile-time | Rejection |
 
 ---
 
@@ -13611,405 +14473,2318 @@ Default behavior: All tasks run to completion (or their own panic). After all ta
 
 ##### Definition
 
-Tasks capture bindings from their environment according to their permission:
+When a `spawn` or `dispatch` body references bindings from enclosing scopes, those bindings are **captured** into the work item. Capture rules ensure memory safety by preventing data races and use-after-free.
 
-| Source Permission | Capture Mode | In Task  |
-| :---------------- | :----------- | :------- |
-| `const`           | Reference    | `const`  |
-| `shared`          | Reference    | `shared` |
-| `unique`          | Must `move`  | `unique` |
+**Capture Rules by Permission**
+
+| Source Permission   | Capture Mode | In Work Item | Source After Capture | Rationale                          |
+| :------------------ | :----------- | :----------- | :------------------- | :--------------------------------- |
+| `const`             | Reference    | `const`      | Unchanged            | Immutable, freely shareable        |
+| `shared`            | Reference    | `shared`     | Unchanged            | Key system handles synchronization |
+| `unique` (implicit) | **ERROR**    | —            | —                    | Would create aliased mutation      |
+| `unique` + `move`   | Move         | `unique`     | Moved (invalid)      | Explicit ownership transfer        |
 
 ##### Static Semantics
 
-**Const Capture**
+**Capture Analysis (T-Capture)**
 
-`const` data is freely capturable—it cannot change, so sharing is safe:
+For each free variable $v$ in a spawn/dispatch body:
 
-```cursive
-let config: const Config = ...
+$$\frac{
+  \Gamma \vdash v : \pi\ T \quad
+  \pi \in \{\texttt{const}, \texttt{shared}\}
+}{
+  \Gamma_{\text{capture}} \vdash v : \pi\ T
+} \quad \text{(T-Capture-Ref)}$$
 
-parallel {
-    spawn { use(config.timeout) }     // OK: const, no key needed
-    spawn { use(config.retries) }     // OK: const, no key needed
-}
-```
+$$\frac{
+  \Gamma \vdash v : \texttt{unique}\ T \quad
+  \texttt{move}\ v \in \text{body}
+}{
+  \Gamma_{\text{capture}} \vdash v : \texttt{unique}\ T \quad
+  \Gamma' = \Gamma[v \mapsto \text{Moved}]
+} \quad \text{(T-Capture-Move)}$$
 
-**Shared Capture**
+$$\frac{
+  \Gamma \vdash v : \texttt{unique}\ T \quad
+  \texttt{move}\ v \notin \text{body}
+}{
+  \text{ERROR: E-PAR-0020}
+} \quad \text{(T-Capture-Unique-Error)}$$
 
-`shared` data is capturable within structured concurrency:
-
-```cursive
-let player: shared Player = ...
-
-parallel {
-    spawn { player.health = 100 }     // OK: shared, key acquired on access
-    spawn { player.mana = 50 }        // OK: different path, parallel
-}
-```
-
-**Unique Capture**
-
-`unique` data cannot be captured by reference—it must be moved:
+**Examples**
 
 ```cursive
-let buffer: unique Buffer = ...
+let x: const Data = ...
+let y: shared State = ...
+let z: unique Buffer = ...
+let w: unique Buffer = ...
 
-parallel {
-    spawn { buffer.write(data) }      // ERROR: cannot capture unique
-}
-
-parallel {
+parallel ctx.cpu() {
     spawn {
-        move buffer                   // Ownership moves into task
-        buffer.write(data)            // OK: buffer is unique within task
+        use(x)       // OK: const captured by reference
+        use(y)       // OK: shared captured by reference
+        use(z)       // ERROR E-PAR-0020: can't capture unique implicitly
+        use(move w)  // OK: w moved into this spawn
     }
-}
-// buffer no longer accessible here
-```
-
-**Implicit Downgrade Capture**
-
-When `unique` data is captured as `shared` (permission downgrade), this is only permitted within structured concurrency:
-
-```cursive
-let player: unique Player = Player::new()
-
-parallel {
-    // player implicitly downgraded to shared for these captures
-    spawn { player.health = 100 }
-    spawn { player.mana = 50 }
-}
-// parallel block complete, player accessible as unique again
-
-player.health = 200   // OK: unique access restored
-```
-
-The original `unique` binding is **inactive** for the duration of the `parallel` block.
-
----
-
-### 14.3 Data Parallelism
-
-##### Definition
-
-**The `dispatch` Primitive**
-
-`dispatch` expresses data-parallel operations over a range:
-
-```cursive
-let data: shared [i32; 1000] = ...
-
-dispatch i in 0..data.len() {
-    data[i] = data[i] * 2
-}
-```
-
-The runtime:
-1. Partitions the iteration space
-2. Assigns partitions to available workers
-3. Executes in parallel
-4. Joins when complete
-
-##### Static Semantics
-
-**Automatic Key Elision**
-
-`dispatch` automatically proves disjointness for iteration-indexed access and elides keys:
-
-```cursive
-dispatch i in 0..data.len() {
-    data[i] *= 2              // No key: proven disjoint by dispatch semantics
-}
-```
-
-**Cross-iteration Dependency Detection**
-
-```cursive
-dispatch i in 0..data.len() {
-    data[i] = data[i + 1]     // ERROR E-DISPATCH-0001: cross-iteration dependency
-}
-```
-
-##### Syntax & Declaration
-
-**Dispatch Variants**
-
-*With explicit pool:*
-```cursive
-dispatch on pool(8) i in 0..n {
-    process(data[i])
-}
-```
-
-*Reduction:*
-```cursive
-let sum = dispatch i in 0..data.len()
-    reduce(0, |acc, x| acc + x)
-{
-    data[i]
-}
-```
-
-*Nested dispatch:*
-```cursive
-dispatch i in 0..rows {
-    dispatch j in 0..cols {
-        matrix[i][j] = compute(i, j)
+    
+    spawn {
+        use(x)       // OK: const can be captured multiple times
+        use(y)       // OK: shared can be captured multiple times
+        use(w)       // ERROR E-MEM-3001: w was moved above
     }
 }
 ```
 
-##### Constraints & Legality
+##### Lifetime Safety
+
+Because all work MUST complete before the parallel block exits, captured references are guaranteed valid for the duration of all work items:
+
+```cursive
+procedure safe_capture() {
+    let local_data: const [i32; 100] = [0; 100]
+    
+    parallel ctx.cpu() {
+        spawn {
+            // local_data is valid here because:
+            // 1. It's captured by reference (const)
+            // 2. This spawn MUST complete before parallel block exits
+            // 3. Parallel block exits before safe_capture returns
+            // 4. local_data lives until safe_capture returns
+            process(local_data)
+        }
+    }
+    // Spawn has completed; local_data still valid until function returns
+}
+```
+
+##### Constraints
 
 **Diagnostic Table**
 
-| Code              | Severity | Condition                  |
-| :---------------- | :------- | :------------------------- |
-| `E-DISPATCH-0001` | Error    | Cross-iteration dependency |
+| Code         | Severity | Condition                                 | Detection    | Effect    |
+| :----------- | :------- | :---------------------------------------- | :----------- | :-------- |
+| `E-PAR-0020` | Error    | Implicit capture of `unique` binding      | Compile-time | Rejection |
+| `E-PAR-0021` | Error    | Move of already-moved binding             | Compile-time | Rejection |
+| `E-PAR-0022` | Error    | Move of binding from outer parallel scope | Compile-time | Rejection |
 
 ---
 
-## Clause 15: Async
+### 14.3 The Spawn Expression
 
 ##### Definition
 
-**Futures**
+A **spawn expression** queues a unit of work for concurrent execution within the enclosing parallel block's domain. Spawn expressions are only valid directly within parallel blocks.
 
-A **Future** represents a value that may not yet exist:
+##### Syntax
+
+**Grammar**
+
+```ebnf
+spawn_expr      ::= "spawn" spawn_attrs? "{" expression "}"
+
+spawn_attrs     ::= "[" spawn_attr ("," spawn_attr)* "]"
+
+spawn_attr      ::= "name" ":" string_literal
+                  | "affinity" ":" expression
+                  | "priority" ":" expression
+```
+
+**Examples**
 
 ```cursive
-trait Future {
-    type Output
-    procedure poll(~!, cx: unique WakerContext) -> Poll<Self::Output>
-}
-
-enum Poll<T> {
-    Ready { value: T },
-    Pending,
+parallel ctx.cpu(workers: 4) {
+    // Basic spawn
+    spawn { compute_a() }
+    
+    // Named spawn (for debugging/profiling)
+    spawn [name: "physics"] { step_physics() }
+    
+    // With affinity hint
+    spawn [affinity: cores(0..2)] { latency_sensitive_work() }
+    
+    // With priority
+    spawn [priority: Priority::High] { important_work() }
 }
 ```
+
+##### Static Semantics
+
+**Typing Rule (T-Spawn)**
+
+$$\frac{
+  \Gamma[\text{parallel\_context}] = D \quad
+  \Gamma_{\text{capture}} \vdash e : T
+}{
+  \Gamma \vdash \texttt{spawn}\ \{e\} : \text{SpawnHandle}\langle T \rangle
+} \quad \text{(T-Spawn)}$$
+
+A spawn expression returns a `SpawnHandle<T>` that can be used to retrieve the result.
+
+**Attribute Typing**
+
+| Attribute  | Expected Type    | Default            |
+| :--------- | :--------------- | :----------------- |
+| `name`     | `string` literal | Anonymous          |
+| `affinity` | `CpuSet`         | Domain default     |
+| `priority` | `Priority`       | `Priority::Normal` |
+
+##### Dynamic Semantics
+
+**Evaluation**
+
+Evaluation of `spawn { e }` proceeds as follows:
+
+1. Capture free variables from enclosing scope per §14.2
+2. Package captured environment with expression into work item
+3. Enqueue work item to parallel block's worker pool
+4. Return `SpawnHandle<T>` immediately (non-blocking)
+5. Worker eventually dequeues and evaluates `e`
+6. Result stored in handle; waiters notified
+
+**Result Collection**
+
+Spawn results can be collected in several ways:
+
+**Implicit Collection (Block Returns Tuple)**
+
+```cursive
+let (a, b, c) = parallel ctx.cpu() {
+    spawn { compute_a() }
+    spawn { compute_b() }
+    spawn { compute_c() }
+}
+// Results collected in spawn-declaration order
+```
+
+**Explicit Handle**
+
+```cursive
+parallel ctx.cpu() {
+    let handle_a = spawn { compute_a() }
+    let handle_b = spawn { compute_b() }
+    
+    // Do other work...
+    
+    // Explicitly wait for specific result
+    let result_a = wait handle_a
+}
+```
+
+**Ignore Result**
+
+```cursive
+parallel ctx.cpu() {
+    spawn { fire_and_forget_work() }
+    // No result collected; work still completes before block exits
+}
+```
+
+##### Constraints
+
+**Negative Constraints**
+
+1. `spawn` MUST appear directly within a `parallel` block body
+2. `spawn` MUST NOT appear within a nested function/closure that escapes
+3. Spawn attributes MUST match expected types
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                      | Detection    | Effect    |
+| :----------- | :------- | :----------------------------- | :----------- | :-------- |
+| `E-PAR-0030` | Error    | `spawn` outside parallel block | Compile-time | Rejection |
+| `E-PAR-0031` | Error    | Invalid spawn attribute type   | Compile-time | Rejection |
+| `E-PAR-0032` | Error    | `spawn` in escaping closure    | Compile-time | Rejection |
+
+---
+
+### 14.4 The Dispatch Expression
+
+##### Definition
+
+A **dispatch expression** expresses data-parallel iteration where each iteration may execute concurrently. The key system determines which iterations can safely parallelize based on their access patterns.
+
+##### Syntax
+
+**Grammar**
+
+```ebnf
+dispatch_expr   ::= "dispatch" identifier "in" range_expr 
+                    key_clause?
+                    dispatch_attrs?
+                    "{" expression "}"
+
+key_clause      ::= "key" key_pattern key_mode
+
+key_pattern     ::= path_expression  // May reference iteration variable
+
+key_mode        ::= "read" | "write"
+
+dispatch_attrs  ::= "[" dispatch_attr ("," dispatch_attr)* "]"
+
+dispatch_attr   ::= "reduce" ":" reduce_op
+                  | "ordered"
+                  | "chunk" ":" expression
+
+reduce_op       ::= "+" | "*" | "min" | "max" | "and" | "or" | identifier
+```
+
+**Examples**
+
+```cursive
+parallel ctx.cpu(workers: 4) {
+    // Basic dispatch with inferred keys
+    dispatch i in 0..n {
+        data[i] = compute(i)
+    }
+    
+    // Explicit key annotation
+    dispatch i in 0..n key data[i] write {
+        data[i] = transform(data[i])
+    }
+    
+    // With reduction
+    let sum = dispatch i in 0..n key data[i] read [reduce: +] {
+        data[i]
+    }
+    
+    // Ordered (preserves side-effect order)
+    dispatch i in 0..n [ordered] {
+        println(f"Processing {i}")  // Prints in order 0, 1, 2, ...
+    }
+    
+    // Chunked (control granularity)
+    dispatch i in 0..n [chunk: 64] {
+        fine_grained_work(i)
+    }
+}
+```
+
+**Key Clause Semantics**
+
+The key clause declares what path each iteration accesses:
+
+**Key Pattern Analysis**
+
+| Key Pattern  | Keys Generated     | Parallelism           |
+| :----------- | :----------------- | :-------------------- |
+| `data[i]`    | n distinct keys    | Full parallel         |
+| `data[i/2]`  | n/2 distinct keys  | Pairs serialize       |
+| `data[i%k]`  | k distinct keys    | k-way parallel        |
+| `data[f(i)]` | Unknown            | Runtime serialization |
+| (omitted)    | Inferred from body | Depends on analysis   |
+
+**Key Inference**
+
+When no key clause is provided, the compiler analyzes the body to infer key patterns:
+
+```cursive
+dispatch i in 0..n {
+    data[i] = compute(i)  // Inferred: key data[i] write
+}
+
+dispatch i in 0..n {
+    result[i] = source[i] * 2  // Inferred: key (result[i] write, source[i] read)
+}
+```
+
+If inference fails or is ambiguous, an explicit key clause is required.
+
+##### Static Semantics
+
+**Typing Rule (T-Dispatch)**
+
+$$\frac{
+  \Gamma \vdash \text{range} : \text{Range}\langle I \rangle \quad
+  \Gamma, i : I, \text{Key}(P, M) \vdash e : T
+}{
+  \Gamma \vdash \texttt{dispatch } i \texttt{ in range key } P\ M\ \{e\} : ()
+} \quad \text{(T-Dispatch)}$$
+
+**Typing Rule (T-Dispatch-Reduce)**
+
+$$\frac{
+  \Gamma \vdash \text{range} : \text{Range}\langle I \rangle \quad
+  \Gamma, i : I \vdash e : T \quad
+  \Gamma \vdash \oplus : (T, T) \to T
+}{
+  \Gamma \vdash \texttt{dispatch } i \texttt{ in range [reduce: } \oplus \texttt{]}\ \{e\} : T
+} \quad \text{(T-Dispatch-Reduce)}$$
+
+##### Dynamic Semantics
+
+**Evaluation**
+
+Evaluation of `dispatch i in range { e }` proceeds as follows:
+
+1. Evaluate range to determine iteration count $n$
+2. Analyze key patterns to partition iterations into conflict-free groups
+3. For each group, queue iterations as work items
+4. Workers execute iterations, acquiring keys as needed
+5. If `[reduce: op]`, combine partial results using `op`
+6. Block until all iterations complete
+7. Return reduced value (if reduction) or unit
+
+**Parallelism Determination**
+
+The key system partitions iterations:
+
+```
+Iterations: [0, 1, 2, 3, 4, 5, 6, 7]
+Key pattern: data[i % 3]
+Keys: {data[0], data[1], data[2]}
+
+Partitions:
+  Key data[0]: iterations [0, 3, 6]  -- serialize
+  Key data[1]: iterations [1, 4, 7]  -- serialize  
+  Key data[2]: iterations [2, 5]     -- serialize
+  
+Partitions execute in parallel with each other.
+```
+
+**Reduction Semantics**
+
+**Associativity Requirement**
+
+Reduction operators MUST be associative for parallel reduction:
+
+$$\forall a, b, c.\ (a \oplus b) \oplus c = a \oplus (b \oplus c)$$
+
+Non-associative operations require `[ordered]` attribute.
+
+**Parallel Reduction Algorithm**
+
+1. Partition iterations across workers
+2. Each worker reduces its partition to partial result
+3. Partial results combined in tree pattern
+4. Final result returned
+
+**Determinism**
+
+For non-commutative associative operators (e.g., matrix multiplication), reduction order follows a deterministic tree pattern based on iteration indices, ensuring reproducible results.
+
+##### Constraints
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                     | Detection    | Effect    |
+| :----------- | :------- | :-------------------------------------------- | :----------- | :-------- |
+| `E-PAR-0040` | Error    | Dispatch outside parallel block               | Compile-time | Rejection |
+| `E-PAR-0041` | Error    | Key inference failed                          | Compile-time | Rejection |
+| `E-PAR-0042` | Error    | Non-associative reduction without `[ordered]` | Compile-time | Rejection |
+| `E-PAR-0043` | Warning  | Dynamic key pattern (runtime serialization)   | Compile-time | Warning   |
+
+---
+
+### 14.5 Execution Domains
+
+##### Definition
+
+An **execution domain** is a capability that provides access to computational resources. Domains are accessed through the `Context` record and configured via method parameters.
+
+**The ExecutionDomain Trait**
+
+```cursive
+/// Base trait for all execution domains
+trait ExecutionDomain {
+    /// Human-readable name for debugging
+    procedure name(~) -> string;
+    
+    /// Maximum concurrent work items
+    procedure max_concurrency(~) -> usize;
+}
+```
+
+This trait is witness-safe, allowing heterogeneous domain handling where needed.
+
+#### 14.5.3 CPU Domain
+
+##### Definition
+
+The CPU domain executes work on operating system threads.
+
+**Access**
+
+```cursive
+ctx.cpu(parameters...)
+```
+
+**Parameters**
+
+| Parameter    | Type       | Default          | Description                |
+| :----------- | :--------- | :--------------- | :------------------------- |
+| `workers`    | `usize`    | System CPU count | Number of worker threads   |
+| `affinity`   | `CpuSet`   | All CPUs         | CPU cores workers may use  |
+| `priority`   | `Priority` | `Normal`         | Thread scheduling priority |
+| `stack_size` | `usize`    | System default   | Stack size per worker      |
+
+**CpuSet Type**
+
+```cursive
+record CpuSet {
+    mask: [bool; MAX_CPUS],
+
+    /// All available CPUs
+    procedure all() -> CpuSet
+    
+    /// Specific core indices
+    procedure cores(indices: [usize]) -> CpuSet
+    
+    /// Range of cores
+    procedure range(start: usize, end: usize) -> CpuSet
+    
+    /// NUMA node
+    procedure numa_node(node: usize) -> CpuSet
+}
+```
+
+**Priority Type**
+
+```cursive
+enum Priority {
+    Idle,
+    Low,
+    Normal,
+    High,
+    Realtime,  // Requires elevated privileges
+}
+```
+
+**Example**
+
+```cursive
+// High-priority physics on dedicated cores
+parallel ctx.cpu(workers: 2, affinity: CpuSet::cores([0, 1]), priority: Priority::High) {
+    dispatch i in 0..physics_bodies.len() key physics_bodies[i] write {
+        integrate(physics_bodies[i])
+    }
+}
+```
+
+#### 14.5.4 GPU Domain
+
+##### Definition
+
+The GPU domain executes work on graphics processing units via compute shaders.
+
+**Access**
+
+```cursive
+ctx.gpu(parameters...)
+```
+
+**Parameters**
+
+| Parameter | Type    | Default | Description         |
+| :-------- | :------ | :------ | :------------------ |
+| `device`  | `usize` | 0       | GPU device index    |
+| `queue`   | `usize` | 0       | Command queue index |
+
+**GPU Memory Model**
+
+GPU and CPU have separate memory spaces. Data must be explicitly transferred:
+
+```cursive
+parallel ctx.gpu() {
+    // Allocate device memory
+    let d_input: GpuBuffer<f32> = gpu::alloc(n)
+    let d_output: GpuBuffer<f32> = gpu::alloc(n)
+    
+    // Upload host -> device
+    gpu::upload(host_input, d_input)
+    
+    // Compute
+    dispatch i in 0..n {
+        d_output[i] = d_input[i] * 2.0
+    }
+    
+    // Download device -> host
+    gpu::download(d_output, host_output)
+}
+// Implicit sync at block exit
+```
+
+**GPU Intrinsics**
+
+Within `parallel ctx.gpu()`, the following intrinsics are available:
+
+| Intrinsic                        | Description                       |
+| :------------------------------- | :-------------------------------- |
+| `gpu::alloc<T>(count)`           | Allocate device buffer            |
+| `gpu::upload(src, dst)`          | Copy host to device               |
+| `gpu::download(src, dst)`        | Copy device to host               |
+| `gpu::global_id()`               | Global thread index               |
+| `gpu::local_id()`                | Workgroup-local thread index      |
+| `gpu::workgroup_id()`            | Workgroup index                   |
+| `gpu::barrier()`                 | Workgroup synchronization barrier |
+| `gpu::atomic_add(ptr, val)`      | Atomic addition                   |
+| `gpu::atomic_min(ptr, val)`      | Atomic minimum                    |
+| `gpu::atomic_max(ptr, val)`      | Atomic maximum                    |
+| `gpu::atomic_cas(ptr, cmp, val)` | Atomic compare-and-swap           |
+
+**GPU Shared Memory**
+
+Workgroup-shared memory for fast intra-workgroup communication:
+
+```cursive
+parallel ctx.gpu() {
+    dispatch workgroup in 0..num_workgroups {
+        // Declare shared memory (per-workgroup)
+        let shared: gpu::Shared<[f32; 256]> = gpu::shared()
+        
+        let local_id = gpu::local_id()
+        
+        // Load into shared memory
+        shared[local_id] = global_input[gpu::global_id()]
+        
+        gpu::barrier()  // Ensure all loads complete
+        
+        // Use shared memory
+        let neighbor = shared[(local_id + 1) % 256]
+        
+        gpu::barrier()  // Ensure all reads complete before next iteration
+    }
+}
+```
+
+**GPU Dispatch Configuration**
+
+```cursive
+parallel ctx.gpu() {
+    // 1D dispatch
+    dispatch i in 0..n { ... }
+    
+    // 2D dispatch
+    dispatch (x, y) in (0..width, 0..height) { ... }
+    
+    // 3D dispatch  
+    dispatch (x, y, z) in (0..w, 0..h, 0..d) { ... }
+    
+    // Explicit workgroup size
+    dispatch i in 0..n [workgroup: 256] { ... }
+}
+```
+
+**GPU Capture Rules**
+
+Code inside GPU dispatch can only capture:
+
+| Type                     | Allowed | Reason                  |
+| :----------------------- | :------ | :---------------------- |
+| `GpuBuffer<T>`           | Yes     | Device memory           |
+| Primitive constants      | Yes     | Embedded in shader      |
+| `const` small structs    | Yes     | Uniform buffer          |
+| `shared` types           | **No**  | No key system on GPU    |
+| Host pointers/references | **No**  | Different address space |
+
+```cursive
+let host_array: [f32] = ...
+let gpu_buffer: GpuBuffer<f32> = ...
+let constant: f32 = 3.14
+
+parallel ctx.gpu() {
+    dispatch i in 0..n {
+        // gpu_buffer[i] = host_array[i]  // ERROR: can't access host memory
+        gpu_buffer[i] = gpu_buffer[i] * constant  // OK
+    }
+}
+```
+
+#### 14.5.5 Inline Domain
+
+##### Definition
+
+The inline domain executes work sequentially on the current thread. Useful for testing, debugging, and single-threaded contexts.
+
+**Access**
+
+```cursive
+ctx.inline()
+```
+
+**Semantics**
+
+- `spawn { e }` evaluates `e` immediately, blocks until complete
+- `dispatch i in range { e }` executes as sequential loop
+- No actual parallelism occurs
+- All parallel semantics preserved (capture rules, etc.)
+
+**Use Cases**
+
+```cursive
+// Testing: deterministic execution
+[[test]]
+procedure test_parallel_algorithm() {
+    parallel ctx.inline() {
+        // Executes sequentially, easier to debug
+        dispatch i in 0..n {
+            data[i] = compute(i)
+        }
+    }
+    assert(verify(data))
+}
+
+// Conditional parallelism
+let domain = if n > threshold { ctx.cpu(workers: 4) } else { ctx.inline() }
+parallel domain {
+    dispatch i in 0..n { ... }
+}
+```
+
+### 14.5.6 Domain in Context Record
+
+```cursive
+record Context {
+    // ... other capabilities ...
+    
+    /// CPU execution domain factory
+    cpu: CpuDomainFactory,
+    
+    /// GPU execution domain factory (None if no GPU)
+    gpu: GpuDomainFactory | None,
+    
+    /// Inline (sequential) domain factory
+    inline: InlineDomainFactory,
+}
+
+record CpuDomainFactory {
+    sys: witness System,
+
+    procedure call(~, 
+        workers: usize = cpu_count(),
+        affinity: CpuSet = CpuSet::all(),
+        priority: Priority = Priority::Normal,
+        stack_size: usize = default_stack_size()
+    ) -> CpuDomain
+}
+```
+
+---
+
+### 14.6 Async Integration
+
+##### Definition
+
+Async operations (`wait`, `Async<T>`) compose freely with parallel blocks. Workers can suspend on async operations, yielding to other work.
+
+**Wait Inside Parallel**
+
+```cursive
+parallel ctx.cpu(workers: 4) {
+    spawn {
+        // Async I/O inside spawn
+        let data = wait ctx.fs~>read(file)
+        process(data)
+    }
+    
+    dispatch i in 0..n key results[i] write {
+        // Async network inside dispatch
+        let response = wait ctx.net~>get(urls[i])
+        results[i] = parse(response)
+    }
+}
+```
+
+**Semantics**
+
+When a worker hits `wait`:
+1. Worker suspends current work item
+2. Worker picks up another queued work item (if available)
+3. When async operation completes, work item becomes ready
+4. Some worker resumes the work item
+
+This enables efficient I/O + compute overlap without blocking threads.
+
+**Key Prohibition Across Wait**
+
+Per §13.8, keys MUST NOT be held across suspension points:
+
+```cursive
+parallel ctx.cpu() {
+    spawn {
+        key data write {
+            wait ctx.io~>read(file)  // ERROR E-KEY-0050
+        }
+    }
+}
+```
+
+**Correct Pattern**
+
+```cursive
+parallel ctx.cpu() {
+    spawn {
+        // Do async work first
+        let content = wait ctx.io~>read(file)
+        
+        // Then acquire key for synchronous processing
+        key data write {
+            data.update(content)
+        }
+    }
+}
+```
+
+**Async Spawn Result**
+
+`SpawnHandle<T>` implements async waiting:
+
+```cursive
+parallel ctx.cpu() {
+    let handle = spawn { expensive_compute() }
+    
+    // Do other work while spawn executes
+    other_work()
+    
+    // Async wait for spawn result
+    let result = wait handle
+}
+```
+
+---
+
+### 14.7 Cancellation
+
+##### Definition
+
+**Cancellation** is the cooperative mechanism by which in-progress parallel work can be requested to stop early. Cursive uses cooperative cancellation—work items must explicitly check for cancellation.
+
+**CancelToken Type**
+
+```cursive
+modal CancelToken {
+    @Active { } {
+        /// Request cancellation
+        procedure cancel(~%)
+        
+        /// Check if cancellation requested
+        procedure is_cancelled(~) -> bool
+        
+        /// Wait until cancelled
+        procedure wait_cancelled(~) -> Async<()>
+        
+        /// Create child token (cancelled when parent is)
+        procedure child(~) -> CancelToken@Active
+    }
+    
+    @Cancelled { } {
+        procedure is_cancelled(~) -> bool { result true }
+    }
+
+    /// Create new independent token
+    procedure new() -> CancelToken@Active
+}
+```
+
+**Usage**
+
+**Attaching to Parallel Block**
+
+```cursive
+let token = CancelToken::new()
+
+// In another context (e.g., UI thread):
+// token~>cancel()
+
+parallel ctx.cpu() [cancel: token] {
+    dispatch i in 0..n {
+        // Check for cancellation
+        if token.is_cancelled() {
+            return  // Exit this iteration early
+        }
+        
+        expensive_work(i)
+        
+        // Check periodically in long operations
+        if token.is_cancelled() { return }
+        
+        more_work(i)
+    }
+}
+```
+
+**Automatic Propagation**
+
+When a cancel token is attached to a parallel block, spawned work automatically inherits it:
+
+```cursive
+parallel ctx.cpu() [cancel: token] {
+    spawn {
+        // token is implicitly available
+        loop {
+            if token.is_cancelled() { break }
+            do_work()
+        }
+    }
+}
+```
+
+**Cancellation vs Completion**
+
+Cancellation is a request, not a guarantee:
+
+| Scenario                       | Behavior                        |
+| :----------------------------- | :------------------------------ |
+| Work checks and returns        | Iteration completes early       |
+| Work ignores cancellation      | Iteration runs to completion    |
+| Work is queued but not started | May be dequeued without running |
+| Work is mid-execution          | Continues until next check      |
+
+**Cancellation and Results**
+
+When work is cancelled:
+
+```cursive
+let token = CancelToken::new()
+
+let results = parallel ctx.cpu() [cancel: token] {
+    spawn { 
+        if token.is_cancelled() { return None }
+        Some(compute_a())
+    }
+    spawn {
+        if token.is_cancelled() { return None }
+        Some(compute_b())
+    }
+}
+// results: (Option<A>, Option<B>)
+// Cancelled spawns return None (or whatever early-return value)
+```
+
+---
+
+### 14.8 Panic Handling
+
+##### Definition
+
+When work within a parallel block panics, the panic must be handled in a way that maintains structured concurrency guarantees.
+
+#### Semantics
+
+**Single Panic**
+
+1. Panicking work item captures panic info
+2. Other work items continue to completion (or cancellation if token attached)
+3. After all work settles, first panic is re-raised at block boundary
+
+**Multiple Panics**
+
+1. Each panic is captured independently
+2. All work completes or is cancelled
+3. First panic (by completion time) is raised
+4. Other panics are logged/discarded (implementation-defined)
+
+**Panic and Cancellation Interaction**
+
+```cursive
+let token = CancelToken::new()
+
+parallel ctx.cpu() [cancel: token] {
+    spawn {
+        panic("oops")  // First panic
+    }
+    
+    spawn {
+        // This continues running (panic doesn't auto-cancel)
+        // Unless the implementation requests cancellation
+        important_cleanup()
+    }
+}
+// Panic re-raised here after all work completes
+```
+
+**Implementation Note:** Implementations MAY request cancellation on first panic to expedite block completion. This is implementation-defined behavior.
+
+**Catching Panics**
+
+To handle panics within the block:
+
+```cursive
+let results = parallel ctx.cpu() {
+    spawn { 
+        catch_panic(|| risky_work_a())
+    }
+    spawn {
+        catch_panic(|| risky_work_b())
+    }
+}
+// results: (Result<A, PanicInfo>, Result<B, PanicInfo>)
+// No panic propagates; caller handles errors
+```
+
+---
+
+### 14.9 Nested Parallelism
+
+##### Definition
+
+Parallel blocks may be nested. Inner blocks execute within the context established by outer blocks.
+
+**CPU Nesting**
+
+```cursive
+parallel ctx.cpu(workers: 8) {
+    dispatch i in 0..4 {
+        // Each iteration can have nested parallelism
+        parallel ctx.cpu(workers: 2) {
+            dispatch j in 0..100 key data[i][j] write {
+                data[i][j] = compute(i, j)
+            }
+        }
+    }
+}
+```
+
+**Resource Sharing**
+
+Inner parallel blocks share the worker pool with outer blocks. The `workers` parameter on inner blocks is a hint/limit, not additional workers.
+
+**Heterogeneous Nesting**
+
+```cursive
+parallel ctx.cpu(workers: 4) {
+    spawn {
+        // CPU preprocessing
+        let preprocessed = cpu_preprocess(data)
+        
+        // Launch GPU work from CPU spawn
+        parallel ctx.gpu() {
+            dispatch i in 0..n {
+                gpu_process(preprocessed, i)
+            }
+        }
+        // GPU work complete
+        
+        // CPU postprocessing
+        cpu_postprocess(preprocessed)
+    }
+    
+    spawn {
+        // Independent CPU work
+        other_cpu_work()
+    }
+}
+```
+
+**Nesting Constraints**
+
+1. GPU blocks MUST NOT be nested inside other GPU blocks
+2. Inner CPU blocks share outer block's worker pool
+3. Capture rules apply at each nesting level independently
+
+---
+
+### 14.10 Determinism
+
+##### Definition
+
+**Determinism** guarantees that given identical inputs and the same parallel structure, execution produces identical results.
+
+**Sources of Non-Determinism**
+
+| Source                                 | Mitigation                             |
+| :------------------------------------- | :------------------------------------- |
+| Execution order of spawns              | Results collected in declaration order |
+| Execution order of dispatch iterations | Key partitioning is deterministic      |
+| Reduction combination order            | Tree-based deterministic reduction     |
+| Floating-point reassociation           | `[ordered]` forces sequential          |
+
+**Deterministic Dispatch**
+
+Dispatch is deterministic when:
+1. Key patterns produce the same partitioning
+2. Iterations with same key execute in index order
+3. Reduction uses deterministic tree combination
+
+```cursive
+// Deterministic (same result every run)
+parallel ctx.cpu() {
+    dispatch i in 0..n key data[i] write {
+        data[i] = f(i)  // Each iteration independent
+    }
+}
+
+// Deterministic reduction
+parallel ctx.cpu() {
+    let sum = dispatch i in 0..n key data[i] read [reduce: +] {
+        data[i]
+    }
+    // sum is reproducible across runs
+}
+```
+
+**Ordered Dispatch**
+
+The `[ordered]` attribute forces sequential side-effect order:
+
+```cursive
+parallel ctx.cpu() {
+    dispatch i in 0..n [ordered] {
+        print(f"Processing {i}")  // Prints 0, 1, 2, ... in order
+    }
+}
+```
+
+**Semantics:** Iterations may execute in parallel, but side effects (I/O, shared mutation) are buffered and applied in index order.
+
+**Non-Deterministic Patterns**
+
+Some patterns are inherently non-deterministic:
+
+```cursive
+parallel ctx.cpu() {
+    dispatch i in 0..n {
+        // Race to update shared counter
+        shared_counter += 1  // Order depends on scheduling
+    }
+}
+```
+
+The key system prevents data races, but the final value depends on execution order. Use atomic operations or reduction for deterministic results.
+
+---
+
+### 14.11 Memory Allocation in Parallel Blocks
+
+##### Definition
+
+Work items may need to allocate memory. Allocation follows Cursive's capability model.
+
+**Allocation Patterns**
+
+**Capture Allocator**
+
+```cursive
+parallel ctx.cpu() {
+    spawn {
+        // Captured ctx.heap is available
+        let buffer = ctx.heap~>alloc::<[u8; 1024]>()
+        use(buffer)
+    }
+}
+```
+
+**Region Allocation**
+
+```cursive
+region work_arena {
+    parallel ctx.cpu() {
+        dispatch i in 0..n {
+            // Allocate in captured region
+            let temp = work_arena^compute_result(i)
+            process(temp)
+        }
+    }
+    // Region freed after parallel block completes
+}
+```
+
+**Worker-Local Allocation**
+
+For high-performance scenarios, avoid contention with per-worker allocators:
+
+```cursive
+parallel ctx.cpu(workers: 4) {
+    dispatch i in 0..n {
+        // Access worker-local allocator
+        let local_alloc = parallel::worker_local_allocator()
+        let temp = local_alloc~>alloc::<TempData>()
+        // temp freed when dispatch iteration completes
+    }
+}
+```
+
+---
+
+### 14.12 Parallel Block as Expression
+
+##### Definition
+
+A parallel block is an expression that yields a value. The value depends on the block contents.
+
+**Result Types**
+
+**No Spawns/Dispatch: Unit**
+
+```cursive
+let _: () = parallel ctx.cpu() {
+    // Just statements, no spawn/dispatch
+    let x = 1 + 1
+}
+```
+
+**Single Spawn: Spawn Result Type**
+
+```cursive
+let result: i32 = parallel ctx.cpu() {
+    spawn { compute() }
+}
+```
+
+**Multiple Spawns: Tuple of Results**
+
+```cursive
+let (a, b, c): (i32, String, bool) = parallel ctx.cpu() {
+    spawn { compute_int() }
+    spawn { compute_string() }
+    spawn { compute_bool() }
+}
+```
+
+**Dispatch without Reduce: Unit**
+
+```cursive
+let _: () = parallel ctx.cpu() {
+    dispatch i in 0..n {
+        data[i] = f(i)
+    }
+}
+```
+
+**Dispatch with Reduce: Reduced Type**
+
+```cursive
+let sum: i64 = parallel ctx.cpu() {
+    dispatch i in 0..n [reduce: +] {
+        data[i] as i64
+    }
+}
+```
+
+**Mixed: Tuple of All Results**
+
+```cursive
+let (spawn_result, reduce_result): (i32, i64) = parallel ctx.cpu() {
+    spawn { compute() }
+    dispatch i in 0..n [reduce: +] { data[i] }
+}
+```
+
+---
+
+### 14.13 Diagnostics Summary
+
+**Error Codes**
+
+| Code         | Condition                                     |
+| :----------- | :-------------------------------------------- |
+| `E-PAR-0001` | `spawn` outside parallel block                |
+| `E-PAR-0002` | Invalid domain capability                     |
+| `E-PAR-0003` | Domain parameter type mismatch                |
+| `E-PAR-0010` | `async` parallel block                        |
+| `E-PAR-0020` | Implicit capture of `unique` binding          |
+| `E-PAR-0021` | Move of already-moved binding                 |
+| `E-PAR-0022` | Move from outer parallel scope                |
+| `E-PAR-0030` | `spawn` outside parallel block                |
+| `E-PAR-0031` | Invalid spawn attribute type                  |
+| `E-PAR-0032` | `spawn` in escaping closure                   |
+| `E-PAR-0040` | `dispatch` outside parallel block             |
+| `E-PAR-0041` | Key inference failed                          |
+| `E-PAR-0042` | Non-associative reduction without `[ordered]` |
+| `E-PAR-0050` | Host memory access in GPU dispatch            |
+| `E-PAR-0051` | `shared` capture in GPU dispatch              |
+| `E-PAR-0052` | Nested GPU parallel block                     |
+| `E-PAR-0060` | Panic in parallel block (runtime)             |
+
+**Warning Codes**
+
+| Code         | Condition                                   |
+| :----------- | :------------------------------------------ |
+| `W-PAR-0043` | Dynamic key pattern (runtime serialization) |
+| `W-PAR-0044` | Large capture in dispatch iteration         |
+| `W-PAR-0045` | Spawn without result usage                  |
+
+---
+
+### 14.14 Cross-Reference Notes [INFORMATIVE]
+
+**Terms Defined in This Clause**
+
+| Term                   | Section | Description                                                   |
+| :--------------------- | :------ | :------------------------------------------------------------ |
+| Parallel Block         | §14.1   | Scoped execution context for concurrent work                  |
+| Execution Domain       | §14.5   | Capability providing computational resources                  |
+| Spawn                  | §14.3   | Concurrent work unit within parallel block                    |
+| Dispatch               | §14.4   | Data-parallel iteration                                       |
+| CancelToken            | §14.7   | Cooperative cancellation mechanism                            |
+| Structured Concurrency | §14.1   | Guarantee that child work completes before parent scope exits |
+
+**Terms Referenced from Other Clauses**
+
+| Term                | Source | Usage                               |
+| :------------------ | :----- | :---------------------------------- |
+| Key                 | §13.1  | Synchronization for `shared` access |
+| Key Prohibition     | §13.8  | Keys cannot span `wait`             |
+| `shared` Permission | §4.4   | Concurrent access permission        |
+| `Async<T>`          | §15.2  | Async operation type                |
+| `wait`              | §15.4  | Suspension until completion         |
+| Region              | §12.1  | Scoped memory allocation            |
+| Capability          | §6.3   | Authority for effects               |
+| Context             | §8.9   | Root capability record              |
+
+**Related Clauses**
+
+| Clause              | Relationship                                   |
+| :------------------ | :--------------------------------------------- |
+| §13 Key System      | Keys synchronize access within parallel blocks |
+| §15 Async           | `wait` composes with parallel execution        |
+| §12 Regions         | Region allocation available in parallel work   |
+| §17 Memory Ordering | Ordering guarantees for parallel access        |
+
+---
+
+### 14.15 Examples [INFORMATIVE]
+
+**Game Frame Update**
+
+```cursive
+procedure game_frame(game: shared GameState, ctx: Context) {
+    // Phase 1: Input (single-threaded)
+    let input = gather_input(ctx.input)
+    
+    // Phase 2: Parallel Update
+    parallel ctx.cpu(workers: 6) {
+        // Physics subsystem
+        spawn [affinity: CpuSet::cores([0, 1])] {
+            key game.physics write {
+                step_physics(game.physics, input, dt: 1.0/60.0)
+            }
+        }
+        
+        // AI subsystem  
+        spawn [affinity: CpuSet::cores([2, 3])] {
+            dispatch i in 0..game.ai_agents.len() key game.ai_agents[i] write {
+                game.ai_agents[i].think(game.world)
+            }
+        }
+        
+        // Entity updates
+        spawn [affinity: CpuSet::cores([4, 5])] {
+            dispatch i in 0..game.entities.len() key game.entities[i] write {
+                game.entities[i].update(input)
+            }
+        }
+    }
+    // All updates complete, safe to render
+    
+    // Phase 3: GPU Render Prep
+    parallel ctx.gpu() {
+        gpu::upload(game.entities, entity_buffer)
+        
+        // Frustum culling on GPU
+        dispatch i in 0..game.entities.len() {
+            visible_buffer[i] = frustum_cull(entity_buffer[i], camera)
+        }
+    }
+    
+    // Phase 4: Present
+    ctx.display~>present()
+}
+```
+
+**Data Processing Pipeline**
+
+```cursive
+procedure process_files(files: [Path], ctx: Context) -> [Result] {
+    let results: shared [Result | Error] = ctx.heap~>alloc_slice(files.len())
+    
+    parallel ctx.cpu(workers: 8) {
+        dispatch i in 0..files.len() key results[i] write {
+            // Async I/O (worker yields while waiting)
+            let raw = match wait ctx.fs~>read(files[i]) {
+                data: [u8] => data,
+                err: IoError => {
+                    results[i] = Error::Io(err)
+                    return
+                }
+            }
+            
+            // CPU parsing
+            let parsed = parse(raw)
+            
+            // GPU-accelerated processing
+            let enhanced = parallel ctx.gpu() {
+                let d_data = gpu::alloc(parsed.len())
+                gpu::upload(parsed, d_data)
+                
+                dispatch j in 0..parsed.len() {
+                    d_data[j] = gpu_enhance(d_data[j])
+                }
+                
+                let result = ctx.heap~>alloc_slice(parsed.len())
+                gpu::download(d_data, result)
+                result
+            }
+            
+            results[i] = Result::Ok(enhanced)
+        }
+    }
+    
+    result results
+}
+```
+
+**Parallel Reduction**
+
+```cursive
+procedure parallel_sum(data: const [f64], ctx: Context) -> f64 {
+    parallel ctx.cpu(workers: 4) {
+        dispatch i in 0..data.len() key data[i] read [reduce: +] {
+            data[i]
+        }
+    }
+}
+
+procedure parallel_histogram(data: const [u8], ctx: Context) -> [usize; 256] {
+    let histogram: shared [usize; 256] = [0; 256]
+    
+    parallel ctx.cpu(workers: 4) {
+        // Each worker builds local histogram, then merge
+        let local: [usize; 256] = [0; 256]
+        
+        dispatch i in 0..data.len() {
+            local[data[i] as usize] += 1
+        }
+        
+        // Merge into shared histogram (needs key per bucket)
+        dispatch bucket in 0..256 key histogram[bucket] write {
+            histogram[bucket] += local[bucket]
+        }
+    }
+    
+    result histogram
+}
+```
+
+**Producer-Consumer with Async**
+
+```cursive
+procedure producer_consumer(ctx: Context) {
+    let queue: shared Queue<WorkItem> = Queue::new(capacity: 100)
+    let done: shared bool = false
+    
+    parallel ctx.cpu(workers: 5) {
+        // Producer
+        spawn {
+            loop item in generate_items() {
+                // Wait for queue space (async, yields worker)
+                wait queue~>when(|q| !q.is_full(), |q| q.push(item))
+            }
+            key done write { done = true }
+        }
+        
+        // Consumers (4 workers)
+        dispatch _ in 0..4 {
+            loop {
+                // Check for completion
+                let is_done = key done read { done }
+                if is_done && queue.is_empty() { break }
+                
+                // Wait for item (async, yields worker)
+                let item = wait queue~>when(|q| !q.is_empty(), |q| q.pop())
+                process(item)
+            }
+        }
+    }
+}
+```
+
+**Cancellable Long-Running Task**
+
+```cursive
+procedure search_with_timeout(
+    query: Query,
+    timeout: Duration,
+    ctx: Context
+) -> SearchResult | Timeout | Cancelled {
+    let token = CancelToken::new()
+    
+    // Timeout task
+    spawn {
+        wait ctx.time~>after(timeout)
+        token.cancel()
+    }
+    
+    // Search task
+    let result = parallel ctx.cpu(workers: 4) [cancel: token] {
+        dispatch i in 0..shards.len() key results[i] write {
+            if token.is_cancelled() {
+                results[i] = None
+                return
+            }
+            
+            results[i] = search_shard(shards[i], query)
+            
+            // Check periodically
+            if token.is_cancelled() {
+                return
+            }
+        }
+        
+        // Merge results
+        merge(results)
+    }
+    
+    if token.is_cancelled() {
+        result Timeout
+    } else {
+        result result
+    }
+}
+```
+---
+
+## Clause 15: Asynchronous Operations
+
+### 15.1 Overview [INFORMATIVE]
+
+##### Definition
+
+Cursive provides asynchronous programming through the `Async<T>` modal type and the `wait` expression. This model unifies I/O waiting and condition-waiting into a single coherent abstraction.
+
+> **Rationale:** Traditional async models (futures, promises, async/await) introduce complexity through poll-based state machines, waker contexts, and special syntax. Cursive's approach leverages its existing modal type system to represent async state explicitly, and unifies all forms of waiting—whether for I/O completion or condition satisfaction—under a single `wait` expression.
+
+**Design Principles:**
+
+1. **Unified waiting** — The `wait` expression operates exclusively on `Async<T>` values. Condition-waiting is expressed via methods that return `Async<T>`, unifying it with I/O async.
+2. **Explicit state** — The `Async<T>` modal type makes pending/ready/failed states explicit in the type system.
+3. **Composable** — Async operations compose via the `=>` pipeline operator, `wait race` for racing, and `wait all` for concurrent collection.
+4. **Cancellation by drop** — Dropping an `Async@Pending` value cancels the underlying operation.
+5. **Key system integration** — Keys MUST NOT be held across `wait` suspension points (§13.8).
+
+---
+
+### 15.2 The Async<T> Modal Type
+
+##### Definition
+
+An **Async<T>** is a modal type representing an operation that produces a value of type `T` upon completion. The operation may be in progress, completed successfully, or failed.
+
+**Formal Definition:**
+
+$$\text{Async}\langle T \rangle ::= @\text{Pending} \mid @\text{Ready}\{T\} \mid @\text{Failed}\{\text{Error}\}$$
 
 ##### Syntax & Declaration
 
-**Async Procedures**
+**Grammar:**
 
-An `async` procedure returns a `Future` instead of executing immediately:
-
-```cursive
-async procedure fetch(url: Url) -> Response {
-    let conn = connect(url).await
-    conn.read_response().await
-}
-
-// Calling creates a future
-let future = fetch(url)
-
-// Awaiting drives it to completion
-let response = future.await
+```ebnf
+async_type       ::= 'Async' '<' type '>'
+async_state_type ::= async_type '@' async_state
+async_state      ::= 'Pending' | 'Ready' | 'Failed'
 ```
 
-**The `.await` Operator**
-
-`.await` suspends the current task until a future completes:
+**Declaration:**
 
 ```cursive
-let response = http_get(url).await
-```
+modal Async<T> {
+    @Pending { }
 
-**Critical property:** Keys are never held across `.await`.
+    @Ready {
+        value: T,
+    }
 
-Each access is self-contained:
-
-```cursive
-let player: shared Player = ...
-
-parallel async(runtime) {
-    spawn {
-        player.health += 1            // Acquire key, modify, release
-        sleep(1.second).await         // Suspended — no keys held
-        player.health += 1            // Acquire key, modify, release
+    @Failed {
+        error: IoError,
     }
 }
 ```
 
 ##### Static Semantics
 
-**Async with Parallel**
+**State Semantics:**
 
-Async tasks use `parallel async(runtime)`:
+| State      | Meaning                                        | Accessible Fields |
+| :--------- | :--------------------------------------------- | :---------------- |
+| `@Pending` | Operation in progress; value not yet available | (none)            |
+| `@Ready`   | Operation completed successfully               | `value: T`        |
+| `@Failed`  | Operation failed with error                    | `error: IoError`  |
 
-```cursive
-parallel async(runtime) {
-    spawn { fetch(url_a).await }
-    spawn { fetch(url_b).await }
-}
-```
+**Typing Rules:**
 
-**Select**
+$$\frac{\Gamma \vdash T : \text{Type}}{\Gamma \vdash \text{Async}\langle T \rangle : \text{Type}} \quad \text{(T-Async-Type)}$$
 
-Wait on multiple futures, proceed with first to complete:
+$$\frac{\Gamma \vdash e : \text{Async}\langle T \rangle@\text{Ready}}{\Gamma \vdash e.\text{value} : T} \quad \text{(T-Async-Ready-Access)}$$
 
-```cursive
-select {
-    response = fetch(url).await => handle(response),
-    _ = timeout(5.seconds).await => handle_timeout(),
-}
-```
+$$\frac{\Gamma \vdash e : \text{Async}\langle T \rangle@\text{Failed}}{\Gamma \vdash e.\text{error} : \text{IoError}} \quad \text{(T-Async-Failed-Access)}$$
+
+**State Transitions:**
+
+An `Async<T>` value transitions exactly once from `@Pending` to either `@Ready` or `@Failed`. Once in a terminal state, no further transitions occur.
+
+$$@\text{Pending} \xrightarrow{\text{success}} @\text{Ready}\{v\}$$
+$$@\text{Pending} \xrightarrow{\text{failure}} @\text{Failed}\{e\}$$
+
+##### Dynamic Semantics
+
+**Evaluation:**
+
+When an I/O operation or condition-wait method is invoked, the implementation:
+
+1. Initiates the underlying operation (I/O request, condition registration, etc.)
+2. Returns an `Async<T>@Pending` value immediately
+3. The operation progresses independently of program execution
+4. Upon completion, the runtime transitions the value to `@Ready` or `@Failed`
+
+**Cancellation:**
+
+When an `Async<T>@Pending` value is dropped (goes out of scope without being waited on), the implementation MUST cancel the underlying operation if cancellation is possible. The implementation MAY allow the operation to complete if cancellation is not feasible.
+
+##### Memory & Layout
+
+**Representation:**
+
+An `Async<T>` value consists of:
+
+1. A discriminant indicating the current state (Pending, Ready, or Failed)
+2. State-specific payload:
+   - `@Pending`: Implementation-defined handle to the pending operation
+   - `@Ready`: The value of type `T`
+   - `@Failed`: The error value
+
+**Size:** `sizeof(Async<T>)` is implementation-defined but MUST be at least `max(sizeof(T), sizeof(IoError)) + sizeof(discriminant)`.
 
 ##### Constraints & Legality
 
-**Diagnostic Table**
+**Negative Constraints:**
 
-| Code           | Severity | Condition                       |
-| :------------- | :------- | :------------------------------ |
-| `E-ASYNC-0001` | Error    | `.await` outside async context  |
-| `E-ASYNC-0002` | Error    | Blocking operation in async ctx |
+1. Direct field access on `Async<T>` without state qualification is ill-formed.
+2. Accessing `.value` on `@Pending` or `@Failed` is ill-formed.
+3. Accessing `.error` on `@Pending` or `@Ready` is ill-formed.
+
+**Diagnostic Table:**
+
+| Code           | Severity | Condition                              | Detection    | Effect    |
+| :------------- | :------- | :------------------------------------- | :----------- | :-------- |
+| `E-ASYNC-0010` | Error    | Field access on unqualified `Async<T>` | Compile-time | Rejection |
+| `E-ASYNC-0011` | Error    | `.value` access on non-`@Ready` state  | Compile-time | Rejection |
+| `E-ASYNC-0012` | Error    | `.error` access on non-`@Failed` state | Compile-time | Rejection |
 
 ---
 
-## Clause 16: Synchronization Primitives
-
-### 16.1 Waiting
+### 15.3 Creating Async Values
 
 ##### Definition
 
-`wait` efficiently blocks until a condition becomes true, then executes an action atomically:
+Async values are created by invoking I/O operations on capability objects or by calling condition-wait methods on shared data. The operation begins immediately upon invocation; the returned `Async<T>@Pending` value represents a handle to the in-progress operation.
+
+##### Syntax & Declaration
+
+**I/O Operations:**
+
+I/O capability methods return `Async<T>`:
 
 ```cursive
-wait <condition> then {
-    <body>
+let read_op: Async<Data> = ctx.io~>read(file)
+let fetch_op: Async<Response> = ctx.net~>get(url)
+let timer_op: Async<()> = ctx.time~>after(5.seconds)
+```
+
+**Condition-Wait Methods:**
+
+Shared types provide the `when` method that returns `Async<T>`:
+
+```cursive
+let item: Async<Task> = queue~>when(
+    |q| !q.items~>is_empty(),
+    |q| q.items~>pop()
+)
+```
+
+##### Static Semantics
+
+**Typing Rules:**
+
+For I/O operations:
+
+$$\frac{\Gamma \vdash \text{cap} : \text{Capability} \quad \Gamma \vdash \text{op} : \text{Op}\langle T \rangle}{\Gamma \vdash \text{cap}{\sim}{>}\text{op}(\ldots) : \text{Async}\langle T \rangle@\text{Pending}} \quad \text{(T-IO-Async)}$$
+
+For condition-wait methods (see §15.7):
+
+$$\frac{\Gamma \vdash e : \text{shared } T \quad \Gamma \vdash p : T \to \text{bool} \quad \Gamma \vdash a : T \to R}{\Gamma \vdash e{\sim}{>}\text{when}(p, a) : \text{Async}\langle R \rangle@\text{Pending}} \quad \text{(T-When-Async)}$$
+
+##### Dynamic Semantics
+
+**I/O Operation Initiation:**
+
+1. The runtime initiates the I/O request with the operating system or external service
+2. An `Async<T>@Pending` handle is returned immediately
+3. The operation progresses concurrently with program execution
+4. Upon I/O completion, the handle transitions to `@Ready` or `@Failed`
+
+**Condition-Wait Initiation:**
+
+1. The runtime acquires the key for the shared data
+2. The predicate is evaluated
+3. If true: the action executes atomically, the key is released, and the handle transitions to `@Ready`
+4. If false: the runtime registers the handle as a waiter, releases the key, and the handle remains `@Pending`
+5. When any task releases the key, registered waiters are notified to re-evaluate
+
+---
+
+### 15.4 The wait Expression
+
+##### Definition
+
+The `wait` expression suspends the current task until an `Async<T>` value transitions out of the `@Pending` state. Upon completion, `wait` returns the result as `T | ErrorType`, where `ErrorType` is the error type from `@Failed`.
+
+##### Syntax & Declaration
+
+**Grammar:**
+
+```ebnf
+wait_expr ::= 'wait' expression
+```
+
+**Forms:**
+
+```cursive
+// Basic wait — returns T | IoError
+let result = wait ctx.io~>read(file)
+
+// With error propagation
+let data = wait ctx.io~>read(file)?
+
+// With pattern matching
+match wait ctx.io~>read(file) {
+    data: Data => process(data),
+    err: IoError => handle(err),
 }
 ```
 
-**Semantics:**
+##### Static Semantics
 
-1. Acquire keys to paths in condition
-2. Evaluate condition
-3. If true: execute body with keys held, release keys, done
-4. If false:
-   - Register as waiter for these keys
-   - Release keys
-   - Sleep until any registered key is released by another task
-   - Goto 1
+**Typing Rule:**
+
+$$\frac{\Gamma \vdash e : \text{Async}\langle T \rangle \quad \text{ErrorType} = \text{error\_type}(e)}{\Gamma \vdash \texttt{wait } e : T \mid \text{ErrorType}} \quad \text{(T-Wait)}$$
+
+Where `error_type(e)` extracts the error type from the `@Failed` state of the Async type (typically `IoError`).
+
+**Key Prohibition:**
+
+The `wait` expression is a suspension point. Keys MUST NOT be held when `wait` is evaluated. This constraint is enforced by the key system (§13.8).
+
+$$\frac{\Gamma \vdash e : \text{Async}\langle T \rangle \quad \text{held\_keys}(\Gamma) = \emptyset}{\Gamma \vdash \texttt{wait } e : T \mid \text{ErrorType}} \quad \text{(T-Wait-No-Keys)}$$
+
+##### Dynamic Semantics
+
+**Evaluation:**
+
+Let $e$ be an expression of type `Async<T>`. Evaluation of `wait e` proceeds as follows:
+
+1. Evaluate $e$ to obtain an `Async<T>` value $a$
+2. If $a$ is in state `@Ready{value: v}`: return $v$
+3. If $a$ is in state `@Failed{error: err}`: return $err$
+4. If $a$ is in state `@Pending`:
+   a. Suspend the current task
+   b. Register the task to be resumed when $a$ transitions
+   c. Upon transition, resume and proceed to step 2 or 3
+
+**Suspension Semantics:**
+
+When a task suspends at a `wait` expression:
+
+1. The task's execution state is saved
+2. Control returns to the runtime scheduler
+3. Other tasks may execute while this task is suspended
+4. When the awaited `Async` completes, the runtime schedules the task for resumption
+
+##### Constraints & Legality
+
+**Negative Constraints:**
+
+1. `wait` MUST NOT be used on non-`Async` types
+2. Keys MUST NOT be held at `wait` suspension points (see §13.8)
+
+**Diagnostic Table:**
+
+| Code           | Severity | Condition                | Detection    | Effect    |
+| :------------- | :------- | :----------------------- | :----------- | :-------- |
+| `E-ASYNC-0020` | Error    | `wait` on non-Async type | Compile-time | Rejection |
+| `E-KEY-0050`   | Error    | Key held across `wait`   | Compile-time | Rejection |
+
+---
+
+### 15.5 Async Pipelines with =>
+
+##### Definition
+
+The pipeline operator `=>` chains asynchronous operations. When applied to an `Async<T>` value, `=>` creates a new `Async<U>` that, upon the original's completion with `@Ready`, applies the provided closure to produce the next async operation.
 
 ##### Syntax & Declaration
+
+**Grammar:**
+
+```ebnf
+async_pipeline ::= expression '=>' closure_expr
+closure_expr   ::= '|' pattern '|' expression
+```
 
 **Example:**
+
+```cursive
+let pipeline = ctx.io~>read(file)
+    => |data| ctx.io~>parse(data)
+    => |parsed| ctx.db~>save(parsed)
+
+let result = wait pipeline?
+```
+
+##### Static Semantics
+
+**Typing Rule:**
+
+$$\frac{\Gamma \vdash e_1 : \text{Async}\langle T \rangle \quad \Gamma, x : T \vdash e_2 : \text{Async}\langle U \rangle}{\Gamma \vdash e_1 \Rightarrow |x| \; e_2 : \text{Async}\langle U \rangle} \quad \text{(T-Async-Pipeline)}$$
+
+**Error Type Propagation:**
+
+The error type of the resulting `Async` is the union of error types from all stages:
+
+$$\text{error\_type}(e_1 \Rightarrow |x| \; e_2) = \text{error\_type}(e_1) \cup \text{error\_type}(e_2)$$
+
+##### Dynamic Semantics
+
+**Evaluation:**
+
+Given `a => |x| f(x)` where `a : Async<T>` and `f : T -> Async<U>`:
+
+1. An `Async<U>@Pending` is returned immediately
+2. When `a` transitions:
+   - If `@Ready{value: v}`: evaluate `f(v)`, chain to the result
+   - If `@Failed{error: e}`: short-circuit to `@Failed{error: e}`
+3. When the chained operation completes, the outer `Async` transitions accordingly
+
+**Short-Circuit Behavior:**
+
+If any stage in a pipeline fails, the entire pipeline immediately transitions to `@Failed` with that error. Subsequent stages are not executed.
+
+##### Constraints & Legality
+
+**Negative Constraints:**
+
+1. The left operand of `=>` MUST be an `Async<T>` type
+2. The closure MUST return an `Async<U>` type
+
+**Diagnostic Table:**
+
+| Code           | Severity | Condition                          | Detection    | Effect    |
+| :------------- | :------- | :--------------------------------- | :----------- | :-------- |
+| `E-ASYNC-0030` | Error    | `=>` left operand not Async        | Compile-time | Rejection |
+| `E-ASYNC-0031` | Error    | `=>` closure does not return Async | Compile-time | Rejection |
+
+---
+
+### 15.6 Racing with `wait race`
+
+##### Definition
+
+The `wait race` expression concurrently waits on multiple `Async` values and proceeds with the first to complete. Operations that do not complete first are cancelled.
+
+##### Syntax & Declaration
+
+**Grammar:**
+
+```ebnf
+wait_race_expr ::= 'wait' 'race' '{' wait_race_arm (',' wait_race_arm)* '}'
+wait_race_arm  ::= expression '=>' '|' pattern '|' expression
+```
+
+**Example:**
+
+```cursive
+wait race {
+    ctx.net~>get(url) => |response| Ok(response),
+    ctx.time~>after(5.seconds) => |_| Err(Timeout),
+}
+```
+
+##### Static Semantics
+
+**Typing Rule:**
+
+All arms MUST produce the same result type:
+
+$$\frac{\Gamma \vdash e_i : \text{Async}\langle T_i \rangle \quad \Gamma, x_i : T_i \vdash r_i : R \quad \forall i}{\Gamma \vdash \texttt{wait race } \{ e_1 \Rightarrow |x_1| \; r_1, \ldots \} : R} \quad \text{(T-Wait-First)}$$
+
+##### Dynamic Semantics
+
+**Evaluation:**
+
+1. All async expressions $e_1, \ldots, e_n$ are evaluated, initiating their operations concurrently
+2. The runtime monitors all operations for completion
+3. When the first operation completes (say $e_k$ with result $v_k$):
+   a. All other operations are cancelled
+   b. The corresponding handler $r_k$ is evaluated with $x_k = v_k$
+   c. The result of the handler becomes the result of `wait race`
+4. If an operation fails, it is treated as completing with `@Failed`
+
+**Cancellation:**
+
+Operations that do not complete first MUST be cancelled. The implementation SHALL make a best-effort attempt to abort in-flight I/O. Condition-wait operations are deregistered from their wait lists.
+
+##### Constraints & Legality
+
+**Negative Constraints:**
+
+1. `wait race` MUST have at least two arms
+2. All handler expressions MUST produce the same type
+
+**Diagnostic Table:**
+
+| Code           | Severity | Condition                                | Detection    | Effect    |
+| :------------- | :------- | :--------------------------------------- | :----------- | :-------- |
+| `E-ASYNC-0040` | Error    | `wait race` with fewer than 2 arms       | Compile-time | Rejection |
+| `E-ASYNC-0041` | Error    | `wait race` arms have incompatible types | Compile-time | Rejection |
+
+---
+
+### 15.7 Concurrent Collection with wait all
+
+##### Definition
+
+The `wait all` expression concurrently waits on multiple `Async` values and returns all results as a tuple when all complete. If any operation fails, the entire expression fails.
+
+##### Syntax & Declaration
+
+**Grammar:**
+
+```ebnf
+wait_all_expr ::= 'wait' 'all' '{' expression (',' expression)* '}'
+```
+
+**Example:**
+
+```cursive
+let (a, b) = wait all {
+    ctx.io~>read(file_a),
+    ctx.io~>read(file_b),
+}?
+```
+
+##### Static Semantics
+
+**Typing Rule:**
+
+$$\frac{\Gamma \vdash e_1 : \text{Async}\langle T_1 \rangle \quad \cdots \quad \Gamma \vdash e_n : \text{Async}\langle T_n \rangle}{\Gamma \vdash \texttt{wait all } \{ e_1, \ldots, e_n \} : (T_1, \ldots, T_n) \mid \text{ErrorType}} \quad \text{(T-Wait-All)}$$
+
+Where `ErrorType` is the union of all error types.
+
+##### Dynamic Semantics
+
+**Evaluation:**
+
+1. All async expressions are evaluated, initiating operations concurrently
+2. The runtime waits for all operations to complete
+3. If all complete with `@Ready`: return a tuple of all values
+4. If any completes with `@Failed`: cancel remaining operations and return the error
+
+**Failure Semantics:**
+
+On first failure, remaining in-progress operations are cancelled. The error from the first failing operation is returned.
+
+##### Constraints & Legality
+
+**Negative Constraints:**
+
+1. `wait all` MUST have at least one expression
+
+**Diagnostic Table:**
+
+| Code           | Severity | Condition                        | Detection    | Effect    |
+| :------------- | :------- | :------------------------------- | :----------- | :-------- |
+| `E-ASYNC-0050` | Error    | `wait all` with zero expressions | Compile-time | Rejection |
+
+---
+
+### 15.8 Condition-Waiting
+
+##### Definition
+
+Condition-waiting is the pattern of waiting until a predicate on shared data becomes true, then executing an action atomically. In Cursive, condition-waiting is expressed via the `when` method, which returns an `Async<R>`. This unifies condition-waiting with I/O async under the same `wait` abstraction.
+
+##### Syntax & Declaration
+
+**The `when` Method:**
+
+Shared types provide the `when` method:
+
+```cursive
+procedure when<R>(~%, predicate: (const Self) -> bool, action: (unique Self) -> R) -> Async<R>
+```
+
+**Example:**
+
+```cursive
+// Wait for queue non-empty, pop atomically
+let item = wait queue~>when(
+    |q| !q.items~>is_empty(),
+    |q| q.items~>pop()
+)?
+```
+
+**Common Helpers:**
+
+Types MAY provide convenience methods that wrap `when`:
+
+```cursive
+// Equivalent to queue~>when(|q| !q.items~>is_empty(), |q| q.items~>pop())
+let item = wait queue~>pop_async()?
+
+// Wait for a boolean flag to become true
+wait shutdown~>until_true()
+```
+
+##### Static Semantics
+
+**Typing Rule:**
+
+$$\frac{\Gamma \vdash e : \text{shared } T \quad \Gamma \vdash p : (\text{const } T) \to \text{bool} \quad \Gamma \vdash a : (\text{unique } T) \to R}{\Gamma \vdash e{\sim}{>}\text{when}(p, a) : \text{Async}\langle R \rangle@\text{Pending}} \quad \text{(T-When)}$$
+
+##### Dynamic Semantics
+
+**Evaluation of `when(predicate, action)`:**
+
+1. Return an `Async<R>@Pending` immediately
+2. The runtime executes the following loop:
+   a. Acquire the key for the shared data
+   b. Evaluate `predicate(self)` with `const` access
+   c. If true:
+      - Evaluate `action(self)` with `unique` access
+      - Release the key
+      - Transition to `@Ready{value: result}`
+      - Exit loop
+   d. If false:
+      - Register this `Async` handle as a waiter for the key
+      - Release the key
+      - Suspend until notified
+      - On notification, goto step (a)
+
+**Wake Notification:**
+
+Waiters are notified when any task releases the key for the shared data. Upon notification, the waiter re-acquires the key and re-evaluates the predicate. If still false, it re-registers and suspends again.
+
+> **Note:** This is not busy-waiting. The runtime efficiently suspends the operation until a relevant key release occurs.
+
+##### Constraints & Legality
+
+**Negative Constraints:**
+
+1. The receiver MUST have `shared` permission
+2. The predicate closure MUST NOT mutate the data
+3. The action closure receives `unique` access and MAY mutate
+
+**Diagnostic Table:**
+
+| Code           | Severity | Condition                     | Detection    | Effect    |
+| :------------- | :------- | :---------------------------- | :----------- | :-------- |
+| `E-ASYNC-0060` | Error    | `when` on non-shared receiver | Compile-time | Rejection |
+| `E-ASYNC-0061` | Error    | Predicate mutates shared data | Compile-time | Rejection |
+
+---
+
+### 15.9 Cancellation Semantics
+
+##### Definition
+
+Cancellation is the mechanism by which an in-progress async operation is aborted. Cursive uses **drop-based cancellation**: when an `Async<T>@Pending` value goes out of scope without being waited on, the underlying operation is cancelled.
+
+##### Dynamic Semantics
+
+**Drop Behavior:**
+
+When `drop` is invoked on an `Async<T>@Pending`:
+
+1. The runtime attempts to cancel the underlying operation
+2. For I/O operations: the OS request is aborted if possible
+3. For condition-waits: the waiter is deregistered from the wait list
+4. Resources associated with the operation are released
+
+**Racing Cancellation:**
+
+In `wait race`, when one operation completes:
+
+1. All other operations are immediately cancelled
+2. Their resources are cleaned up
+3. Only the winning operation's result is used
+
+**Best-Effort Cancellation:**
+
+Cancellation is best-effort. Some operations (e.g., a write that has already been submitted to the OS) may complete despite cancellation. The result is discarded.
+
+##### Constraints & Legality
+
+**No Explicit Cancel Method:**
+
+Cursive does not provide an explicit `cancel()` method on `Async`. Cancellation is achieved by dropping the handle:
+
+```cursive
+let op = ctx.net~>get(url)
+if should_cancel {
+    return  // op is dropped here, operation cancelled
+}
+wait op?
+```
+
+---
+
+### 15.10 Async Procedures
+
+##### Definition
+
+A procedure that performs asynchronous operations may either:
+
+1. Return `Async<T>` for the caller to wait
+2. Wait internally and return the final result
+
+##### Syntax & Declaration
+
+**Returning Async<T>:**
+
+```cursive
+procedure fetch_data(url: Url, ctx: Context) -> Async<Data> {
+    result ctx.net~>get(url)
+        => |r| ctx.io~>parse(r.body)
+}
+
+// Caller waits:
+let data = wait fetch_data(url, ctx)?
+```
+
+**Waiting Internally:**
+
+```cursive
+procedure fetch_data(url: Url, ctx: Context) -> Data | IoError {
+    let response = wait ctx.net~>get(url)?
+    let parsed = wait ctx.io~>parse(response.body)?
+    result parsed
+}
+```
+
+##### Static Semantics
+
+**No Special `async` Keyword:**
+
+Cursive does not use an `async` keyword for procedure declarations. A procedure that returns `Async<T>` is an async procedure by virtue of its return type. A procedure that uses `wait` internally is synchronous from the caller's perspective (it blocks until all internal waits complete).
+
+> **Rationale:** The `Async<T>` return type makes async behavior explicit. Internal `wait` expressions are suspension points within the procedure but do not affect the procedure's signature.
+
+---
+
+### 15.11 Cross-Reference Notes [INFORMATIVE]
+
+##### Terms Defined in This Clause
+
+| Term                    | Section |
+| :---------------------- | :------ |
+| Async<T> modal type     | §15.2   |
+| wait expression         | §15.4   |
+| Async pipeline (=>)     | §15.5   |
+| wait race               | §15.6   |
+| wait all                | §15.7   |
+| when method             | §15.8   |
+| Drop-based cancellation | §15.9   |
+
+##### Terms Referenced from Other Clauses
+
+| Term                              | Defined In |
+| :-------------------------------- | :--------- |
+| Modal type                        | §5.6       |
+| shared permission                 | §9.4       |
+| Key                               | §13.1      |
+| Key prohibition across suspension | §13.8      |
+| parallel block                    | §14.1      |
+| IoError                           | §18.2      |
+
+##### Diagnostic Codes Defined in This Clause
+
+| Code         | Condition                              |
+| :----------- | :------------------------------------- |
+| E-ASYNC-0010 | Field access on unqualified Async<T>   |
+| E-ASYNC-0011 | .value access on non-@Ready state      |
+| E-ASYNC-0012 | .error access on non-@Failed state     |
+| E-ASYNC-0020 | wait on non-Async type                 |
+| E-ASYNC-0030 | => left operand not Async              |
+| E-ASYNC-0031 | => closure does not return Async       |
+| E-ASYNC-0040 | wait race with fewer than 2 arms       |
+| E-ASYNC-0041 | wait race arms have incompatible types |
+| E-ASYNC-0050 | wait all with zero expressions         |
+| E-ASYNC-0060 | when on non-shared receiver            |
+| E-ASYNC-0061 | Predicate mutates shared data          |
+
+##### Related Diagnostic Codes from Other Clauses
+
+| Code       | Clause | Condition                             |
+| :--------- | :----- | :------------------------------------ |
+| E-KEY-0050 | §13.8  | Key held across wait suspension point |
+
+---
+
+## Clause 16: Coroutines
+
+## Clause 17: Channels
+
+### 17.1 Condition-Waiting [INFORMATIVE]
+
+##### Definition
+
+Condition-waiting—the pattern of waiting until a predicate on shared data becomes true, then executing an action atomically—is now expressed via the `when` method, which returns `Async<R>`. This is specified in §15.8.
+
+> **Note:** Previous versions of Cursive used a `wait <condition> then { body }` syntax. This has been unified with I/O async under the `Async<T>` modal type and `wait` expression. See §15.8 for the current specification.
+
+**Example (current syntax):**
+
 ```cursive
 let queue: shared Queue<T> = ...
 
-// Consumer waits for non-empty, then pops atomically
-wait !queue.items.is_empty() then {
-    let item = queue.items.pop()      // Guaranteed non-empty
-    process(item)
-}
+// Wait for non-empty, pop atomically
+let item = wait queue~>when(
+    |q| !q.items~>is_empty(),
+    |q| q.items~>pop()
+)?
+
+// Or using a convenience method
+let item = wait queue~>pop_async()?
 ```
 
-**Plain Wait**
-
-`wait <condition>` without a body is sugar for `wait <condition> then { }`:
+**With Timeout:**
 
 ```cursive
-wait shutdown_requested       // Wait for flag, then continue
-```
-
-**Wait with Timeout**
-
-```cursive
-if wait(timeout: 5.seconds) !queue.is_empty() then {
-    process(queue.pop())
-} else {
-    handle_timeout()
+wait race {
+    queue~>pop_async() => |item| Ok(item),
+    ctx.time~>after(5.seconds) => |_| Err(Timeout),
 }
 ```
-
-##### Constraints & Legality
-
-**Wake Trigger**
-
-Waiters are triggered by **key release**, not modification notification:
-- When a task releases a key, all tasks waiting on that key are woken
-- Woken tasks re-acquire keys and re-evaluate their condition
-- If condition is still false, they return to waiting
-
-**Diagnostic Table**
-
-| Code          | Severity | Condition                 |
-| :------------ | :------- | :------------------------ |
-| `E-WAIT-0001` | Error    | `wait` on non-shared data |
 
 ---
 
-### 16.2 Channels
+### 17.2 Channels
 
 ##### Definition
 
-Channels provide **ownership transfer** between tasks—a different paradigm from shared access:
+A **channel** provides ownership transfer between tasks without shared access. Data moves from producer to consumer; the data is `unique` throughout and never requires key synchronization.
 
-- **Keys:** Multiple tasks access shared data with synchronized access
-- **Channels:** Data moves from producer to consumer with no sharing
+Channels are distinct from the key-based synchronization model:
 
-```cursive
-let (tx, rx) = channel::<Data>()
-
-parallel {
-    spawn {
-        let data: unique Data = produce()
-        tx.send(move data)            // Ownership into channel
-    }
-
-    spawn {
-        let data: unique Data = rx.recv()   // Ownership out
-        consume(data)
-    }
-}
-```
-
-The data is `unique` throughout—never shared, never needs keys.
+| Mechanism  | Access Pattern                    | Synchronization         |
+| :--------- | :-------------------------------- | :---------------------- |
+| Keys (§13) | Multiple tasks access shared data | Key acquisition/release |
+| Channels   | Data moves between tasks          | Ownership transfer      |
 
 ##### Syntax & Declaration
 
-**Channel Types**
+**Grammar:**
 
-*Unbounded:*
-```cursive
-let (tx, rx) = channel::<T>()
-// Grows as needed, send never blocks
+```ebnf
+channel_create    ::= 'Channel' '::' 'new' '<' type '>' '(' [capacity] ')'
+oneshot_create    ::= 'Oneshot' '::' 'new' '<' type '>' '(' ')'
 ```
 
-*Bounded:*
+**Channel Creation:**
+
 ```cursive
-let (tx, rx) = channel::<T>(capacity)
-// send blocks when full
+// Unbounded channel — grows as needed, send never blocks
+let (tx, rx) = Channel::new::<Data>()
+
+// Bounded channel — send blocks when full
+let (tx, rx) = Channel::new::<Data>(capacity)
+
+// Oneshot channel — single value, single send
+let (tx, rx) = Oneshot::new::<Data>()
 ```
 
-*Oneshot:*
+##### Static Semantics
+
+**Channel Types:**
+
 ```cursive
-let (tx, rx) = oneshot::<T>()
-// Single value, single send
+record Sender<T> { /* implementation-defined */ }
+record Receiver<T> { /* implementation-defined */ }
 ```
 
-**Channel Operations**
+**Typing Rules:**
 
-*Synchronous:*
+$$\frac{}{\Gamma \vdash \text{Channel::new}\langle T \rangle() : (\text{Sender}\langle T \rangle, \text{Receiver}\langle T \rangle)} \quad \text{(T-Channel-Create)}$$
+
+$$\frac{\Gamma \vdash tx : \text{Sender}\langle T \rangle \quad \Gamma \vdash v : \text{unique } T}{\Gamma \vdash tx{\sim}{>}\text{send}(\texttt{move } v) : \text{Async}\langle () \rangle} \quad \text{(T-Channel-Send)}$$
+
+$$\frac{\Gamma \vdash rx : \text{Receiver}\langle T \rangle}{\Gamma \vdash rx{\sim}{>}\text{recv}() : \text{Async}\langle T \rangle} \quad \text{(T-Channel-Recv)}$$
+
+**Ownership Transfer:**
+
+The `send` operation consumes the value (requires `move`). The `recv` operation produces a `unique` value. Data is never shared between sender and receiver.
+
+##### Dynamic Semantics
+
+**Channel Operations:**
+
+All channel operations return `Async<T>` and integrate with the unified `wait` model:
+
 ```cursive
-tx.send(move value)           // Block until sent (bounded) or enqueue (unbounded)
-let val = rx.recv()           // Block until received
+// Send — suspends until space available (bounded) or enqueues (unbounded)
+wait tx~>send(move value)?
 
-tx.try_send(move value)       // Non-blocking: Ok(()) or Err(Full)
-let opt = rx.try_recv()       // Non-blocking: Some(val) or None
+// Receive — suspends until value available
+let data = wait rx~>recv()?
 ```
 
-*Async:*
+**Non-Blocking Variants:**
+
 ```cursive
-tx.send(move value).await     // Suspend until sent
-let val = rx.recv().await     // Suspend until received
+// Try send — returns immediately
+match tx~>try_send(move value) {
+    Ok(()) => /* sent */,
+    Err(ChannelFull(value)) => /* channel full, value returned */,
+}
+
+// Try receive — returns immediately
+match rx~>try_recv() {
+    Ok(value) => /* received */,
+    Err(ChannelEmpty) => /* no value available */,
+}
 ```
+
+**Close Semantics:**
+
+When a `Sender` is dropped:
+1. The channel is marked as closed
+2. Pending `recv` operations return `ChannelClosed` error
+3. Existing buffered values remain available for receive
+
+When a `Receiver` is dropped:
+1. The channel is marked as disconnected
+2. Pending `send` operations return `ChannelDisconnected` error
+3. Buffered values are dropped
+
+##### Memory & Layout
+
+**Representation:**
+
+Channel implementation is implementation-defined. A conforming implementation MUST provide:
+
+1. FIFO ordering for buffered values
+2. Thread-safe access without external synchronization
+3. Proper ownership transfer semantics (no aliasing of transferred data)
+
+##### Constraints & Legality
+
+**Negative Constraints:**
+
+1. `send` MUST receive a `move` parameter (unique ownership transfer)
+2. Sending on a closed channel is an error
+3. Receiving from a disconnected channel with no buffered values is an error
+
+**Diagnostic Table:**
+
+| Code          | Severity | Condition                             | Detection    | Effect      |
+| :------------ | :------- | :------------------------------------ | :----------- | :---------- |
+| `E-CHAN-0010` | Error    | `send` without `move`                 | Compile-time | Rejection   |
+| `E-CHAN-0020` | Error    | Send on closed channel                | Runtime      | Error value |
+| `E-CHAN-0021` | Error    | Receive on disconnected empty channel | Runtime      | Error value |
 
 ---
 
 
-## Clause 17: Memory Ordering
+## Clause 18: Memory Ordering
 
 ##### Definition
 
@@ -14058,7 +16833,7 @@ fence(seq_cst)       // Full barrier
 
 ---
 
-### 17.1 Implementation Model
+### 18.1 Implementation Model
 
 ##### Definition
 
@@ -14129,11 +16904,11 @@ parallel {
 
 # Part 5: Advanced Features
 
-## Clause 18: Metaprogramming
+## Clause 19: Metaprogramming
 
 This clause defines the Cursive metaprogramming system. Cursive provides a deterministic, declarative code generation mechanism based on **compile-time execution**, **type introspection**, **quasiquoting**, and **explicit AST emission**. This system adheres to the **Two-Phase Compilation Model** defined in §2.12. Metaprogramming occurs strictly between the **Parsing** and **Semantic Analysis** phases.
 
-### 18.1 The Metaprogramming Model
+### 19.1 The Metaprogramming Model
 
 ##### Definition
 
@@ -14190,7 +16965,7 @@ Implementations **SHOULD** cache the result of `comptime` blocks and procedures 
 
 ---
 
-### 18.2 AST Representation
+### 19.2 AST Representation
 
 ##### Definition
 
@@ -14227,7 +17002,7 @@ The metaprogramming system operates on Abstract Syntax Tree (AST) node types. Th
 
 ---
 
-### 18.3 Type Introspection
+### 19.3 Type Introspection
 
 ##### Definition
 
@@ -14301,7 +17076,7 @@ comptime procedure reflect_type<T>(): TypeInfo
 
 ---
 
-### 18.4 Compile-Time Procedures and Blocks
+### 19.4 Compile-Time Procedures and Blocks
 
 ##### Definition
 
@@ -14375,7 +17150,7 @@ let x = comptime { 1 + 1 }  // x = 2, computed at compile time
 
 ---
 
-### 18.5 Quasiquoting and Interpolation
+### 19.5 Quasiquoting and Interpolation
 
 ##### Definition
 
@@ -14458,7 +17233,7 @@ A string used for identifier splicing **MUST** conform to the identifier grammar
 
 ---
 
-### 18.6 Code Emission
+### 19.6 Code Emission
 
 ##### Definition
 
@@ -14506,7 +17281,7 @@ Type errors in emitted code **MUST** be reported with a diagnostic trace pointin
 
 ---
 
-### 18.7 Implementation Limits
+### 19.7 Implementation Limits
 
 ##### Definition
 
@@ -14531,7 +17306,7 @@ Exceeding these limits **MUST** result in error `E-MET-3402`.
 
 ---
 
-### Clause 18: Metaprogramming Cross-Reference Notes
+### Clause 19: Metaprogramming Cross-Reference Notes
 
 **Terms defined in Clause 11 that MUST NOT be redefined elsewhere:**
 
@@ -14556,7 +17331,7 @@ Exceeding these limits **MUST** result in error `E-MET-3402`.
 
 **Terms referenced:**
 
-| Term              | Source | Usage in Clause 11                        |
+| Term              | Source | Usage in Clause 19                        |
 | :---------------- | :----- | :---------------------------------------- |
 | Translation Phase | §2.12  | Metaprogramming phase ordering            |
 | Identifier        | §2.2   | Validation for identifier splicing        |
@@ -14571,15 +17346,15 @@ Exceeding these limits **MUST** result in error `E-MET-3402`.
 
 | Term   | Deferred To | Reason                                          |
 | :----- | :---------- | :---------------------------------------------- |
-| (none) | -           | Clause 11 is self-contained for metaprogramming |
+| (none) | -           | Clause 19 is self-contained for metaprogramming |
 
 ---
 
-## Clause 19: Interoperability
+## Clause 20: Interoperability
 
 This clause defines the Foreign Function Interface (FFI) mechanisms for interacting with code adhering to C-compatible Application Binary Interfaces (ABIs). It specifies extern declaration syntax, the safety boundary enforced by `unsafe` blocks, memory layout guarantees via representation attributes, and the strict categorization of types permitted across the language boundary.
 
-### 19.1 Foundational Definitions
+### 20.1 Foundational Definitions
 
 ##### Definition
 
@@ -14621,7 +17396,7 @@ Implementations **MUST** support `"C"` and `"system"` ABI strings. Unknown ABI s
 
 ---
 
-### 19.2 FFI-Safe Types
+### 20.2 FFI-Safe Types
 
 ##### Definition
 
@@ -14695,7 +17470,7 @@ $$
 | `E-FFI-3301` | Error    | Non-FFI-Safe type used in `extern` signature. |
 
 ---
-### 19.2.1 FFI String Types
+### 20.2.1 FFI String Types
 
 ##### Definition
 
@@ -14863,7 +17638,7 @@ The review correctly identified the lack of FFI string helpers as a gap. This ad
 ---
 
 
-### 19.3 Type Representation
+### 20.3 Type Representation
 
 ##### Definition
 
@@ -14918,7 +17693,7 @@ For an `enum` marked `[[layout(C)]]`:
 
 ---
 
-### 19.4 Extern Declarations
+### 20.4 Extern Declarations
 
 ##### Definition
 
@@ -15004,7 +17779,7 @@ Procedures exported via FFI **MUST** satisfy:
 
 ---
 
-### 19.5 FFI Safety Boundary
+### 20.5 FFI Safety Boundary
 
 ##### Definition
 
@@ -15071,7 +17846,7 @@ When `[[unwind(catch)]]` is specified:
 
 ---
 
-### Clause 19: Interoperability Cross-Reference Notes
+### Clause 20: Interoperability Cross-Reference Notes
 
 **Terms defined in Clause 12 that MUST NOT be redefined elsewhere:**
 
@@ -15088,7 +17863,7 @@ When `[[unwind(catch)]]` is specified:
 
 **Terms referenced from other clauses:**
 
-| Term                        | Source   | Usage in Clause 12                                  |
+| Term                        | Source   | Usage in Clause 20                                  |
 | :-------------------------- | :------- | :-------------------------------------------------- |
 | Unverifiable Behavior (UVB) | §1.3     | FFI calls are classified as UVB                     |
 | Unspecified Behavior (USB)  | §1.3     | Default (non-repr-C) layout is USB                  |
@@ -15102,7 +17877,7 @@ When `[[unwind(catch)]]` is specified:
 
 | Term   | Deferred To | Reason                                         |
 | :----- | :---------- | :--------------------------------------------- |
-| (none) | -           | Clause 15 is terminal for FFI/interoperability |
+| (none) | -           | Clause 20 is terminal for FFI/interoperability |
 
 ---
 
@@ -15357,10 +18132,12 @@ The following tables list all diagnostic codes required by this specification, o
 | `E-SPAWN-0002`    | Error    | Captured reference outlives task.                       |
 | `E-SPAWN-0003`    | Error    | Cannot capture downgraded reference outside structured. |
 | `E-SPAWN-0004`    | Error    | `detach` prohibited inside `parallel` block.            |
-| `E-ASYNC-0001`    | Error    | `.await` outside async context.                         |
-| `E-ASYNC-0002`    | Error    | Blocking operation in async context.                    |
+| `E-ASYNC-0020`    | Error    | `wait` on non-Async type.                               |
+| `E-ASYNC-0030`    | Error    | `=>` left operand not Async.                            |
+| `E-ASYNC-0040`    | Error    | `wait race` with fewer than 2 arms.                     |
+| `E-ASYNC-0050`    | Error    | `wait all` with zero expressions.                       |
+| `E-ASYNC-0060`    | Error    | `when` on non-shared receiver.                          |
 | `E-DISPATCH-0001` | Error    | Cross-iteration dependency in dispatch.                 |
-| `E-WAIT-0001`     | Error    | `wait` on non-shared data.                              |
 | `W-KEY-0001`      | Warning  | Fine-grained keys in tight loop.                        |
 | `W-KEY-0002`      | Warning  | Redundant key acquisition (covered by held key).        |
 
