@@ -174,12 +174,14 @@ Attempting to shadow a universe-protected binding at module scope MUST be diagno
 
 **Diagnostic Table**
 
-| Code         | Severity | Condition                                         | Detection    | Effect    |
-| :----------- | :------- | :------------------------------------------------ | :----------- | :-------- |
-| `E-CNF-0401` | Error    | Reserved keyword used as identifier.              | Compile-time | Rejection |
-| `E-CNF-0402` | Error    | Reserved namespace `cursive.*` used by user code. | Compile-time | Rejection |
-| `E-CNF-0403` | Error    | Primitive type name shadowed at module scope.     | Compile-time | Rejection |
-| `W-CNF-0401` | Warning  | Implementation-reserved pattern used.             | Compile-time | N/A       |
+| Code         | Severity | Condition                                                                                    | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------------------------------------------------- | :----------- | :-------- |
+| `E-CNF-0401` | Error    | Reserved keyword used as identifier.                                                         | Compile-time | Rejection |
+| `E-CNF-0402` | Error    | Reserved namespace `cursive.*` used by user code.                                            | Compile-time | Rejection |
+| `E-CNF-0403` | Error    | Primitive type name shadowed at module scope.                                                | Compile-time | Rejection |
+| `E-CNF-0404` | Error    | Shadowing of `Self`, `string`, or `Modal`.                                                   | Compile-time | Rejection |
+| `E-CNF-0405` | Error    | Shadowing of async type alias (`Async`, `Future`, `Sequence`, `Stream`, `Pipe`, `Exchange`). | Compile-time | Rejection |
+| `W-CNF-0401` | Warning  | Implementation-reserved pattern used.                                                        | Compile-time | N/A       |
 
 ---
 
@@ -503,6 +505,18 @@ Source text preprocessing MUST execute in the following order:
 | 6    | Tokenization                 | Produce token stream from normalized source. | (per §2.4–§2.9)    |
 
 Each step MUST complete successfully before the next step begins. The pipeline MUST be deterministic for a given source byte stream and compilation configuration.
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                               | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------------ | :----------- | :-------- |
+| `E-SRC-0101` | Error    | UTF-8 decoding failed during preprocessing.             | Compile-time | Rejection |
+| `E-SRC-0102` | Error    | Source size exceeds implementation limit during step 1. | Compile-time | Rejection |
+| `E-SRC-0103` | Error    | Embedded or misplaced BOM encountered in step 3.        | Compile-time | Rejection |
+| `E-SRC-0104` | Error    | Prohibited control character encountered in step 5.     | Compile-time | Rejection |
+| `E-SRC-0309` | Error    | Tokenization failed to classify a character sequence.   | Compile-time | Rejection |
 
 ---
 
@@ -948,6 +962,15 @@ let combined = base;
 |modifier       // Parsed as: let combined = base; followed by |modifier expression
 ```
 
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                                                                        | Detection    | Effect    |
+| :----------- | :------- | :----------------------------------------------------------------------------------------------- | :----------- | :-------- |
+| `E-SYN-0110` | Error    | Missing statement terminator (no `;` and newline is not a terminator by rules in this section).  | Compile-time | Rejection |
+| `E-SYN-0111` | Error    | Line continuation used where none of the continuation conditions apply (newline must terminate). | Compile-time | Rejection |
+
 ---
 
 ### 2.12 Translation Phases
@@ -1044,7 +1067,7 @@ A program is **memory-safe** if and only if it satisfies both the Liveness prope
 
 **Liveness Enforcement**
 
-Liveness is enforced through RAII and deterministic destruction (§3.6), modal pointer states (§4.13), and region escape analysis (§3.3).
+Liveness is enforced through RAII and deterministic destruction (§3.6), modal pointer states (§6.3), and region escape analysis (§3.3).
 
 **Aliasing Enforcement**
 
@@ -1078,7 +1101,7 @@ Storage duration categories correspond to provenance tags (§3.3).
 
 ##### Memory & Layout
 
-The size, alignment, and internal layout of objects are governed by their types. Specific layout rules are defined in §4.4.
+The size, alignment, and internal layout of objects are governed by their types. Universal layout principles are defined in §5 (Data Types), and the `[[layout(...)]]` attribute is specified in §7.2.1.
 
 ---
 
@@ -1433,6 +1456,24 @@ $$\frac{\text{InnermostNamedRegion}(\Gamma) = r \quad \Gamma \vdash e : T}{\Gamm
 
 The unprefixed `^` operator requires a named region in lexical scope. Using `^` with no named region in scope is error `E-REG-1205`.
 
+##### Dynamic Semantics
+
+**Region Entry**
+
+1. Entering `region as r { body }` allocates a region frame `r` and marks it Active for the dynamic extent of `body`.
+2. The Active region pointer for implicit `^` allocation is set to `r` on entry and restored to its previous value on exit.
+
+**Allocation Lifetime**
+
+1. `^expr` allocates storage from the Active region; `r^expr` allocates from the explicitly named region `r`.
+2. Each allocation returns an initialized object whose lifetime is bounded by the lifetime of the region that supplied the storage.
+
+**Region Exit and Deallocation Order**
+
+1. On normal exit from the region block, all objects allocated in the region are destroyed, then the region storage is released in bulk.
+2. Destruction order within a region is LIFO with respect to allocation order. Nested regions are destroyed before their parent region resumes destruction (structured stack discipline).
+3. On unwinding (panic), the same destruction and bulk deallocation sequence occurs before unwinding continues to the enclosing region or scope.
+
 ##### Constraints & Legality
 
 **Diagnostic Table**
@@ -1525,10 +1566,10 @@ The type system is primarily **nominal**. Two types with different names are nev
 
 The following constructs are **structural**. Their equivalence is determined by their composition:
 
-- Tuple types (§4.7.1)
-- Anonymous union types (§4.10)
+- Tuple types (§5.2.1)
+- Anonymous union types (§5.5)
 - Function types (§6.4)
-- Array and slice types (§4.7.2, §4.7.3)
+- Array and slice types (§5.2.2, §5.2.3)
 
 **The Type Context ($\Gamma$)**
 
@@ -1617,7 +1658,7 @@ A concrete type that implements a form is a subtype of that form. See §9.3 for 
 The following subtyping relationships are defined in their respective sections:
 
 - Modal widening ($M@S <: M$, where $M$ is the general modal type): §6.1 (includes storage cost documentation)
-- Union member subtyping: §4.10
+- Union member subtyping: §5.5
 - Refinement type subtyping: §7.3
 - Permission subtyping: §4.5
 
@@ -2578,7 +2619,7 @@ $$\frac{\Gamma \vdash T\ \text{wf}}{\Gamma \vdash [T]\ \text{wf}}$$
 A range expression on an array produces a slice:
 $$\frac{\Gamma \vdash a : P\ [T; N] \quad \Gamma \vdash r : \text{Range}}{\Gamma \vdash a[r] : P\ [T]}$$
 
-where $P$ is the permission of the array and Range is any range type from §4.7.4.
+where $P$ is the permission of the array and Range is any range type from §5.2.4.
 
 **(T-Slice-Index)**
 Indexing a slice yields the element type:
@@ -2962,7 +3003,7 @@ $$\text{sizeof}(\texttt{record}\ R\ \{\}) = 0 \qquad \text{alignof}(\texttt{reco
 
 ##### Definition
 
-An **enum** (enumerated type) is a nominal sum type, also known as a tagged union. An enum value is exactly one of several defined **variants**, each of which may carry a payload of associated data. Unlike union types (§4.10), which are structural and anonymous, enums are nominal: two enum types with identical variants but different names are distinct types.
+An **enum** (enumerated type) is a nominal sum type, also known as a tagged union. An enum value is exactly one of several defined **variants**, each of which may carry a payload of associated data. Unlike union types (§5.5), which are structural and anonymous, enums are nominal: two enum types with identical variants but different names are distinct types.
 
 A **variant** is a named alternative within an enum. Each variant is identified by name and may optionally contain associated data in one of three forms: unit-like (no data), tuple-like (positional data), or record-like (named fields).
 
@@ -3936,13 +3977,13 @@ A procedure accepting the general type `string` may receive either state; the ac
 | `string@Managed` | No     | No      | Yes    |
 | `string@View`    | Yes    | Yes     | No     |
 
-The following constraints apply per §6.7:
+The following constraints apply per Appendix D.1:
 
 1. `string@Managed` MUST NOT implement `Copy` because it owns a heap allocation.
 2. `string@Managed` MUST NOT implement `Clone`. This is a design choice, not a technical limitation: since cloning a managed string requires heap allocation, the `Clone` form would need access to a `HeapAllocator` capability, which the standard `Clone::clone` signature does not provide. Duplication MUST use the explicit `clone_with(heap)` method to inject the required capability (see Dynamic Semantics).
 3. `string@Managed` MUST implement `Drop` to deallocate its buffer when responsibility ends.
 4. `string@View` MUST implement `Copy` because it is a non-owning pointer-length pair.
-5. `string@View` MUST implement `Clone` (implied by `Copy` per §6.7).
+5. `string@View` MUST implement `Clone` (implied by `Copy` per Appendix D.1).
 
 ##### Dynamic Semantics
 
@@ -4247,10 +4288,10 @@ process_ptr(valid_ptr)  // Implicit widening — no `widen` keyword required
 | `*imm T`         | Yes    | Yes     | No     |
 | `*mut T`         | Yes    | Yes     | No     |
 
-The following constraints apply per §6.7:
+The following constraints apply per Appendix D.1:
 
 1. All pointer types (safe and raw) MUST implement `Copy` because they are address values.
-2. All pointer types MUST implement `Clone` (implied by `Copy` per §6.7).
+2. All pointer types MUST implement `Clone` (implied by `Copy` per Appendix D.1).
 3. No pointer type implements `Drop`. Pointers do not own the memory they reference; the referenced data's lifetime is managed by the responsibility system (§3.5) or region system (§3.7).
 
 ##### Dynamic Semantics
@@ -4927,7 +4968,7 @@ Each monomorphized instantiation has an independent memory layout. The layout of
 
 **Size and Alignment**
 
-The size and alignment of a generic type instantiation are determined by substituting the concrete type arguments and applying the layout rules for the resulting concrete type (§4.16).
+The size and alignment of a generic type instantiation are determined by substituting the concrete type arguments and applying the layout rules for the resulting concrete type (see Universal Layout Principles in §5 and §7.2.1).
 
 $$\text{sizeof}(\text{Name}\langle A_1, \ldots, A_n \rangle) = \text{sizeof}(\text{Name}[A_1/T_1, \ldots, A_n/T_n])$$
 
@@ -8534,9 +8575,9 @@ This clause does not redefine constructor expression syntax or semantics; see th
 
 **Range Expressions**
 
-Range expressions (e.g., `start..end`, `start..=end`, `start..`, `..end`, `..=end`, `..`) produce compiler-intrinsic range types. The syntax, typing rules, and semantics of range expressions are authoritatively defined in §4.7.4 (Range Types).
+Range expressions (e.g., `start..end`, `start..=end`, `start..`, `..end`, `..=end`, `..`) produce compiler-intrinsic range types. The syntax, typing rules, and semantics of range expressions are authoritatively defined in §5.2.4 (Range Types).
 
-> **Cross-Reference:** See §4.7.4 for the complete grammar of range expressions and their associated types (`Range<T>`, `RangeInclusive<T>`, `RangeFrom<T>`, `RangeTo<T>`, `RangeToInclusive<T>`, `RangeFull`).
+> **Cross-Reference:** See §5.2.4 for the complete grammar of range expressions and their associated types (`Range<T>`, `RangeInclusive<T>`, `RangeFrom<T>`, `RangeTo<T>`, `RangeToInclusive<T>`, `RangeFull`).
 
 ---
 
@@ -8609,7 +8650,7 @@ $$\frac{\Gamma \vdash e_1 : [T] \quad \Gamma \vdash e_2 : \texttt{usize}}{\Gamma
 
 The index expression MUST have type `usize`. No implicit integer conversions are performed.
 
-> **Cross-Reference:** Range indexing (slicing) for arrays and slices is defined in §4.7.3 (T-Slice-From-Array). For string types, indexing and slicing have distinct semantics: direct byte indexing is prohibited (E-TYP-2152), and range slicing produces `string@View` with UTF-8 boundary validation—see §6.2 for the authoritative rules (T-String-Slice).
+> **Cross-Reference:** Range indexing (slicing) for arrays and slices is defined in §5.2.3 (T-Slice-From-Array). For string types, indexing and slicing have distinct semantics: direct byte indexing is prohibited (E-TYP-2152), and range slicing produces `string@View` with UTF-8 boundary validation—see §6.2 for the authoritative rules (T-String-Slice).
 
 **Value Category**
 
@@ -13362,13 +13403,13 @@ region work_arena {
 
 ---
 
-# Clause 15: Asynchronous Operations
+## Clause 15: Asynchronous Operations
 
 This clause defines Cursive's model for asynchronous computation. Asynchronous operations are computations that may suspend execution and resume later, producing values incrementally, completing after external events, or interleaving execution with other computations.
 
 ---
 
-## 15.1 Overview and Design Principles
+### 15.1 Overview and Design Principles
 
 ##### Definition
 
@@ -13408,7 +13449,7 @@ The asynchronous model adheres to the following principles:
 
 ---
 
-## 15.2 The Async Modal Type
+### 15.2 The Async Modal Type
 
 ##### Definition
 
@@ -13536,7 +13577,7 @@ $$\frac{
 
 ---
 
-## 15.3 Type Aliases for Common Patterns
+### 15.3 Type Aliases for Common Patterns
 
 ##### Definition
 
@@ -13588,9 +13629,9 @@ Type aliases inherit variance from their expansion:
 
 ---
 
-## 15.4 Producing Async Values
+### 15.4 Producing Async Values
 
-### 15.4.1 Async-Returning Procedures
+#### 15.4.1 Async-Returning Procedures
 
 ##### Definition
 
@@ -13673,7 +13714,7 @@ procedure read_lines(path: string, fs: witness FileSystem) -> Stream<string, IoE
 
 ---
 
-### 15.4.2 The `yield` Expression
+#### 15.4.2 The `yield` Expression
 
 ##### Definition
 
@@ -13753,7 +13794,7 @@ Evaluation of `yield e`:
 
 ---
 
-### 15.4.3 The `yield from` Expression
+#### 15.4.3 The `yield from` Expression
 
 ##### Definition
 
@@ -13823,7 +13864,7 @@ Evaluation of `yield from source`:
 
 ---
 
-## 15.5 Consuming Async Values
+### 15.5 Consuming Async Values
 
 ##### Definition
 
@@ -13831,7 +13872,7 @@ An async value may be consumed through three patterns: iteration over outputs, m
 
 ---
 
-### 15.5.1 Iteration (`loop...in`)
+#### 15.5.1 Iteration (`loop...in`)
 
 ##### Definition
 
@@ -13889,7 +13930,7 @@ $$\frac{
 
 ---
 
-### 15.5.2 Manual Stepping
+#### 15.5.2 Manual Stepping
 
 ##### Definition
 
@@ -13940,7 +13981,7 @@ seq = seq~>resume(())
 
 ---
 
-### 15.5.3 Synchronous Execution (`sync`)
+#### 15.5.3 Synchronous Execution (`sync`)
 
 ##### Definition
 
@@ -14013,7 +14054,7 @@ The reactor polls the future and any dependent I/O operations until completion.
 
 ---
 
-## 15.6 Concurrent Composition
+### 15.6 Concurrent Composition
 
 ##### Definition
 
@@ -14021,7 +14062,7 @@ Concurrent composition allows multiple async operations to execute simultaneousl
 
 ---
 
-### 15.6.1 The `race` Expression
+#### 15.6.1 The `race` Expression
 
 ##### Definition
 
@@ -14114,7 +14155,7 @@ When one arm completes (non-streaming) or fails:
 
 ---
 
-### 15.6.2 The `all` Expression
+#### 15.6.2 The `all` Expression
 
 ##### Definition
 
@@ -14172,7 +14213,7 @@ When any operation transitions to `@Failed`:
 
 ---
 
-### 15.6.3 Condition Waiting (`until`)
+#### 15.6.3 Condition Waiting (`until`)
 
 ##### Definition
 
@@ -14241,7 +14282,7 @@ When a waiter is notified:
 
 ---
 
-## 15.7 Transformations and Combinators
+### 15.7 Transformations and Combinators
 
 ##### Definition
 
@@ -14335,7 +14376,7 @@ Combinators do not eagerly evaluate their source async. Instead, they return a n
 
 ---
 
-## 15.8 Memory Model and State Representation
+### 15.8 Memory Model and State Representation
 
 ##### Definition
 
@@ -14422,7 +14463,7 @@ $$\text{lifetime}(A) \leq \text{lifetime}(\text{region}(A))$$
 
 ---
 
-## 15.9 Cancellation and Cleanup
+### 15.9 Cancellation and Cleanup
 
 ##### Definition
 
@@ -14483,7 +14524,7 @@ Implementations MUST document their cancellation behavior in the Conformance Dos
 
 ---
 
-## 15.10 Error Handling
+### 15.10 Error Handling
 
 ##### Definition
 
@@ -14534,7 +14575,7 @@ procedure with_temp_file(fs: witness FileSystem) -> Stream<string, IoError> {
 
 ---
 
-## 15.11 Integration with Other Language Features
+### 15.11 Integration with Other Language Features
 
 ##### Definition
 
@@ -14542,7 +14583,7 @@ This section specifies how async operations interact with capabilities, the perm
 
 ---
 
-### 15.11.1 Capability Requirements
+#### 15.11.1 Capability Requirements
 
 ##### Static Semantics
 
@@ -14602,7 +14643,7 @@ form Time {
 
 ---
 
-### 15.11.2 Permission and Capture Rules
+#### 15.11.2 Permission and Capture Rules
 
 ##### Static Semantics
 
@@ -14708,7 +14749,7 @@ procedure bad(player: shared Player) -> Sequence<i32> {
 
 ---
 
-### 15.11.3 Parallel Block Composition
+#### 15.11.3 Parallel Block Composition
 
 ##### Static Semantics
 
@@ -14761,309 +14802,54 @@ When a `parallel` block reaches its closing brace:
 
 ---
 
-## 15.12 Well-Formedness Summary
-
-##### Static Semantics
-
-**Consolidated Rules**
-
-| Rule ID             | Description                                     | Reference |
-| :------------------ | :---------------------------------------------- | :-------- |
-| A-Yield-Context     | `yield` valid only in async-returning procedure | §15.4.2   |
-| A-Yield-Type        | `yield` operand must match `Out`                | §15.4.2   |
-| A-Yield-From-Compat | `yield from` requires compatible `Out`, `In`    | §15.4.3   |
-| A-No-Keys           | No keys held at suspension points               | §15.11.2  |
-| A-No-Block-Yield    | `yield` prohibited in `sync` expression         | §15.4.2   |
-| A-Sync-Context      | `sync` prohibited in async-returning procedure  | §15.5.3   |
-| A-Lifetime          | Captured bindings must outlive async            | §15.11.2  |
-| A-Region-Escape     | Async must not escape its region                | §15.8     |
-
-**Rule (A-YIELD-CONTEXT)**
-
-$$\frac{
-    \text{ReturnType}(\text{enclosing}) \neq \texttt{Async}\langle \_, \_, \_, \_ \rangle \quad
-    \text{IsYield}(e)
-}{
-    \text{Emit}(\texttt{E-ASYNC-0010})
-}$$
-
-**Rule (A-YIELD-TYPE)**
-
-$$\frac{
-    \text{ReturnType}(\text{proc}) = \texttt{Async}\langle Out, In, Result, E \rangle \quad
-    \Gamma \vdash e : T \quad
-    T \not<: Out
-}{
-    \text{Emit}(\texttt{E-ASYNC-0011})
-}$$
-
-**Rule (A-NO-BLOCK-YIELD)**
-
-$$\frac{
-    \text{InsideBlock}(e) \quad
-    \text{IsYield}(e) \lor \text{IsYieldFrom}(e)
-}{
-    \text{Emit}(\texttt{E-ASYNC-0012}) \lor \text{Emit}(\texttt{E-ASYNC-0023})
-}$$
+# Part 5: Metaprogramming
 
 ---
 
-## 15.13 Diagnostic Summary
+## Clause 16: Compile-Time Execution
 
-| Code           | Severity | Condition                                      | Detection    | Effect    |
-| :------------- | :------- | :--------------------------------------------- | :----------- | :-------- |
-| `E-ASYNC-0001` | Error    | `Async` type parameter is not well-formed      | Compile-time | Rejection |
-| `E-ASYNC-0002` | Error    | Error type does not satisfy error constraints  | Compile-time | Rejection |
-| `E-ASYNC-0010` | Error    | `yield` outside async-returning procedure      | Compile-time | Rejection |
-| `E-ASYNC-0011` | Error    | `yield` operand type mismatch                  | Compile-time | Rejection |
-| `E-ASYNC-0012` | Error    | `yield` inside `sync` expression               | Compile-time | Rejection |
-| `E-ASYNC-0013` | Error    | `yield` while key is held                      | Compile-time | Rejection |
-| `E-ASYNC-0020` | Error    | `yield from` outside async-returning procedure | Compile-time | Rejection |
-| `E-ASYNC-0021` | Error    | Incompatible `Out` parameter in `yield from`   | Compile-time | Rejection |
-| `E-ASYNC-0022` | Error    | Incompatible `In` parameter in `yield from`    | Compile-time | Rejection |
-| `E-ASYNC-0023` | Error    | `yield from` inside `sync` expression          | Compile-time | Rejection |
-| `E-ASYNC-0024` | Error    | `yield from` while key is held                 | Compile-time | Rejection |
-| `E-ASYNC-0025` | Error    | Error type not compatible in `yield from`      | Compile-time | Rejection |
-| `E-ASYNC-0030` | Error    | Error propagation in infallible async          | Compile-time | Rejection |
-| `E-ASYNC-0040` | Error    | Iteration over async with `In ≠ ()`            | Compile-time | Rejection |
-| `E-ASYNC-0050` | Error    | `sync` inside async-returning procedure        | Compile-time | Rejection |
-| `E-ASYNC-0051` | Error    | `sync` operand has `Out ≠ ()`                  | Compile-time | Rejection |
-| `E-ASYNC-0052` | Error    | `sync` operand has `In ≠ ()`                   | Compile-time | Rejection |
-| `E-ASYNC-0060` | Error    | `race` with fewer than 2 arms                  | Compile-time | Rejection |
-| `E-ASYNC-0061` | Error    | `race` arms have incompatible result types     | Compile-time | Rejection |
-| `E-ASYNC-0062` | Error    | `race` operand has `Out ≠ ()`                  | Compile-time | Rejection |
-| `E-ASYNC-0063` | Error    | Mixed yield/non-yield handlers in race         | Compile-time | Rejection |
-| `E-ASYNC-0070` | Error    | `all` operand has `Out ≠ ()`                   | Compile-time | Rejection |
-| `E-ASYNC-0071` | Error    | `all` operand has `In ≠ ()`                    | Compile-time | Rejection |
-| `E-ASYNC-0080` | Error    | Captured binding does not outlive async        | Compile-time | Rejection |
-| `E-ASYNC-0081` | Error    | Async operation escapes its region             | Compile-time | Rejection |
-| `W-ASYNC-0001` | Warning  | Large captured state (performance advisory)    | Compile-time | Warning   |
+This clause defines the compile-time execution model for Cursive. Compile-time execution enables computation during the Metaprogramming Phase (Translation Phase 2, as defined in §2.12), producing values, types, and code that are incorporated into the final program. This clause establishes the foundational execution environment, type restrictions, and capability model upon which type reflection (§17), code generation (§18), and derivation (§19) depend.
 
 ---
 
-## 15.14 Informative Examples
-
-> **Note:** This section is informative.
-
-### 15.14.1 Producer-Consumer Pipeline
-
-```cursive
-procedure producer(buffer: shared Buffer<Item>) -> Sequence<()> {
-    var id = 0
-    loop {
-        yield from buffer~>until(
-            |b| !b~>is_full(),
-            |b| b~>push(Item::new(id)),
-        )
-        id += 1
-        yield ()
-    }
-}
-
-procedure consumer(buffer: shared Buffer<Item>) -> Sequence<Item> {
-    loop {
-        let item = yield from buffer~>until(
-            |b| !b~>is_empty(),
-            |b| b~>pop(),
-        )
-        yield item
-    }
-}
-
-procedure main(ctx: Context) -> i32 {
-    let buffer: shared Buffer<Item> = Buffer::new(100)
-
-    parallel ctx.cpu {
-        spawn { loop _ in producer(buffer)~>take(1000) {} }
-        spawn {
-            loop item in consumer(buffer)~>take(1000) {
-                process(item)
-            }
-        }
-    }
-
-    result 0
-}
-```
-
----
-
-### 15.14.2 Bidirectional Coroutine
-
-```cursive
-procedure calculator() -> Async<string, string, i32, !> {
-    var accumulator = 0
-    
-    loop {
-        let input = yield f"Current: {accumulator}. Enter operation:"
-        
-        match parse_operation(input) {
-            Op::Add(n) => accumulator += n,
-            Op::Sub(n) => accumulator -= n,
-            Op::Mul(n) => accumulator *= n,
-            Op::Div(n) => {
-                if n == 0 {
-                    let _ = yield "Error: division by zero"
-                    continue
-                }
-                accumulator /= n
-            }
-            Op::Quit => result accumulator,
-            Op::Invalid => {
-                let _ = yield "Invalid operation"
-            }
-        }
-    }
-}
-
-procedure main(ctx: Context) -> i32 {
-    var calc = calculator()
-
-    loop {
-        match calc {
-            @Suspended { output: prompt } => {
-                ctx.fs~>write_stdout(prompt)
-                let input = sync ctx.fs~>read_line()
-                calc = calc~>resume(input)
-            }
-            @Completed { value: final_value } => {
-                ctx.fs~>write_stdout(f"Final result: {final_value}")
-                result 0
-            }
-            @Failed { error } => {
-                ctx.fs~>write_stderr(f"Error: {error}")
-                result 1
-            }
-        }
-    }
-}
-```
-
----
-
-### 15.14.3 Concurrent Web Fetcher with Timeout
-
-```cursive
-procedure fetch_with_timeout(
-    url: string,
-    timeout: Duration,
-    ctx: Context,
-) -> Future<Response | Timeout, NetError> {
-    race {
-        ctx.net~>fetch(url)
-            -> |response| result response,
-        ctx.sys~>after(timeout)
-            -> |_| result Timeout,
-    }
-}
-
-procedure fetch_all_urls(
-    urls: [string],
-    ctx: Context,
-) -> Future<[Response | Timeout], NetError> {
-    var results: [Response | Timeout] = []
-
-    loop url in urls {
-        let response = yield from fetch_with_timeout(url, 10.seconds, ctx)?
-        results~>push(response)
-    }
-
-    result results
-}
-```
-
----
-
-### 15.14.4 Streaming Merge
-
-```cursive
-procedure merge<T>(a: Sequence<T>, b: Sequence<T>) -> Sequence<T> {
-    race {
-        a -> |item| yield item,
-        b -> |item| yield item,
-    }
-}
-
-procedure main(ctx: Context) -> i32 {
-    let evens = range(0, 100)~>filter(|n| n % 2 == 0)
-    let odds = range(0, 100)~>filter(|n| n % 2 == 1)
-    
-    loop n in merge(evens, odds)~>take(50) {
-        ctx.fs~>write_stdout(f"{n}\n")
-    }
-    
-    result 0
-}
-```
-
----
-
-# Part 5: Advanced Features
-
-## Clause 16: Metaprogramming
-
-This clause defines the Cursive metaprogramming system. Cursive provides a deterministic, declarative code generation mechanism based on **compile-time execution**, **type introspection**, **quasiquoting**, and **explicit AST emission**. Metaprogramming occurs during the Metaprogramming Phase (Translation Phase 2) as defined in §2.12.
-
----
-
-### 16.1 The Metaprogramming Model
+### 16.1 The Comptime Environment
 
 ##### Definition
 
-**Compile-Time Execution**
-
 **Compile-time execution** is the evaluation of Cursive code during the Metaprogramming Phase of translation, prior to semantic analysis of the complete program. Code executed at compile time operates within the **comptime environment**.
 
-**The Comptime Environment**
-
-The **comptime environment** $\Gamma_{ct}$ is a sandboxed execution context, distinct from the runtime environment $\Gamma_{rt}$. Code marked with the `comptime` keyword executes during the Metaprogramming Phase.
+The **comptime environment** is a sandboxed execution context, denoted $\Gamma_{ct}$, that is distinct from the runtime environment $\Gamma_{rt}$. The comptime environment provides access to a restricted subset of language features sufficient for type introspection, code construction, and program transformation.
 
 **Formal Definition**
 
-$$\Gamma_{ct} ::= (\Sigma_{stdlib}, \Sigma_{imports}, \Sigma_{types}, \emptyset)$$
+$$\Gamma_{ct} ::= (\Sigma_{stdlib}, \Sigma_{imports}, \Sigma_{types}, \Sigma_{caps}, \emptyset)$$
 
-Where:
-- $\Sigma_{stdlib}$ is the subset of the standard library available at compile time
-- $\Sigma_{imports}$ contains modules imported via `import` declarations
-- $\Sigma_{types}$ contains type definitions visible at the point of comptime execution
-- The fourth component (empty set) indicates no shared mutable state with $\Gamma_{rt}$
+The components of $\Gamma_{ct}$ are:
 
-**Comptime-Available Type**
+| Component          | Description                                                              |
+| :----------------- | :----------------------------------------------------------------------- |
+| $\Sigma_{stdlib}$  | The subset of the standard library available at compile time             |
+| $\Sigma_{imports}$ | Modules imported via `import` declarations visible at the comptime block |
+| $\Sigma_{types}$   | Type definitions visible at the point of comptime execution              |
+| $\Sigma_{caps}$    | Compile-time capabilities provided to the current context (§16.5)        |
+| $\emptyset$        | Empty set indicating no shared mutable state with $\Gamma_{rt}$          |
 
-A type $T$ is **comptime-available** if and only if the predicate $\text{IsComptimeAvailable}(T)$ holds:
-
-$$\text{IsComptimeAvailable}(T) \iff T \in \mathcal{C}$$
-
-Where $\mathcal{C}$ is the smallest set satisfying:
-
-1. **Primitive types:** $\{i8, i16, i32, i64, i128, u8, u16, u32, u64, u128, f32, f64, bool, char\} \subseteq \mathcal{C}$
-2. **String literals:** $\texttt{string} \in \mathcal{C}$
-3. **Unit type:** $() \in \mathcal{C}$
-4. **AST types:** $\{\texttt{Expr}, \texttt{Stmt}, \texttt{Decl}, \texttt{Type}, \texttt{Node}\} \subseteq \mathcal{C}$
-5. **Quoted types:** $\{\texttt{QuotedExpr}, \texttt{QuotedBlock}\} \subseteq \mathcal{C}$
-6. **Introspection types:** $\{\texttt{TypeInfo}, \texttt{ProcInfo}, \texttt{FormInfo}, \texttt{ModalInfo}, \texttt{ModuleInfo}\} \subseteq \mathcal{C}$
-7. **Tuples:** If $\forall i.\ T_i \in \mathcal{C}$, then $(T_1, \ldots, T_n) \in \mathcal{C}$
-8. **Arrays:** If $T \in \mathcal{C}$, then $[T; N] \in \mathcal{C}$ for any constant $N$
-9. **Slices:** If $T \in \mathcal{C}$, then $[T] \in \mathcal{C}$
-10. **Options:** If $T \in \mathcal{C}$, then $\texttt{Option}\langle T \rangle \in \mathcal{C}$
-11. **Records:** If record $R$ has all fields $f_i : T_i$ where $T_i \in \mathcal{C}$, then $R \in \mathcal{C}$
-12. **Enums:** If enum $E$ has all variant payloads $T_i \in \mathcal{C}$, then $E \in \mathcal{C}$
-
-Types not in $\mathcal{C}$ include: capabilities (other than `ComptimeCodegen`), handles, raw pointers, references with non-`const` permission, and modal types.
+The fifth component ($\emptyset$) enforces the critical invariant that compile-time execution cannot observe or modify runtime state.
 
 ##### Static Semantics
 
 **Isolation Property**
 
-Comptime code MUST NOT access:
-- Runtime memory or heap allocations from $\Gamma_{rt}$
-- File handles, sockets, or other I/O resources
-- Foreign function interfaces (FFI)
-- Capabilities other than `ComptimeCodegen`
+The comptime environment is isolated from the runtime environment. Comptime code MUST NOT access:
+
+1. Runtime memory or heap allocations from $\Gamma_{rt}$
+2. File handles, network sockets, or other I/O resources (except via the `ProjectFiles` capability defined in §16.5.3)
+3. Foreign function interfaces (FFI) as defined in §17
+4. Runtime capabilities as defined in §12
 
 **Determinism Property**
 
-Comptime code MUST be deterministic. Given identical source input and compiler configuration, comptime execution MUST produce identical output.
+Comptime code MUST be deterministic. Given identical source input and identical compiler configuration, comptime execution MUST produce identical output.
 
 **Formal Determinism Requirement**
 
@@ -15073,926 +14859,2382 @@ $$\Gamma_{ct} \vdash e \Downarrow v_1 \land \Gamma_{ct} \vdash e \Downarrow v_2 
 
 **Termination Property**
 
-Implementations MUST enforce resource limits to ensure compilation terminates. The specific limits are defined in §16.9 and Appendix G.
+Comptime execution MUST terminate. Implementations MUST enforce resource limits as specified in §16.8 to guarantee termination.
 
 **Purity Requirement**
 
-All expressions evaluated in comptime context MUST be pure as defined in §10.1.1, with the exception of operations on the `ComptimeCodegen` capability which constitute controlled side effects on the compilation unit.
+All expressions evaluated in comptime context MUST be pure as defined in §10.1.1, with the following exceptions:
+
+1. Operations on compile-time capabilities (§16.5) constitute controlled side effects on the compilation unit.
+2. File reads via the `ProjectFiles` capability (§16.5.3) are permitted.
+3. Diagnostic emissions via the `ComptimeDiagnostics` capability (§16.5.4) are permitted.
 
 ##### Constraints & Legality
 
-**Negative Constraints**
+The following constructs are prohibited in comptime context:
 
-The following are prohibited in `comptime` context:
-
-1. `unsafe` blocks
-2. FFI calls (`extern` procedures)
-3. Access to runtime capabilities
-4. Non-deterministic operations (random number generation, time queries)
-5. I/O operations
-
-**Caching Semantics**
-
-Implementations SHOULD cache the result of `comptime` blocks and procedures annotated with the `[[cache]]` attribute.
-
-- **Cache Key:** MUST include the AST of the block, the values of all captured identifiers, and the compiler version string.
-- **Determinism Violation:** Reliance on non-deterministic compiler state in cached blocks is Unspecified Behavior (USB).
+| Construct                       | Rationale                                                           |
+| :------------------------------ | :------------------------------------------------------------------ |
+| `unsafe` blocks                 | Comptime execution cannot verify memory safety of unsafe operations |
+| FFI calls (`extern` procedures) | Foreign code may have side effects or non-determinism               |
+| Runtime capability access       | Runtime capabilities are not available during compilation           |
+| Random number generation        | Violates determinism property                                       |
+| System time queries             | Violates determinism property                                       |
+| I/O operations                  | Violates isolation property (except `ProjectFiles`)                 |
 
 **Diagnostic Table**
 
-| Code         | Severity | Condition                                            | Detection    | Effect    |
-| :----------- | :------- | :--------------------------------------------------- | :----------- | :-------- |
-| `E-MET-0001` | Error    | Non-comptime-available type used in comptime context | Compile-time | Rejection |
-| `E-MET-0002` | Error    | Compile-time execution resource limit exceeded       | Compile-time | Rejection |
-| `E-MET-0003` | Error    | Non-deterministic operation in comptime context      | Compile-time | Rejection |
-| `E-MET-0004` | Error    | Prohibited capability access in comptime context     | Compile-time | Rejection |
-| `E-MET-0005` | Error    | `unsafe` block in comptime context                   | Compile-time | Rejection |
-| `E-MET-0006` | Error    | FFI call in comptime context                         | Compile-time | Rejection |
+| Code         | Severity | Condition                                       | Detection    | Effect    |
+| :----------- | :------- | :---------------------------------------------- | :----------- | :-------- |
+| `E-CTE-0001` | Error    | `unsafe` block in comptime context              | Compile-time | Rejection |
+| `E-CTE-0002` | Error    | FFI call in comptime context                    | Compile-time | Rejection |
+| `E-CTE-0003` | Error    | Runtime capability access in comptime context   | Compile-time | Rejection |
+| `E-CTE-0004` | Error    | Non-deterministic operation in comptime context | Compile-time | Rejection |
+| `E-CTE-0005` | Error    | Prohibited I/O operation in comptime context    | Compile-time | Rejection |
 
 ---
 
-### 16.2 AST Representation
-
-#### 16.2.1 AST Node Types
+### 16.2 Comptime-Available Types
 
 ##### Definition
 
-The metaprogramming system operates on **Abstract Syntax Tree (AST) node types**. These types represent syntactic elements of Cursive programs as first-class values manipulable at compile time.
+A **comptime-available type** is a type whose values can exist within the comptime environment. Only comptime-available types may appear as parameter types, return types, or local variable types in comptime procedures and blocks.
 
-**Node**
+**Formal Definition**
 
-The type `Node` is the base type for all AST elements. All other AST types are subtypes of `Node`.
+A type $T$ is comptime-available if and only if the predicate $\text{IsComptimeAvailable}(T)$ holds:
 
-**Expr**
+$$\text{IsComptimeAvailable}(T) \iff T \in \mathcal{C}$$
 
-The type `Expr` represents expression nodes. An `Expr` value is an opaque handle to an expression in the compiler's internal representation.
+The set $\mathcal{C}$ is the smallest set satisfying the following inductive rules:
 
-**Stmt**
+**Primitive Types**
 
-The type `Stmt` represents statement nodes. A `Stmt` value is an opaque handle to a statement.
+$$\{i8, i16, i32, i64, i128, u8, u16, u32, u64, u128, isize, usize, f32, f64, bool, char\} \subseteq \mathcal{C}$$
 
-**Decl**
+**String Type**
 
-The type `Decl` represents declaration nodes. A `Decl` value is an opaque handle to a declaration (procedure, record, enum, form, modal, implement block, or type alias).
+$$\texttt{string} \in \mathcal{C}$$
 
-**Type**
+**Unit and Never Types**
 
-The type `Type` represents resolved type references. A `Type` value is an opaque handle to a fully resolved type in the compiler's type environment.
+$$() \in \mathcal{C} \quad \text{and} \quad ! \in \mathcal{C}$$
 
-> **Note:** The `Type` AST handle is distinct from the `TypeInfo` introspection record defined in §16.3.1. `Type` is an opaque handle for splicing into quoted code; `TypeInfo` is an inspectable record for introspection.
+**Compile-Time Specific Types**
 
-**QuotedExpr**
+The following types, defined in §17 and §18, are comptime-available:
 
-The type `QuotedExpr` represents a quoted expression captured via the `quote` operator. A `QuotedExpr` preserves the syntactic structure of an expression without evaluating it.
+$$\{\texttt{TypePattern}, \texttt{TypeRepr}, \texttt{FormRepr}, \texttt{Ast}\langle T \rangle@S\} \subseteq \mathcal{C}$$
 
-**QuotedBlock**
+for any comptime-available $T$ and any state $S$ of the `Ast` modal type.
 
-The type `QuotedBlock` represents a quoted block of statements and declarations captured via the `quote` operator. A `QuotedBlock` may contain any declarations valid at module scope.
+**Introspection Types**
+
+The following introspection record types, defined in §17.4, are comptime-available:
+
+$$\{\texttt{FieldInfo}, \texttt{VariantInfo}, \texttt{StateInfo}, \texttt{TransitionInfo}, \texttt{ParamInfo}, \texttt{LayoutInfo}, \texttt{Attribute}, \texttt{AttributeArg}\} \subseteq \mathcal{C}$$
+
+**Source Location Types**
+
+$$\{\texttt{SourceSpan}, \texttt{TypeError}\} \subseteq \mathcal{C}$$
+
+**Composite Type Rules**
+
+The following rules define comptime-availability for composite types:
+
+$$\frac{\forall i \in 1..n.\ T_i \in \mathcal{C}}{(T_1, T_2, \ldots, T_n) \in \mathcal{C}} \quad \text{(C-Tuple)}$$
+
+$$\frac{T \in \mathcal{C} \quad N : \texttt{usize}}{[T; N] \in \mathcal{C}} \quad \text{(C-Array)}$$
+
+$$\frac{T \in \mathcal{C}}{[T] \in \mathcal{C}} \quad \text{(C-Slice)}$$
+
+$$\frac{T \in \mathcal{C}}{\texttt{Option}\langle T \rangle \in \mathcal{C}} \quad \text{(C-Option)}$$
+
+$$\frac{T \in \mathcal{C} \quad E \in \mathcal{C}}{\texttt{Result}\langle T, E \rangle \in \mathcal{C}} \quad \text{(C-Result)}$$
+
+$$\frac{T \in \mathcal{C}}{\texttt{Sequence}\langle T \rangle \in \mathcal{C}} \quad \text{(C-Sequence)}$$
+
+**Record Types**
+
+$$\frac{\text{record } R\ \{\ f_1: T_1, \ldots, f_n: T_n\ \} \quad \forall i.\ T_i \in \mathcal{C}}{R \in \mathcal{C}} \quad \text{(C-Record)}$$
+
+**Enum Types**
+
+$$\frac{\text{enum } E\ \{\ V_1(P_1), \ldots, V_n(P_n)\ \} \quad \forall i.\ P_i \in \mathcal{C} \lor P_i = ()}{E \in \mathcal{C}} \quad \text{(C-Enum)}$$
+
+**Procedure Types**
+
+Procedure types are comptime-available when all parameter types and the return type are comptime-available:
+
+$$\frac{\forall i.\ T_i \in \mathcal{C} \quad R \in \mathcal{C}}{(T_1, \ldots, T_n) \to R \in \mathcal{C}} \quad \text{(C-Proc)}$$
 
 ##### Static Semantics
 
-**Opacity**
+**Excluded Types**
 
-AST node types (`Expr`, `Stmt`, `Decl`, `Type`) are opaque. Their internal structure MUST NOT be accessible through field access or pattern matching. Manipulation MUST occur exclusively through the `ComptimeCodegen` capability API defined in §16.2.2.
+The following type categories are explicitly excluded from $\mathcal{C}$:
 
-**Deferred Type Checking**
+| Type Category                                   | Rationale                                   |
+| :---------------------------------------------- | :------------------------------------------ |
+| Runtime capabilities (§12)                      | Require runtime context                     |
+| Handles and resources                           | Represent runtime system state              |
+| Raw pointers (`*imm T`, `*mut T`)               | Cannot verify memory safety at compile time |
+| References with `unique` or `shared` permission | Require runtime borrow tracking             |
+| Modal types other than `Ast`                    | Require runtime state machines              |
+| Types containing excluded types                 | Compositional closure                       |
 
-`QuotedExpr` and `QuotedBlock` are NOT type-checked at the quote site. Type checking is deferred until emission into module scope (§16.6).
+**Const References**
 
-**Subtyping Hierarchy**
+References with `const` permission to comptime-available types are comptime-available:
 
-$$\frac{}{\texttt{Expr} <: \texttt{Node}} \quad
-\frac{}{\texttt{Stmt} <: \texttt{Node}} \quad
-\frac{}{\texttt{Decl} <: \texttt{Node}}$$
+$$\frac{T \in \mathcal{C}}{\texttt{const}\ T \in \mathcal{C}} \quad \text{(C-Const-Ref)}$$
 
-##### Constraints & Legality
+**Validation**
 
-| Code         | Severity | Condition                              | Detection    | Effect    |
-| :----------- | :------- | :------------------------------------- | :----------- | :-------- |
-| `E-MET-0010` | Error    | Direct field access on opaque AST type | Compile-time | Rejection |
-| `E-MET-0011` | Error    | Pattern match on opaque AST type       | Compile-time | Rejection |
-
----
-
-#### 16.2.2 The ComptimeCodegen Capability
-
-##### Definition
-
-The `ComptimeCodegen` capability provides methods for AST construction, inspection, and emission during the Metaprogramming Phase. Code emission is a controlled side effect on the compilation unit and MUST require this capability.
-
-**Capability Declaration**
-
-```cursive
-capability ComptimeCodegen {
-    // ─────────────────────────────────────────────────────────────
-    // AST Construction — Expressions
-    // ─────────────────────────────────────────────────────────────
-    
-    /// Construct a literal expression from a compile-time value.
-    procedure literal<T: ComptimeLiteral>(value: T): Expr
-    
-    /// Construct an identifier expression.
-    procedure ident(name: string): Expr
-    
-    /// Construct a binary operation expression.
-    procedure binary_op(op: BinaryOp, left: Expr, right: Expr): Expr
-    
-    /// Construct a unary operation expression.
-    procedure unary_op(op: UnaryOp, operand: Expr): Expr
-    
-    /// Construct a procedure call expression.
-    procedure call(callee: Expr, args: [Expr]): Expr
-    
-    /// Construct a method call expression.
-    procedure method_call(receiver: Expr, method: string, args: [Expr]): Expr
-    
-    /// Construct a field access expression.
-    procedure field_access(base: Expr, field: string): Expr
-    
-    /// Construct an index access expression.
-    procedure index_access(base: Expr, index: Expr): Expr
-    
-    /// Construct a tuple expression.
-    procedure tuple_expr(elements: [Expr]): Expr
-    
-    /// Construct an array expression.
-    procedure array_expr(elements: [Expr]): Expr
-    
-    /// Construct a record literal expression.
-    procedure record_expr(ty: Type, fields: [(string, Expr)]): Expr
-    
-    /// Construct an if expression.
-    procedure if_expr(cond: Expr, then_branch: Expr, else_branch: Option<Expr>): Expr
-    
-    /// Construct a match expression.
-    procedure match_expr(scrutinee: Expr, arms: [(Pattern, Expr)]): Expr
-    
-    /// Construct a block expression.
-    procedure block_expr(stmts: [Stmt], result: Option<Expr>): Expr
-    
-    // ─────────────────────────────────────────────────────────────
-    // AST Construction — Statements
-    // ─────────────────────────────────────────────────────────────
-    
-    /// Construct an expression statement.
-    procedure expr_stmt(expr: Expr): Stmt
-    
-    /// Construct a let binding statement.
-    procedure let_stmt(name: string, ty: Option<Type>, init: Expr): Stmt
-    
-    /// Construct a mutable let binding statement.
-    procedure let_mut_stmt(name: string, ty: Option<Type>, init: Expr): Stmt
-    
-    /// Construct an assignment statement.
-    procedure assign_stmt(target: Expr, value: Expr): Stmt
-    
-    /// Construct a result statement.
-    procedure result_stmt(value: Expr): Stmt
-    
-    // ─────────────────────────────────────────────────────────────
-    // AST Construction — Types
-    // ─────────────────────────────────────────────────────────────
-    
-    /// Construct a Type handle from a TypeInfo.
-    procedure make_type(info: TypeInfo): Type
-    
-    /// Get the Type handle for a statically known type.
-    procedure type_of<T>(): Type
-    
-    /// Construct a named type reference from a path.
-    procedure named_type(path: string): Type
-    
-    /// Construct a tuple type.
-    procedure tuple_type(elements: [Type]): Type
-    
-    /// Construct an array type.
-    procedure array_type(element: Type, size: usize): Type
-    
-    /// Construct a slice type.
-    procedure slice_type(element: Type): Type
-    
-    /// Construct a reference type with permission.
-    procedure ref_type(permission: Permission, target: Type): Type
-    
-    /// Construct a procedure type.
-    procedure proc_type(params: [Type], return_type: Type): Type
-    
-    /// Construct a generic type application.
-    procedure generic_type(base: Type, args: [Type]): Type
-    
-    // ─────────────────────────────────────────────────────────────
-    // AST Inspection
-    // ─────────────────────────────────────────────────────────────
-    
-    /// Get the kind of an expression node.
-    procedure expr_kind(expr: Expr): ExprKind
-    
-    /// Get the kind of a statement node.
-    procedure stmt_kind(stmt: Stmt): StmtKind
-    
-    /// Get the kind of a declaration node.
-    procedure decl_kind(decl: Decl): DeclKind
-    
-    /// Get the source location of an expression.
-    procedure expr_span(expr: Expr): SourceSpan
-    
-    /// Get the source location of a statement.
-    procedure stmt_span(stmt: Stmt): SourceSpan
-    
-    /// Get the source location of a declaration.
-    procedure decl_span(decl: Decl): SourceSpan
-    
-    /// Get child expressions of an expression node.
-    procedure expr_children(expr: Expr): [Expr]
-    
-    // ─────────────────────────────────────────────────────────────
-    // Code Emission
-    // ─────────────────────────────────────────────────────────────
-    
-    /// Emit declarations into the current module scope.
-    procedure emit(~! self, code: QuotedBlock)
-    
-    // ─────────────────────────────────────────────────────────────
-    // Diagnostics
-    // ─────────────────────────────────────────────────────────────
-    
-    /// Emit a compile-time error at a source location.
-    procedure error(message: string, span: SourceSpan)
-    
-    /// Emit a compile-time warning at a source location.
-    procedure warning(message: string, span: SourceSpan)
-    
-    /// Print a debug message during compilation.
-    procedure debug_log(message: string)
-    
-    /// Get the source span of the current comptime block.
-    procedure current_span(): SourceSpan
-    
-    /// Get the module path of the current comptime block.
-    procedure current_module(): string
-}
-```
-
-**ComptimeLiteral Form**
-
-A type `T` satisfies the `ComptimeLiteral` form if it can be represented as a literal AST node:
-
-```cursive
-form ComptimeLiteral {
-    // Marker form; no methods required
-}
-```
-
-The following types implement `ComptimeLiteral`: all integer types, all floating-point types, `bool`, `char`, and `string`.
-
-**Supporting Types**
-
-```cursive
-enum BinaryOp {
-    Add, Sub, Mul, Div, Rem,
-    BitAnd, BitOr, BitXor, Shl, Shr,
-    Eq, Ne, Lt, Le, Gt, Ge,
-    And, Or,
-}
-
-enum UnaryOp {
-    Neg,
-    Not,
-    Ref,
-    Deref,
-}
-
-record SourceSpan {
-    file: string,
-    start_line: u32,
-    start_col: u32,
-    end_line: u32,
-    end_col: u32,
-}
-
-enum ExprKind {
-    Literal, Identifier, BinaryOp, UnaryOp, Call, MethodCall,
-    FieldAccess, IndexAccess, Tuple, Array, Record,
-    If, Match, Block, Closure, Quote, Splice,
-}
-
-enum StmtKind {
-    Expr, Let, Assign, Result,
-    Loop, While, For, Break, Continue, Defer,
-}
-
-enum DeclKind {
-    Procedure, Record, Enum, Form, Modal, TypeAlias, Implement, Const,
-}
-```
-
-##### Static Semantics
-
-**Capability Provision**
-
-The `ComptimeCodegen` capability is provided implicitly to:
-1. The body of any `comptime` block
-2. The body of any `comptime` procedure
-3. The body of any `[[derive_target]]` procedure
-
-The capability is accessible via the identifier `codegen` within these contexts.
-
-**Typing Rule for Implicit Capability**
-
-$$\frac{
-    \text{InComptimeContext}(e) \quad
-    \Gamma_{ct}, \texttt{codegen} : \texttt{ComptimeCodegen} \vdash e : T
-}{
-    \Gamma_{ct} \vdash \texttt{comptime}\ \{ e \} : T
-} \quad \text{(T-Comptime-Block)}$$
-
-##### Dynamic Semantics
-
-**Execution Order**
-
-1. The implementation parses all source files.
-2. The implementation identifies all `comptime` blocks and `[[derive(...)]]` attributes.
-3. Comptime blocks execute in topologically-sorted order based on their dependencies.
-4. Each `emit` operation appends declarations to the module's pending emission queue.
-5. After all comptime execution completes, pending emissions are spliced into the AST.
-6. Semantic analysis proceeds on the complete AST.
-
-**Panic Behavior**
-
-If a comptime procedure panics:
-1. The panic message is reported as a compile-time error.
-2. The `SourceSpan` of the panicking expression is included in the diagnostic.
-3. Compilation terminates with `E-MET-0020`.
+The implementation MUST verify that all types used in comptime context satisfy $\text{IsComptimeAvailable}(T)$. This verification occurs during semantic analysis of comptime procedures and blocks.
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                                               | Detection    | Effect    |
-| :----------- | :------- | :------------------------------------------------------ | :----------- | :-------- |
-| `E-MET-0020` | Error    | Comptime execution panicked                             | Compile-time | Rejection |
-| `E-MET-0021` | Error    | `emit` called outside comptime context                  | Compile-time | Rejection |
-| `E-MET-0022` | Error    | Emitted code failed type checking                       | Compile-time | Rejection |
-| `E-MET-0023` | Error    | Circular dependency in comptime execution               | Compile-time | Rejection |
-| `E-MET-0024` | Error    | Emitted declaration conflicts with existing declaration | Compile-time | Rejection |
-
----
-
-### 16.3 Type Introspection
-
-#### 16.3.1 TypeInfo
-
-##### Definition
-
-`TypeInfo` is a record type providing compile-time access to the structure and metadata of types.
-
-```cursive
-record TypeInfo {
-    kind: TypeKind,
-    name: string,
-    module_path: string,
-    fields: [FieldInfo],
-    variants: [VariantInfo],
-    states: [StateInfo],
-    layout: LayoutInfo,
-    generic_params: [GenericParamInfo],
-    generic_args: [TypeInfo],
-    attributes: [Attribute],
-    forms_implemented: [FormRef],
-    visibility: Visibility,
-}
-```
-
-| Field               | Type                 | Description                              |
-| :------------------ | :------------------- | :--------------------------------------- |
-| `kind`              | `TypeKind`           | Category of the type                     |
-| `name`              | `string`             | Simple name of the type                  |
-| `module_path`       | `string`             | Fully qualified module path              |
-| `fields`            | `[FieldInfo]`        | Non-empty for records; empty otherwise   |
-| `variants`          | `[VariantInfo]`      | Non-empty for enums; empty otherwise     |
-| `states`            | `[StateInfo]`        | Non-empty for modals; empty otherwise    |
-| `layout`            | `LayoutInfo`         | Size, alignment, and stride              |
-| `generic_params`    | `[GenericParamInfo]` | Generic parameters in declaration        |
-| `generic_args`      | `[TypeInfo]`         | Instantiated generic arguments           |
-| `attributes`        | `[Attribute]`        | Attached attributes (as defined in §7.2) |
-| `forms_implemented` | `[FormRef]`          | Forms this type implements               |
-| `visibility`        | `Visibility`         | Visibility level (as defined in §5.5)    |
-
-**TypeKind**
-
-```cursive
-enum TypeKind {
-    Primitive,
-    Record,
-    Enum,
-    Modal,
-    Tuple,
-    Array,
-    Slice,
-    Reference,
-    Procedure,
-    Form,
-    Opaque,
-    Witness,
-    Generic,
-    Never,
-}
-```
-
-**FieldInfo**
-
-```cursive
-record FieldInfo {
-    name: string,
-    field_type: TypeInfo,
-    offset: usize,
-    attributes: [Attribute],
-    visibility: Visibility,
-}
-```
-
-**VariantInfo**
-
-```cursive
-record VariantInfo {
-    name: string,
-    discriminant: i64,
-    payload: [FieldInfo],
-    attributes: [Attribute],
-}
-```
-
-**StateInfo**
-
-```cursive
-record StateInfo {
-    name: string,
-    payload: [FieldInfo],
-    transitions: [TransitionInfo],
-    attributes: [Attribute],
-}
-
-record TransitionInfo {
-    method_name: string,
-    params: [ParamInfo],
-    target_states: [string],
-}
-```
-
-**LayoutInfo**
-
-```cursive
-record LayoutInfo {
-    size: usize,
-    alignment: usize,
-    stride: usize,
-}
-```
-
-**GenericParamInfo**
-
-```cursive
-record GenericParamInfo {
-    name: string,
-    bounds: [FormRef],
-    default: Option<TypeInfo>,
-    variance: Variance,
-}
-
-enum Variance {
-    Covariant,
-    Contravariant,
-    Invariant,
-    Bivariant,
-}
-
-record FormRef {
-    name: string,
-    module_path: string,
-}
-```
-
-##### Syntax & Declaration
-
-**The `reflect_type` Intrinsic**
-
-```cursive
-comptime procedure reflect_type<T>(): TypeInfo
-```
-
-##### Static Semantics
-
-**Invocation Constraints**
-
-- `reflect_type<T>` MUST only be invoked on types `T` that are fully defined at the point of invocation.
-- Recursive type dependencies that prevent layout resolution MUST be diagnosed.
-
-**Typing Rule**
-
-$$\frac{
-    \Gamma_{ct} \vdash T\ \text{wf} \quad
-    \text{IsDefined}(T)
-}{
-    \Gamma_{ct} \vdash \texttt{reflect\_type}\langle T \rangle : \texttt{TypeInfo}
-} \quad \text{(T-Reflect-Type)}$$
-
-##### Constraints & Legality
-
-| Code         | Severity | Condition                                              | Detection    | Effect    |
-| :----------- | :------- | :----------------------------------------------------- | :----------- | :-------- |
-| `E-MET-0100` | Error    | `reflect_type` called on incomplete type               | Compile-time | Rejection |
-| `E-MET-0101` | Error    | `reflect_type` called on type with unresolvable layout | Compile-time | Rejection |
-| `E-MET-0102` | Error    | `reflect_type` called outside comptime context         | Compile-time | Rejection |
-
----
-
-#### 16.3.2 ProcInfo
-
-##### Definition
-
-`ProcInfo` is a record type providing compile-time access to the signature and metadata of procedures.
-
-```cursive
-record ProcInfo {
-    name: string,
-    module_path: string,
-    generic_params: [GenericParamInfo],
-    params: [ParamInfo],
-    return_type: TypeInfo,
-    contracts: ContractSummary,
-    capability_requirements: [CapabilityRef],
-    key_requirements: [KeyRequirement],
-    is_comptime: bool,
-    is_extern: bool,
-    is_pure: bool,
-    attributes: [Attribute],
-    visibility: Visibility,
-}
-```
-
-**ParamInfo**
-
-```cursive
-record ParamInfo {
-    name: string,
-    param_type: TypeInfo,
-    permission: Permission,
-    is_self: bool,
-    has_default: bool,
-}
-```
-
-**ContractSummary**
-
-```cursive
-record ContractSummary {
-    preconditions: [ConditionInfo],
-    postconditions: [ConditionInfo],
-}
-
-record ConditionInfo {
-    source_text: string,
-    captures: [string],
-}
-```
-
-**CapabilityRef**
-
-```cursive
-record CapabilityRef {
-    name: string,
-    module_path: string,
-    is_consumed: bool,
-}
-```
-
-**KeyRequirement**
-
-```cursive
-record KeyRequirement {
-    path_pattern: string,
-    mode: KeyMode,
-    is_inferred: bool,
-}
-
-enum KeyMode {
-    Read,
-    Write,
-}
-```
-
-##### Syntax & Declaration
-
-**The `reflect_proc` Intrinsic**
-
-```cursive
-comptime procedure reflect_proc<P>(): ProcInfo
-```
-
-The type parameter `P` MUST be a procedure type or a reference to a specific procedure.
-
-##### Static Semantics
-
-**Typing Rule**
-
-$$\frac{
-    \Gamma_{ct} \vdash P : (T_1, \ldots, T_n) \to R \quad
-    \text{IsProcedure}(P)
-}{
-    \Gamma_{ct} \vdash \texttt{reflect\_proc}\langle P \rangle : \texttt{ProcInfo}
-} \quad \text{(T-Reflect-Proc)}$$
-
-##### Constraints & Legality
-
-| Code         | Severity | Condition                                        | Detection    | Effect    |
-| :----------- | :------- | :----------------------------------------------- | :----------- | :-------- |
-| `E-MET-0110` | Error    | `reflect_proc` called on non-procedure type      | Compile-time | Rejection |
-| `E-MET-0111` | Error    | `reflect_proc` called on unresolved overload set | Compile-time | Rejection |
-
----
-
-#### 16.3.3 FormInfo
-
-##### Definition
-
-`FormInfo` is a record type providing compile-time access to the structure and requirements of forms (as defined in §9).
-
-```cursive
-record FormInfo {
-    name: string,
-    module_path: string,
-    generic_params: [GenericParamInfo],
-    superforms: [FormRef],
-    abstract_methods: [MethodSignature],
-    concrete_methods: [MethodSignature],
-    associated_types: [AssociatedTypeInfo],
-    attributes: [Attribute],
-    visibility: Visibility,
-}
-```
-
-**MethodSignature**
-
-```cursive
-record MethodSignature {
-    name: string,
-    receiver: Option<ReceiverInfo>,
-    params: [ParamInfo],
-    return_type: TypeInfo,
-    has_default: bool,
-}
-
-record ReceiverInfo {
-    permission: Permission,
-    is_by_value: bool,
-}
-```
-
-**AssociatedTypeInfo**
-
-```cursive
-record AssociatedTypeInfo {
-    name: string,
-    bounds: [FormRef],
-    default: Option<TypeInfo>,
-}
-```
-
-##### Syntax & Declaration
-
-**The `reflect_form` Intrinsic**
-
-```cursive
-comptime procedure reflect_form<F>(): FormInfo
-```
-
-The type parameter `F` MUST be a form type.
-
-##### Static Semantics
-
-**Typing Rule**
-
-$$\frac{
-    \Gamma_{ct} \vdash F\ \text{wf} \quad
-    \text{kind}(F) = \texttt{Form}
-}{
-    \Gamma_{ct} \vdash \texttt{reflect\_form}\langle F \rangle : \texttt{FormInfo}
-} \quad \text{(T-Reflect-Form)}$$
-
-##### Constraints & Legality
-
-| Code         | Severity | Condition                              | Detection    | Effect    |
-| :----------- | :------- | :------------------------------------- | :----------- | :-------- |
-| `E-MET-0120` | Error    | `reflect_form` called on non-form type | Compile-time | Rejection |
-
----
-
-#### 16.3.4 ModalInfo
-
-##### Definition
-
-`ModalInfo` is a record type providing compile-time access to the state machine structure of modal types (as defined in §6.1).
-
-```cursive
-record ModalInfo {
-    name: string,
-    module_path: string,
-    generic_params: [GenericParamInfo],
-    states: [StateInfo],
-    attributes: [Attribute],
-    visibility: Visibility,
-}
-```
-
-The `StateInfo` and `TransitionInfo` types are defined in §16.3.1.
-
-##### Syntax & Declaration
-
-**The `reflect_modal` Intrinsic**
-
-```cursive
-comptime procedure reflect_modal<M>(): ModalInfo
-```
-
-The type parameter `M` MUST be a modal type.
-
-##### Static Semantics
-
-**Typing Rule**
-
-$$\frac{
-    \Gamma_{ct} \vdash M\ \text{wf} \quad
-    \text{kind}(M) = \texttt{Modal}
-}{
-    \Gamma_{ct} \vdash \texttt{reflect\_modal}\langle M \rangle : \texttt{ModalInfo}
-} \quad \text{(T-Reflect-Modal)}$$
-
-##### Constraints & Legality
-
-| Code         | Severity | Condition                                | Detection    | Effect    |
-| :----------- | :------- | :--------------------------------------- | :----------- | :-------- |
-| `E-MET-0130` | Error    | `reflect_modal` called on non-modal type | Compile-time | Rejection |
-
----
-
-#### 16.3.5 ModuleInfo
-
-##### Definition
-
-`ModuleInfo` is a record type providing compile-time access to module structure and contents.
-
-```cursive
-record ModuleInfo {
-    path: string,
-    declarations: [DeclSummary],
-    submodules: [string],
-    imports: [ImportInfo],
-    exports: [string],
-}
-
-record DeclSummary {
-    name: string,
-    kind: DeclKind,
-    visibility: Visibility,
-}
-
-record ImportInfo {
-    source_path: string,
-    imported_names: [string],
-    is_wildcard: bool,
-}
-```
-
-##### Syntax & Declaration
-
-**Intrinsics**
-
-```cursive
-comptime procedure reflect_module(path: string): ModuleInfo
-comptime procedure reflect_current_module(): ModuleInfo
-```
-
-##### Constraints & Legality
+**Diagnostic Table**
 
 | Code         | Severity | Condition                                                        | Detection    | Effect    |
 | :----------- | :------- | :--------------------------------------------------------------- | :----------- | :-------- |
-| `E-MET-0140` | Error    | `reflect_module` called with nonexistent module path             | Compile-time | Rejection |
-| `E-MET-0141` | Error    | `reflect_module` called on module not visible from current scope | Compile-time | Rejection |
+| `E-CTE-0010` | Error    | Non-comptime-available type used in comptime context             | Compile-time | Rejection |
+| `E-CTE-0011` | Error    | Parameter type of comptime procedure not comptime-available      | Compile-time | Rejection |
+| `E-CTE-0012` | Error    | Return type of comptime procedure not comptime-available         | Compile-time | Rejection |
+| `E-CTE-0013` | Error    | Local variable in comptime block has non-comptime-available type | Compile-time | Rejection |
 
 ---
 
-### 16.4 Compile-Time Procedures and Blocks
+### 16.3 Comptime Procedures
 
 ##### Definition
 
-**Comptime Procedure**
-
-A **comptime procedure** is a procedure declared with the `comptime` modifier. It executes during the Metaprogramming Phase and MUST NOT be called from runtime context.
-
-**Comptime Block**
-
-A **comptime block** is a block statement prefixed with the `comptime` keyword. It executes immediately when encountered during the Metaprogramming Phase.
-
-**Comptime Expression**
-
-A **comptime expression** is a comptime block used in expression position. Its result value is substituted into the runtime program as a constant.
+A **comptime procedure** is a procedure declared with the `comptime` modifier. A comptime procedure executes during the Metaprogramming Phase and MUST NOT be called from runtime context.
 
 ##### Syntax & Declaration
 
 **Grammar**
 
 ```ebnf
-comptime_procedure ::= visibility? "comptime" "procedure" IDENTIFIER
+comptime_procedure ::= attribute_list? visibility? "comptime" "procedure" IDENTIFIER
                        generic_params? "(" param_list? ")"
-                       (":" type)? contract_clause? block
-
-comptime_block     ::= "comptime" block
-
-comptime_expr      ::= "comptime" block
+                       (":" return_type)? contract_clause?
+                       block
 ```
 
-The `visibility`, `generic_params`, `param_list`, `contract_clause`, and `block` productions are defined in their respective clauses (§5.5, §7.1, §9.3, §10.1, §11.2).
+The productions `attribute_list`, `visibility`, `generic_params`, `param_list`, `return_type`, `contract_clause`, and `block` are defined in §7.2, §8.5, §7.1, §5.5, §4, §10.2, and §11.2 respectively.
+
+**Example**
+
+```cursive
+comptime procedure factorial(n: u64): u64 {
+    match n {
+        0 | 1 => result 1,
+        _ => result n * factorial(n - 1),
+    }
+}
+```
 
 ##### Static Semantics
 
 **Callability Rules**
 
-A `comptime` procedure MAY be called by:
-- Other `comptime` procedures
-- `comptime` blocks
-- `const` initializers
-- `[[derive_target]]` procedures
+A comptime procedure MAY be called from:
 
-A `comptime` procedure MUST NOT be called from runtime context.
+1. Other comptime procedures
+2. Comptime blocks (§16.4)
+3. `const` initializers (§4.3)
+4. Derive target procedures (§19.3)
+5. Conditional implementation bodies (§19.5)
+
+A comptime procedure MUST NOT be called from runtime context. An attempted call from runtime context is ill-formed.
 
 **Parameter Type Restrictions**
 
-Parameters to `comptime` procedures MUST have comptime-available types as defined in §16.1.
+All parameter types of a comptime procedure MUST be comptime-available as defined in §16.2:
 
-**Typing Rule for Comptime Procedures**
+$$\frac{
+    \texttt{comptime procedure } f(x_1: T_1, \ldots, x_n: T_n): R \quad
+    \exists i.\ \neg\text{IsComptimeAvailable}(T_i)
+}{
+    \text{ill-formed}
+} \quad \text{(Comptime-Param-Check)}$$
+
+**Return Type Restrictions**
+
+The return type of a comptime procedure MUST be comptime-available:
+
+$$\frac{
+    \texttt{comptime procedure } f(\ldots): R \quad
+    \neg\text{IsComptimeAvailable}(R)
+}{
+    \text{ill-formed}
+} \quad \text{(Comptime-Return-Check)}$$
+
+**Typing Rule**
 
 $$\frac{
     \forall i.\ \text{IsComptimeAvailable}(T_i) \quad
     \text{IsComptimeAvailable}(R) \quad
-    \Gamma_{ct}, x_1 : T_1, \ldots, x_n : T_n \vdash \text{body} : R
+    \Gamma_{ct}, x_1: T_1, \ldots, x_n: T_n \vdash \textit{body} : R
 }{
-    \Gamma_{ct} \vdash \texttt{comptime procedure}\ f(x_1: T_1, \ldots, x_n: T_n): R\ \{ \text{body} \}
+    \Gamma_{ct} \vdash \texttt{comptime procedure } f(x_1: T_1, \ldots, x_n: T_n): R\ \{\ \textit{body}\ \}
 } \quad \text{(T-Comptime-Proc)}$$
+
+**Generic Comptime Procedures**
+
+Comptime procedures MAY have generic type parameters. Type parameters are instantiated at compile time when the procedure is called. All instantiated types MUST be comptime-available.
+
+**Contract Clauses**
+
+Comptime procedures MAY have contract clauses (preconditions and postconditions) as defined in §10.2. Contracts on comptime procedures are evaluated at compile time during each invocation.
+
+##### Dynamic Semantics
+
+**Execution**
+
+When a comptime procedure is called during the Metaprogramming Phase:
+
+1. Arguments are evaluated in the comptime environment.
+2. Parameter bindings are established in a new scope.
+3. The procedure body executes in the comptime environment.
+4. The result value is returned to the caller.
+
+**Recursion**
+
+Comptime procedures MAY be recursive. The implementation MUST enforce a recursion depth limit as specified in §16.8.
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                                  | Detection    | Effect    |
+| :----------- | :------- | :--------------------------------------------------------- | :----------- | :-------- |
+| `E-CTE-0020` | Error    | Comptime procedure called from runtime context             | Compile-time | Rejection |
+| `E-CTE-0021` | Error    | Non-comptime-available parameter type                      | Compile-time | Rejection |
+| `E-CTE-0022` | Error    | Non-comptime-available return type                         | Compile-time | Rejection |
+| `E-CTE-0023` | Error    | Comptime procedure body contains prohibited construct      | Compile-time | Rejection |
+| `E-CTE-0024` | Error    | Generic instantiation produces non-comptime-available type | Compile-time | Rejection |
+
+---
+
+### 16.4 Comptime Blocks and Expressions
+
+##### Definition
+
+A **comptime block** is a block statement prefixed with the `comptime` keyword. A comptime block executes immediately when encountered during the Metaprogramming Phase.
+
+A **comptime expression** is a comptime block used in expression position. The result value of a comptime expression is substituted into the runtime program as a compile-time constant.
+
+##### Syntax & Declaration
+
+**Grammar**
+
+```ebnf
+comptime_block ::= attribute_list? "comptime" block
+
+comptime_expr  ::= "comptime" block
+```
+
+The `block` production is defined in §11.2. The `attribute_list` production is defined in §7.2.
+
+**Examples**
+
+```cursive
+// Comptime block at statement level
+comptime {
+    static_assert(size_of::<Player>() <= 64, "Player must fit in cache line")
+}
+
+// Comptime expression
+let array_size = comptime { compute_optimal_size() }
+
+// Comptime block with file access attribute
+[[files]]
+comptime {
+    let schema = files~>read("schema.json")?
+    generate_types_from_schema(schema)
+}
+```
+
+##### Static Semantics
+
+**Typing Rule for Comptime Blocks (Statement Position)**
+
+$$\frac{
+    \Gamma_{ct} \vdash \textit{body} : T
+}{
+    \Gamma \vdash \texttt{comptime}\ \{\ \textit{body}\ \} : ()
+} \quad \text{(T-Comptime-Block-Stmt)}$$
+
+When a comptime block appears in statement position, its result value is discarded and the block has type `()` in the enclosing runtime context.
 
 **Typing Rule for Comptime Expressions**
 
 $$\frac{
-    \Gamma_{ct} \vdash e : T \quad
-    \text{IsComptimeAvailable}(T)
+    \Gamma_{ct} \vdash \textit{body} : T \quad
+    \text{IsComptimeAvailable}(T) \quad
+    \text{IsRuntimeRepresentable}(T)
 }{
-    \Gamma \vdash \texttt{comptime}\ \{ e \} : T
+    \Gamma \vdash \texttt{comptime}\ \{\ \textit{body}\ \} : T
 } \quad \text{(T-Comptime-Expr)}$$
+
+When a comptime block appears in expression position, the result type $T$ MUST be both comptime-available and representable as a runtime constant.
+
+**Runtime Representability**
+
+A type $T$ is runtime-representable if a value of type $T$ can be encoded as a literal in the runtime program. The following types are runtime-representable:
+
+1. All primitive types
+2. `string`
+3. Tuples of runtime-representable types
+4. Arrays of runtime-representable types
+5. Records with all fields runtime-representable
+6. Enums with all variant payloads runtime-representable
+
+Types that are comptime-available but NOT runtime-representable include: `TypePattern`, `TypeRepr`, `Ast<T>@S`, and `Sequence<T>`.
 
 **Scope Rules**
 
-Variables declared inside a `comptime` block are local to the compile-time environment. They do NOT persist to the runtime program unless explicitly emitted.
+Variables declared inside a comptime block are local to the comptime environment. These bindings:
+
+1. Do NOT persist after the comptime block completes.
+2. Do NOT exist in the runtime program.
+3. MUST NOT be referenced from runtime code outside the block.
+
+**Attribute Handling**
+
+The `[[files]]` attribute on a comptime block enables the `ProjectFiles` capability (§16.5.3) within that block.
 
 ##### Dynamic Semantics
 
 **Execution Timing**
 
-Comptime blocks execute during Translation Phase 2 (Metaprogramming Phase). The order of execution respects data dependencies: if comptime block $A$ references a declaration emitted by comptime block $B$, then $B$ executes before $A$.
+Comptime blocks execute during Translation Phase 2 (Metaprogramming Phase). The execution order of comptime blocks respects the dependency graph defined in §16.7.
 
-**Expression Result**
+**Expression Substitution**
 
 When a comptime block is used as an expression:
-1. The block is evaluated at compile time.
+
+1. The block body is evaluated at compile time.
 2. The result value is converted to an AST literal node.
-3. The literal node is substituted into the runtime program.
+3. The literal node replaces the comptime expression in the program AST.
 
 ```cursive
-let x = comptime { 1 + 1 }  // x = 2, computed at compile time
+let x = comptime { 1 + 1 }
+// After comptime execution, equivalent to:
+let x = 2
+```
+
+**Side Effects**
+
+Comptime blocks may have side effects on the compilation unit through capabilities:
+
+1. Code emission via `ModuleEmitter` (§16.5.2)
+2. Diagnostic emission via `ComptimeDiagnostics` (§16.5.4)
+3. File reads via `ProjectFiles` (§16.5.3)
+
+These side effects are the only observable effects of comptime execution.
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                              | Detection    | Effect    |
+| :----------- | :------- | :----------------------------------------------------- | :----------- | :-------- |
+| `E-CTE-0030` | Error    | Comptime expression has non-runtime-representable type | Compile-time | Rejection |
+| `E-CTE-0031` | Error    | Comptime block references runtime binding              | Compile-time | Rejection |
+| `E-CTE-0032` | Error    | Runtime code references comptime-local binding         | Compile-time | Rejection |
+
+---
+
+### 16.5 Compile-Time Capabilities
+
+##### Definition
+
+**Compile-time capabilities** are witnesses that authorize specific operations during the Metaprogramming Phase. Compile-time capabilities follow the capability model defined in §12 but are available only during compile-time execution.
+
+Each compile-time capability authorizes a specific category of compile-time operations. The capability system ensures that comptime code cannot perform unauthorized operations on the compilation unit.
+
+---
+
+#### 16.5.1 The Introspect Capability
+
+##### Definition
+
+The **Introspect capability** authorizes reflection operations on types. It provides access to type structure, field information, variant information, and layout metadata.
+
+##### Syntax & Declaration
+
+```cursive
+capability Introspect {
+    /// Returns the fields of a record type as a sequence
+    procedure fields<T>(~) -> Sequence<FieldInfo>
+        where T: Record
+    
+    /// Returns the variants of an enum type as a sequence
+    procedure variants<T>(~) -> Sequence<VariantInfo>
+        where T: Enum
+    
+    /// Returns the states of a modal type as a sequence
+    procedure states<T>(~) -> Sequence<StateInfo>
+        where T: Modal
+    
+    /// Returns layout information for a type
+    procedure layout<T>(~) -> LayoutInfo
+    
+    /// Returns the fully-qualified name of a type
+    procedure type_name<T>(~) -> string
+    
+    /// Returns the module path containing a type
+    procedure module_path<T>(~) -> string
+    
+    /// Returns the attributes attached to a type
+    procedure attributes<T>(~) -> Sequence<Attribute>
+}
+```
+
+> **Note:** The `Record`, `Enum`, and `Modal` constraints are marker forms that restrict the type parameter to the appropriate type kind. These are built-in forms not user-definable.
+
+##### Static Semantics
+
+**Provision**
+
+The `Introspect` capability is implicitly provided to:
+
+1. All comptime blocks
+2. All comptime procedures
+3. All derive target procedures (§19.3)
+
+The capability witness is available via the identifier `introspect`.
+
+**Type Parameter Constraints**
+
+Operations with type kind constraints MUST be invoked with type arguments satisfying those constraints:
+
+$$\frac{
+    \Gamma_{ct} \vdash w : \texttt{witness Introspect} \quad
+    \text{IsRecord}(T)
+}{
+    \Gamma_{ct} \vdash w\texttt{\~{}>fields::<}T\texttt{>()} : \texttt{Sequence}\langle\texttt{FieldInfo}\rangle
+} \quad \text{(T-Introspect-Fields)}$$
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                      | Detection    | Effect    |
+| :----------- | :------- | :--------------------------------------------- | :----------- | :-------- |
+| `E-CTE-0040` | Error    | `fields` called on non-record type             | Compile-time | Rejection |
+| `E-CTE-0041` | Error    | `variants` called on non-enum type             | Compile-time | Rejection |
+| `E-CTE-0042` | Error    | `states` called on non-modal type              | Compile-time | Rejection |
+| `E-CTE-0043` | Error    | `layout` called on type with incomplete layout | Compile-time | Rejection |
+
+---
+
+#### 16.5.2 The ModuleEmitter Capability
+
+##### Definition
+
+The **ModuleEmitter capability** authorizes emission of generated code into a specific module's scope. Code emission is the mechanism by which comptime execution produces declarations visible to the runtime program.
+
+##### Syntax & Declaration
+
+```cursive
+capability ModuleEmitter {
+    /// Returns the module path this emitter targets
+    procedure target_module(~) -> string
+    
+    /// Emits a typed AST declaration into the module
+    /// Requires unique permission (consumes capability for this emission)
+    procedure emit(~!, ast: Ast<()>@Typed)
+    
+    /// Emits a form implementation for a type
+    procedure emit_implement(~!,
+        target_type: TypeRepr,
+        form: FormRepr,
+        body: Ast<()>@Typed)
+}
+```
+
+The `Ast` modal type is defined in §18.2. The `TypeRepr` and `FormRepr` types are defined in §17.5.
+
+##### Static Semantics
+
+**Provision**
+
+The `ModuleEmitter` capability is provided to:
+
+1. Derive target procedures (§19.3), targeting the module where the derived type is declared
+2. Comptime blocks containing `emit` calls, targeting the enclosing module
+
+The capability witness is available via the identifier `emitter`.
+
+**Emission Target**
+
+Each `ModuleEmitter` instance is bound to a specific module. Emitted declarations become visible in that module after the Metaprogramming Phase completes.
+
+**Permission Requirements**
+
+The `emit` and `emit_implement` methods require `unique` permission on the capability witness. This ensures each emission is an explicit, trackable operation.
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                               | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------------ | :----------- | :-------- |
+| `E-CTE-0050` | Error    | `emit` called without `ModuleEmitter` capability        | Compile-time | Rejection |
+| `E-CTE-0051` | Error    | `emit` called on `Ast` not in `@Typed` state            | Compile-time | Rejection |
+| `E-CTE-0052` | Error    | Emitted declaration conflicts with existing declaration | Compile-time | Rejection |
+| `E-CTE-0053` | Error    | Duplicate form implementation emitted                   | Compile-time | Rejection |
+
+---
+
+#### 16.5.3 The ProjectFiles Capability
+
+##### Definition
+
+The **ProjectFiles capability** authorizes read access to files within the project directory during compile-time execution. This capability enables schema-driven code generation and build-time resource embedding.
+
+##### Syntax & Declaration
+
+```cursive
+capability ProjectFiles {
+    /// Reads a file's contents as a UTF-8 string
+    procedure read(~, path: string) -> Result<string, FileError>
+    
+    /// Reads a file's contents as raw bytes
+    procedure read_bytes(~, path: string) -> Result<[u8], FileError>
+    
+    /// Checks whether a file exists
+    procedure exists(~, path: string) -> bool
+    
+    /// Lists the contents of a directory
+    procedure list_dir(~, path: string) -> Result<[string], FileError>
+    
+    /// Returns the project root directory path
+    procedure project_root(~) -> string
+}
+
+enum FileError {
+    NotFound { path: string },
+    PermissionDenied { path: string },
+    NotUtf8 { path: string },
+    IoError { message: string },
+}
+```
+
+##### Static Semantics
+
+**Provision**
+
+The `ProjectFiles` capability is provided only to comptime blocks annotated with the `[[files]]` attribute:
+
+```cursive
+[[files]]
+comptime {
+    let content = files~>read("data/schema.json")?
+    // ...
+}
+```
+
+The capability witness is available via the identifier `files`.
+
+**Path Resolution**
+
+All paths are interpreted relative to the project root directory. The project root is the directory containing the project manifest file.
+
+**Path Restrictions**
+
+The following path restrictions apply:
+
+1. Paths MUST be relative (not absolute).
+2. Paths MUST NOT contain `..` components that would traverse above the project root.
+3. Paths MUST NOT follow symbolic links that escape the project directory.
+4. Only regular files and directories are accessible.
+
+**Determinism**
+
+File contents read via `ProjectFiles` are captured at the start of the Metaprogramming Phase. Subsequent modifications to files during compilation do not affect the values returned by `read` operations.
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                        | Detection    | Effect    |
+| :----------- | :------- | :----------------------------------------------- | :----------- | :-------- |
+| `E-CTE-0060` | Error    | File operation without `ProjectFiles` capability | Compile-time | Rejection |
+| `E-CTE-0061` | Error    | `[[files]]` attribute on non-comptime block      | Compile-time | Rejection |
+| `E-CTE-0062` | Error    | Path escapes project directory                   | Compile-time | Rejection |
+| `E-CTE-0063` | Error    | Absolute path in file operation                  | Compile-time | Rejection |
+| `E-CTE-0064` | Error    | File not found                                   | Compile-time | Rejection |
+
+---
+
+#### 16.5.4 The ComptimeDiagnostics Capability
+
+##### Definition
+
+The **ComptimeDiagnostics capability** authorizes emission of compile-time diagnostics including errors, warnings, and informational messages. This capability enables comptime code to report meaningful error messages when code generation fails or invalid configurations are detected.
+
+##### Syntax & Declaration
+
+```cursive
+capability ComptimeDiagnostics {
+    /// Emits a compile-time error and halts compilation
+    /// The never type (!) indicates this procedure does not return
+    procedure error(~!, message: string) -> !
+    
+    /// Emits a compile-time error at a specific source location
+    procedure error_at(~!, message: string, span: SourceSpan) -> !
+    
+    /// Emits a compile-time warning; compilation continues
+    procedure warning(~, message: string)
+    
+    /// Emits a compile-time warning at a specific source location
+    procedure warning_at(~, message: string, span: SourceSpan)
+    
+    /// Emits an informational note
+    procedure note(~, message: string)
+    
+    /// Emits an informational note at a specific source location
+    procedure note_at(~, message: string, span: SourceSpan)
+    
+    /// Returns the source span of the current comptime block
+    procedure current_span(~) -> SourceSpan
+    
+    /// Returns the module path of the current comptime block
+    procedure current_module(~) -> string
+}
+```
+
+The `SourceSpan` type is defined as:
+
+```cursive
+record SourceSpan {
+    file: string,
+    start_line: u32,
+    start_column: u32,
+    end_line: u32,
+    end_column: u32,
+}
+```
+
+##### Static Semantics
+
+**Provision**
+
+The `ComptimeDiagnostics` capability is implicitly provided to:
+
+1. All comptime blocks
+2. All comptime procedures
+3. All derive target procedures (§19.3)
+
+The capability witness is available via the identifier `diagnostics`.
+
+**Never Type**
+
+The `error` and `error_at` procedures have return type `!` (never). These procedures do not return; they terminate the Metaprogramming Phase.
+
+##### Dynamic Semantics
+
+**Error Emission**
+
+When `error` or `error_at` is invoked:
+
+1. The diagnostic message is recorded with severity Error.
+2. The Metaprogramming Phase terminates immediately.
+3. Compilation fails with diagnostic code `E-CTE-0070`.
+
+**Warning Emission**
+
+When `warning` or `warning_at` is invoked:
+
+1. The diagnostic message is recorded with severity Warning.
+2. Execution of the comptime block continues.
+3. Compilation proceeds unless other errors occur.
+
+**Note Emission**
+
+When `note` or `note_at` is invoked:
+
+1. The diagnostic message is recorded with severity Note.
+2. Notes are attached to the most recent error or warning.
+3. If no prior diagnostic exists, the note is emitted standalone.
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                  | Detection    | Effect    |
+| :----------- | :------- | :------------------------- | :----------- | :-------- |
+| `E-CTE-0070` | Error    | Comptime `error` invoked   | Compile-time | Rejection |
+| `W-CTE-0071` | Warning  | Comptime `warning` invoked | Compile-time | Continue  |
+
+---
+
+### 16.6 Compile-Time Diagnostic Intrinsics
+
+##### Definition
+
+In addition to the `ComptimeDiagnostics` capability, Cursive provides **compile-time diagnostic intrinsics** as standalone procedures. These intrinsics provide convenient access to diagnostic functionality without explicit capability threading.
+
+##### Syntax & Declaration
+
+```cursive
+/// Emits a compile-time error and halts compilation
+comptime procedure compile_error(message: string) -> !
+
+/// Emits a compile-time error at a specific source location
+comptime procedure compile_error_at(message: string, span: SourceSpan) -> !
+
+/// Emits a compile-time warning
+comptime procedure compile_warning(message: string)
+
+/// Emits a compile-time warning at a specific source location
+comptime procedure compile_warning_at(message: string, span: SourceSpan)
+
+/// Prints a debug message during compilation
+comptime procedure compile_log(message: string)
+
+/// Asserts a condition at compile time
+comptime procedure static_assert(condition: bool, message: string)
+```
+
+##### Static Semantics
+
+**Typing Rules**
+
+$$\frac{
+    \Gamma_{ct} \vdash m : \texttt{string}
+}{
+    \Gamma_{ct} \vdash \texttt{compile\_error}(m) : !
+} \quad \text{(T-Compile-Error)}$$
+
+$$\frac{
+    \Gamma_{ct} \vdash c : \texttt{bool} \quad
+    \Gamma_{ct} \vdash m : \texttt{string}
+}{
+    \Gamma_{ct} \vdash \texttt{static\_assert}(c, m) : ()
+} \quad \text{(T-Static-Assert)}$$
+
+**Desugaring**
+
+The intrinsics desugar to operations on an implicitly-provided `ComptimeDiagnostics` capability:
+
+| Intrinsic             | Desugaring                        |
+| :-------------------- | :-------------------------------- |
+| `compile_error(m)`    | `diagnostics~>error(m)`           |
+| `compile_warning(m)`  | `diagnostics~>warning(m)`         |
+| `static_assert(c, m)` | `if !c { diagnostics~>error(m) }` |
+
+##### Dynamic Semantics
+
+**compile_error**
+
+1. Emits diagnostic `E-CTE-0070` with the provided message.
+2. Terminates the Metaprogramming Phase immediately.
+3. Compilation fails.
+
+**compile_warning**
+
+1. Emits diagnostic `W-CTE-0071` with the provided message.
+2. Compilation continues.
+
+**compile_log**
+
+1. Writes the message to the compiler's diagnostic output stream (stderr or equivalent).
+2. Has no effect on compilation success.
+3. Output format is Implementation-Defined.
+
+**static_assert**
+
+1. Evaluates `condition` at compile time.
+2. If `condition` is `true`, has no effect.
+3. If `condition` is `false`, behaves as `compile_error(message)`.
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                          | Detection    | Effect    |
+| :----------- | :------- | :--------------------------------- | :----------- | :-------- |
+| `E-CTE-0080` | Error    | `static_assert` condition is false | Compile-time | Rejection |
+
+---
+
+### 16.7 Dependency Resolution and Execution Order
+
+##### Definition
+
+**Dependency resolution** determines the order in which comptime blocks and derive invocations execute. The implementation constructs a dependency graph to ensure that declarations are available when referenced.
+
+**Formal Definition**
+
+A **comptime dependency graph** is a directed graph $G = (V, E)$ where:
+
+- $V$ is the set of all comptime blocks, comptime procedures, and derive invocations in the compilation unit
+- $(A, B) \in E$ if and only if $A$ references a declaration that is emitted by $B$
+
+##### Static Semantics
+
+**Dependency Detection**
+
+An edge $(A, B) \in E$ exists when:
+
+1. Comptime block $A$ calls a comptime procedure $B$.
+2. Comptime block $A$ references a type that is emitted by comptime block $B$.
+3. Comptime block $A$ references a procedure that is emitted by comptime block $B$.
+4. Derive invocation $A$ depends on a form implementation emitted by $B$.
+
+**Cycle Detection**
+
+If the dependency graph $G$ contains a cycle, the program is ill-formed:
+
+$$\frac{
+    \exists\ v_1, v_2, \ldots, v_n \in V.\ (v_1, v_2), (v_2, v_3), \ldots, (v_{n-1}, v_n), (v_n, v_1) \in E
+}{
+    \text{ill-formed: cyclic dependency}
+} \quad \text{(Comptime-Cycle)}$$
+
+The implementation MUST report `E-CTE-0090` and identify at least one edge in the cycle.
+
+**Topological Order**
+
+The implementation MUST execute comptime blocks in a topological order of the dependency graph. If multiple valid topological orders exist, the implementation MAY choose any valid order.
+
+**Determinism Requirement**
+
+For reproducible builds, the implementation MUST choose the same topological order given identical source input. The specific order is Implementation-Defined but MUST be deterministic.
+
+##### Dynamic Semantics
+
+**Execution Order**
+
+Comptime blocks execute according to the following algorithm:
+
+1. Construct the dependency graph $G$ for all comptime blocks in the compilation unit.
+2. Verify $G$ is acyclic; if not, emit `E-CTE-0090` and terminate.
+3. Compute a topological ordering $[v_1, v_2, \ldots, v_n]$ of $G$.
+4. For each $v_i$ in order:
+   a. Execute the comptime block or derive invocation.
+   b. Process any emitted declarations.
+   c. If execution panics, emit `E-CTE-0091` and terminate.
+
+**Panic Behavior**
+
+If a comptime block or procedure panics during execution:
+
+1. The panic message is captured.
+2. The source location of the panicking expression is recorded.
+3. Diagnostic `E-CTE-0091` is emitted with the panic message.
+4. The Metaprogramming Phase terminates.
+5. Compilation fails.
+
+**Partial Execution**
+
+If a comptime block fails, other comptime blocks that do not depend on the failed block MAY still execute to provide additional diagnostics. This behavior is Implementation-Defined.
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                             | Detection    | Effect    |
+| :----------- | :------- | :---------------------------------------------------- | :----------- | :-------- |
+| `E-CTE-0090` | Error    | Cyclic dependency in comptime execution               | Compile-time | Rejection |
+| `E-CTE-0091` | Error    | Comptime execution panicked                           | Compile-time | Rejection |
+| `E-CTE-0092` | Error    | Comptime block references declaration not yet emitted | Compile-time | Rejection |
+
+---
+
+### 16.8 Implementation Limits
+
+##### Definition
+
+Conforming implementations MUST enforce resource limits on compile-time execution to guarantee termination. The limits specified in this section are **minimum guaranteed capacities** that all conforming implementations MUST support. Implementations MAY support higher limits.
+
+##### Static Semantics
+
+**Resource Limit Table**
+
+| Resource                   | Minimum Limit        | Diagnostic on Exceed |
+| :------------------------- | :------------------- | :------------------- |
+| Comptime recursion depth   | 256 stack frames     | `E-CTE-0100`         |
+| Comptime evaluation steps  | 10,000,000 steps     | `E-CTE-0101`         |
+| Comptime memory allocation | 256 MiB              | `E-CTE-0102`         |
+| Comptime string length     | 16 MiB               | `E-CTE-0103`         |
+| Comptime sequence length   | 1,000,000 elements   | `E-CTE-0104`         |
+| Total emitted declarations | 100,000 declarations | `E-CTE-0105`         |
+
+**Evaluation Step**
+
+An **evaluation step** is one of the following operations:
+
+1. Evaluation of a single expression node
+2. Execution of a single statement
+3. One iteration of a loop body
+4. One procedure call (entering or returning)
+
+**Memory Accounting**
+
+Comptime memory allocation includes:
+
+1. Local variables in comptime blocks and procedures
+2. Heap allocations for strings and sequences
+3. AST nodes constructed via quoting (§18)
+4. Introspection data structures
+
+**Limit Configuration**
+
+Implementations MAY provide command-line options or configuration to adjust resource limits above the minimums. Such configuration is Implementation-Defined.
+
+##### Dynamic Semantics
+
+**Limit Enforcement**
+
+The implementation MUST track resource usage during comptime execution. When any limit is exceeded:
+
+1. The appropriate diagnostic is emitted.
+2. Comptime execution terminates immediately.
+3. Compilation fails.
+
+**Caching**
+
+Implementations SHOULD cache the results of comptime blocks and procedures annotated with the `[[cache]]` attribute to avoid redundant computation:
+
+```cursive
+[[cache]]
+comptime procedure expensive_computation(): [TypeInfo] {
+    // Result is cached across compilation units
+}
+```
+
+**Cache Key**
+
+When caching is implemented, the cache key MUST include:
+
+1. The complete AST of the comptime block or procedure
+2. The values of all captured bindings
+3. The compiler version identifier
+4. All configuration that affects comptime execution
+
+**Cache Invalidation**
+
+Cached results MUST be invalidated when any component of the cache key changes.
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                | Detection    | Effect    |
+| :----------- | :------- | :--------------------------------------- | :----------- | :-------- |
+| `E-CTE-0100` | Error    | Comptime recursion depth exceeded        | Compile-time | Rejection |
+| `E-CTE-0101` | Error    | Comptime evaluation step limit exceeded  | Compile-time | Rejection |
+| `E-CTE-0102` | Error    | Comptime memory limit exceeded           | Compile-time | Rejection |
+| `E-CTE-0103` | Error    | Comptime string length limit exceeded    | Compile-time | Rejection |
+| `E-CTE-0104` | Error    | Comptime sequence length limit exceeded  | Compile-time | Rejection |
+| `E-CTE-0105` | Error    | Emitted declaration count limit exceeded | Compile-time | Rejection |
+
+---
+
+### 16.9 Summary of Diagnostic Codes
+
+This section provides a consolidated reference of all diagnostic codes defined in this clause.
+
+| Code         | Severity | Section | Condition                                                        |
+| :----------- | :------- | :------ | :--------------------------------------------------------------- |
+| `E-CTE-0001` | Error    | §16.1   | `unsafe` block in comptime context                               |
+| `E-CTE-0002` | Error    | §16.1   | FFI call in comptime context                                     |
+| `E-CTE-0003` | Error    | §16.1   | Runtime capability access in comptime context                    |
+| `E-CTE-0004` | Error    | §16.1   | Non-deterministic operation in comptime context                  |
+| `E-CTE-0005` | Error    | §16.1   | Prohibited I/O operation in comptime context                     |
+| `E-CTE-0010` | Error    | §16.2   | Non-comptime-available type used in comptime context             |
+| `E-CTE-0011` | Error    | §16.2   | Parameter type of comptime procedure not comptime-available      |
+| `E-CTE-0012` | Error    | §16.2   | Return type of comptime procedure not comptime-available         |
+| `E-CTE-0013` | Error    | §16.2   | Local variable in comptime block has non-comptime-available type |
+| `E-CTE-0020` | Error    | §16.3   | Comptime procedure called from runtime context                   |
+| `E-CTE-0021` | Error    | §16.3   | Non-comptime-available parameter type                            |
+| `E-CTE-0022` | Error    | §16.3   | Non-comptime-available return type                               |
+| `E-CTE-0023` | Error    | §16.3   | Comptime procedure body contains prohibited construct            |
+| `E-CTE-0024` | Error    | §16.3   | Generic instantiation produces non-comptime-available type       |
+| `E-CTE-0030` | Error    | §16.4   | Comptime expression has non-runtime-representable type           |
+| `E-CTE-0031` | Error    | §16.4   | Comptime block references runtime binding                        |
+| `E-CTE-0032` | Error    | §16.4   | Runtime code references comptime-local binding                   |
+| `E-CTE-0040` | Error    | §16.5.1 | `fields` called on non-record type                               |
+| `E-CTE-0041` | Error    | §16.5.1 | `variants` called on non-enum type                               |
+| `E-CTE-0042` | Error    | §16.5.1 | `states` called on non-modal type                                |
+| `E-CTE-0043` | Error    | §16.5.1 | `layout` called on type with incomplete layout                   |
+| `E-CTE-0050` | Error    | §16.5.2 | `emit` called without `ModuleEmitter` capability                 |
+| `E-CTE-0051` | Error    | §16.5.2 | `emit` called on `Ast` not in `@Typed` state                     |
+| `E-CTE-0052` | Error    | §16.5.2 | Emitted declaration conflicts with existing declaration          |
+| `E-CTE-0053` | Error    | §16.5.2 | Duplicate form implementation emitted                            |
+| `E-CTE-0060` | Error    | §16.5.3 | File operation without `ProjectFiles` capability                 |
+| `E-CTE-0061` | Error    | §16.5.3 | `[[files]]` attribute on non-comptime block                      |
+| `E-CTE-0062` | Error    | §16.5.3 | Path escapes project directory                                   |
+| `E-CTE-0063` | Error    | §16.5.3 | Absolute path in file operation                                  |
+| `E-CTE-0064` | Error    | §16.5.3 | File not found                                                   |
+| `E-CTE-0070` | Error    | §16.5.4 | Comptime `error` invoked                                         |
+| `W-CTE-0071` | Warning  | §16.5.4 | Comptime `warning` invoked                                       |
+| `E-CTE-0080` | Error    | §16.6   | `static_assert` condition is false                               |
+| `E-CTE-0090` | Error    | §16.7   | Cyclic dependency in comptime execution                          |
+| `E-CTE-0091` | Error    | §16.7   | Comptime execution panicked                                      |
+| `E-CTE-0092` | Error    | §16.7   | Comptime block references declaration not yet emitted            |
+| `E-CTE-0100` | Error    | §16.8   | Comptime recursion depth exceeded                                |
+| `E-CTE-0101` | Error    | §16.8   | Comptime evaluation step limit exceeded                          |
+| `E-CTE-0102` | Error    | §16.8   | Comptime memory limit exceeded                                   |
+| `E-CTE-0103` | Error    | §16.8   | Comptime string length limit exceeded                            |
+| `E-CTE-0104` | Error    | §16.8   | Comptime sequence length limit exceeded                          |
+| `E-CTE-0105` | Error    | §16.8   | Emitted declaration count limit exceeded                         |
+
+---
+
+## Clause 17: Type Reflection
+
+This clause defines the type reflection system for Cursive. Type reflection enables compile-time inspection of type structure, providing access to fields, variants, states, layout information, and metadata. Type reflection operates within the comptime environment defined in §16.1 and provides the foundation for code generation (§18) and derivation (§19).
+
+---
+
+### 17.1 Overview
+
+##### Definition
+
+**Type reflection** is the compile-time inspection of type structure and metadata. Type reflection enables comptime code to examine the constituents of types—fields of records, variants of enums, states of modal types—and to generate code based on that structure.
+
+Cursive provides two complementary reflection mechanisms:
+
+1. **Type patterns** — A pattern-matching syntax that deconstructs types based on their structure, binding type variables and structural information.
+
+2. **Introspection operations** — Procedures on the `Introspect` capability (§16.5.1) that return sequences of metadata records describing type constituents.
+
+Type patterns are declarative and integrate with Cursive's pattern matching syntax. Introspection operations are procedural and return data structures suitable for iteration and transformation.
+
+##### Static Semantics
+
+**Context Restriction**
+
+All type reflection operations MUST occur within comptime context as defined in §16.1. Type patterns and introspection operations are not available in runtime code.
+
+**Capability Requirement**
+
+Introspection operations require the `Introspect` capability witness. Type patterns do not require an explicit capability; they are a language construct available in any comptime context.
+
+**Relationship to Other Clauses**
+
+| Clause                       | Relationship                                             |
+| :--------------------------- | :------------------------------------------------------- |
+| §16 (Compile-Time Execution) | Type reflection operates within the comptime environment |
+| §18 (Code Generation)        | Code generation uses reflection to construct typed AST   |
+| §19 (Derivation)             | Derive targets use reflection to inspect target types    |
+
+---
+
+### 17.2 Type Patterns
+
+##### Definition
+
+A **type pattern** is a pattern form that matches against type structure at compile time. Type patterns deconstruct types into their constituent parts, binding type variables and structural metadata for use in comptime code.
+
+Type patterns extend the pattern matching system defined in §11.5 to operate on types rather than values.
+
+##### Syntax & Declaration
+
+**Grammar**
+
+```ebnf
+type_match_expr        ::= "match" "type" type_expr "{" type_match_arm+ "}"
+
+type_match_arm         ::= type_pattern ("," type_pattern)* "=>" expression ","?
+
+type_pattern           ::= wildcard_type_pattern
+                         | binding_type_pattern
+                         | record_type_pattern
+                         | enum_type_pattern
+                         | modal_type_pattern
+                         | array_type_pattern
+                         | slice_type_pattern
+                         | tuple_type_pattern
+                         | generic_type_pattern
+                         | permission_type_pattern
+                         | primitive_type_pattern
+                         | named_type_pattern
+
+wildcard_type_pattern  ::= "type" "_"
+
+binding_type_pattern   ::= "type" IDENTIFIER
+
+record_type_pattern    ::= "Record" "{" field_pattern_list? "}"
+
+field_pattern_list     ::= ".."
+                         | field_pattern ("," field_pattern)* ("," "..")?
+
+field_pattern          ::= IDENTIFIER ":" type_pattern
+                         | IDENTIFIER
+
+enum_type_pattern      ::= "Enum" "{" variant_pattern_list? "}"
+
+variant_pattern_list   ::= ".."
+                         | variant_pattern ("," variant_pattern)* ("," "..")?
+
+variant_pattern        ::= IDENTIFIER
+                         | IDENTIFIER "(" type_pattern ")"
+
+modal_type_pattern     ::= "Modal" "{" state_pattern_list? "}"
+
+state_pattern_list     ::= ".."
+                         | state_pattern ("," state_pattern)* ("," "..")?
+
+state_pattern          ::= "@" IDENTIFIER
+                         | "@" IDENTIFIER "{" field_pattern_list? "}"
+
+array_type_pattern     ::= "[" type_pattern ";" IDENTIFIER "]"
+                         | "[" type_pattern ";" INTEGER_LITERAL "]"
+
+slice_type_pattern     ::= "[" type_pattern "]"
+
+tuple_type_pattern     ::= "(" type_pattern "," type_pattern_list ")"
+
+type_pattern_list      ::= type_pattern ("," type_pattern)*
+
+generic_type_pattern   ::= IDENTIFIER "<" type_pattern_list ">"
+
+permission_type_pattern ::= permission_qualifier type_pattern
+
+permission_qualifier   ::= "unique" | "shared" | "const"
+
+primitive_type_pattern ::= "Primitive"
+
+named_type_pattern     ::= type_path
+```
+
+The `type_expr` and `type_path` productions are defined in §4.
+
+**Pattern Categories**
+
+| Pattern Form               | Matches                | Bindings Produced                                     |
+| :------------------------- | :--------------------- | :---------------------------------------------------- |
+| `type _`                   | Any type               | None                                                  |
+| `type T`                   | Any type               | `T` bound to matched type                             |
+| `Record { .. }`            | Any record type        | None                                                  |
+| `Record { f: type F, .. }` | Record with field `f`  | `F` bound to field type, `f` bound to `FieldInfo`     |
+| `Enum { .. }`              | Any enum type          | None                                                  |
+| `Enum { V(type P) }`       | Enum with variant `V`  | `P` bound to payload type, `V` bound to `VariantInfo` |
+| `Modal { .. }`             | Any modal type         | None                                                  |
+| `Modal { @S { .. } }`      | Modal with state `S`   | `S` bound to `StateInfo`                              |
+| `[type E; n]`              | Array type             | `E` bound to element type, `n` bound to length        |
+| `[type E]`                 | Slice type             | `E` bound to element type                             |
+| `(type A, type B)`         | Tuple type             | `A`, `B` bound to component types                     |
+| `Name<type A>`             | Generic instantiation  | `A` bound to type argument                            |
+| `unique type T`            | Unique permission type | `T` bound to inner type                               |
+| `Primitive`                | Any primitive type     | None                                                  |
+| `TypeName`                 | Specific named type    | None                                                  |
+
+##### Static Semantics
+
+**Typing Rule for Type Match**
+
+$$\frac{
+    \Gamma_{ct} \vdash T : \texttt{Type} \quad
+    \forall i.\ \text{PatternWF}(P_i) \quad
+    \forall i.\ \text{Matches}(T, P_i) \implies \Gamma_{ct}, \sigma_i \vdash e_i : R \quad
+    \text{Exhaustive}(\{P_1, \ldots, P_n\}, \mathcal{K})
+}{
+    \Gamma_{ct} \vdash \texttt{match type } T\ \{\ P_1 \Rightarrow e_1, \ldots, P_n \Rightarrow e_n\ \} : R
+} \quad \text{(T-Type-Match)}$$
+
+Where:
+- $\sigma_i$ is the binding environment produced by matching $T$ against $P_i$
+- $\mathcal{K}$ is the set of all type kinds
+- $\text{Exhaustive}(P, \mathcal{K})$ holds when the patterns cover all type kinds
+
+**Context Restriction**
+
+Type match expressions MUST appear within comptime context:
+
+$$\frac{
+    \texttt{match type } T\ \{ \ldots \} \text{ outside comptime context}
+}{
+    \text{ill-formed}
+} \quad \text{(Type-Match-Context)}$$
+
+**Result Type Consistency**
+
+All arms of a type match expression MUST produce values of the same type:
+
+$$\frac{
+    \Gamma_{ct}, \sigma_i \vdash e_i : R_i \quad
+    \exists j.\ R_j \not\equiv R_1
+}{
+    \text{ill-formed}
+} \quad \text{(Type-Match-Consistent)}$$
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                      | Detection    | Effect    |
+| :----------- | :------- | :--------------------------------------------- | :----------- | :-------- |
+| `E-REF-0001` | Error    | Type match expression outside comptime context | Compile-time | Rejection |
+| `E-REF-0002` | Error    | Non-exhaustive type pattern match              | Compile-time | Rejection |
+| `E-REF-0003` | Error    | Type match arms have inconsistent result types | Compile-time | Rejection |
+| `E-REF-0004` | Error    | Invalid type pattern syntax                    | Compile-time | Rejection |
+
+---
+
+### 17.3 Type Pattern Matching
+
+##### Definition
+
+**Type pattern matching** is the process of testing whether a type matches a type pattern and, if successful, producing bindings for pattern variables. Type pattern matching occurs at compile time during evaluation of `match type` expressions.
+
+##### Static Semantics
+
+**Matching Judgment**
+
+The judgment $\text{Matches}(T, P, \sigma)$ holds when type $T$ matches pattern $P$, producing binding environment $\sigma$.
+
+**Wildcard Pattern**
+
+$$\frac{}{
+    \text{Matches}(T, \texttt{type \_}, \emptyset)
+} \quad \text{(M-Wildcard)}$$
+
+**Binding Pattern**
+
+$$\frac{}{
+    \text{Matches}(T, \texttt{type } X, \{X \mapsto T\})
+} \quad \text{(M-Binding)}$$
+
+**Record Pattern (Structural)**
+
+$$\frac{
+    \text{IsRecord}(T) \quad
+    \text{fields}(T) = \{f_1: T_1, \ldots, f_n: T_n\} \quad
+    \forall (f_i: P_i) \in \text{FieldPatterns}.\ \exists j.\ f_i = f_j \land \text{Matches}(T_j, P_i, \sigma_i)
+}{
+    \text{Matches}(T, \texttt{Record \{} \text{FieldPatterns}, \texttt{..\}}, \bigcup_i \sigma_i \cup \{f_i \mapsto \text{FieldInfo}(f_i, T)\})
+} \quad \text{(M-Record)}$$
+
+**Enum Pattern (Structural)**
+
+$$\frac{
+    \text{IsEnum}(T) \quad
+    \text{variants}(T) = \{V_1(P_1), \ldots, V_n(P_n)\} \quad
+    \forall V_i(Q_i) \in \text{VariantPatterns}.\ \exists j.\ V_i = V_j \land \text{Matches}(P_j, Q_i, \sigma_i)
+}{
+    \text{Matches}(T, \texttt{Enum \{} \text{VariantPatterns}, \texttt{..\}}, \bigcup_i \sigma_i \cup \{V_i \mapsto \text{VariantInfo}(V_i, T)\})
+} \quad \text{(M-Enum)}$$
+
+**Modal Pattern (Structural)**
+
+$$\frac{
+    \text{IsModal}(T) \quad
+    \text{states}(T) = \{@S_1\{\ldots\}, \ldots, @S_n\{\ldots\}\} \quad
+    \forall @S_i \in \text{StatePatterns}.\ \exists j.\ S_i = S_j
+}{
+    \text{Matches}(T, \texttt{Modal \{} \text{StatePatterns}, \texttt{..\}}, \{S_i \mapsto \text{StateInfo}(S_i, T)\})
+} \quad \text{(M-Modal)}$$
+
+**Array Pattern**
+
+$$\frac{
+    T = [E; N]
+}{
+    \text{Matches}(T, \texttt{[type } X\texttt{; } n\texttt{]}, \{X \mapsto E, n \mapsto N\})
+} \quad \text{(M-Array)}$$
+
+**Slice Pattern**
+
+$$\frac{
+    T = [E]
+}{
+    \text{Matches}(T, \texttt{[type } X\texttt{]}, \{X \mapsto E\})
+} \quad \text{(M-Slice)}$$
+
+**Tuple Pattern**
+
+$$\frac{
+    T = (T_1, \ldots, T_n) \quad
+    \forall i.\ \text{Matches}(T_i, P_i, \sigma_i)
+}{
+    \text{Matches}(T, \texttt{(}P_1\texttt{, } \ldots\texttt{, } P_n\texttt{)}, \bigcup_i \sigma_i)
+} \quad \text{(M-Tuple)}$$
+
+**Generic Pattern**
+
+$$\frac{
+    T = G\langle A_1, \ldots, A_n \rangle \quad
+    \text{name}(G) = \text{name}(G') \quad
+    \forall i.\ \text{Matches}(A_i, P_i, \sigma_i)
+}{
+    \text{Matches}(T, G'\texttt{<}P_1\texttt{, } \ldots\texttt{, } P_n\texttt{>}, \bigcup_i \sigma_i)
+} \quad \text{(M-Generic)}$$
+
+**Permission Pattern**
+
+$$\frac{
+    T = \pi\ U \quad
+    \text{Matches}(U, P, \sigma)
+}{
+    \text{Matches}(T, \pi\ P, \sigma)
+} \quad \text{(M-Permission)}$$
+
+where $\pi \in \{\texttt{unique}, \texttt{shared}, \texttt{const}\}$.
+
+**Primitive Pattern**
+
+$$\frac{
+    T \in \{i8, i16, i32, i64, i128, u8, u16, u32, u64, u128, isize, usize, f32, f64, bool, char\}
+}{
+    \text{Matches}(T, \texttt{Primitive}, \emptyset)
+} \quad \text{(M-Primitive)}$$
+
+**Named Type Pattern**
+
+$$\frac{
+    T \equiv U
+}{
+    \text{Matches}(T, U, \emptyset)
+} \quad \text{(M-Named)}$$
+
+**Binding Scope**
+
+Bindings produced by pattern matching are available in the corresponding match arm body. Bindings shadow any existing bindings with the same name in the enclosing scope.
+
+**Binding Types**
+
+| Binding Source                | Binding Type  |
+| :---------------------------- | :------------ |
+| `type X` pattern              | `TypeRepr`    |
+| Field name in record pattern  | `FieldInfo`   |
+| Variant name in enum pattern  | `VariantInfo` |
+| State name in modal pattern   | `StateInfo`   |
+| Array length in array pattern | `usize`       |
+
+##### Dynamic Semantics
+
+**Pattern Matching Algorithm**
+
+Pattern matching at compile time proceeds as follows:
+
+1. Let $T$ be the scrutinee type of the `match type` expression.
+2. For each arm $(P_i \Rightarrow e_i)$ in order:
+   a. Attempt to match $T$ against $P_i$.
+   b. If matching succeeds with bindings $\sigma_i$:
+      - Evaluate $e_i$ in environment $\Gamma_{ct} \cup \sigma_i$.
+      - Return the result.
+3. If no pattern matches, the program is ill-formed (non-exhaustive match).
+
+**Exhaustiveness Checking**
+
+The implementation MUST verify that type patterns are exhaustive. A set of patterns is exhaustive if, for every possible type, at least one pattern matches.
+
+The following pattern sets are exhaustive:
+
+1. Any set containing `type _` or `type X` (for any identifier $X$).
+2. A set covering all type kinds: `Record { .. }`, `Enum { .. }`, `Modal { .. }`, `Primitive`, tuple patterns, array patterns, slice patterns, and named type patterns for all remaining types.
+
+##### Constraints & Legality
+
+**Shadowing**
+
+Type pattern bindings MAY shadow existing bindings. The implementation SHOULD emit a warning when shadowing occurs.
+
+**Duplicate Bindings**
+
+A single pattern MUST NOT bind the same identifier twice:
+
+$$\frac{
+    X \in \text{Bindings}(P) \quad
+    |\{b \in \text{Bindings}(P) \mid \text{name}(b) = X\}| > 1
+}{
+    \text{ill-formed}
+} \quad \text{(No-Duplicate-Bindings)}$$
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                     | Detection    | Effect    |
+| :----------- | :------- | :-------------------------------------------- | :----------- | :-------- |
+| `E-REF-0010` | Error    | Duplicate binding in type pattern             | Compile-time | Rejection |
+| `E-REF-0011` | Error    | Pattern requires field not present in type    | Compile-time | Rejection |
+| `E-REF-0012` | Error    | Pattern requires variant not present in type  | Compile-time | Rejection |
+| `E-REF-0013` | Error    | Pattern requires state not present in type    | Compile-time | Rejection |
+| `E-REF-0014` | Error    | Tuple pattern arity mismatch                  | Compile-time | Rejection |
+| `E-REF-0015` | Error    | Generic pattern arity mismatch                | Compile-time | Rejection |
+| `W-REF-0010` | Warning  | Type pattern binding shadows existing binding | Compile-time | Continue  |
+
+---
+
+### 17.4 Introspection Types
+
+##### Definition
+
+**Introspection types** are record and enum types that represent metadata about type structure. Introspection types are comptime-available (§16.2) and are returned by introspection operations (§17.6).
+
+---
+
+#### 17.4.1 FieldInfo
+
+##### Definition
+
+The `FieldInfo` record represents metadata about a single field of a record type.
+
+##### Syntax & Declaration
+
+```cursive
+record FieldInfo {
+    /// The name of the field
+    name: string,
+    
+    /// The type of the field as a TypeRepr handle
+    field_type: TypeRepr,
+    
+    /// The byte offset of the field within the record
+    offset: usize,
+    
+    /// Attributes attached to the field
+    attributes: [Attribute],
+    
+    /// The visibility of the field
+    visibility: Visibility,
+    
+    /// Whether the field has a default value
+    has_default: bool,
+}
+```
+
+##### Static Semantics
+
+**Field Ordering**
+
+The sequence of `FieldInfo` values returned by `introspect~>fields::<T>()` is in declaration order.
+
+**Offset Validity**
+
+The `offset` field contains the byte offset from the start of the record to the start of the field. For records with `[[layout(C)]]`, offsets follow C struct layout rules. For records without explicit layout, offsets are Implementation-Defined.
+
+---
+
+#### 17.4.2 VariantInfo
+
+##### Definition
+
+The `VariantInfo` record represents metadata about a single variant of an enum type.
+
+##### Syntax & Declaration
+
+```cursive
+record VariantInfo {
+    /// The name of the variant
+    name: string,
+    
+    /// The discriminant value for this variant
+    discriminant: i128,
+    
+    /// The payload fields of the variant (empty for unit variants)
+    payload: [FieldInfo],
+    
+    /// Attributes attached to the variant
+    attributes: [Attribute],
+}
+```
+
+##### Static Semantics
+
+**Variant Ordering**
+
+The sequence of `VariantInfo` values returned by `introspect~>variants::<T>()` is in declaration order.
+
+**Discriminant Values**
+
+The `discriminant` field contains the discriminant value assigned to this variant. Discriminant assignment follows the rules in §5.6.
+
+**Unit Variants**
+
+For unit variants (variants with no payload), the `payload` field is an empty array.
+
+---
+
+#### 17.4.3 StateInfo
+
+##### Definition
+
+The `StateInfo` record represents metadata about a single state of a modal type.
+
+##### Syntax & Declaration
+
+```cursive
+record StateInfo {
+    /// The name of the state (without the @ prefix)
+    name: string,
+    
+    /// The payload fields of the state
+    payload: [FieldInfo],
+    
+    /// Transitions available from this state
+    transitions: [TransitionInfo],
+    
+    /// Attributes attached to the state
+    attributes: [Attribute],
+}
+```
+
+##### Static Semantics
+
+**State Ordering**
+
+The sequence of `StateInfo` values returned by `introspect~>states::<T>()` is in declaration order.
+
+---
+
+#### 17.4.4 TransitionInfo
+
+##### Definition
+
+The `TransitionInfo` record represents metadata about a transition method declared within a modal state.
+
+##### Syntax & Declaration
+
+```cursive
+record TransitionInfo {
+    /// The name of the transition method
+    method_name: string,
+    
+    /// Parameters of the transition (excluding self)
+    params: [ParamInfo],
+    
+    /// Names of possible target states
+    target_states: [string],
+    
+    /// Whether this transition consumes the value
+    is_consuming: bool,
+}
+```
+
+##### Static Semantics
+
+**Target States**
+
+The `target_states` field contains the names of all states that this transition may produce. For deterministic transitions, this array contains exactly one element. For non-deterministic transitions (using `|` in the return type), this array contains all possible target states.
+
+---
+
+#### 17.4.5 ParamInfo
+
+##### Definition
+
+The `ParamInfo` record represents metadata about a parameter of a procedure or transition.
+
+##### Syntax & Declaration
+
+```cursive
+record ParamInfo {
+    /// The name of the parameter
+    name: string,
+    
+    /// The type of the parameter
+    param_type: TypeRepr,
+    
+    /// The permission qualifier on the parameter
+    permission: Permission,
+    
+    /// Whether this parameter is a self parameter
+    is_self: bool,
+    
+    /// Whether this parameter has a default value
+    has_default: bool,
+}
+```
+
+---
+
+#### 17.4.6 LayoutInfo
+
+##### Definition
+
+The `LayoutInfo` record represents memory layout information for a type.
+
+##### Syntax & Declaration
+
+```cursive
+record LayoutInfo {
+    /// The size of the type in bytes
+    size: usize,
+    
+    /// The alignment requirement of the type in bytes
+    alignment: usize,
+    
+    /// The stride of the type in bytes (size rounded up to alignment)
+    stride: usize,
+}
+```
+
+##### Static Semantics
+
+**Layout Invariants**
+
+The following invariants hold for all `LayoutInfo` values:
+
+1. `alignment` is a power of two.
+2. `size <= stride`.
+3. `stride` is a multiple of `alignment`.
+4. `stride` is the smallest multiple of `alignment` that is at least `size`.
+
+**Incomplete Types**
+
+Types with incomplete layout (such as recursive types without indirection) cannot be reflected. Attempting to obtain `LayoutInfo` for such types results in `E-CTE-0043`.
+
+---
+
+#### 17.4.7 Attribute
+
+##### Definition
+
+The `Attribute` record represents a single attribute attached to a declaration or field.
+
+##### Syntax & Declaration
+
+```cursive
+record Attribute {
+    /// The name of the attribute (without brackets)
+    name: string,
+    
+    /// The arguments to the attribute
+    arguments: [AttributeArg],
+    
+    /// The source location of the attribute
+    span: SourceSpan,
+}
+
+enum AttributeArg {
+    /// A bare identifier argument
+    Identifier(string),
+    
+    /// A literal value argument
+    Literal(LiteralValue),
+    
+    /// A key-value pair argument
+    KeyValue { key: string, value: AttributeArg },
+    
+    /// A nested list of arguments
+    List([AttributeArg]),
+}
+
+enum LiteralValue {
+    String(string),
+    Integer(i128),
+    Float(f64),
+    Bool(bool),
+    Char(char),
+}
+```
+
+---
+
+#### 17.4.8 Supporting Enums
+
+##### Definition
+
+The following enum types support the introspection system.
+
+##### Syntax & Declaration
+
+**Visibility**
+
+```cursive
+enum Visibility {
+    /// Visible everywhere
+    Public,
+    
+    /// Visible within the same package
+    Internal,
+    
+    /// Visible only within the defining module
+    Private,
+}
+```
+
+**Permission**
+
+```cursive
+enum Permission {
+    /// Immutable shared access
+    Const,
+    
+    /// Exclusive mutable access
+    Unique,
+    
+    /// Shared mutable access (requires key system)
+    Shared,
+}
+```
+
+> **Note:** The `Permission` enum represents permission qualifiers as defined in §4.5.
+
+##### Static Semantics
+
+All introspection types defined in this section are comptime-available per §16.2. They satisfy the predicate $\text{IsComptimeAvailable}(T)$ by rules (C-Record) and (C-Enum).
+
+---
+
+### 17.5 Type Representation
+
+##### Definition
+
+A **type representation** is an opaque handle representing a resolved type within the compiler's type system. Type representations are used to splice types into generated code and to compare type identity.
+
+---
+
+#### 17.5.1 TypeRepr
+
+##### Definition
+
+The `TypeRepr` type is an opaque handle representing a fully resolved type.
+
+##### Syntax & Declaration
+
+```cursive
+record TypeRepr {
+    // Internal representation is opaque
+}
+```
+
+The internal structure of `TypeRepr` is not accessible to comptime code. `TypeRepr` values may only be:
+
+1. Obtained via introspection operations
+2. Passed to code generation operations
+3. Compared for equality
+4. Used in splice expressions within quotes
+
+##### Static Semantics
+
+**Equality**
+
+Two `TypeRepr` values are equal if and only if they represent the same type:
+
+$$\frac{
+    r_1 : \texttt{TypeRepr} \quad r_2 : \texttt{TypeRepr} \quad
+    \text{type}(r_1) \equiv \text{type}(r_2)
+}{
+    r_1 = r_2
+} \quad \text{(TypeRepr-Eq)}$$
+
+**Obtaining TypeRepr**
+
+`TypeRepr` values are obtained via:
+
+1. The `type_repr::<T>()` intrinsic, which returns the representation of type `T`.
+2. The `field_type` field of `FieldInfo`.
+3. The `param_type` field of `ParamInfo`.
+4. Bindings from type patterns (bound as `TypeRepr`).
+
+**Intrinsic Signature**
+
+```cursive
+comptime procedure type_repr<T>(): TypeRepr
 ```
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                                                             | Detection    | Effect    |
-| :----------- | :------- | :-------------------------------------------------------------------- | :----------- | :-------- |
-| `E-MET-0200` | Error    | `comptime` procedure called from runtime context                      | Compile-time | Rejection |
-| `E-MET-0201` | Error    | Non-comptime-available parameter type in comptime procedure           | Compile-time | Rejection |
-| `E-MET-0202` | Error    | Non-comptime-available return type used in runtime expression context | Compile-time | Rejection |
+**Opacity**
+
+Field access and pattern matching on `TypeRepr` are prohibited:
+
+$$\frac{
+    e : \texttt{TypeRepr} \quad
+    e.f \text{ or } \texttt{match } e \{ \ldots \}
+}{
+    \text{ill-formed}
+} \quad \text{(TypeRepr-Opaque)}$$
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                   | Detection    | Effect    |
+| :----------- | :------- | :-------------------------- | :----------- | :-------- |
+| `E-REF-0020` | Error    | Field access on `TypeRepr`  | Compile-time | Rejection |
+| `E-REF-0021` | Error    | Pattern match on `TypeRepr` | Compile-time | Rejection |
 
 ---
 
-### 16.5 Quasiquoting and Interpolation
-
-#### 16.5.1 Quote Expressions
+#### 17.5.2 FormRepr
 
 ##### Definition
 
-**Quote Expression**
+The `FormRepr` type is an opaque handle representing a form (trait).
 
-A **quote expression** captures Cursive syntax as an AST value without evaluating it. The resulting value may be manipulated, transformed, and later emitted into the program.
+##### Syntax & Declaration
 
-**Quoted Forms**
+```cursive
+record FormRepr {
+    // Internal representation is opaque
+}
+```
 
-| Syntax               | Result Type   | Description                             |
-| :------------------- | :------------ | :-------------------------------------- |
-| `quote { items... }` | `QuotedBlock` | Block of statements and/or declarations |
-| `quote expr`         | `QuotedExpr`  | Single expression                       |
+##### Static Semantics
+
+**Obtaining FormRepr**
+
+`FormRepr` values are obtained via:
+
+1. The `form_repr::<F>()` intrinsic, which returns the representation of form `F`.
+
+**Intrinsic Signature**
+
+```cursive
+comptime procedure form_repr<F>(): FormRepr
+    where F: Form
+```
+
+The type parameter `F` MUST be a form type.
+
+**Equality**
+
+Two `FormRepr` values are equal if and only if they represent the same form.
+
+##### Constraints & Legality
+
+**Opacity**
+
+Field access and pattern matching on `FormRepr` are prohibited, following the same rules as `TypeRepr`.
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                           | Detection    | Effect    |
+| :----------- | :------- | :---------------------------------- | :----------- | :-------- |
+| `E-REF-0022` | Error    | `form_repr` called on non-form type | Compile-time | Rejection |
+| `E-REF-0023` | Error    | Field access on `FormRepr`          | Compile-time | Rejection |
+| `E-REF-0024` | Error    | Pattern match on `FormRepr`         | Compile-time | Rejection |
+
+---
+
+### 17.6 Introspection Operations
+
+##### Definition
+
+**Introspection operations** are procedures on the `Introspect` capability that return metadata about types. Introspection operations complement type patterns by providing programmatic access to type structure.
+
+The `Introspect` capability is defined in §16.5.1.
+
+---
+
+#### 17.6.1 Field Introspection
+
+##### Definition
+
+The `fields` operation returns the fields of a record type as a sequence.
+
+##### Syntax & Declaration
+
+```cursive
+procedure fields<T>(~) -> Sequence<FieldInfo>
+    where T: Record
+```
+
+##### Static Semantics
+
+**Type Constraint**
+
+The type parameter `T` MUST be a record type. Invoking `fields` on a non-record type is ill-formed.
+
+**Typing Rule**
+
+$$\frac{
+    \Gamma_{ct} \vdash w : \texttt{witness Introspect} \quad
+    \text{IsRecord}(T)
+}{
+    \Gamma_{ct} \vdash w\texttt{\~{}>fields::<}T\texttt{>()} : \texttt{Sequence}\langle\texttt{FieldInfo}\rangle
+} \quad \text{(T-Fields)}$$
+
+##### Dynamic Semantics
+
+The returned sequence contains one `FieldInfo` for each field of `T`, in declaration order. The sequence includes:
+
+1. All declared fields of `T`.
+2. Fields inherited from embedded records (if any), in embedding order.
+
+Private fields are included in the result regardless of the visibility relationship between the calling code and the record definition.
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                          | Detection    | Effect    |
+| :----------- | :------- | :--------------------------------- | :----------- | :-------- |
+| `E-REF-0030` | Error    | `fields` called on non-record type | Compile-time | Rejection |
+
+---
+
+#### 17.6.2 Variant Introspection
+
+##### Definition
+
+The `variants` operation returns the variants of an enum type as a sequence.
+
+##### Syntax & Declaration
+
+```cursive
+procedure variants<T>(~) -> Sequence<VariantInfo>
+    where T: Enum
+```
+
+##### Static Semantics
+
+**Type Constraint**
+
+The type parameter `T` MUST be an enum type. Invoking `variants` on a non-enum type is ill-formed.
+
+**Typing Rule**
+
+$$\frac{
+    \Gamma_{ct} \vdash w : \texttt{witness Introspect} \quad
+    \text{IsEnum}(T)
+}{
+    \Gamma_{ct} \vdash w\texttt{\~{}>variants::<}T\texttt{>()} : \texttt{Sequence}\langle\texttt{VariantInfo}\rangle
+} \quad \text{(T-Variants)}$$
+
+##### Dynamic Semantics
+
+The returned sequence contains one `VariantInfo` for each variant of `T`, in declaration order.
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                          | Detection    | Effect    |
+| :----------- | :------- | :--------------------------------- | :----------- | :-------- |
+| `E-REF-0031` | Error    | `variants` called on non-enum type | Compile-time | Rejection |
+
+---
+
+#### 17.6.3 State Introspection
+
+##### Definition
+
+The `states` operation returns the states of a modal type as a sequence.
+
+##### Syntax & Declaration
+
+```cursive
+procedure states<T>(~) -> Sequence<StateInfo>
+    where T: Modal
+```
+
+##### Static Semantics
+
+**Type Constraint**
+
+The type parameter `T` MUST be a modal type as defined in §6.1. Invoking `states` on a non-modal type is ill-formed.
+
+**Typing Rule**
+
+$$\frac{
+    \Gamma_{ct} \vdash w : \texttt{witness Introspect} \quad
+    \text{IsModal}(T)
+}{
+    \Gamma_{ct} \vdash w\texttt{\~{}>states::<}T\texttt{>()} : \texttt{Sequence}\langle\texttt{StateInfo}\rangle
+} \quad \text{(T-States)}$$
+
+##### Dynamic Semantics
+
+The returned sequence contains one `StateInfo` for each state of `T`, in declaration order. Each `StateInfo` includes the transitions available from that state.
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                         | Detection    | Effect    |
+| :----------- | :------- | :-------------------------------- | :----------- | :-------- |
+| `E-REF-0032` | Error    | `states` called on non-modal type | Compile-time | Rejection |
+
+---
+
+#### 17.6.4 Layout Introspection
+
+##### Definition
+
+The `layout` operation returns the memory layout of a type.
+
+##### Syntax & Declaration
+
+```cursive
+procedure layout<T>(~) -> LayoutInfo
+```
+
+##### Static Semantics
+
+**Type Constraint**
+
+The type parameter `T` MUST have a known, complete layout. Types with incomplete layout include:
+
+1. Recursive types without indirection
+2. Types containing opaque foreign types with unknown size
+3. Generic types with unsized type parameters
+
+**Typing Rule**
+
+$$\frac{
+    \Gamma_{ct} \vdash w : \texttt{witness Introspect} \quad
+    \text{HasLayout}(T)
+}{
+    \Gamma_{ct} \vdash w\texttt{\~{}>layout::<}T\texttt{>()} : \texttt{LayoutInfo}
+} \quad \text{(T-Layout)}$$
+
+##### Dynamic Semantics
+
+The returned `LayoutInfo` contains:
+
+1. `size`: The size of `T` in bytes.
+2. `alignment`: The alignment requirement of `T` in bytes.
+3. `stride`: The array stride of `T` in bytes.
+
+For types with `[[layout(C)]]`, the layout follows C ABI rules. For other types, the layout is Implementation-Defined but deterministic.
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                      | Detection    | Effect    |
+| :----------- | :------- | :--------------------------------------------- | :----------- | :-------- |
+| `E-REF-0033` | Error    | `layout` called on type with incomplete layout | Compile-time | Rejection |
+
+---
+
+#### 17.6.5 Name Introspection
+
+##### Definition
+
+The `type_name` operation returns the fully-qualified name of a type as a string.
+
+##### Syntax & Declaration
+
+```cursive
+procedure type_name<T>(~) -> string
+```
+
+##### Static Semantics
+
+**Typing Rule**
+
+$$\frac{
+    \Gamma_{ct} \vdash w : \texttt{witness Introspect}
+}{
+    \Gamma_{ct} \vdash w\texttt{\~{}>type\_name::<}T\texttt{>()} : \texttt{string}
+} \quad \text{(T-TypeName)}$$
+
+##### Dynamic Semantics
+
+The returned string contains the fully-qualified name of `T`, including:
+
+1. The module path (separated by `::`)
+2. The type name
+3. Generic arguments (if any), enclosed in `<` and `>`
+
+**Examples**
+
+| Type                         | Result                          |
+| :--------------------------- | :------------------------------ |
+| `i32`                        | `"i32"`                         |
+| `std::collections::Vec<i32>` | `"std::collections::Vec<i32>"`  |
+| `Option<string>`             | `"std::option::Option<string>"` |
+| `MyModule::Record`           | `"MyModule::Record"`            |
+
+The exact format of the string is Implementation-Defined, but MUST be consistent within a compilation and MUST uniquely identify the type.
+
+---
+
+#### 17.6.6 Module Path Introspection
+
+##### Definition
+
+The `module_path` operation returns the module path containing a type.
+
+##### Syntax & Declaration
+
+```cursive
+procedure module_path<T>(~) -> string
+```
+
+##### Static Semantics
+
+**Typing Rule**
+
+$$\frac{
+    \Gamma_{ct} \vdash w : \texttt{witness Introspect}
+}{
+    \Gamma_{ct} \vdash w\texttt{\~{}>module\_path::<}T\texttt{>()} : \texttt{string}
+} \quad \text{(T-ModulePath)}$$
+
+##### Dynamic Semantics
+
+The returned string contains the module path where `T` is defined, with path components separated by `::`.
+
+For primitive types, the result is `"std::primitive"`.
+
+For generic instantiations, the result is the module path of the generic type definition, not the instantiation site.
+
+---
+
+#### 17.6.7 Attribute Introspection
+
+##### Definition
+
+The `attributes` operation returns the attributes attached to a type.
+
+##### Syntax & Declaration
+
+```cursive
+procedure attributes<T>(~) -> Sequence<Attribute>
+```
+
+##### Static Semantics
+
+**Typing Rule**
+
+$$\frac{
+    \Gamma_{ct} \vdash w : \texttt{witness Introspect}
+}{
+    \Gamma_{ct} \vdash w\texttt{\~{}>attributes::<}T\texttt{>()} : \texttt{Sequence}\langle\texttt{Attribute}\rangle
+} \quad \text{(T-Attributes)}$$
+
+##### Dynamic Semantics
+
+The returned sequence contains one `Attribute` for each attribute attached to the type declaration, in declaration order.
+
+For primitive types and built-in types, the result is an empty sequence.
+
+---
+
+### 17.7 Summary of Diagnostic Codes
+
+This section provides a consolidated reference of all diagnostic codes defined in this clause.
+
+| Code         | Severity | Section | Condition                                      |
+| :----------- | :------- | :------ | :--------------------------------------------- |
+| `E-REF-0001` | Error    | §17.2   | Type match expression outside comptime context |
+| `E-REF-0002` | Error    | §17.2   | Non-exhaustive type pattern match              |
+| `E-REF-0003` | Error    | §17.2   | Type match arms have inconsistent result types |
+| `E-REF-0004` | Error    | §17.2   | Invalid type pattern syntax                    |
+| `E-REF-0010` | Error    | §17.3   | Duplicate binding in type pattern              |
+| `E-REF-0011` | Error    | §17.3   | Pattern requires field not present in type     |
+| `E-REF-0012` | Error    | §17.3   | Pattern requires variant not present in type   |
+| `E-REF-0013` | Error    | §17.3   | Pattern requires state not present in type     |
+| `E-REF-0014` | Error    | §17.3   | Tuple pattern arity mismatch                   |
+| `E-REF-0015` | Error    | §17.3   | Generic pattern arity mismatch                 |
+| `W-REF-0010` | Warning  | §17.3   | Type pattern binding shadows existing binding  |
+| `E-REF-0020` | Error    | §17.5.1 | Field access on `TypeRepr`                     |
+| `E-REF-0021` | Error    | §17.5.1 | Pattern match on `TypeRepr`                    |
+| `E-REF-0022` | Error    | §17.5.2 | `form_repr` called on non-form type            |
+| `E-REF-0023` | Error    | §17.5.2 | Field access on `FormRepr`                     |
+| `E-REF-0024` | Error    | §17.5.2 | Pattern match on `FormRepr`                    |
+| `E-REF-0030` | Error    | §17.6.1 | `fields` called on non-record type             |
+| `E-REF-0031` | Error    | §17.6.2 | `variants` called on non-enum type             |
+| `E-REF-0032` | Error    | §17.6.3 | `states` called on non-modal type              |
+| `E-REF-0033` | Error    | §17.6.4 | `layout` called on type with incomplete layout |
+
+---
+
+## Clause 18: Code Generation
+
+This clause defines the code generation system for Cursive. Code generation enables the construction of program fragments at compile time through quasiquoting, their transformation through splice operations, and their injection into the program through code emission. Code generation uses type reflection (§17) to inspect type structure when constructing AST fragments and operates within the comptime environment defined in §16.1. The derivation system (§19) builds upon code generation to automate implementation synthesis.
+
+---
+
+### 18.1 Overview
+
+##### Definition
+
+**Code generation** is the programmatic construction and emission of program fragments during the Metaprogramming Phase. Code generation enables comptime procedures to produce declarations, implementations, and expressions that become part of the compiled program.
+
+Cursive provides four complementary code generation mechanisms:
+
+1. **The Ast modal type** — A modal type representing syntax fragments with tracked validation state, enabling safe progression from parsed syntax to type-checked code.
+
+2. **Quote expressions** — Syntax that captures Cursive code as `Ast` values without evaluating it, supporting both deferred and immediate type checking.
+
+3. **Splice operators** — Interpolation operators that inject compile-time values into quoted code, enabling dynamic code construction.
+
+4. **Code emission** — Operations that inject generated AST into module scope, making generated code visible to the runtime program.
+
+##### Static Semantics
+
+**Context Restriction**
+
+All code generation operations MUST occur within comptime context as defined in §16.1. Quote expressions, splice operators, and emission operations are not available in runtime code.
+
+**Capability Requirements**
+
+Code emission requires the `ModuleEmitter` capability (§16.5.2). Quote expressions and splice operators do not require explicit capabilities beyond the implicit comptime context.
+
+**Relationship to Other Clauses**
+
+| Clause                       | Relationship                                                    |
+| :--------------------------- | :-------------------------------------------------------------- |
+| §16 (Compile-Time Execution) | Code generation operates within the comptime environment        |
+| §17 (Type Reflection)        | Reflection provides type information for constructing typed AST |
+| §19 (Derivation)             | Derivation uses code generation to synthesize implementations   |
+
+---
+
+### 18.2 The Ast Modal Type
+
+##### Definition
+
+The **Ast modal type** represents a syntax fragment with tracked validation state. `Ast` is a modal type as defined in §6.1, with states representing the progression from parsed syntax to type-checked code ready for emission.
+
+**Formal Definition**
+
+```cursive
+modal Ast<T = ()> {
+    @Parsed {
+        span: SourceSpan,
+    } {
+        /// Attempt to type-check the AST fragment
+        transition check(~!, context: TypeContext) -> @Typed | @Invalid
+    }
+    
+    @Typed {
+        result_type: TypeRepr,
+    } {
+        /// Emit into module scope; consumes the AST
+        transition emit(~!, target: witness ModuleEmitter)
+        
+        /// Transform the result type
+        procedure map<U>(~, f: procedure(T) -> U) -> Ast<U>@Typed
+    }
+    
+    @Invalid {
+        errors: [TypeError],
+        span: SourceSpan,
+    } {
+        /// Extract errors for custom handling
+        procedure errors(~) -> [TypeError]
+    }
+}
+```
+
+##### Static Semantics
+
+**Type Parameter Semantics**
+
+The type parameter `T` represents the result type of the AST fragment:
+
+| Instantiation | Meaning                                      |
+| :------------ | :------------------------------------------- |
+| `Ast<()>`     | Statement or declaration (no result value)   |
+| `Ast<T>`      | Expression that produces a value of type `T` |
+
+The default type parameter is `()`, so `Ast` without explicit parameter represents statements or declarations.
+
+**State Transition Rules**
+
+The `Ast` modal type follows the state machine:
+
+$$\texttt{@Parsed} \xrightarrow{\texttt{check}} \texttt{@Typed} \mid \texttt{@Invalid}$$
+
+$$\texttt{@Typed} \xrightarrow{\texttt{emit}} \text{(consumed)}$$
+
+**Typing Rule for Check Transition**
+
+$$\frac{
+    \Gamma_{ct} \vdash a : \texttt{Ast}\langle T \rangle\texttt{@Parsed} \quad
+    \Gamma_{ct} \vdash c : \texttt{TypeContext}
+}{
+    \Gamma_{ct} \vdash a\texttt{\~{}>check}(c) : \texttt{Ast}\langle T \rangle\texttt{@Typed} \mid \texttt{Ast}\langle T \rangle\texttt{@Invalid}
+} \quad \text{(T-Ast-Check)}$$
+
+**Typing Rule for Emit Transition**
+
+The `emit` transition is available only on `Ast@Typed`. This statically ensures that only type-checked code can be emitted:
+
+$$\frac{
+    \Gamma_{ct} \vdash a : \texttt{Ast}\langle T \rangle\texttt{@Typed} \quad
+    \Gamma_{ct} \vdash m : \texttt{witness ModuleEmitter}
+}{
+    \Gamma_{ct} \vdash a\texttt{\~{}>emit}(m) : ()
+} \quad \text{(T-Ast-Emit)}$$
+
+**Typing Rule for Map Operation**
+
+$$\frac{
+    \Gamma_{ct} \vdash a : \texttt{Ast}\langle T \rangle\texttt{@Typed} \quad
+    \Gamma_{ct} \vdash f : T \to U
+}{
+    \Gamma_{ct} \vdash a\texttt{.map}(f) : \texttt{Ast}\langle U \rangle\texttt{@Typed}
+} \quad \text{(T-Ast-Map)}$$
+
+**TypeContext**
+
+The `TypeContext` record represents the compile-time type environment used for checking quoted code:
+
+```cursive
+record TypeContext {
+    /// Bindings from identifiers to their types
+    bindings: [(string, TypeRepr)],
+    
+    /// Type parameters in scope
+    type_params: [TypeParamInfo],
+}
+```
+
+A `TypeContext` is obtained from the current comptime environment via the `comptime_context()` intrinsic.
+
+**Comptime Availability**
+
+The `Ast` modal type is comptime-available per §16.2 rule 5: $\texttt{Ast}\langle T \rangle\texttt{@}S \in \mathcal{C}$ for any $T$ and state $S$.
+
+##### Dynamic Semantics
+
+**Check Transition Behavior**
+
+When `check` is invoked on `Ast@Parsed`:
+
+1. The syntax node is type-checked against the provided type context.
+2. Spliced expressions within the AST are evaluated and their types are verified.
+3. If type-checking succeeds, the AST transitions to `@Typed` with the inferred result type stored in `result_type`.
+4. If type-checking fails, the AST transitions to `@Invalid` with diagnostic information in `errors`.
+
+**Emit Transition Behavior**
+
+When `emit` is invoked on `Ast@Typed`:
+
+1. The typed AST is appended to the target module's emission queue.
+2. The `Ast` value is consumed (the `unique` permission on self is required).
+3. The emitted declaration becomes visible after the Metaprogramming Phase completes.
+
+**Error Extraction**
+
+When `errors` is invoked on `Ast@Invalid`:
+
+1. The error list is returned for inspection.
+2. The `Ast@Invalid` value remains usable for further error handling.
+
+##### Constraints & Legality
+
+**Emission State Requirement**
+
+The `emit` transition MUST NOT be invoked on `Ast@Parsed` or `Ast@Invalid`. The modal type system statically prevents this.
+
+**Consumption Requirement**
+
+After `emit` is invoked, the `Ast` value is consumed. Subsequent use of the value is ill-formed and detected by the permission system.
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                     | Detection    | Effect    |
+| :----------- | :------- | :-------------------------------------------- | :----------- | :-------- |
+| `E-GEN-0200` | Error    | `emit` called on `Ast` not in `@Typed` state  | Compile-time | Rejection |
+| `E-GEN-0201` | Error    | `check` called with incompatible type context | Compile-time | Rejection |
+| `E-GEN-0202` | Error    | `Ast` value used after consumption by `emit`  | Compile-time | Rejection |
+| `E-GEN-0203` | Error    | `Ast@Invalid` used where `Ast@Typed` required | Compile-time | Rejection |
+
+---
+
+### 18.3 Quote Expressions
+
+##### Definition
+
+A **quote expression** captures Cursive syntax as an `Ast` value without evaluating it. The resulting value may be manipulated, transformed, type-checked, and later emitted into the program.
 
 ##### Syntax & Declaration
 
@@ -16000,9 +17242,10 @@ A **quote expression** captures Cursive syntax as an AST value without evaluatin
 
 ```ebnf
 quote_expr       ::= "quote" quote_body
+                   | "quote" "[" type "]" expression
 
 quote_body       ::= quote_block
-                   | expression
+                   | "(" expression ")"
 
 quote_block      ::= "{" quoted_item* "}"
 
@@ -16011,50 +17254,112 @@ quoted_item      ::= statement
                    | splice_expr
 ```
 
+The `statement` and `declaration` productions are defined in §11.2 and §5.1 respectively. The `splice_expr` production is defined in §18.4.
+
+**Quote Forms**
+
+Cursive provides three quote forms with different type checking behavior:
+
+| Syntax               | Result Type      | Type Checking           |
+| :------------------- | :--------------- | :---------------------- |
+| `quote { items... }` | `Ast<()>@Parsed` | Deferred until `check`  |
+| `quote (expr)`       | `Ast<_>@Parsed`  | Deferred until `check`  |
+| `quote[T] expr`      | `Ast<T>@Typed`   | Immediate at quote site |
+
+**Disambiguation Rule**
+
+When the token immediately following `quote` is `{`, the parser selects `quote_block`. To quote an expression that is a block, enclose the block in parentheses: `quote ({ ... })`.
+
+**Examples**
+
+```cursive
+// Quote a block of declarations (deferred type checking)
+let decl_ast = quote {
+    record Point { x: i32, y: i32 }
+}
+
+// Quote an expression (deferred type checking)
+let expr_ast = quote (1 + 2 * 3)
+
+// Quote with immediate type checking
+let typed_expr = quote[i32] (1 + 2)
+```
+
 ##### Static Semantics
 
 **Syntactic Validation**
 
-Content of a quote expression MUST be syntactically valid Cursive. Implementations MUST parse quoted code at definition time and report syntax errors immediately.
+The content of a quote expression MUST be syntactically valid Cursive. Implementations MUST parse quoted code at definition time and report syntax errors immediately:
+
+$$\frac{
+    \text{Parse}(\textit{content}) = \text{Err}(e)
+}{
+    \text{Emit}(\texttt{E-GEN-0210}, e)
+} \quad \text{(Quote-Syntax-Check)}$$
 
 **Deferred Type Checking**
 
-Quoted code is NOT type-checked at the quote site. Type checking is deferred until emission.
-
-**Typing Rules**
+For `quote { ... }` and `quote (...)`, type checking is deferred. The quote expression produces `Ast@Parsed`:
 
 $$\frac{
-    \text{Parse}(\text{items}) = \text{ok}
+    \text{Parse}(\textit{items}) = \text{Ok}
 }{
-    \Gamma_{ct} \vdash \texttt{quote}\ \{ \text{items} \} : \texttt{QuotedBlock}
+    \Gamma_{ct} \vdash \texttt{quote}\ \{ \textit{items} \} : \texttt{Ast}\langle () \rangle\texttt{@Parsed}
 } \quad \text{(T-Quote-Block)}$$
 
 $$\frac{
-    \text{Parse}(e) = \text{ok} \quad
-    \text{IsExpression}(e)
+    \text{Parse}(e) = \text{Ok}
 }{
-    \Gamma_{ct} \vdash \texttt{quote}\ e : \texttt{QuotedExpr}
+    \Gamma_{ct} \vdash \texttt{quote}\ (e) : \texttt{Ast}\langle \_ \rangle\texttt{@Parsed}
 } \quad \text{(T-Quote-Expr)}$$
+
+The underscore `_` in `Ast<_>@Parsed` indicates that the result type is not yet determined; it is inferred when `check` is invoked.
+
+**Immediate Type Checking**
+
+For `quote[T] expr`, type checking occurs immediately at the quote site:
+
+$$\frac{
+    \Gamma_{ct} \vdash e : T
+}{
+    \Gamma_{ct} \vdash \texttt{quote}[T]\ e : \texttt{Ast}\langle T \rangle\texttt{@Typed}
+} \quad \text{(T-Quote-Typed)}$$
+
+The typed quote form is useful when the expected type is known and immediate feedback is desired.
+
+**Splice Resolution**
+
+Splice expressions within quotes are resolved at quote construction time. The spliced values are captured into the AST structure. See §18.4 for splice semantics.
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                         | Detection    | Effect    |
-| :----------- | :------- | :-------------------------------- | :----------- | :-------- |
-| `E-MET-0300` | Error    | Quote block contains syntax error | Compile-time | Rejection |
+**Context Restriction**
+
+Quote expressions MUST appear within comptime context:
+
+$$\frac{
+    \texttt{quote}\ \ldots \text{ outside comptime context}
+}{
+    \text{Emit}(\texttt{E-GEN-0211})
+} \quad \text{(Quote-Context-Check)}$$
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                          | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------- | :----------- | :-------- |
+| `E-GEN-0210` | Error    | Quote block contains syntax error                  | Compile-time | Rejection |
+| `E-GEN-0211` | Error    | Quote expression outside comptime context          | Compile-time | Rejection |
+| `E-GEN-0212` | Error    | Typed quote expression does not have expected type | Compile-time | Rejection |
 
 ---
 
-#### 16.5.2 Splice Operators
+### 18.4 Splice Operators
 
 ##### Definition
 
-**Splice Expression**
-
 The **splice operator** `$(...)` interpolates compile-time values into quoted code. The expression inside the splice is evaluated at compile time, and its result is substituted into the surrounding quote.
 
-**Identifier Splice**
-
-The operator `$ident` (where `ident` is an identifier) is shorthand for `$(ident)`.
+The **identifier splice** `$ident` is shorthand for `$(ident)`.
 
 ##### Syntax & Declaration
 
@@ -16065,225 +17370,703 @@ splice_expr     ::= "$(" expression ")"
                   | "$" IDENTIFIER
 ```
 
+**Examples**
+
+```cursive
+comptime {
+    let field_name = "value"
+    let field_type = type_repr::<i32>()
+    
+    let ast = quote {
+        record Generated {
+            $(field_name): $(field_type),
+        }
+    }
+}
+```
+
 ##### Static Semantics
 
-**Splice Context Resolution**
+**Context-Sensitive Splice Resolution**
 
 The behavior of a splice depends on its syntactic context within the quote:
 
-| Context              | Required Splice Type                      | Result                          |
-| :------------------- | :---------------------------------------- | :------------------------------ |
-| Expression position  | `QuotedExpr`, `Expr`, or comptime literal | AST node insertion              |
-| Type position        | `Type`                                    | Type AST insertion              |
-| Identifier position  | `string`                                  | Identifier (validated per §2.5) |
-| Statement position   | `Stmt` or `QuotedBlock`                   | Statement(s) insertion          |
-| Declaration position | `Decl` or `QuotedBlock`                   | Declaration insertion           |
+| Context              | Required Splice Type                                 | Result                  |
+| :------------------- | :--------------------------------------------------- | :---------------------- |
+| Expression position  | `Ast<T>@Typed`, `Ast<T>@Parsed`, or comptime literal | AST node insertion      |
+| Type position        | `TypeRepr`                                           | Type AST insertion      |
+| Identifier position  | `string`                                             | Identifier construction |
+| Statement position   | `Ast<()>@Typed` or `Ast<()>@Parsed`                  | Statement insertion     |
+| Declaration position | `Ast<()>@Typed` or `Ast<()>@Parsed`                  | Declaration insertion   |
 
 **Typing Rule**
 
 $$\frac{
     \Gamma_{ct} \vdash e : T \quad
-    \text{SpliceCompatible}(T, \text{context})
+    \text{SpliceCompatible}(T, \textit{context})
 }{
-    \Gamma_{ct} \vdash \texttt{\$(}e\texttt{)} : \text{SpliceResult}(\text{context})
+    \Gamma_{ct} \vdash \texttt{\$(}e\texttt{)} : \text{SpliceResult}(\textit{context})
 } \quad \text{(T-Splice)}$$
+
+**Splice Compatibility**
+
+The predicate $\text{SpliceCompatible}(T, \textit{context})$ holds when type $T$ is valid for the given syntactic context:
+
+| Context              | Compatible Types                                              |
+| :------------------- | :------------------------------------------------------------ |
+| Expression position  | `Ast<T>@Typed`, `Ast<T>@Parsed`, or any comptime literal type |
+| Type position        | `TypeRepr`                                                    |
+| Identifier position  | `string`                                                      |
+| Statement position   | `Ast<()>@Typed`, `Ast<()>@Parsed`                             |
+| Declaration position | `Ast<()>@Typed`, `Ast<()>@Parsed`                             |
+
+**Comptime Literal Types**
+
+A comptime literal type is any type whose values can be converted to AST literal nodes: primitive types, `string`, tuples of comptime literal types, and arrays of comptime literal types.
 
 **Identifier Validation**
 
-A string used for identifier splicing MUST conform to the identifier grammar defined in §2.5.
+A string used for identifier splicing MUST conform to the identifier grammar defined in §2.5. If the string does not form a valid identifier:
+
+$$\frac{
+    \Gamma_{ct} \vdash e : \texttt{string} \quad
+    \textit{context} = \text{Identifier} \quad
+    \neg\text{IsValidIdentifier}(\text{value}(e))
+}{
+    \text{Emit}(\texttt{E-GEN-0221})
+} \quad \text{(Splice-Ident-Check)}$$
+
+**Identifier Splice Shorthand**
+
+The identifier splice `$ident` is desugared to `$(ident)`:
+
+$$\texttt{\$}x \equiv \texttt{\$(}x\texttt{)}$$
 
 ##### Constraints & Legality
 
+**Splice Context Restriction**
+
+Splice expressions MUST appear within a quote expression:
+
+$$\frac{
+    \texttt{\$(}e\texttt{)} \text{ outside quote context}
+}{
+    \text{Emit}(\texttt{E-GEN-0222})
+} \quad \text{(Splice-Context-Check)}$$
+
+**Splice Evaluation**
+
+The expression inside a splice MUST be evaluable at compile time:
+
+$$\frac{
+    \Gamma_{ct} \vdash e : T \quad
+    \neg\text{IsComptimeEvaluable}(e)
+}{
+    \text{Emit}(\texttt{E-GEN-0223})
+} \quad \text{(Splice-Comptime-Check)}$$
+
+**Diagnostic Table**
+
 | Code         | Severity | Condition                                       | Detection    | Effect    |
 | :----------- | :------- | :---------------------------------------------- | :----------- | :-------- |
-| `E-MET-0310` | Error    | Splice type incompatible with context           | Compile-time | Rejection |
-| `E-MET-0311` | Error    | Invalid identifier string in splice             | Compile-time | Rejection |
-| `E-MET-0312` | Error    | Splice expression not evaluable at compile time | Compile-time | Rejection |
+| `E-GEN-0220` | Error    | Splice type incompatible with syntactic context | Compile-time | Rejection |
+| `E-GEN-0221` | Error    | Invalid identifier string in splice             | Compile-time | Rejection |
+| `E-GEN-0222` | Error    | Splice expression outside quote context         | Compile-time | Rejection |
+| `E-GEN-0223` | Error    | Splice expression not evaluable at compile time | Compile-time | Rejection |
 
 ---
 
-#### 16.5.3 Typed Quotes
+### 18.5 Hygiene
 
 ##### Definition
 
-A **typed quote** captures Cursive syntax with immediate type checking at the quote site. The quoted expression is validated against the specified type before quote construction.
+Cursive implements **hygienic macro semantics** to prevent unintended identifier capture during code generation. Hygiene ensures that identifiers introduced by code generation do not accidentally bind or shadow identifiers at the emission site, and that identifiers referenced in generated code resolve to their intended bindings.
+
+##### Static Semantics
+
+**Capture Set**
+
+For a quoted expression $q$, the **capture set** is the set of identifiers referenced in $q$ that are not defined within $q$:
+
+$$\text{Captures}(q) = \text{FreeVars}(q) \cap \text{Dom}(\Gamma_{ct})$$
+
+Each identifier in $\text{Captures}(q)$ is resolved at the quote definition site. The binding to which each captured identifier refers is recorded and preserved through emission.
+
+**Fresh Name Set**
+
+The **fresh name set** for a quoted expression $q$ is the set of identifiers bound within $q$:
+
+$$\text{Fresh}(q) = \text{BoundVars}(q)$$
+
+Each identifier in $\text{Fresh}(q)$ is renamed at emission time to avoid collision with bindings at the emission site:
+
+$$\text{Rename}(x) = \text{gensym}(x, \text{EmissionContext})$$
+
+The `gensym` function generates a unique identifier distinct from any identifier in both the quote scope and the emission scope.
+
+**Hygiene Preservation**
+
+The hygiene system maintains the following invariant: for any identifier $x$ appearing in emitted code:
+
+1. If $x \in \text{Captures}(q)$, then $x$ resolves to the same binding it referenced at the quote site.
+2. If $x \in \text{Fresh}(q)$, then $x$ does not capture any binding at the emission site.
+
+**Hygiene Breaking**
+
+To introduce identifiers into the emission scope intentionally, use identifier splicing with a string value:
+
+| Splice Input Type           | Hygiene Behavior                       |
+| :-------------------------- | :------------------------------------- |
+| `string`                    | **Unhygienic**—binds in emission scope |
+| `Ast` containing identifier | **Hygienic**—preserves original scope  |
+
+This distinction enables intentional introduction of bindings visible to surrounding code:
+
+```cursive
+comptime {
+    let user_name = "my_var"  // string value
+    
+    // Unhygienic: introduces binding visible at emission site
+    let ast = quote {
+        let $(user_name): i32 = 42
+    }
+}
+```
+
+**Captured Identifier Validity**
+
+All identifiers in $\text{Captures}(q)$ MUST resolve to bindings that remain valid at emission time. If a captured identifier refers to a binding that is no longer in scope when the quoted code is emitted, the program is ill-formed:
+
+$$\frac{
+    x \in \text{Captures}(q) \quad
+    \neg\text{ValidAtEmission}(x)
+}{
+    \text{Emit}(\texttt{E-GEN-0230})
+} \quad \text{(Capture-Validity-Check)}$$
+
+##### Dynamic Semantics
+
+**Name Generation**
+
+Fresh names are generated using a deterministic algorithm that incorporates:
+
+1. The original identifier name
+2. A unique counter for the emission context
+3. The source location of the quote
+
+This ensures that fresh names are reproducible across compilations with identical input.
+
+**Example**
+
+```cursive
+comptime {
+    // Hygienic: 'temp' will be renamed to avoid capture
+    let ast = quote {
+        let temp = compute()
+        process(temp)
+    }
+    
+    emitter~>emit(ast)
+}
+
+// At emission site, 'temp' might be renamed to 'temp_42_:L10C5'
+// ensuring it doesn't conflict with any 'temp' at the emission site
+```
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                          | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------- | :----------- | :-------- |
+| `E-GEN-0230` | Error    | Captured identifier no longer in scope at emission | Compile-time | Rejection |
+| `E-GEN-0231` | Error    | Hygiene renaming collision (implementation limit)  | Compile-time | Rejection |
+
+---
+
+### 18.6 Comptime Iteration
+
+##### Definition
+
+A **comptime for loop** iterates over a compile-time sequence and unrolls the loop body at compile time. Each iteration produces generated code, with the complete set of iterations combined into the result.
 
 ##### Syntax & Declaration
 
 **Grammar**
 
 ```ebnf
-typed_quote_expr ::= "quote" "[" type "]" expression
+comptime_for ::= "comptime" "for" pattern "in" comptime_expr block
+```
+
+The `pattern` production is defined in §11.5. The `comptime_expr` production is defined in §16.4.
+
+**Example**
+
+```cursive
+comptime {
+    let fields = introspect~>fields::<Player>()
+    
+    let ast = quote {
+        comptime for field in $(fields) {
+            self.$(field.name)~>process()
+        }
+    }
+}
 ```
 
 ##### Static Semantics
-
-**Immediate Type Checking**
-
-For `quote[T] e`:
-1. The quoted expression `e` is type-checked immediately.
-2. If `e` does not have type `T`, an error is reported at the quote site.
-3. The result has type `TypedQuote<T>`.
-
-**TypedQuote Type**
-
-```cursive
-record TypedQuote<T> {
-    inner: QuotedExpr,
-}
-```
 
 **Typing Rule**
 
 $$\frac{
-    \Gamma_{ct} \vdash e : T
+    \Gamma_{ct} \vdash \textit{seq} : \texttt{Sequence}\langle E \rangle \quad
+    \Gamma_{ct}, x : E \vdash \textit{body} : T
 }{
-    \Gamma_{ct} \vdash \texttt{quote}[T]\ e : \texttt{TypedQuote}\langle T \rangle
-} \quad \text{(T-Typed-Quote)}$$
+    \Gamma_{ct} \vdash \texttt{comptime for } x \texttt{ in } \textit{seq}\ \textit{body} : [T]
+} \quad \text{(T-Comptime-For)}$$
 
-**Coercion to QuotedExpr**
+**Unrolling Semantics**
 
-`TypedQuote<T>` is implicitly coercible to `QuotedExpr`:
+A comptime for loop over sequence $[e_1, e_2, \ldots, e_n]$ is semantically equivalent to:
+
+$$\texttt{comptime for } x \texttt{ in } [e_1, \ldots, e_n]\ \{ B \} \equiv [B[x := e_1], B[x := e_2], \ldots, B[x := e_n]]$$
+
+Where $B[x := e_i]$ denotes the body $B$ with all occurrences of $x$ replaced by $e_i$.
+
+**Context-Sensitive Unrolling**
+
+The result of unrolling depends on the syntactic context in which the comptime for loop appears:
+
+| Context                           | Unrolled Result          |
+| :-------------------------------- | :----------------------- |
+| Statement position within quote   | Sequence of statements   |
+| Match arm position within quote   | Sequence of match arms   |
+| Declaration position within quote | Sequence of declarations |
+| Expression position               | Array literal            |
+
+**Quote Context Integration**
+
+When `comptime for` appears within a `quote` block, the loop is unrolled and each iteration's body is spliced into the quoted AST as a sequence of items:
+
+```cursive
+quote {
+    comptime for field in $(fields) {
+        self.$(field.name)~>process()
+    }
+}
+// For fields = [a, b, c], produces AST equivalent to:
+// quote {
+//     self.a~>process()
+//     self.b~>process()
+//     self.c~>process()
+// }
+```
+
+**Sequence Type Requirement**
+
+The expression following `in` MUST have type `Sequence<E>` for some element type `E`:
 
 $$\frac{
-    \Gamma_{ct} \vdash e : \texttt{TypedQuote}\langle T \rangle
+    \Gamma_{ct} \vdash e : T \quad
+    T \neq \texttt{Sequence}\langle E \rangle \text{ for any } E
 }{
-    \Gamma_{ct} \vdash e : \texttt{QuotedExpr}
-} \quad \text{(Coerce-TypedQuote)}$$
+    \text{Emit}(\texttt{E-GEN-0240})
+} \quad \text{(Comptime-For-Seq-Check)}$$
+
+##### Dynamic Semantics
+
+**Unroll Evaluation**
+
+Comptime for loops are evaluated as follows:
+
+1. The sequence expression is evaluated to produce a concrete sequence $[e_1, \ldots, e_n]$.
+2. For each element $e_i$ in order:
+   a. The loop variable is bound to $e_i$.
+   b. The loop body is evaluated.
+   c. The result is collected.
+3. The collected results form the unrolled output.
+
+**Static Iteration Count**
+
+The iteration count of a comptime for loop MUST be statically determinable. If the sequence length depends on runtime values, the program is ill-formed:
+
+$$\frac{
+    \text{length}(\textit{seq}) \text{ depends on runtime values}
+}{
+    \text{Emit}(\texttt{E-GEN-0241})
+} \quad \text{(Comptime-For-Static-Check)}$$
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                                          | Detection    | Effect    |
-| :----------- | :------- | :------------------------------------------------- | :----------- | :-------- |
-| `E-MET-0320` | Error    | Typed quote expression does not have expected type | Compile-time | Rejection |
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                                    | Detection    | Effect    |
+| :----------- | :------- | :----------------------------------------------------------- | :----------- | :-------- |
+| `E-GEN-0240` | Error    | Comptime for expression is not a compile-time sequence       | Compile-time | Rejection |
+| `E-GEN-0241` | Error    | Comptime for body produces runtime-dependent iteration count | Compile-time | Rejection |
+| `W-GEN-0240` | Warning  | Comptime for loop over empty sequence                        | Compile-time | Continue  |
 
 ---
 
-#### 16.5.4 Hygiene
+### 18.7 Code Emission
 
 ##### Definition
 
-Cursive implements **hygienic macro semantics** to prevent unintended identifier capture during code generation.
-
-**Lexical Scope Capture**
-
-Identifiers referenced in a quote that are not defined within the quote are **captured** from the lexical scope at the quote definition site.
-
-**Fresh Name Generation**
-
-Identifiers introduced within a quote receive **fresh, unique names** to prevent collision with bindings at the emission site.
-
-**Hygiene Breaking**
-
-To intentionally introduce identifiers into the target scope, use identifier splicing with a string value.
-
-##### Static Semantics
-
-**Capture Set**
-
-For a quoted expression $q$, the capture set is:
-
-$$\text{Captures}(q) = \text{FreeVars}(q) \cap \text{Dom}(\Gamma_{ct})$$
-
-Each identifier in $\text{Captures}(q)$ is resolved at the quote site.
-
-**Fresh Name Set**
-
-$$\text{Fresh}(q) = \text{BoundVars}(q)$$
-
-Each identifier in $\text{Fresh}(q)$ is renamed to avoid collision:
-
-$$\text{Rename}(x) = \text{gensym}(x, \text{EmissionContext})$$
-
-**Splice Hygiene**
-
-| Splice Input Type                  | Hygiene Behavior                   |
-| :--------------------------------- | :--------------------------------- |
-| `string`                           | Unhygienic—binds in emission scope |
-| `QuotedExpr` containing identifier | Hygienic—preserves original scope  |
-
-> **Note:** The `gensym` function generates a unique identifier distinct from any identifier in both the quote scope and the emission scope.
-
----
-
-### 16.6 Code Emission
-
-##### Definition
-
-**Emit Operation**
-
-The `emit` method on the `ComptimeCodegen` capability injects a `QuotedBlock` into the current module's scope. The quoted block may contain any declarations valid at module scope, including procedure definitions, type definitions, and `implement` blocks.
+**Code emission** is the process of injecting generated AST into module scope. Emission is performed via the `ModuleEmitter` capability (§16.5.2), making generated code visible to the rest of the program.
 
 ##### Syntax & Declaration
 
+**Emission Operations**
+
+The `ModuleEmitter` capability provides two emission operations:
+
 ```cursive
-procedure emit(~! self: ComptimeCodegen, code: QuotedBlock)
+// Emit a declaration AST
+emitter~>emit(ast)
+
+// Emit a form implementation for a specific type
+emitter~>emit_implement(target_type, form, body)
+```
+
+**Examples**
+
+```cursive
+[[derive_target]]
+comptime procedure GenerateDebug(
+    target: TypePattern,
+    introspect: witness Introspect,
+    emitter: witness ModuleEmitter,
+) {
+    let impl_ast = quote {
+        implement Debug for $(type_repr_of(target)) {
+            procedure debug(~) -> string {
+                // Generated debug implementation
+            }
+        }
+    }
+    
+    match impl_ast~>check(comptime_context()) {
+        @Typed as typed => typed~>emit(emitter),
+        @Invalid as invalid => {
+            diagnostics~>error("Debug derive failed", invalid.span)
+        }
+    }
+}
 ```
 
 ##### Static Semantics
 
+**Typing Rule for emit**
+
+$$\frac{
+    \Gamma_{ct} \vdash m : \texttt{witness ModuleEmitter} \quad
+    \Gamma_{ct} \vdash a : \texttt{Ast}\langle () \rangle\texttt{@Typed}
+}{
+    \Gamma_{ct} \vdash m\texttt{\~{}>emit}(a) : ()
+} \quad \text{(T-Emit)}$$
+
+**Typing Rule for emit_implement**
+
+$$\frac{
+    \Gamma_{ct} \vdash m : \texttt{witness ModuleEmitter} \quad
+    \Gamma_{ct} \vdash t : \texttt{TypeRepr} \quad
+    \Gamma_{ct} \vdash f : \texttt{FormRepr} \quad
+    \Gamma_{ct} \vdash b : \texttt{Ast}\langle () \rangle\texttt{@Typed}
+}{
+    \Gamma_{ct} \vdash m\texttt{\~{}>emit\_implement}(t, f, b) : ()
+} \quad \text{(T-Emit-Implement)}$$
+
 **Injection Point**
 
-Code is emitted into the **module scope** where the `comptime` block resides. Emitted declarations are visible to all subsequent compilation phases.
+Code is emitted into the module scope associated with the `ModuleEmitter` capability. For derive targets (§19.3), this is the module where the type being derived is declared.
 
-**Emitting Implementations**
+**Capability Requirement**
 
-To emit a form implementation, include an `implement` block in the quoted code and splice the target type and form:
-
-```cursive
-codegen~>emit(quote {
-    implement $(form_type) for $(target_type) {
-        procedure method_name(self: const Self) {
-            // implementation
-        }
-    }
-})
-```
-
-The splice expressions `$(form_type)` and `$(target_type)` MUST evaluate to `Type` handles. The `Self` keyword within the `implement` block resolves to the spliced target type.
-
-**Post-Emission Type Checking**
-
-After the Metaprogramming Phase completes, the implementation MUST perform full type checking on the expanded AST.
+The `emit` and `emit_implement` operations require a `ModuleEmitter` capability witness. This capability is provided to derive target procedures and comptime blocks with the appropriate authorization.
 
 ##### Dynamic Semantics
 
 **Emission Ordering**
 
-1. Each `emit` call appends the `QuotedBlock` to the module's emission queue.
-2. After all comptime execution completes, queued emissions are spliced into the AST.
+Emitted declarations are ordered as follows:
+
+1. Each `emit` call appends the AST to the module's emission queue.
+2. After all comptime execution completes, queued emissions are spliced into the module AST.
 3. Emissions from the same comptime block appear in call order.
-4. Emissions from different comptime blocks appear in execution order.
+4. Emissions from different comptime blocks appear in execution order as determined by the dependency graph (§16.7).
 
-**Error Reporting**
+**Post-Emission Type Checking**
 
-Type errors in emitted code MUST be reported with a diagnostic trace including:
-1. The source location of the `emit` call
-2. The generated source text (or representative portion)
-3. The specific error within the generated code
+After the Metaprogramming Phase completes, the implementation MUST perform full type checking on the expanded AST. Type errors in emitted code MUST be reported with a diagnostic trace including:
+
+1. The source location of the `emit` call.
+2. The generated source text (or a representative portion if large).
+3. The specific error within the generated code.
+
+**Conflict Detection**
+
+If emitted declarations conflict with existing declarations (same name in same namespace), the implementation MUST emit a diagnostic:
+
+$$\frac{
+    \text{emit}(d) \quad
+    \text{Name}(d) = \text{Name}(d') \quad
+    d' \in \text{Declarations}(\text{Module})
+}{
+    \text{Emit}(\texttt{E-GEN-0252})
+} \quad \text{(Emit-Conflict-Check)}$$
+
+**Duplicate Implementation Detection**
+
+If multiple form implementations are emitted for the same (type, form) pair, the implementation MUST emit a diagnostic:
+
+$$\frac{
+    \text{emit\_implement}(T, F, \_) \quad
+    \text{emit\_implement}(T, F, \_)
+}{
+    \text{Emit}(\texttt{E-GEN-0253})
+} \quad \text{(Emit-Duplicate-Impl-Check)}$$
 
 ##### Constraints & Legality
 
+**State Requirement**
+
+The `emit` operation MUST be invoked with `Ast@Typed`. Invoking `emit` on `Ast@Parsed` or `Ast@Invalid` is prevented by the modal type system.
+
+**Capability Requirement**
+
+Invoking `emit` without a `ModuleEmitter` capability is ill-formed:
+
+$$\frac{
+    \texttt{emit}(a) \quad
+    \texttt{ModuleEmitter} \notin \Gamma_{ct}
+}{
+    \text{Emit}(\texttt{E-GEN-0251})
+} \quad \text{(Emit-Cap-Check)}$$
+
+**Diagnostic Table**
+
 | Code         | Severity | Condition                                               | Detection    | Effect    |
 | :----------- | :------- | :------------------------------------------------------ | :----------- | :-------- |
-| `E-MET-0400` | Error    | Emitted code failed type checking                       | Compile-time | Rejection |
-| `E-MET-0401` | Error    | `emit` called without ComptimeCodegen capability        | Compile-time | Rejection |
-| `E-MET-0402` | Error    | Emitted declaration conflicts with existing declaration | Compile-time | Rejection |
-| `E-MET-0403` | Error    | Duplicate implementation for (type, form) pair          | Compile-time | Rejection |
+| `E-GEN-0250` | Error    | Emitted code failed type checking                       | Compile-time | Rejection |
+| `E-GEN-0251` | Error    | `emit` called without `ModuleEmitter` capability        | Compile-time | Rejection |
+| `E-GEN-0252` | Error    | Emitted declaration conflicts with existing declaration | Compile-time | Rejection |
+| `E-GEN-0253` | Error    | Duplicate form implementation emitted for (type, form)  | Compile-time | Rejection |
 
 ---
 
-### 16.7 Derive Attributes
+### 18.8 Compile-Time Keys
 
 ##### Definition
 
-**Derive Attribute**
+A **compile-time key** is a key acquired during the Metaprogramming Phase that governs access to type and declaration state. Compile-time keys use the same path-based model as runtime keys (§13) but operate on compilation state rather than runtime memory.
 
-A **derive attribute** is an attribute of the form `[[derive(Name, ...)]]` attached to a type declaration. It invokes comptime procedures to generate code for the annotated type.
+##### Syntax & Declaration
 
-**Derive Target**
+**Grammar**
 
-A **derive target** is a comptime procedure annotated with `[[derive_target]]` that generates code based on type introspection.
+```ebnf
+comptime_key_block ::= "comptime" "#" comptime_path_list key_mode? block
+
+comptime_path_list ::= comptime_path ("," comptime_path)*
+
+comptime_path      ::= "type" type_path
+                     | "module" module_path
+                     | form_ref "for" type_path
+
+key_mode           ::= "write"
+```
+
+The `type_path`, `module_path`, and `form_ref` productions are defined in §4, §8.1, and §9.1 respectively.
+
+**Path Semantics**
+
+| Path Form         | Meaning                                 |
+| :---------------- | :-------------------------------------- |
+| `type Foo`        | The definition of type `Foo`            |
+| `module bar::baz` | The module `bar::baz`                   |
+| `Form for Type`   | The implementation of `Form` for `Type` |
+
+**Key Modes**
+
+| Mode    | Meaning                  |
+| :------ | :----------------------- |
+| (none)  | Read access (default)    |
+| `write` | Write access (exclusive) |
+
+**Example**
+
+```cursive
+// Acquire read key to type Point definition
+comptime #type Point {
+    let fields = introspect~>fields::<Point>()
+    // ... use fields
+}
+
+// Acquire write key to Debug implementation for Player
+comptime #Debug for Player write {
+    // Generate Debug implementation with exclusive access
+}
+```
+
+##### Static Semantics
+
+**Key Compatibility**
+
+Compile-time keys follow the same compatibility rules as runtime keys (§13.1.2):
+
+| Key A Mode | Key B Mode | Overlapping Paths | Compatible |
+| :--------- | :--------- | :---------------- | :--------- |
+| Read       | Read       | Yes               | Yes        |
+| Read       | Write      | Yes               | No         |
+| Write      | Write      | Yes               | No         |
+
+**Typing Rule**
+
+$$\frac{
+    \Gamma_{ct} \vdash P_1, \ldots, P_n : \text{ComptimePath} \quad
+    \text{KeysAcquirable}(P_1, \ldots, P_n, \textit{mode}) \quad
+    \Gamma_{ct}, \text{Keys}(P_1, \ldots, P_n, \textit{mode}) \vdash \textit{body} : T
+}{
+    \Gamma_{ct} \vdash \texttt{comptime \#}P_1, \ldots, P_n\ \textit{mode}\ \{ \textit{body} \} : T
+} \quad \text{(T-Comptime-Key)}$$
+
+**Ordering Guarantee**
+
+If comptime block $A$ holds a Write key to path $P$ and comptime block $B$ attempts to acquire any key to $P$:
+
+1. If $A$ and $B$ are in the same compilation unit, execution order is determined by textual order.
+2. If $A$ and $B$ are in different compilation units, the implementation determines a deterministic order (Implementation-Defined).
+
+**Path Existence**
+
+The paths in a comptime key block MUST refer to declarations that exist at the point of key acquisition:
+
+$$\frac{
+    \texttt{comptime \#}P\ \{ \ldots \} \quad
+    \neg\text{Exists}(P)
+}{
+    \text{Emit}(\texttt{E-GEN-0261})
+} \quad \text{(Comptime-Key-Exists-Check)}$$
+
+##### Dynamic Semantics
+
+**Key Acquisition**
+
+When a comptime key block is entered:
+
+1. Keys to the specified paths are requested.
+2. If all keys can be acquired without violating compatibility rules, execution proceeds.
+3. If a key cannot be acquired (due to conflict with another key holder), execution blocks until the key is available.
+
+**Key Release**
+
+Keys are released when the comptime key block exits (normally or via panic).
+
+**Cycle Prevention**
+
+The canonical ordering rules (§13.7) apply. If a cycle is detected in compile-time key acquisition, the program is ill-formed:
+
+$$\frac{
+    \text{CycleDetected}(\text{KeyGraph})
+}{
+    \text{Emit}(\texttt{E-GEN-0260})
+} \quad \text{(Comptime-Key-Cycle-Check)}$$
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                            | Detection    | Effect    |
+| :----------- | :------- | :--------------------------------------------------- | :----------- | :-------- |
+| `E-GEN-0260` | Error    | Circular dependency in compile-time key acquisition  | Compile-time | Rejection |
+| `E-GEN-0261` | Error    | Compile-time key path does not exist                 | Compile-time | Rejection |
+| `W-GEN-0260` | Warning  | Unnecessary compile-time key (no conflicting access) | Compile-time | Continue  |
+
+---
+
+### 18.9 Summary of Diagnostic Codes
+
+This section provides a consolidated reference of all diagnostic codes defined in this clause.
+
+| Code         | Severity | Section | Condition                                               |
+| :----------- | :------- | :------ | :------------------------------------------------------ |
+| `E-GEN-0200` | Error    | §18.2   | `emit` called on `Ast` not in `@Typed` state            |
+| `E-GEN-0201` | Error    | §18.2   | `check` called with incompatible type context           |
+| `E-GEN-0202` | Error    | §18.2   | `Ast` value used after consumption by `emit`            |
+| `E-GEN-0203` | Error    | §18.2   | `Ast@Invalid` used where `Ast@Typed` required           |
+| `E-GEN-0210` | Error    | §18.3   | Quote block contains syntax error                       |
+| `E-GEN-0211` | Error    | §18.3   | Quote expression outside comptime context               |
+| `E-GEN-0212` | Error    | §18.3   | Typed quote expression does not have expected type      |
+| `E-GEN-0220` | Error    | §18.4   | Splice type incompatible with syntactic context         |
+| `E-GEN-0221` | Error    | §18.4   | Invalid identifier string in splice                     |
+| `E-GEN-0222` | Error    | §18.4   | Splice expression outside quote context                 |
+| `E-GEN-0223` | Error    | §18.4   | Splice expression not evaluable at compile time         |
+| `E-GEN-0230` | Error    | §18.5   | Captured identifier no longer in scope at emission      |
+| `E-GEN-0231` | Error    | §18.5   | Hygiene renaming collision (implementation limit)       |
+| `E-GEN-0240` | Error    | §18.6   | Comptime for expression is not a compile-time sequence  |
+| `E-GEN-0241` | Error    | §18.6   | Comptime for produces runtime-dependent iteration count |
+| `W-GEN-0240` | Warning  | §18.6   | Comptime for loop over empty sequence                   |
+| `E-GEN-0250` | Error    | §18.7   | Emitted code failed type checking                       |
+| `E-GEN-0251` | Error    | §18.7   | `emit` called without `ModuleEmitter` capability        |
+| `E-GEN-0252` | Error    | §18.7   | Emitted declaration conflicts with existing declaration |
+| `E-GEN-0253` | Error    | §18.7   | Duplicate form implementation emitted for (type, form)  |
+| `E-GEN-0260` | Error    | §18.8   | Circular dependency in compile-time key acquisition     |
+| `E-GEN-0261` | Error    | §18.8   | Compile-time key path does not exist                    |
+| `W-GEN-0260` | Warning  | §18.8   | Unnecessary compile-time key (no conflicting access)    |
+
+---
+
+## Clause 19: Derivation
+
+This clause defines the derivation system for Cursive. Derivation automates the synthesis of form implementations by combining type reflection (§17) and code generation (§18). The derive system enables types to acquire implementations through compile-time procedures that inspect type structure and emit appropriate code. This clause specifies derive attributes, derive target procedures, conditional implementations, and generation contracts.
+
+---
+
+### 19.1 Overview
+
+##### Definition
+
+**Derivation** is the automated synthesis of form implementations based on type structure. Derivation eliminates repetitive boilerplate code by generating implementations at compile time according to declarative specifications.
+
+Cursive provides three complementary derivation mechanisms:
+
+1. **Derive attributes** — Annotations on type declarations that invoke derive target procedures to generate implementations.
+
+2. **Conditional implementations** — Parameterized implementation blocks that apply to all types matching a structural pattern and satisfying specified constraints.
+
+3. **Generation contracts** — Postconditions on derive targets that constrain and verify the emitted code.
+
+##### Static Semantics
+
+**Context Restriction**
+
+Derivation occurs during the Metaprogramming Phase (§16.1). Derive target procedures execute in comptime context and emit code using the mechanisms defined in §18.
+
+**Capability Requirements**
+
+Derive target procedures receive the following capabilities:
+
+| Capability            | Purpose                                           |
+| :-------------------- | :------------------------------------------------ |
+| `Introspect`          | Inspect target type structure (§17)               |
+| `ModuleEmitter`       | Emit generated implementations (§18.7)            |
+| `ComptimeDiagnostics` | Report compile-time errors and warnings (§16.5.4) |
+
+**Relationship to Other Clauses**
+
+| Clause                       | Relationship                                               |
+| :--------------------------- | :--------------------------------------------------------- |
+| §16 (Compile-Time Execution) | Derivation operates within the comptime environment        |
+| §17 (Type Reflection)        | Derive targets use reflection to inspect target types      |
+| §18 (Code Generation)        | Derive targets use code generation to emit implementations |
+
+---
+
+### 19.2 Derive Attributes
+
+##### Definition
+
+A **derive attribute** is an attribute of the form `[[derive(Name, ...)]]` attached to a type declaration. A derive attribute requests that the implementation invoke one or more derive target procedures to generate code for the annotated type.
 
 ##### Syntax & Declaration
 
@@ -16291,163 +18074,904 @@ A **derive target** is a comptime procedure annotated with `[[derive_target]]` t
 
 ```ebnf
 derive_attribute        ::= "[[" "derive" "(" derive_list ")" "]]"
-derive_list             ::= IDENTIFIER ("," IDENTIFIER)*
 
-derive_target_attribute ::= "[[" "derive_target" "]]"
+derive_list             ::= derive_item ("," derive_item)*
+
+derive_item             ::= derive_name
+                          | derive_name "(" derive_config ")"
+
+derive_name             ::= IDENTIFIER
+                          | qualified_path
+
+derive_config           ::= derive_arg ("," derive_arg)*
+
+derive_arg              ::= IDENTIFIER ":" expression
 ```
 
-**Derive Target Signature**
+The `qualified_path` production is defined in §8.1. The `expression` production is defined in §11.1.
 
-A derive target procedure MUST have the following signature:
+**Examples**
+
+```cursive
+// Simple derive without configuration
+[[derive(Debug, Clone, Eq)]]
+record Point {
+    x: i32,
+    y: i32,
+}
+
+// Derive with configuration
+[[derive(Serialize(format: Json), Hash(algorithm: Sha256))]]
+record Config {
+    name: string,
+    value: i32,
+}
+
+// Qualified derive target
+[[derive(mylib::custom::MyDerive)]]
+enum Status { Active, Inactive }
+```
+
+**Derive Item Forms**
+
+| Form                    | Meaning                                        |
+| :---------------------- | :--------------------------------------------- |
+| `Name`                  | Invoke derive target `Name` with defaults      |
+| `Name(key: value, ...)` | Invoke derive target `Name` with configuration |
+
+##### Static Semantics
+
+**Attribute Placement**
+
+Derive attributes MAY be attached to:
+
+1. Record declarations
+2. Enum declarations
+3. Modal type declarations
+
+Derive attributes MUST NOT be attached to:
+
+1. Procedure declarations
+2. Form declarations
+3. Module declarations
+4. Type aliases
+
+**Multiple Derive Attributes**
+
+Multiple derive attributes on a single declaration are permitted and are processed in declaration order:
+
+```cursive
+[[derive(Debug)]]
+[[derive(Clone)]]
+record Foo { ... }
+
+// Equivalent to:
+[[derive(Debug, Clone)]]
+record Foo { ... }
+```
+
+**Typing Rule**
+
+$$\frac{
+    \text{IsTypeDecl}(D) \quad
+    \forall d_i \in \text{DeriveItems}(A).\ \text{WellFormedDeriveItem}(d_i)
+}{
+    A \text{ is well-formed on } D
+} \quad \text{(WF-Derive-Attr)}$$
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                | Detection    | Effect    |
+| :----------- | :------- | :--------------------------------------- | :----------- | :-------- |
+| `E-DRV-0400` | Error    | Derive attribute on non-type declaration | Compile-time | Rejection |
+| `E-DRV-0401` | Error    | Duplicate derive item in same attribute  | Compile-time | Rejection |
+| `E-DRV-0402` | Error    | Invalid derive configuration syntax      | Compile-time | Rejection |
+
+---
+
+### 19.3 Derive Targets
+
+##### Definition
+
+A **derive target** is a comptime procedure annotated with `[[derive_target]]` that generates code based on type introspection. Derive targets receive information about the type being derived and capabilities for introspection and code emission.
+
+##### Syntax & Declaration
+
+**Grammar**
+
+```ebnf
+derive_target_decl      ::= "[[" "derive_target" "]]"
+                            "comptime" "procedure" IDENTIFIER
+                            "(" derive_target_params ")"
+                            generation_contract?
+                            block
+
+derive_target_params    ::= target_param "," introspect_param "," emitter_param
+                            ("," config_param)*
+
+target_param            ::= IDENTIFIER ":" type_pattern_type
+
+introspect_param        ::= IDENTIFIER ":" "witness" "Introspect"
+
+emitter_param           ::= IDENTIFIER ":" "witness" "ModuleEmitter"
+
+config_param            ::= IDENTIFIER ":" type ("=" expression)?
+```
+
+The `type_pattern_type`, `type`, `expression`, and `block` productions are defined in §17.2, §4, §11.1, and §11.2 respectively. The `generation_contract` production is defined in §19.6.
+
+**Required Signature Pattern**
+
+A derive target procedure MUST conform to the following signature pattern:
 
 ```cursive
 [[derive_target]]
-comptime procedure DeriveName(target: TypeInfo)
+comptime procedure DeriveName(
+    target: TypePattern,                    // REQUIRED: matched type
+    introspect: witness Introspect,         // REQUIRED: introspection capability
+    emitter: witness ModuleEmitter,         // REQUIRED: emission capability
+    // OPTIONAL: configuration parameters with defaults
+    config1: Type1 = default1,
+    config2: Type2 = default2,
+)
 ```
 
-The procedure receives the `TypeInfo` of the type being derived and has implicit access to the `codegen` capability.
+The first three parameters are mandatory and are provided by the implementation. Additional parameters with default values MAY be specified; these receive values from the derive attribute configuration.
+
+**Example**
+
+```cursive
+[[derive_target]]
+comptime procedure Debug(
+    target: TypePattern,
+    introspect: witness Introspect,
+    emitter: witness ModuleEmitter,
+    verbose: bool = false,
+) {
+    match type target {
+        Record { .. } => generate_record_debug(target, introspect, emitter, verbose),
+        Enum { .. } => generate_enum_debug(target, introspect, emitter, verbose),
+        type _ => {
+            diagnostics~>error(
+                "Debug can only be derived for records and enums",
+                current_span()
+            )
+        }
+    }
+}
+```
+
+##### Static Semantics
+
+**Attribute Requirement**
+
+A comptime procedure referenced in a derive attribute MUST have the `[[derive_target]]` attribute:
+
+$$\frac{
+    \texttt{[[derive(}D\texttt{)]]} \quad
+    \text{resolve}(D) = p \quad
+    \neg\text{HasAttribute}(p, \texttt{derive\_target})
+}{
+    \text{Emit}(\texttt{E-DRV-0410})
+} \quad \text{(Derive-Target-Attr-Check)}$$
+
+**Signature Validation**
+
+The derive target procedure MUST have the required signature pattern:
+
+$$\frac{
+    \text{HasAttribute}(p, \texttt{derive\_target}) \quad
+    \neg\text{ValidDeriveSignature}(p)
+}{
+    \text{Emit}(\texttt{E-DRV-0411})
+} \quad \text{(Derive-Target-Sig-Check)}$$
+
+**Valid Derive Signature**
+
+A procedure has a valid derive signature if:
+
+1. The first parameter has type `TypePattern`.
+2. The second parameter has type `witness Introspect`.
+3. The third parameter has type `witness ModuleEmitter`.
+4. All subsequent parameters have default values.
+5. The procedure is declared with the `comptime` modifier.
+
+**Capability Provision**
+
+The implementation provides capability witnesses to derive target procedures:
+
+| Parameter Position | Capability Provided | Scope                               |
+| :----------------- | :------------------ | :---------------------------------- |
+| Second             | `Introspect`        | Type being derived and dependencies |
+| Third              | `ModuleEmitter`     | Module containing type declaration  |
+
+Additionally, the `ComptimeDiagnostics` capability is implicitly available via the `diagnostics` identifier.
+
+**Visibility Requirements**
+
+A derive target referenced in a derive attribute MUST be visible from the scope containing the type declaration:
+
+$$\frac{
+    \texttt{[[derive(}D\texttt{)]]} \text{ on type } T \quad
+    \neg\text{Visible}(D, \text{Scope}(T))
+}{
+    \text{Emit}(\texttt{E-DRV-0412})
+} \quad \text{(Derive-Target-Vis-Check)}$$
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                           | Detection    | Effect    |
+| :----------- | :------- | :-------------------------------------------------- | :----------- | :-------- |
+| `E-DRV-0410` | Error    | Derive target not found                             | Compile-time | Rejection |
+| `E-DRV-0411` | Error    | Derive target has incorrect signature               | Compile-time | Rejection |
+| `E-DRV-0412` | Error    | Derive target not visible from declaration scope    | Compile-time | Rejection |
+| `E-DRV-0413` | Error    | Derive target is not a comptime procedure           | Compile-time | Rejection |
+| `E-DRV-0414` | Error    | Derive target missing `[[derive_target]]` attribute | Compile-time | Rejection |
+
+---
+
+### 19.4 Derive Execution
+
+##### Definition
+
+**Derive execution** is the process by which derive target procedures are invoked during the Metaprogramming Phase to generate implementations for annotated types.
 
 ##### Static Semantics
 
 **Resolution Rules**
 
-For each identifier $D$ in a `[[derive(D)]]` attribute:
+For each derive item $D$ in a `[[derive(D)]]` attribute:
 
-1. The identifier MUST resolve to a procedure annotated with `[[derive_target]]`.
-2. The procedure MUST be visible from the current scope.
-3. The procedure MUST have the required signature.
+1. Resolve the identifier or qualified path $D$ to a procedure declaration.
+2. Verify the procedure has the `[[derive_target]]` attribute.
+3. Verify the procedure has a valid derive signature.
+4. If resolution fails, emit `E-DRV-0410`.
 
-**Well-Formedness**
+**Typing Rule for Derive Resolution**
 
 $$\frac{
     \text{resolve}(D) = p \quad
     \text{HasAttribute}(p, \texttt{derive\_target}) \quad
-    p : (\texttt{TypeInfo}) \to ()
+    \text{ValidDeriveSignature}(p)
 }{
-    \texttt{[[derive(}D\texttt{)]]}\ \text{is well-formed}
-} \quad \text{(WF-Derive)}$$
+    \texttt{[[derive(}D\texttt{)]]}\ \text{resolves to } p
+} \quad \text{(T-Derive-Resolve)}$$
+
+**Configuration Passing**
+
+When a derive item includes configuration `[[derive(Name(key: value))]]`:
+
+1. Each `key: value` pair is matched to a parameter of the derive target by name.
+2. The expression `value` is evaluated at compile time.
+3. The result is passed to the corresponding parameter.
+4. Parameters not specified in configuration receive their default values.
+
+**Configuration Type Checking**
+
+$$\frac{
+    \text{Param}(p, k) = (k, T, \_) \quad
+    \Gamma_{ct} \vdash v : T
+}{
+    \text{ConfigArg}(k: v) \text{ valid for } p
+} \quad \text{(T-Derive-Config)}$$
 
 **Execution Order**
 
 Derive procedures execute in declaration order within a single `[[derive(...)]]` attribute:
 
 ```cursive
-[[derive(A, B, C)]]  // A executes, then B, then C
+[[derive(A, B, C)]]  // A executes first, then B, then C
 record Foo { ... }
 ```
 
+For multiple derive attributes on the same type, attributes are processed in textual order:
+
+```cursive
+[[derive(A)]]        // A executes first
+[[derive(B, C)]]     // Then B, then C
+record Foo { ... }
+```
+
+**Order Guarantee**
+
+For derive items $d_1, d_2, \ldots, d_n$ on type $T$:
+
+$$\forall i < j.\ \text{Execute}(d_i) \prec \text{Execute}(d_j)$$
+
+Where $\prec$ denotes "happens before" in the Metaprogramming Phase.
+
 ##### Dynamic Semantics
 
-**Derive Execution**
+**Derive Execution Process**
 
-When a type with `[[derive(D)]]` is encountered:
+When a type $T$ with `[[derive(D)]]` is encountered:
 
-1. The type declaration is processed and its `TypeInfo` is computed.
-2. The derive target procedure $D$ is invoked with the `TypeInfo`.
-3. Any code emitted by $D$ is associated with the type's declaration site.
-4. Type checking of the emitted code occurs after all derives complete.
+1. The type declaration is fully processed and its `TypePattern` representation is computed.
+2. The derive target procedure $D$ is invoked with:
+   - The type as a `TypePattern` value
+   - An `Introspect` capability witness scoped to $T$ and its dependencies
+   - A `ModuleEmitter` capability witness targeting $T$'s module
+   - Configuration values for any additional parameters (or defaults)
+3. The derive target procedure executes in comptime context.
+4. Any code emitted by $D$ is associated with $T$'s declaration site.
+5. After all derives for $T$ complete, emitted code is type-checked.
+
+**Error Handling**
+
+If a derive target procedure:
+
+- **Panics:** The panic is caught and reported as `E-DRV-0420`. Compilation fails.
+- **Emits invalid code:** Type checking of emitted code fails with `E-DRV-0421`. Compilation fails.
+- **Emits conflicting declarations:** Conflict is detected per §18.7, reported with source trace.
+
+**Partial Execution**
+
+If a derive target fails, subsequent derives on the same type MAY still execute to provide additional diagnostics. This behavior is Implementation-Defined.
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                                           | Detection    | Effect    |
-| :----------- | :------- | :-------------------------------------------------- | :----------- | :-------- |
-| `E-MET-0500` | Error    | Derive target not found                             | Compile-time | Rejection |
-| `E-MET-0501` | Error    | Derive target has incorrect signature               | Compile-time | Rejection |
-| `E-MET-0502` | Error    | Derive target is not a comptime procedure           | Compile-time | Rejection |
-| `E-MET-0503` | Error    | Derive target missing `[[derive_target]]` attribute | Compile-time | Rejection |
-| `E-MET-0504` | Error    | Derive procedure panicked during execution          | Compile-time | Rejection |
-| `E-MET-0505` | Error    | Derive procedure emitted invalid code               | Compile-time | Rejection |
+**Diagnostic Table**
+
+| Code         | Severity | Condition                               | Detection    | Effect    |
+| :----------- | :------- | :-------------------------------------- | :----------- | :-------- |
+| `E-DRV-0420` | Error    | Derive procedure panicked               | Compile-time | Rejection |
+| `E-DRV-0421` | Error    | Derive procedure emitted invalid code   | Compile-time | Rejection |
+| `E-DRV-0422` | Error    | Invalid derive configuration argument   | Compile-time | Rejection |
+| `E-DRV-0423` | Error    | Missing required configuration argument | Compile-time | Rejection |
+| `E-DRV-0424` | Error    | Unknown configuration key               | Compile-time | Rejection |
 
 ---
 
-### 16.8 Comptime Diagnostics
+### 19.5 Conditional Implementations
 
 ##### Definition
 
-The following intrinsics provide compile-time diagnostic capabilities for debugging and error reporting.
+A **conditional implementation** is an `implement` block that applies to all types satisfying a structural predicate expressed as a type pattern. Conditional implementations generalize implementations beyond specific named types to structural type categories.
 
 ##### Syntax & Declaration
 
-**Intrinsic Signatures**
+**Grammar**
+
+```ebnf
+conditional_implement   ::= "implement" form_ref "for" type_pattern
+                            ("where" constraint_list)?
+                            implement_body
+
+constraint_list         ::= constraint ("," constraint)*
+
+constraint              ::= type_pattern ":" form_ref
+                          | "fields" "(" IDENTIFIER ")" ":" form_ref
+                          | "variants" "(" IDENTIFIER ")" ":" form_ref
+                          | "comptime" expression
+```
+
+The `form_ref`, `type_pattern`, and `implement_body` productions are defined in §9.1, §17.2, and §9.2 respectively.
+
+**Constraint Forms**
+
+| Constraint Form      | Meaning                                                        |
+| :------------------- | :------------------------------------------------------------- |
+| `type X : Form`      | Bound type variable `X` implements form `Form`                 |
+| `fields(f) : Form`   | All field types of the matched record implement `Form`         |
+| `variants(v) : Form` | All variant payload types of the matched enum implement `Form` |
+| `comptime expr`      | Expression `expr` evaluates to `true` at compile time          |
+
+**Examples**
 
 ```cursive
-/// Emit a compile-time error and halt compilation.
-comptime procedure compile_error(message: string)
+// Debug for all records where all fields are Debug
+implement Debug for Record { .. }
+where fields(f) : Debug
+{
+    procedure debug(~) -> string {
+        comptime {
+            let fields = introspect~>fields::<Self>()
+            quote {
+                let mut s = introspect~>type_name::<Self>() + " { "
+                comptime for field in $(fields) {
+                    s = s + $(field.name) + ": " + self.$(field.name)~>debug() + ", "
+                }
+                s + "}"
+            }
+        }
+    }
+}
 
-/// Emit a compile-time error with source location.
-comptime procedure compile_error_at(message: string, span: SourceSpan)
+// Clone for all enums where all variant payloads are Clone
+implement Clone for Enum { .. }
+where variants(v) : Clone
+{
+    procedure clone(~) -> Self {
+        // Generated match over all variants
+    }
+}
 
-/// Emit a compile-time warning; compilation continues.
-comptime procedure compile_warning(message: string)
-
-/// Emit a compile-time warning with source location.
-comptime procedure compile_warning_at(message: string, span: SourceSpan)
-
-/// Print a message to the compiler's diagnostic output.
-comptime procedure compile_log(message: string)
-
-/// Assert a condition at compile time.
-comptime procedure static_assert(condition: bool, message: string)
+// Conditional on comptime expression
+implement Serialize for Record { .. }
+where comptime { introspect~>layout::<Self>().size <= 1024 }
+{
+    // Only for records with size <= 1024 bytes
+}
 ```
+
+##### Static Semantics
+
+**Resolution Algorithm**
+
+When the compiler checks whether type $T$ implements form $F$:
+
+1. Search for explicit `implement F for T` declarations.
+2. Search for conditional implementations `implement F for P where C`.
+3. For each conditional implementation:
+   a. Attempt to match $T$ against pattern $P$ using the rules in §17.3.
+   b. If the match succeeds with binding environment $\sigma$:
+      - Evaluate constraints $C$ with bindings from $\sigma$.
+      - If all constraints are satisfied, the conditional implementation applies.
+4. Collect all applicable implementations.
+5. Determine the result:
+   - If zero implementations apply, type $T$ does not implement form $F$.
+   - If exactly one implementation applies, use it.
+   - If multiple implementations apply, emit `E-DRV-0430` (ambiguous implementation).
+
+**Typing Rule for Conditional Implementation**
+
+$$\frac{
+    \text{Matches}(T, P, \sigma) \quad
+    \sigma \vdash C_1 \land \cdots \land C_n \quad
+    \sigma \vdash \textit{body} : \text{ValidImpl}(F, T)
+}{
+    T : F \text{ via conditional implementation}
+} \quad \text{(T-Cond-Impl)}$$
+
+**Constraint Evaluation**
+
+Each constraint form is evaluated as follows:
+
+**Type Constraint** `type X : Form`:
+
+$$\frac{
+    \sigma(X) = T' \quad
+    T' : F
+}{
+    \sigma \vdash X : F
+} \quad \text{(C-Type)}$$
+
+**Fields Constraint** `fields(f) : Form`:
+
+$$\frac{
+    \text{IsRecord}(\sigma(\text{target})) \quad
+    \forall f \in \text{fields}(\sigma(\text{target})).\ \text{type}(f) : F
+}{
+    \sigma \vdash \texttt{fields}(f) : F
+} \quad \text{(C-Fields)}$$
+
+**Variants Constraint** `variants(v) : Form`:
+
+$$\frac{
+    \text{IsEnum}(\sigma(\text{target})) \quad
+    \forall v \in \text{variants}(\sigma(\text{target})).\ \text{payload}(v) : F
+}{
+    \sigma \vdash \texttt{variants}(v) : F
+} \quad \text{(C-Variants)}$$
+
+**Comptime Constraint** `comptime expr`:
+
+$$\frac{
+    \Gamma_{ct}, \sigma \vdash e : \texttt{bool} \quad
+    \text{eval}(e) = \texttt{true}
+}{
+    \sigma \vdash \texttt{comptime}\ e
+} \quad \text{(C-Comptime)}$$
+
+**Associated Type Computation**
+
+Associated types in conditional implementations MAY be computed at compile time using `comptime` blocks:
+
+```cursive
+implement Container for Record { element: type E, .. }
+where E : Sized
+{
+    type Element = E
+    
+    procedure size(~) -> usize {
+        comptime { introspect~>layout::<E>().size }
+    }
+}
+```
+
+**Overlap Rules**
+
+Conditional implementations MUST NOT overlap ambiguously. Two conditional implementations for the same form overlap if there exists a type $T$ that:
+
+1. Matches both type patterns, AND
+2. Satisfies both constraint sets.
+
+Formally, implementations $I_1 = (P_1, C_1)$ and $I_2 = (P_2, C_2)$ overlap if:
+
+$$\exists T.\ \text{Matches}(T, P_1) \land \text{Matches}(T, P_2) \land \text{Satisfies}(T, C_1) \land \text{Satisfies}(T, C_2)$$
+
+Overlapping implementations MUST be detected at the point of declaration and diagnosed with `E-DRV-0433`.
+
+**Specificity Ordering**
+
+When multiple conditional implementations could apply but do not violate the overlap rules (due to mutually exclusive constraints), the implementation selects based on specificity:
+
+1. Explicit implementations (`implement F for T`) are more specific than conditional implementations.
+2. Conditional implementations with more specific type patterns are preferred.
+3. Conditional implementations with more constraints are preferred.
+
+If specificity does not determine a unique implementation, the implementations overlap and `E-DRV-0430` is emitted.
 
 ##### Dynamic Semantics
 
-**compile_error**
+**Implementation Instantiation**
 
-1. Emits diagnostic `E-MET-0600` with the provided message.
-2. Immediately terminates the Metaprogramming Phase.
-3. Compilation fails.
+When a conditional implementation is selected for type $T$:
 
-**compile_error_at**
+1. The type pattern bindings $\sigma$ are computed.
+2. The implementation body is instantiated with $\sigma$.
+3. Associated types are computed by evaluating their defining expressions.
+4. The instantiated implementation is cached for $T$.
 
-Identical to `compile_error`, but the diagnostic points to the specified `SourceSpan`.
+**Constraint Failure**
 
-**compile_warning**
+If a constraint fails during resolution:
 
-1. Emits diagnostic `W-MET-0601` with the provided message.
-2. Compilation continues.
-
-**compile_log**
-
-1. Writes the message to the compiler's stderr or equivalent diagnostic stream.
-2. Has no effect on compilation success or failure.
-
-**static_assert**
-
-1. Evaluates `condition` at compile time.
-2. If `condition` is `true`, does nothing.
-3. If `condition` is `false`, behaves as `compile_error(message)`.
+1. The conditional implementation does not apply.
+2. Resolution continues with remaining implementations.
+3. No diagnostic is emitted for constraint failure alone (the type may have another implementation).
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                 | Detection    | Effect    |
-| :----------- | :------- | :------------------------ | :----------- | :-------- |
-| `E-MET-0600` | Error    | `compile_error` invoked   | Compile-time | Rejection |
-| `W-MET-0601` | Warning  | `compile_warning` invoked | Compile-time | Continue  |
-| `E-MET-0602` | Error    | `static_assert` failed    | Compile-time | Rejection |
+**Diagnostic Table**
+
+| Code         | Severity | Condition                               | Detection    | Effect    |
+| :----------- | :------- | :-------------------------------------- | :----------- | :-------- |
+| `E-DRV-0430` | Error    | Ambiguous conditional implementation    | Compile-time | Rejection |
+| `E-DRV-0431` | Error    | Constraint not satisfiable              | Compile-time | Rejection |
+| `E-DRV-0432` | Error    | Associated type computation failed      | Compile-time | Rejection |
+| `E-DRV-0433` | Error    | Overlapping conditional implementations | Compile-time | Rejection |
+| `E-DRV-0434` | Error    | Invalid constraint syntax               | Compile-time | Rejection |
 
 ---
 
-### 16.9 Implementation Limits
+### 19.6 Generation Contracts
 
 ##### Definition
 
-Conforming implementations MUST enforce resource limits on compile-time execution to ensure compilation terminates.
+A **generation contract** is a postcondition on a derive target or comptime procedure that constrains the emitted code. Generation contracts extend the contract system (§10) to compile-time code generation, enabling verification that derive targets produce expected outputs.
 
-| Resource                        | Minimum Limit | Behavior on Exceed |
-| :------------------------------ | :------------ | :----------------- |
-| Comptime recursion depth        | 256           | `E-MET-0002`       |
-| Comptime loop iterations        | 1,000,000     | `E-MET-0002`       |
-| Comptime memory allocation      | 256 MiB       | `E-MET-0002`       |
-| Comptime execution steps        | 100,000,000   | `E-MET-0002`       |
-| Total emitted declaration count | 10,000        | `E-MET-0002`       |
+##### Syntax & Declaration
 
-Implementations MAY provide configuration options to adjust these limits. The specific limits for a conforming implementation are documented in Appendix G.
+**Grammar**
+
+```ebnf
+generation_contract     ::= "|=" "emits" emit_constraint
+
+emit_constraint         ::= emit_impl_constraint
+                          | emit_property_constraint
+                          | emit_universal_constraint
+
+emit_impl_constraint    ::= "implement" form_ref "for" type_expr
+
+emit_property_constraint ::= emit_constraint "." property_name
+
+emit_universal_constraint ::= "forall" IDENTIFIER ":" type_expr "." expression
+```
+
+The `form_ref`, `type_expr`, `property_name`, and `expression` productions are defined in §9.1, §4, §2.5, and §11.1 respectively.
+
+**Contract Forms**
+
+| Contract Form                   | Meaning                                                    |
+| :------------------------------ | :--------------------------------------------------------- |
+| `emits implement Form for Type` | Exactly one implementation of `Form` for `Type` is emitted |
+| `emits.methods_are_total`       | All emitted methods are provably total (no panics)         |
+| `emits.size <= N`               | Layout of emitted types has size at most `N` bytes         |
+| `forall x: T. P(x)`             | Universal property `P` holds for all values of type `T`    |
+
+**Examples**
+
+```cursive
+// Contract: emits exactly one Debug implementation
+[[derive_target]]
+comptime procedure Debug(
+    target: TypePattern,
+    introspect: witness Introspect,
+    emitter: witness ModuleEmitter,
+)
+    |= emits implement Debug for target
+{
+    // Implementation guaranteed to emit Debug for target
+}
+
+// Contract: emitted implementation has total methods
+[[derive_target]]
+comptime procedure SafeClone(
+    target: TypePattern,
+    introspect: witness Introspect,
+    emitter: witness ModuleEmitter,
+)
+    |= emits implement Clone for target
+    |= emits.methods_are_total
+{
+    // Implementation guaranteed to emit Clone with no panics
+}
+```
+
+##### Static Semantics
+
+**Contract Attachment**
+
+Generation contracts are attached to derive target procedures and are verified after the procedure completes execution.
+
+**Typing Rule for Generation Contract**
+
+$$\frac{
+    \Gamma_{ct} \vdash p : \text{ComptimeProc} \quad
+    \text{HasContract}(p, C) \quad
+    \text{Emitted}(p) \models C
+}{
+    p \text{ satisfies contract } C
+} \quad \text{(T-Gen-Contract)}$$
+
+**Contract Verification**
+
+Generation contracts are verified at compile time after the derive target procedure completes:
+
+1. Collect all AST nodes emitted by the procedure.
+2. For each `|= emits` constraint, verify the constraint holds against the emitted AST.
+3. If verification succeeds, continue compilation.
+4. If verification fails, emit `E-DRV-0440` with the failing constraint.
+
+**Implementation Emission Contract**
+
+For `|= emits implement Form for Type`:
+
+$$\frac{
+    \text{Emitted}(p) = \{d_1, \ldots, d_n\} \quad
+    |\{d_i \mid \text{IsImplement}(d_i, F, T)\}| = 1
+}{
+    \text{Emitted}(p) \models \texttt{emits implement } F \texttt{ for } T
+} \quad \text{(V-Emit-Impl)}$$
+
+The constraint requires exactly one implementation of the specified form for the specified type.
+
+**Property Constraints**
+
+Property constraints refine emission contracts with additional requirements:
+
+| Property            | Verification Requirement                                  |
+| :------------------ | :-------------------------------------------------------- |
+| `methods_are_total` | All procedure bodies in emitted code are provably total   |
+| `no_panics`         | Emitted code contains no panic paths                      |
+| `size <= N`         | Emitted type definitions have layout size at most N bytes |
+| `deterministic`     | Emitted code produces deterministic results               |
+
+**Universal Constraints**
+
+For `forall x: T. P(x)`:
+
+$$\frac{
+    \forall v : T.\ \Gamma_{ct}, x := v \vdash P(x) = \texttt{true}
+}{
+    \text{Emitted}(p) \models \texttt{forall } x: T.\ P(x)
+} \quad \text{(V-Universal)}$$
+
+Universal constraints assert properties that hold for all values of a type.
+
+**Verifiability**
+
+Not all generation contracts are statically verifiable. The implementation MUST verify contracts involving:
+
+1. Implementation emission counts
+2. Type layout bounds
+3. Simple structural properties
+
+The implementation MAY:
+
+1. Defer verification of complex universal properties to runtime (with `[[dynamic]]` annotation).
+2. Conservatively reject contracts it cannot verify, emitting `E-DRV-0441`.
+
+##### Dynamic Semantics
+
+**Verification Timing**
+
+Contract verification occurs:
+
+1. After the derive target procedure returns normally.
+2. Before emitted code is added to the module.
+
+If verification fails, the emitted code is discarded and compilation fails.
+
+**Deferred Verification**
+
+For contracts that cannot be fully verified statically, the implementation MAY generate runtime checks:
+
+```cursive
+[[derive_target]]
+comptime procedure BoundedSerialize(
+    target: TypePattern,
+    introspect: witness Introspect,
+    emitter: witness ModuleEmitter,
+    max_size: usize = 1024,
+)
+    |= [[dynamic]] emits.serialized_size <= max_size
+{
+    // Runtime check inserted if static verification is not possible
+}
+```
+
+The `[[dynamic]]` annotation on a contract clause permits runtime verification with `W-DRV-0440`.
+
+##### Constraints & Legality
+
+**Diagnostic Table**
+
+| Code         | Severity | Condition                                               | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------------ | :----------- | :-------- |
+| `E-DRV-0440` | Error    | Generation contract violated                            | Compile-time | Rejection |
+| `E-DRV-0441` | Error    | Generation contract not statically verifiable           | Compile-time | Rejection |
+| `W-DRV-0440` | Warning  | Generation contract requires `[[dynamic]]` verification | Compile-time | Continue  |
+| `E-DRV-0442` | Error    | Invalid generation contract syntax                      | Compile-time | Rejection |
+| `E-DRV-0443` | Error    | Contract references undefined type or form              | Compile-time | Rejection |
+
+---
+
+### 19.7 Standard Derive Targets
+
+##### Definition
+
+This section specifies the derive targets that conforming implementations MUST provide as part of the standard library.
+
+##### Static Semantics
+
+**Required Derive Targets**
+
+Conforming implementations MUST provide the following derive targets:
+
+| Derive Target | Form Implemented | Applicable Types                                       |
+| :------------ | :--------------- | :----------------------------------------------------- |
+| `Debug`       | `Debug`          | Records, Enums, Modal types                            |
+| `Clone`       | `Clone`          | Records, Enums where fields/variants implement `Clone` |
+| `Copy`        | `Copy`           | Records, Enums where fields/variants implement `Copy`  |
+| `Eq`          | `Eq`             | Records, Enums where fields/variants implement `Eq`    |
+| `Ord`         | `Ord`            | Records, Enums where fields/variants implement `Ord`   |
+| `Hash`        | `Hash`           | Records, Enums where fields/variants implement `Hash`  |
+| `Default`     | `Default`        | Records where all fields implement `Default`           |
+
+**Debug Derive**
+
+The `Debug` derive target generates a human-readable string representation:
+
+```cursive
+[[derive(Debug)]]
+record Point { x: i32, y: i32 }
+
+// Generates:
+implement Debug for Point {
+    procedure debug(~) -> string {
+        "Point { x: " + self.x~>debug() + ", y: " + self.y~>debug() + " }"
+    }
+}
+```
+
+**Clone Derive**
+
+The `Clone` derive target generates a deep copy implementation:
+
+```cursive
+[[derive(Clone)]]
+record Point { x: i32, y: i32 }
+
+// Generates:
+implement Clone for Point {
+    procedure clone(~) -> Point {
+        Point { x: self.x~>clone(), y: self.y~>clone() }
+    }
+}
+```
+
+**Eq Derive**
+
+The `Eq` derive target generates structural equality:
+
+```cursive
+[[derive(Eq)]]
+record Point { x: i32, y: i32 }
+
+// Generates:
+implement Eq for Point {
+    procedure eq(~, other: const Point) -> bool {
+        self.x == other.x and self.y == other.y
+    }
+}
+```
+
+**Enum Derive Behavior**
+
+For enums, derive targets generate match expressions over all variants:
+
+```cursive
+[[derive(Debug)]]
+enum Option<T> {
+    Some(T),
+    None,
+}
+
+// Generates:
+implement<T> Debug for Option<T>
+where T: Debug
+{
+    procedure debug(~) -> string {
+        match self {
+            Some(v) => "Some(" + v~>debug() + ")",
+            None => "None",
+        }
+    }
+}
+```
+
+##### Constraints & Legality
+
+**Applicability Constraints**
+
+Each standard derive target has applicability constraints:
+
+| Derive Target | Constraint                                                |
+| :------------ | :-------------------------------------------------------- |
+| `Clone`       | All fields/variants must implement `Clone`                |
+| `Copy`        | All fields/variants must implement `Copy`; no `Drop` impl |
+| `Eq`          | All fields/variants must implement `Eq`                   |
+| `Ord`         | All fields/variants must implement `Ord`                  |
+| `Hash`        | All fields/variants must implement `Hash`                 |
+| `Default`     | All fields must implement `Default`                       |
+
+Violation of these constraints results in `E-DRV-0421` (derive emitted invalid code) because the generated code fails type checking.
+
+---
+
+### 19.8 Summary of Diagnostic Codes
+
+This section provides a consolidated reference of all diagnostic codes defined in this clause.
+
+| Code         | Severity | Section | Condition                                               |
+| :----------- | :------- | :------ | :------------------------------------------------------ |
+| `E-DRV-0400` | Error    | §19.2   | Derive attribute on non-type declaration                |
+| `E-DRV-0401` | Error    | §19.2   | Duplicate derive item in same attribute                 |
+| `E-DRV-0402` | Error    | §19.2   | Invalid derive configuration syntax                     |
+| `E-DRV-0410` | Error    | §19.3   | Derive target not found                                 |
+| `E-DRV-0411` | Error    | §19.3   | Derive target has incorrect signature                   |
+| `E-DRV-0412` | Error    | §19.3   | Derive target not visible from declaration scope        |
+| `E-DRV-0413` | Error    | §19.3   | Derive target is not a comptime procedure               |
+| `E-DRV-0414` | Error    | §19.3   | Derive target missing `[[derive_target]]` attribute     |
+| `E-DRV-0420` | Error    | §19.4   | Derive procedure panicked                               |
+| `E-DRV-0421` | Error    | §19.4   | Derive procedure emitted invalid code                   |
+| `E-DRV-0422` | Error    | §19.4   | Invalid derive configuration argument                   |
+| `E-DRV-0423` | Error    | §19.4   | Missing required configuration argument                 |
+| `E-DRV-0424` | Error    | §19.4   | Unknown configuration key                               |
+| `E-DRV-0430` | Error    | §19.5   | Ambiguous conditional implementation                    |
+| `E-DRV-0431` | Error    | §19.5   | Constraint not satisfiable                              |
+| `E-DRV-0432` | Error    | §19.5   | Associated type computation failed                      |
+| `E-DRV-0433` | Error    | §19.5   | Overlapping conditional implementations                 |
+| `E-DRV-0434` | Error    | §19.5   | Invalid constraint syntax                               |
+| `E-DRV-0440` | Error    | §19.6   | Generation contract violated                            |
+| `E-DRV-0441` | Error    | §19.6   | Generation contract not statically verifiable           |
+| `W-DRV-0440` | Warning  | §19.6   | Generation contract requires `[[dynamic]]` verification |
+| `E-DRV-0442` | Error    | §19.6   | Invalid generation contract syntax                      |
+| `E-DRV-0443` | Error    | §19.6   | Contract references undefined type or form              |
 
 
 ---
 
-## Clause 17: Interoperability
+
+# Part 6: Interoperability and ABI
+
+## Clause 20: Interoperability
 
 This clause defines the Foreign Function Interface (FFI) mechanisms for interacting with code adhering to C-compatible Application Binary Interfaces (ABIs). It specifies extern declaration syntax, the safety boundary enforced by `unsafe` blocks, memory layout guarantees via representation attributes, and the strict categorization of types permitted across the language boundary.
 
@@ -16917,7 +19441,8 @@ This appendix provides normative definitions for foundational forms and system c
     *   `Copy` requires all fields implement `Copy` (E-TRS-2922)
     *   `HeapAllocator::alloc` MUST panic on OOM (never return null)
     *   Variadic implementations across all form types are prohibited
-  
+    *   Any type implementing `Copy` MUST also implement `Clone`; for `Copy` types, `clone()` performs a bitwise copy identical to the implicit copy operation (Copy-Implies-Clone)
+
   <u>Static Semantics</u>
     *   Drop behavior: See §3.6 (Deterministic Destruction) for complete semantics
     *   `Copy` types are duplicated (not moved) on assignment/parameter passing
@@ -17034,10 +19559,14 @@ This appendix enumerates the minimum guaranteed capacities defined in §1.4 that
 *   **Fields**: 1,024
 
 **Compile-Time Execution Limits**:
+
+The minimum guaranteed capacities for compile-time execution are defined in §16.9. For reference:
+
 *   **Comptime Recursion Depth**: 256 frames
-*   **Comptime Evaluation Steps**: 1,000,000 (fuel limit to prevent infinite loops)
-*   **Comptime Memory Allocation**: 64 MiB (total heap for comptime context)
-*   **AST Depth**: 1,024 levels (maximum nesting depth of quoted ASTs)
+*   **Comptime Evaluation Steps**: 1,000,000
+*   **Comptime Memory Allocation**: 64 MiB
+*   **AST Depth**: 1,024 levels
+*   **Total Emitted Declarations**: 10,000
 
 ---
 
