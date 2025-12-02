@@ -460,7 +460,7 @@ Limit list nesting to **2 levels maximum**. Deeper nesting requires restructurin
 
 # Task
 
-Read the entire CursiveLanguageSpecifciation.md; then evaluate clause 16 through 19 for correctness, clarity, design completeness, and usability, and to ensure there is no redundancy or overlapping content, and no useless or 'fluff' content.
+Read the entire CursiveLanguageSpecifciation.md; then evaluate the entire specification, excluding the appendices, for clarity, design completeness, and usability, and to ensure there is no redundancy or overlapping content, and no useless or 'fluff' content. 
 
 Is the content of these clauses sufficiently detailed, such that it fully defines with the detail and clarity necessary for a hostile reader working in a clean-room environment? Does this clause adhere correctly to the formatting and style guide for the specification?
 

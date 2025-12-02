@@ -11,7 +11,17 @@
       "Bash(cat:*)",
       "Bash(sed:*)",
       "Bash(\"c:\\Dev\\Cursive\\temp_spec_part2_old.md\")",
-      "Bash(\"c:\\Dev\\Cursive\\Cursive-Language-Specification\\Cursive-Language-Specification-new.md\")"
+      "Bash(\"c:\\Dev\\Cursive\\Cursive-Language-Specification\\Cursive-Language-Specification-new.md\")",
+      "WebFetch(domain:www.npmjs.com)",
+      "mcp__codex-cli__help",
+      "Bash(where codex:*)",
+      "Bash(codex --version:*)",
+      "Bash(codex mcp --help:*)",
+      "Bash(codex mcp:*)",
+      "Bash(codex exec:*)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(where:*)"
     ],
     "deny": [],
     "ask": []
