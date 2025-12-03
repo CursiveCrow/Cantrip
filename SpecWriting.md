@@ -41,7 +41,7 @@ Before writing any section:
 
 ## Part II: Document Structure
 
-### 2.1 Heading Hierarchy
+### Heading Hierarchy
 
 Limit heading depth to **4 levels maximum**:
 
@@ -54,7 +54,7 @@ Limit heading depth to **4 levels maximum**:
 
 **Level-5 headings (`#####`) are reserved exclusively for content blocks** within sections (Definition, Static Semantics, etc.). They are structural markers, not navigational headings.
 
-### 2.2 Subsection Creation Rules
+### Subsection Creation Rules
 
 Create an `####` subsection ONLY when a single section covers multiple **independently usable constructs** that each require their own grammar, typing rules, and semantics.
 
@@ -68,7 +68,7 @@ Create an `####` subsection ONLY when a single section covers multiple **indepen
 
 Create an `####` subsection ONLY if the answer to ALL five is "no" AND the parent section covers multiple independent language constructs requiring separate treatment.
 
-### 2.3 Source Structure Independence
+### Source Structure Independence
 
 Do NOT replicate the heading structure of source documents (e.g., Draft 2). Source section numbers (e.g., `{Source: Draft 2 §19.2}`) are provenance references for editorial tracking, NOT structural templates.
 
