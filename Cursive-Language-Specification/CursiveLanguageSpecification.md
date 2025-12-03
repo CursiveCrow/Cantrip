@@ -30,7 +30,6 @@ A conforming implementation:
 
 5. MUST record all IFNDR instances per §1.2.1.
 
-> **Note:** Throughout this specification, statements that an implementation choice "is IDB" or "MUST be documented" implicitly refer to documentation in the Conformance Dossier per requirement 4 above. This documentation requirement is not restated for each IDB instance.
 
 **Program Requirements**
 
@@ -63,11 +62,11 @@ Implementation limit violations are diagnosed per §1.4.
 
 **Defined Behavior** is program behavior for which this specification prescribes exactly one permitted outcome. Conforming implementations MUST produce this outcome for all well-formed programs exercising such behavior.
 
-**Implementation-Defined Behavior (IDB)** occurs when this specification permits multiple valid outcomes and requires the implementation to document which outcome it chooses. The implementation MUST select exactly one outcome from the permitted set, document its choice in the Conformance Dossier, and maintain consistency across all compilations with the same configuration. Programs relying on a specific IDB choice are conforming but non-portable. See Appendix F for the complete IDB index.
+**Implementation-Defined Behavior (IDB)** occurs when this specification permits multiple valid outcomes and requires the implementation to document which outcome it chooses. The implementation MUST select exactly one outcome from the permitted set, document its choice in the Conformance Dossier, and maintain consistency across all compilations with the same configuration. Programs relying on a specific IDB choice are conforming but non-portable. See Appendix I for the complete IDB index.
 
-**Unspecified Behavior (USB)** occurs when this specification permits a set of valid outcomes but does not require the implementation to document which outcome is chosen. The choice MAY vary between executions, compilations, or within a single execution. USB in safe code MUST NOT introduce memory unsafety or data races. See Appendix F for the complete USB index.
+**Unspecified Behavior (USB)** occurs when this specification permits a set of valid outcomes but does not require the implementation to document which outcome is chosen. The choice MAY vary between executions, compilations, or within a single execution. USB in safe code MUST NOT introduce memory unsafety or data races. See Appendix I for the complete USB index.
 
-**Unverifiable Behavior (UVB)** comprises operations whose runtime correctness depends on properties external to the language's semantic model. UVB is permitted only within `unsafe` blocks and Foreign Function Interface (FFI) calls. By using an `unsafe` block, the programmer asserts responsibility for upholding an external contract that the compiler cannot verify. See Appendix F for the complete UVB index.
+**Unverifiable Behavior (UVB)** comprises operations whose runtime correctness depends on properties external to the language's semantic model. UVB is permitted only within `unsafe` blocks and Foreign Function Interface (FFI) calls. By using an `unsafe` block, the programmer asserts responsibility for upholding an external contract that the compiler cannot verify. See Appendix I for the complete UVB index.
 
 **Diagnostic Coordination**
 
@@ -202,7 +201,7 @@ Attempting to shadow a universe-protected binding at module scope MUST be diagno
 
 ##### Static Semantics
 
-Minimum guaranteed limits are defined in Appendix G. Representative limits include:
+Minimum guaranteed limits are defined in Appendix J. Representative limits include:
 
 - **Nesting Depth**: 256 levels (block, control-flow, and expression nesting)
 - **Identifier Length**: 1,023 characters
@@ -228,17 +227,7 @@ Minimum guaranteed limits are defined in Appendix G. Representative limits inclu
 
 **Versioning Model**
 
-The Cursive language version identifier MUST follow Semantic Versioning (SemVer):
-
-```
-MAJOR.MINOR.PATCH
-```
-
-| Component | Increment Semantics                                     |
-| :-------- | :------------------------------------------------------ |
-| `MAJOR`   | Incompatible changes to stable features                 |
-| `MINOR`   | Backwards-compatible additions; preview feature changes |
-| `PATCH`   | Backwards-compatible bug fixes and clarifications       |
+The Cursive language version identifier MUST follow Semantic Versioning 2.0.0 (`MAJOR.MINOR.PATCH`).
 
 **Version Declaration**
 
@@ -355,21 +344,6 @@ where:
 
 Lexical scopes form a forest of trees, with one tree per procedure, rooted at procedure scope. A scope $S_1$ is **nested within** $S_2$ (written $S_1 \sqsubset S_2$) if $S_2$ is an ancestor of $S_1$ in this tree.
 
-> **Note:** This definition of Lexical Scope describes the lifetime-tracking structure used for deterministic destruction, deferred execution, and key validity. For the name resolution hierarchy (the four-level Scope Context used for identifier lookup), see §8.4 (Scope Context Structure).
-
-**Scope-Introducing Constructs**
-
-| Construct         | Scope Entry              | Scope Exit                |
-| :---------------- | :----------------------- | :------------------------ |
-| Procedure body    | Opening `{`              | Closing `}` or `return`   |
-| Block expression  | Opening `{`              | Closing `}`               |
-| `if` branch       | Branch entry             | Branch exit               |
-| `match` arm       | Arm entry                | Arm exit                  |
-| `loop` body       | Body entry               | Body exit (per iteration) |
-| `#path { }` block | Opening `{`              | Closing `}`               |
-| `defer` block     | Deferred execution start | Deferred execution end    |
-
----
 
 ## Clause 2: Lexical Structure and Source Text
 
@@ -778,8 +752,6 @@ Underscores in numeric literals MUST NOT appear at the beginning or end, immedia
 
 Based integer literals MUST begin with the appropriate prefix (`0x`, `0o`, `0b`) followed by at least one valid digit.
 
-A decimal integer with a leading zero followed by additional digits MUST be accepted and interpreted as a decimal (base-10) value; the leading zeros have no semantic effect. For example, `007` is parsed as the decimal integer 7, not as an octal literal. Implementations SHOULD emit warning `W-SRC-0301` to alert programmers accustomed to C-style octal notation.
-
 A string literal MUST begin with `"` and end with a matching unescaped `"`. A line feed or end-of-file before the closing quote MUST trigger `E-SRC-0301`.
 
 A character literal MUST represent exactly one Unicode scalar value. Empty or multi-value character literals MUST trigger `E-SRC-0303`.
@@ -929,51 +901,21 @@ If the last non-whitespace, non-comment token on line $L$ is in the set $\{+, -,
 
 To force statement termination before a unary operator, insert an explicit semicolon.
 
-**Example — Ambiguous minus:**
-
-```cursive
-let a = b
--c              // Parsed as: let a = b - c (continuation)
-
 let a = b;
 -c              // Parsed as: let a = b; followed by expression -c
 ```
-
-**Example — Ambiguous plus:**
-
-```cursive
-let sum = value
-+increment      // Parsed as: let sum = value + increment (continuation)
 
 let sum = value;
 +increment      // Parsed as: let sum = value; followed by unary +increment
 ```
 
-**Example — Ambiguous asterisk (multiply vs dereference):**
-
-```cursive
-let result = ptr
-*offset         // Parsed as: let result = ptr * offset (multiplication)
-
 let result = ptr;
 *offset         // Parsed as: let result = ptr; followed by dereference *offset
 ```
 
-**Example — Ambiguous ampersand (bitwise AND vs address-of):**
-
-```cursive
-let bits = flags
-&mask           // Parsed as: let bits = flags & mask (bitwise AND)
-
 let bits = flags;
 &mask           // Parsed as: let bits = flags; followed by address-of &mask
 ```
-
-**Example — Ambiguous pipe (bitwise OR):**
-
-```cursive
-let combined = base
-|modifier       // Parsed as: let combined = base | modifier (bitwise OR)
 
 let combined = base;
 |modifier       // Parsed as: let combined = base; followed by |modifier expression
@@ -1153,8 +1095,6 @@ The distinction between strict ordering ($<$) and non-strict ordering ($\le$) is
 
 - **Non-strict ordering ($\le$):** The provenances may have equivalent lifetimes. Specifically, $\pi_{\text{Heap}} \le \pi_{\text{Global}}$ because heap-allocated storage with static lifetime (e.g., intentional memory leaks, process-lifetime allocations) may persist until program termination, matching global storage duration.
 
-> **Informative Note:** A heap allocation achieves global provenance when it is intentionally never deallocated. For example, a logger singleton allocated at startup and used throughout program execution has $\pi_{\text{Heap}}$ storage but effectively $\pi_{\text{Global}}$ lifetime. The non-strict ordering $\pi_{\text{Heap}} \le \pi_{\text{Global}}$ permits storing such heap addresses in static bindings without triggering escape analysis errors.
-
 **Constraint:** Heap-allocated storage whose address has been stored in a binding with global provenance MUST NOT be deallocated during program execution. Deallocating such storage constitutes Unverifiable Behavior (UVB). Violation in `unsafe` code constitutes UVB (§1.2).
 
 ##### Static Semantics
@@ -1263,8 +1203,6 @@ where:
   - $_{\text{mov}}$: The binding is movable (established with `=`).
   - $_{\text{immov}}$: The binding is immovable (established with `:=`).
   - $_{\text{mut}}$: The binding is mutable (declared with `var`).
-
-For example, $T^{\text{Valid}}_{\text{mut,mov}}$ denotes a type $T$ with a Valid state, mutable binding, and movable responsibility.
 
 **Typing Rules**
 
@@ -1500,9 +1438,6 @@ The unprefixed `^` operator requires a named region in lexical scope. Using `^` 
 | `E-REG-1205` | Error    | `^` with no named region in scope              | Compile-time | Rejection |
 | `E-REG-1206` | Error    | Named region not found for prefixed allocation | Compile-time | Rejection |
 
-> **Note:** Task-related diagnostics (`E-SPAWN-xxxx`, `E-ASYNC-xxxx`) are defined
-> in §13 (Concurrency).
-
 ---
 
 ### 3.8 Unsafe Memory Operations
@@ -1573,9 +1508,7 @@ The **type system** is the static semantic framework that assigns a type to ever
 
 Cursive MUST be implemented as a statically typed language. All type checking MUST be performed at compile time. A program that fails type checking MUST be diagnosed as ill-formed and rejected.
 
-**Nominal vs. Structural Typing**
-
-The type system is primarily **nominal**. Two types with different names are never equivalent, even if their structure is identical. The following constructs are nominal:
+**The type system is primarily **nominal**. Two types with different names are never equivalent, even if their structure is identical. The following constructs are nominal:
 
 - Record types (§5.3)
 - Enum types (§5.4)
@@ -2015,15 +1948,6 @@ A type that provides no methods accepting `shared Self` (or `~%`) receiver is **
 1. Only field reads are required, OR
 2. The type implements `const`-compatible methods sufficient for the use case.
 
-**Example — Read-only shared access:**
-
-```cursive
-record Config {
-    timeout_ms: u32,
-    max_retries: u32,
-    // No methods accepting ~% receiver
-}
-
 let config: shared Config = load_config()
 let timeout = config.timeout_ms    // OK: field read
 // config.timeout_ms = 5000        // ERROR E-TYP-1604: field mutation forbidden
@@ -2190,7 +2114,6 @@ unit_type          ::= "(" ")"
 never_type         ::= "!"
 ```
 
-
 **Literal Syntax**
 
 Literal syntax is defined in §2.8 (Literals). The following specifies the default type inference for each literal category:
@@ -2260,7 +2183,6 @@ The behavior of integer overflow in release (optimized) builds is **implementati
 
 Release-mode overflow behavior is IDB. The chosen behavior MUST apply uniformly to all integer overflow operations of the same category (signed vs. unsigned); an implementation MUST NOT vary overflow behavior on a per-operation or per-type basis within a single compilation.
 
-> **Note:** Implementations MAY choose different behaviors for signed and unsigned overflow but MUST apply each choice consistently. Explicit wrapping, saturating, and checked arithmetic methods (e.g., `wrapping_add`, `saturating_mul`) are unaffected by build mode.
 
 **Integer Division and Remainder**
 
@@ -2268,20 +2190,7 @@ Division (`/`) and remainder (`%`) operations on integer types MUST trigger a **
 
 **Floating-Point Semantics**
 
-Floating-point arithmetic MUST conform to **IEEE 754** for the corresponding precision:
-
-| Type  | IEEE 754 Format | Exponent Bits | Significand Bits |
-| :---- | :-------------- | :------------ | :--------------- |
-| `f16` | binary16        | 5             | 10               |
-| `f32` | binary32        | 8             | 23               |
-| `f64` | binary64        | 11            | 52               |
-
-All IEEE 754 special values and behaviors are supported:
-
-- **NaN (Not a Number)** — Propagates through arithmetic operations per IEEE 754.
-- **Infinity** — Positive and negative infinity (`+inf`, `-inf`).
-- **Signed zero** — Positive and negative zero are distinct bit patterns but compare equal.
-- **Division by zero** — Produces infinity (for non-zero dividend) or NaN (for zero dividend).
+Floating-point arithmetic MUST conform to **IEEE 754-2008** for the corresponding precision (`f16`/binary16, `f32`/binary32, `f64`/binary64), including NaN, infinities, signed zero, and division-by-zero semantics.
 
 **Unit Type Semantics**
 
@@ -2314,14 +2223,14 @@ Primitive types have defined layouts. Implementations MUST use the following siz
 | `bool` | 1            | 1                 | `0x00` = `false`, `0x01` = `true`; other values are invalid  |
 | `i16`  | 2            | 2                 | Two's complement signed integer                              |
 | `u16`  | 2            | 2                 | Unsigned integer                                             |
-| `f16`  | 2            | 2                 | IEEE 754 binary16                                            |
+| `f16`  | 2            | 2                 | IEEE 754-2008 binary16                                       |
 | `i32`  | 4            | 4                 | Two's complement signed integer                              |
 | `u32`  | 4            | 4                 | Unsigned integer                                             |
-| `f32`  | 4            | 4                 | IEEE 754 binary32                                            |
+| `f32`  | 4            | 4                 | IEEE 754-2008 binary32                                       |
 | `char` | 4            | 4                 | Unicode scalar value (U+0000–U+10FFFF, excluding surrogates) |
 | `i64`  | 8            | 8                 | Two's complement signed integer                              |
 | `u64`  | 8            | 8                 | Unsigned integer                                             |
-| `f64`  | 8            | 8                 | IEEE 754 binary64                                            |
+| `f64`  | 8            | 8                 | IEEE 754-2008 binary64                                       |
 | `i128` | 16           | IDB               | Two's complement signed integer                              |
 | `u128` | 16           | IDB               | Unsigned integer                                             |
 
@@ -2481,7 +2390,6 @@ Tuple indices MUST be compile-time constant integers within bounds. Single-eleme
 | `E-TYP-1802` | Error    | Tuple index is not a compile-time constant integer literal. | Compile-time | Rejection |
 | `E-TYP-1803` | Error    | Tuple arity mismatch in assignment or pattern.              | Compile-time | Rejection |
 
-
 #### 5.2.2 Arrays
 
 ##### Definition
@@ -2630,15 +2538,6 @@ slice_range      ::= expression "[" range_expression "]"
 **Type Expression**
 
 A slice type is written as `[T]`, where `T` is the element type. Note the absence of a length parameter, distinguishing slices from arrays.
-
-**Slice Creation**
-
-Slices are created by borrowing a range from an array or another slice:
-
-```cursive
-let arr: [i32; 5] = [10, 20, 30, 40, 50]
-let slice: const [i32] = arr[1..4]    // borrows elements [20, 30, 40]
-```
 
 **Element Access**
 
@@ -3040,7 +2939,7 @@ $$\text{sizeof}(\texttt{record}\ R\ \{\}) = 0 \qquad \text{alignof}(\texttt{reco
 
 ##### Definition
 
-An **enum** (enumerated type) is a nominal sum type, also known as a tagged union. An enum value is exactly one of several defined **variants**, each of which may carry a payload of associated data. Unlike union types (§5.5), which are structural and anonymous, enums are nominal: two enum types with identical variants but different names are distinct types.
+An **enum** (enumerated type) is a nominal sum type. An enum value is exactly one of several defined **variants**, each of which may carry a payload of associated data. Unlike union types (§5.5), which are structural and anonymous, enums are nominal: two enum types with identical variants but different names are distinct types.
 
 A **variant** is a named alternative within an enum. Each variant is identified by name and may optionally contain associated data in one of three forms: unit-like (no data), tuple-like (positional data), or record-like (named fields).
 
@@ -3314,7 +3213,7 @@ The union type operator `|` has the following properties:
 
 When a `|` appears in a type position, it MUST be interpreted as the union type operator. The following contexts disambiguate union types:
 
-| Context               | Interpretation               | Example                     |
+| Context               | Interpretation               |
 | :-------------------- | :--------------------------- | :-------------------------- |
 | Type annotation       | Union type                   | `let x: i32 \| bool`        |
 | Function parameter    | Requires parentheses         | `proc(x: (i32 \| bool))`    |
@@ -3361,12 +3260,10 @@ where $\text{IndirectedOccurrence}(T, U)$ holds when every occurrence of $T$ wit
 
 A recursive union type without indirection has infinite size and is ill-formed (diagnostic `E-TYP-2203`).
 
-**Example of well-formed recursive union:**
 ```cursive
 type Node = i32 | Ptr<Node>  // OK: recursion behind Ptr
 ```
 
-**Example of ill-formed recursive union:**
 ```cursive
 type Bad = i32 | Bad         // ERROR E-TYP-2203: infinite type
 ```
@@ -3407,8 +3304,6 @@ Implicit coercion from a member type to its containing union type occurs at assi
 Direct field access, method invocation, or operator application on a union value is forbidden. The active member type MUST first be determined through pattern matching:
 
 $$\Gamma \vdash e : U \implies \Gamma \nvdash e.f : T \quad \text{(Union-No-Direct-Access)}$$
-
-
 
 **Exhaustiveness Requirement**
 
@@ -3577,14 +3472,7 @@ The expression $e?$ evaluates as follows:
 
 **Desugaring**
 
-The expression $e?$ is semantically equivalent to:
-
-```cursive
-match e {
-    success: T_s => success,
-    error: T_e => { return error }
-}
-```
+$$e? \quad \rightarrow \quad \texttt{match}\ e\ \{\ s: T_s \Rightarrow s,\ e: T_e \Rightarrow \texttt{return}\ e\ \}$$
 
 Where $T_s$ is the success type and $T_e$ ranges over all propagating types.
 
@@ -3623,7 +3511,7 @@ A **modal type** is a nominal type that embeds a compile-time-validated state ma
 
 2. **General Modal Type (`M`)**: A sum type (tagged union) capable of holding a value in any of the declared states. The general type stores the state payload together with a runtime discriminant that identifies the currently active state.
 
-This dual representation enables zero-cost state tracking when the state is statically known while supporting safe, dynamic state inspection via pattern matching when the state has been erased to the general type.
+This dual representation keeps state-specific types free of runtime discriminants when the state is statically known, while permitting dynamic state inspection via pattern matching when the state is erased to the general type.
 
 **Formal Definition**
 
@@ -3900,13 +3788,9 @@ $\text{sizeof}(M@S) \leq \text{sizeof}(M)$
 
 The inequality is strict when multiple states exist with different payload sizes AND niche optimization does not fully eliminate the discriminant. The inequality is an equality when only one state exists OR niche optimization fully absorbs the discriminant into payload bits.
 
-**Example — Niche-Layout-Compatible Type:**
-
-For niche-layout-compatible types like `Ptr<T>` (defined in §6.3), implicit widening is zero-cost:
-
 ```cursive
 let p1: Ptr<Buffer>@Valid = &buffer
-let p2: Ptr<Buffer> = p1        // Implicit widening: zero cost (niche-layout-compatible)
+let p2: Ptr<Buffer> = p1        // Implicit widening: no copy when niche-layout-compatible
 let p3: Ptr<Buffer> = widen p1  // Explicit `widen` also permitted (for clarity)
 ```
 
@@ -3973,7 +3857,7 @@ The **`string`** type is a built-in modal type representing sequences of Unicode
 
 2. **`string@View`**: A non-owning, immutable slice into string data, referencing either a `string@Managed` buffer or a statically allocated string literal.
 
-All string content MUST be valid UTF-8. The type system enforces this invariant statically for literals and at runtime for slicing operations.
+All string content MUST be valid UTF-8 as defined in §2.1 (Source Text Encoding) and RFC 3629. The type system enforces this invariant statically for literals and at runtime for slicing operations.
 
 **Formal Definition**
 
@@ -4331,7 +4215,6 @@ let valid_ptr: Ptr<Buffer>@Valid = &buffer
 process_ptr(valid_ptr)  // Implicit widening — no `widen` keyword required
 ```
 
-> **Note:** The `@Expired` state is compile-time only (see Dynamic Semantics below) and cannot be widened to the general type; the compiler statically prevents use of expired pointers before they could reach widening contexts.
 
 **Class Implementations**
 
@@ -4382,7 +4265,6 @@ When a region block (§3.7) exits:
 
 This state transition is not a runtime operation; it is a compile-time type refinement. The physical pointer value is unchanged, but the type system prevents its use.
 
-> **Note:** The `@Expired` state is reachable only through the region system's compile-time tracking. Safe code cannot construct an `@Expired` pointer directly. The state exists to provide precise error messages distinguishing null pointer access from use-after-free.
 
 **Raw Pointer Dereference Evaluation**
 
@@ -4476,9 +4358,7 @@ Raw pointers are the only FFI-safe (Clause 12) pointer types:
 | `E-TYP-2105` | Error    | Cast of non-`@Valid` pointer to raw pointer.                 | Compile-time | Rejection |
 | `E-TYP-2106` | Error    | Modal pointer type in `extern` procedure signature.          | Compile-time | Rejection |
 
-
 ---
-
 
 ### 6.4 Function Types
 
@@ -4595,7 +4475,6 @@ where $F = (\kappa_F,\ m_1\ T_1, \ldots, m_n\ T_n,\ R_F)$ and $G = (\kappa_G,\ m
 
 This rule extends §4.1's **(T-Equiv-Func)** by incorporating representation kind ($\kappa$) and `move` modifiers ($m_i$) into the equivalence check.
 
-> **Note:** The types `(move Buffer) -> ()` and `(Buffer) -> ()` are NOT equivalent. The types `(i32) -> bool` and `|i32| -> bool` are NOT equivalent.
 
 **When Representation Kind Matters**
 
@@ -4613,7 +4492,6 @@ The distinction between sparse function pointers `(T) -> U` and closures `|T| ->
 
 Function types exhibit contravariant parameters and covariant return types as defined by rule `(Var-Func)` in §4.3. This variance applies to both sparse function pointer types and closure types independently.
 
-> **Note:** The variance rules in §4.3 govern subtyping relationships arising from type parameter substitution. The subtyping rules below govern relationships arising from representation kind and parameter responsibility modifiers.
 
 **Representation Subtyping (T-Sparse-Sub-Closure)**
 
@@ -4634,8 +4512,6 @@ This rule permits a procedure that does not take responsibility for an argument 
 This rule extends to corresponding parameters in multi-parameter function types and applies equally to sparse and closure representations.
 
 **Combined Subtyping**
-
-By the transitivity of subtyping (§4.2), the rules above compose. For example, a sparse non-`move` function is a subtype of a closure `move` function with compatible types:
 
 $$\Gamma \vdash (T) \to R <: |\texttt{move } T| \to R$$
 
@@ -4659,7 +4535,6 @@ A closure expression that captures one or more bindings from its environment has
 
 $$\frac{\Gamma \vdash |p_1, \ldots, p_n| \to e : (T_1, \ldots, T_n) \to R \quad \text{captures}(|p_1, \ldots, p_n| \to e) \neq \emptyset}{\Gamma \vdash |p_1, \ldots, p_n| \to e : |T_1, \ldots, T_n| \to R} \quad \text{(T-Closure-Capturing)}$$
 
-> **Note:** Closure expression syntax and capture semantics are defined in Clause 8. This section defines only the typing of the resulting callable values.
 
 **(T-Call)** Function Invocation:
 
@@ -4730,7 +4605,6 @@ Implementations MAY optimize this coercion to avoid the thunk when the calling c
 | Field ordering in closure | Defined (env, code)    |
 | Environment layout        | Implementation-Defined |
 
-> **Note:** The internal layout of a closure's captured environment is implementation-defined. Implementations determine field ordering, padding, and whether captures are stored inline or via indirection.
 
 ##### Constraints & Legality
 
@@ -4902,45 +4776,6 @@ The semicolon (`;`) separates type parameters; the comma (`,`) separates bounds 
    - Semicolon (`;`) or newline-before-identifier-`<:` terminates the current predicate
    - Comma (`,`) adds another bound to the current predicate
 
-**Syntax Examples**
-
-| Syntax                | Interpretation                                                 |
-| --------------------- | -------------------------------------------------------------- |
-| `<T>`                 | One unconstrained parameter                                    |
-| `<T; U>`              | Two unconstrained parameters                                   |
-| `<T <: A>`            | One parameter bounded by `A`                                   |
-| `<T <: A, B>`         | One parameter bounded by `A` and `B`                           |
-| `<T <: A; U>`         | Two parameters: `T` bounded by `A`, `U` unconstrained          |
-| `<T <: A; U <: B>`    | Two parameters: `T` bounded by `A`, `U` bounded by `B`         |
-| `<T <: A, B; U <: C>` | Two parameters: `T` bounded by `A` and `B`, `U` bounded by `C` |
-| `<T, U>`              | **Ill-formed** (`E-SYN-0701`): comma requires preceding `<:`   |
-
-**Rationale**
-
-This design follows the principle that stronger separators (`;`) delimit higher-level constructs (parameters), while weaker separators (`,`) delimit lower-level constructs (bounds). This mirrors the semicolon/comma hierarchy in other syntactic contexts and eliminates the parsing ambiguity present in languages that overload comma for both roles.
-
-**Diagnostic**
-
-| Code         | Severity | Condition                                              | Detection  | Effect    |
-| ------------ | -------- | ------------------------------------------------------ | ---------- | --------- |
-| `E-SYN-0701` | Error    | Comma in generic parameter list without preceding `<:` | Parse-time | Rejection |
-
-**Type Argument Syntax**
-
-Generic types are instantiated by supplying type arguments in angle brackets:
-
-```cursive
-let opt: Option<i32> = Option::Some(42)
-let map: HashMap<string, i64> = HashMap::new()
-```
-
-For generic procedure calls, type arguments are typically inferred from the arguments and return context. When explicit type arguments are required, the **turbofish** syntax (`::<>`) disambiguates type arguments from comparison operators:
-
-```cursive
-let values = collect::<Vec<i32>>(iter)
-let default_val = Default::default::<Config>()
-```
-
 ##### Static Semantics
 
 **Well-Formedness of Generic Parameters (WF-Generic-Param)**
@@ -5042,7 +4877,6 @@ Monomorphization MAY produce recursive instantiations (e.g., `List<Option<List<T
 
 The maximum instantiation depth is IDB. Implementations MUST support a minimum depth of 128 levels.
 
-> **Note:** Infinite recursion typically arises from patterns like `procedure f<T>() { f::<Option<T>>() }` where each instantiation triggers another with a strictly larger type.
 
 ##### Memory & Layout
 
@@ -5086,7 +4920,6 @@ The following constraints apply to generic declarations and instantiations:
 | `E-TYP-2308` | Error    | Monomorphization depth limit exceeded.                              | Compile-time | Rejection |
 
 ---
-
 
 ### 7.2 Attributes
 
@@ -5194,8 +5027,6 @@ The following matrix defines which targets are valid for each specification-defi
 | `[[release]]`              |    No    |   No   |   No    |     No      |  No   |    No     |     Yes      |
 | `[[acq_rel]]`              |    No    |   No   |   No    |     No      |  No   |    No     |     Yes      |
 | `[[seq_cst]]`              |    No    |   No   |   No    |     No      |  No   |    No     |     Yes      |
-
-> **Note:** "Yes (FFI)" indicates the attribute is valid only on `extern` procedure declarations. Memory ordering attributes and `[[dynamic]]` may target expressions; memory ordering attributes are valid only on expressions performing memory access to `shared` data.
 
 **Vendor Extension Namespacing**
 
@@ -5454,8 +5285,6 @@ This subsection consolidates the validation rules and diagnostics that apply to 
 | `W-DEC-2451` | Warning  | `align(N)` where N < natural alignment (no effect).   | Compile-time | N/A       |
 | `W-DEC-2452` | Warning  | `inline(always)` but inlining not possible.           | Compile-time | N/A       |
 
-> **Note:** Attribute diagnostics use the `E-DEC-` (Declarations) prefix because attribute validation is performed as part of declaration processing. Although attributes are defined in this clause (Clause 7), their diagnostics fall under the Declarations category per Appendix B.2.
-
 ---
 
 #### 7.2.9 The `[[dynamic]]` Attribute
@@ -5463,8 +5292,6 @@ This subsection consolidates the validation rules and diagnostics that apply to 
 ##### Definition
 
 The **`[[dynamic]]` attribute** marks a declaration or expression as requiring **runtime verification** when static verification is insufficient. This attribute is the explicit opt-in mechanism for runtime checks, reflecting the language's philosophy of **static safety by default**.
-
-> **Rationale:** Cursive's verification model is "static by default": the compiler must prove safety properties (key safety, contracts, refinement predicates) at compile time, or the program is ill-formed. The `[[dynamic]]` attribute provides an explicit escape hatch when (1) static analysis cannot prove safety due to inherent undecidability, (2) dynamic information is required, or (3) runtime checks are preferable to complex static proofs.
 
 ##### Syntax & Declaration
 
@@ -5560,53 +5387,11 @@ Even within a `[[dynamic]]` context, if the compiler can prove a property static
 | `E-TYP-1953` | Error    | Refinement predicate not statically provable outside `[[dynamic]]` context. | Compile-time | Rejection |
 | `W-DYN-0001` | Warning  | `[[dynamic]]` present but all proofs succeed statically.                    | Compile-time | N/A       |
 
-> **Note (Informative):** Examples  
-> **Procedure-Level Dynamic**  
-> ```cursive
-> // Static verification required (default)
-> procedure static_divide(a: i32, b: i32) -> i32
->     |= b != 0
-> {
->     result a / b
-> }
-> 
-> // Runtime verification permitted
-> [[dynamic]]
-> procedure dynamic_divide(a: i32, b: i32) -> i32
->     |= b != 0
-> {
->     result a / b  // Runtime check inserted if b != 0 not proven
-> }
-> ```
-> **Expression-Level Dynamic**  
-> ```cursive
-> procedure process_index(data: shared [i32], idx: usize) {
->     // Static proof required for most operations
->     let first = data[0]  // OK: constant index
-> 
->     // Runtime sync permitted for this specific access
->     let value = [[dynamic]] data[idx]  // Runtime sync if needed
-> }
-> ```
-> **Type-Level Dynamic**  
-> ```cursive
-> [[dynamic]]
-> record DynamicBuffer {
->     data: shared [u8],
->     len: usize,
-> }
-> // All operations on DynamicBuffer instances may use runtime verification
-> ```
-
----
-
 #### 7.2.10 The `[[static_dispatch_only]]` Attribute
 
 ##### Definition
 
 The **`[[static_dispatch_only]]` attribute** marks a procedure in a class as excluded from dyn dispatch (vtable). This attribute allows classes to contain procedures that are not vtable-eligible while maintaining overall dyn safety.
-
-> **Rationale:** Classes may need procedures with generic type parameters, `Self` return types, or other features incompatible with dynamic dispatch. The `[[static_dispatch_only]]` attribute explicitly excludes such procedures from the vtable while preserving the class's dyn safety, restricting their use to contexts where the concrete type is statically known.
 
 ##### Syntax & Declaration
 
@@ -5662,7 +5447,6 @@ where $\text{has\_static\_dispatch\_attr}(p)$ holds if $p$ has the `[[static_dis
 | `E-TRS-2940` | Error    | Procedure with `[[static_dispatch_only]]` called on dyn.                 | Compile-time | Rejection |
 | `E-TRS-2942` | Error    | Generic procedure in class without `[[static_dispatch_only]]` attribute. | Compile-time | Rejection |
 
-> **Note (Informative):** Example — Generic method in witness-safe class  
 > ```cursive
 > class Container {
 >     procedure get(~, key: string) -> T | None
@@ -5698,7 +5482,6 @@ class Cloneable {
 ```
 
 ---
-
 
 ### 7.3 Refinement Types
 
@@ -5740,35 +5523,6 @@ predicate             ::= expression
 **Self Reference**
 
 Within the predicate of a **type alias** or **standalone refinement type expression**, the keyword `self` refers to the value being constrained. The identifier `self` is implicitly bound within the predicate scope with the base type `T`.
-
-**Inline Notation Examples:**
-
-The following notations are valid refinement type expressions:
-
-- `usize where { self < 256 }` — unsigned integers less than 256
-- `i32 where { self > 0 }` — positive 32-bit integers
-- `[T] where { self~>len() > 0 }` — non-empty slices
-
-**Parameter Constraint Syntax**
-
-When a refinement type appears as a **procedure parameter type**, the predicate uses the **parameter name** directly rather than `self`. This syntax integrates with procedure contract clauses (§7.2).
-
-Within the predicate of a parameter constraint, the **parameter name** refers to the parameter value being constrained. Other in-scope parameters declared earlier in the parameter list MAY be referenced, enabling dependent constraints between parameters.
-
-**Desugaring**
-
-A parameter with an inline constraint is semantically equivalent to an unrefined parameter with a procedure-level precondition. The desugaring rules are defined in §10.1.3 (Inline Parameter Constraints). The following example illustrates the equivalence:
-
-```cursive
-// Inline constraint form (type refinement)
-procedure get<T>(arr: [T], idx: usize where { idx < arr~>len() }) -> T
-
-// Procedure contract form (equivalent)
-procedure get<T>(arr: [T], idx: usize) -> T
-    |= idx < arr~>len()
-```
-
-The inline form is preferred when the constraint concerns a single parameter. The procedure contract clause (`|=`) is preferred for multi-parameter relationships, postconditions, or complex predicates that benefit from separate formatting.
 
 ##### Static Semantics
 
@@ -5879,38 +5633,6 @@ Refinement predicates require static proof by default:
 2. If static verification succeeds, no runtime code is generated
 3. If static verification fails and the expression is not within a `[[dynamic]]` context, the program is ill-formed (`E-TYP-1953`)
 4. If static verification fails and the expression is within a `[[dynamic]]` context, a runtime check is generated
-
-**Examples**
-
-```cursive
-type Positive = i32 where { self > 0 }
-type Percentage = f64 where { self >= 0.0 && self <= 100.0 }
-
-procedure example(raw: i32, pct: f64) {
-    // Static proof required
-    let a: Positive = 42                    // OK: trivially provable
-    let b: Positive = raw                   // Error E-TYP-1953: cannot prove raw > 0
-    let c: Positive = raw.abs() + 1         // OK: abs() + 1 > 0 provable
-
-    // With [[dynamic]]: runtime check permitted
-    let d: Positive = [[dynamic]] raw       // OK: runtime check
-
-    // Control flow establishes fact
-    if raw > 0 {
-        let e: Positive = raw               // OK: guarded by if
-    }
-
-    // Block-level [[dynamic]]
-    [[dynamic]] {
-        let f: Positive = raw               // OK: runtime check
-        let g: Percentage = pct             // OK: runtime check
-    }
-}
-```
-
-**Fact Synthesis**
-
-Successful runtime verification synthesizes a Verification Fact per the rules defined in §10.5 (Verification Facts). This fact MAY be used by the implementation to elide subsequent checks on the same value for the same or implied predicates.
 
 ##### Memory & Layout
 
@@ -6256,8 +5978,6 @@ Where each $S$ is a scope that maps identifiers to entities:
 
 $$S : \text{Identifier} \to \text{Entity}$$
 
-> **Note:** This Scope Context ($\Gamma$) is used for name resolution and has a four-level hierarchical structure. For the simpler typing judgment context used in expression typing, see §11.1.
-
 **Scope Hierarchy**
 
 | Scope Level    | Contents                                                            |
@@ -6411,15 +6131,6 @@ A `use` declaration creates a **scope alias** that brings items into the current
 
 A `public use` declaration **re-exports** an imported item, making it available to modules that depend on the current assembly.
 
-**Summary: Import vs Use**
-
-| Declaration | Purpose                                   | Effect                                                                                              | When Required                                              |
-| :---------- | :---------------------------------------- | :-------------------------------------------------------------------------------------------------- | :--------------------------------------------------------- |
-| `import`    | Establish dependency on external assembly | Makes module namespace available for qualified access; adds edge to inter-assembly dependency graph | Before any `use` referencing an external assembly          |
-| `use`       | Create scope aliases                      | Introduces bindings into current scope for unqualified access                                       | Optional; for convenience when qualified access is verbose |
-
-For intra-assembly access (modules within the same assembly), `use` declarations may reference module paths directly without a preceding `import`. For external assemblies, `import` establishes the dependency relationship and `use` then brings specific items into scope.
-
 ##### Syntax & Declaration
 
 **Grammar:**
@@ -6437,8 +6148,6 @@ use_list    ::= "{" use_specifier ("," use_specifier)* ","? "}"
 use_specifier ::= identifier ("as" identifier)?
                 | "self" ("as" identifier)?
 ```
-
-**Examples:**
 
 ```cursive
 // Import external assembly module
@@ -6789,8 +6498,6 @@ The `main` procedure:
 
 A **class** is a named declaration that defines an abstract interface consisting of procedure signatures, associated type declarations, abstract fields, and abstract states. Classes establish structural and behavioral contracts that implementing types MUST satisfy.
 
-> Note: A class defines a behavioral and structural classification of types. Unlike object-oriented languages where "class" conflates data layout, behavior, and instantiation, Cursive separates these concerns: records and modals define data layout, classes define interface contracts and polymorphism. A type implements a class by declaring `<:` and providing the required procedures, fields, and states.
-
 **Formal Definition**
 
 A class $Cl$ is defined as a tuple:
@@ -6823,8 +6530,7 @@ Additionally, if $St \neq \emptyset$, then $T$ must be a modal type.
 
 ##### Static Semantics
 
-**Polymorphism Dispatch Classification**
-
+**
 Cursive provides three distinct mechanisms for polymorphism, each with different dispatch semantics, performance characteristics, and use cases:
 
 | Path | Name                 | Dispatch                        | Cost              | Use Case                  |
@@ -6841,7 +6547,7 @@ The polymorphism path is determined by usage context:
 
 2. **Dynamic (Path 2):** Selected when `dyn Tr` is used as a type. A vtable-based dense pointer enables runtime dispatch.
 
-3. **Opaque (Path 3):** Selected when `opaque Tr` is used as a return type. The concrete type is hidden from callers while maintaining zero-cost dispatch within the defining module.
+3. **Opaque (Path 3):** Selected when `opaque Tr` is used as a return type. The concrete type is hidden from callers while retaining direct static dispatch within the defining module.
 
 ---
 
@@ -6898,8 +6604,6 @@ A class MAY extend one or more superclasses using the `<:` operator. A type impl
 **Class Alias**
 
 A **class alias** declares a new name that is equivalent to a combination of one or more class bounds. Class aliases enable concise expression of compound bounds.
-
-> **Note on Class Alias vs Superclass:** A class alias (`type Alias = A + B`) creates **structural equivalence**—`Alias` is simply another name for the compound bound `A + B`, and `T <: Alias` is identical to `T <: A + B`. In contrast, a subclass declaration (`class Sub <: A + B`) creates a **nominal** relationship—`Sub` is a new class that happens to require its superclasses, but `T <: Sub` is not equivalent to `T <: A + B`. A type must explicitly declare `T <: Sub` to satisfy the `Sub` bound.
 
 ##### Syntax & Declaration
 
@@ -7262,7 +6966,6 @@ Class constraints integrate classes with the generic type system: a generic para
 | `E-TRS-2930` | Error    | Type argument does not satisfy class constraint.   | Compile-time | Rejection |
 | `E-TRS-2931` | Error    | Unconstrained type parameter used in class method. | Compile-time | Rejection |
 
-> **Note (Informative):** Example  
 > ```cursive
 > procedure summarize<T <: Display>(items: const [T], output: dyn FileSystem) {
 >     loop item in items {
@@ -7436,7 +7139,7 @@ Witness types may be combined with permissions per §4.5. The `shared` permissio
 
 **Opaque Polymorphism**
 
-Opaque polymorphism is zero-cost compile-time polymorphism for return types. The concrete type is hidden from callers; only the class interface is accessible.
+Opaque polymorphism is compile-time polymorphism for return types without exposing the concrete type; only the class interface is accessible.
 
 **Opaque Type**
 
@@ -7504,8 +7207,6 @@ $$\frac{
 }{
   \text{typeof}(f()) \neq \text{typeof}(g())
 } \quad \text{(T-Opaque-Distinct)}$$
-
-> **API Design Implication:** Because each procedure returning `opaque Tr` produces a distinct type, values from different procedures cannot be stored together in a homogeneous collection. For example, if `create_handler_a()` and `create_handler_b()` both return `opaque Handler`, their return values cannot be placed in the same `Vec<opaque Handler>`. When heterogeneous storage is required, use `dyn Tr` instead, accepting the vtable dispatch overhead.
 
 **Zero Overhead**
 
@@ -7739,7 +7440,6 @@ record Counter {
 }
 ```
 
-In this example:
 - `self.value >= 0` (left of `=>`) references the entry state (precondition)
 - `self.value == @entry(self.value) + 1` (right of `=>`) asserts post-state equals entry + 1
 
@@ -7993,8 +7693,6 @@ type_invariant
     ::= "where" "{" predicate_expr "}"
 ```
 
-**Example**
-
 ```cursive
 record NonEmptyList<T> {
     head: T,
@@ -8038,11 +7736,6 @@ type Positive = i32 where { self > 0 }
 // Type declaration makes enforcement points for Positive require static proof
 // unless the specific expression is marked [[dynamic]]
 
-procedure example() {
-    let a: Positive = 5                    // OK: trivially provable
-    let b: Positive = compute()            // Error: cannot prove compute() > 0
-    let c: Positive = [[dynamic]] compute() // OK: runtime check
-}
 ```
 
 **Effective Postcondition Desugaring**
@@ -8101,8 +7794,6 @@ loop_invariant
 loop_condition
     ::= expression
 ```
-
-**Example**
 
 ```cursive
 var sum = 0;
@@ -8211,16 +7902,32 @@ $$
 
 **Proof Techniques**
 
-The specific proof techniques supported by $\text{StaticProof}$ are Implementation-Defined Behavior. However, for portable programs, implementations SHOULD support at minimum:
+To ensure portable static contract verification, proof techniques are organized into two tiers: mandatory techniques that all conforming implementations MUST support, and recommended techniques that implementations SHOULD support for enhanced verification capabilities.
 
-| Technique                | Description                                           | Example                     |
-| :----------------------- | :---------------------------------------------------- | :-------------------------- |
-| Constant propagation     | Evaluate expressions involving compile-time constants | `SIZE < 100` where SIZE = 5 |
-| Linear integer reasoning | Prove inequalities over bounded integer arithmetic    | `i < n && n <= 10`          |
-| Boolean algebra          | Simplify and prove boolean expressions                | `a && (a \|\| b)`           |
-| Control flow analysis    | Track predicates established by conditionals          | `if x > 0 { ... }`          |
-| Type-derived bounds      | Use type constraints (e.g., `usize >= 0`)             | Non-negativity of unsigned  |
-| Verification facts       | Use facts established by prior checks                 | §10.5                       |
+**Mandatory Proof Techniques**
+
+All conforming implementations MUST support the following proof techniques:
+
+| Technique                | Description                                           |
+| :----------------------- | :---------------------------------------------------- |
+| Constant propagation     | Evaluate expressions involving compile-time constants |
+| Linear integer reasoning | Prove inequalities over bounded integer arithmetic    |
+| Boolean algebra          | Simplify and prove boolean expressions                |
+| Control flow analysis    | Track predicates established by conditionals          |
+| Type-derived bounds      | Use type constraints (e.g., `usize >= 0`)             |
+| Verification facts       | Use facts established by prior checks (§10.5)         |
+
+**Recommended Proof Techniques**
+
+Implementations SHOULD additionally support:
+
+| Technique                | Description                                                          |
+| :----------------------- | :------------------------------------------------------------------- |
+| Transitive reasoning     | Deduce `a < c` from `a < b ∧ b < c`                                  |
+| Interprocedural analysis | Use postconditions from called procedures as Verification Facts      |
+| Numeric range inference  | Deduce bounds from type constraints beyond basic type-derived bounds |
+
+Support for techniques beyond the mandatory set is Implementation-Defined Behavior.
 
 **Precondition vs Postcondition Verification Location**
 
@@ -8305,7 +8012,7 @@ Successful execution of a runtime check synthesizes a Verification Fact per §10
 
 ```cursive
 [[dynamic]]
-procedure example(x: i32)
+
     |= x > 0
 {
     // If we reach here, x > 0 is a Verification Fact
@@ -8380,8 +8087,6 @@ The following constructs generate Verification Facts:
 | Runtime check for $P$        | $F(P, \_)$                      | Immediately after check |
 | Loop invariant $Inv$ at exit | $F(Inv, \_)$                    | Immediately after loop  |
 
-> **Note:** The `[[verify(trusted)]]` mechanism has been removed. Verification Facts are now established only through control flow analysis or successful runtime checks.
-
 **Type Narrowing**
 
 When a Verification Fact $F(P, L)$ is active for binding $x$ at location $L$, the type of $x$ is effectively refined:
@@ -8391,13 +8096,7 @@ $$\text{typeof}(x) \xrightarrow{F(P, L)} \text{typeof}(x) \texttt{ where } \{P\}
 This enables flow-sensitive typing:
 
 ```cursive
-procedure example(x: i32 | null) {
-    if x != null {
-        // Fact: x != null
-        // Type of x narrowed to: i32
-        let y: i32 = x;  // Valid: x is known non-null
-    }
-}
+
 ```
 
 ##### Dynamic Semantics
@@ -8413,18 +8112,6 @@ When a `[[dynamic]]` context requires a runtime check and no static fact dominat
    ```
 3. Insert $C$ into CFG such that $C$ dominates $S$
 4. Successful execution of $C$ establishes $F(P, \text{exit}(C))$
-
-**Optimizer Integration**
-
-Implementations SHOULD use Verification Facts as optimization hints:
-
-| Optimization             | Condition                                                            |
-| :----------------------- | :------------------------------------------------------------------- |
-| Assumption injection     | Treat $P$ as invariant truth for instructions dominated by $F(P, L)$ |
-| Dead code elimination    | Eliminate branches dependent on $\neg P$ dominated by $F(P, L)$      |
-| Bounds check elimination | Elide array bounds checks when index constraints are established     |
-
-> **Implementation Note:** Fact-based assumptions correspond to intrinsics like `llvm.assume` in backend IRs.
 
 ---
 
@@ -8453,8 +8140,6 @@ Behavioral subtyping constraints are verified **statically at compile-time**. Th
 2. **Postcondition Check**: For each procedure in the class, verify that the class's postcondition logically implies the implementation's postcondition (i.e., the implementation guarantees at least what the class promises).
 
 These checks use the same proof infrastructure as `[[verify(static)]]` (§10.4.1). If the implication cannot be proven, the program is ill-formed. No runtime checks are generated for behavioral subtyping; violations are structural errors in the type definition.
-
-**Example**
 
 ```cursive
 class Container {
@@ -8534,7 +8219,6 @@ Statements are classified into the following categories:
 
 Expression type judgments use the **typing context** $\Gamma$ as defined in §4.1. The judgment $\Gamma \vdash e : T$ asserts that expression $e$ has type $T$ under context $\Gamma$.
 
-> **Note:** For the more detailed scope context used in name resolution, see §8.4.
 
 **Value Categories**
 
@@ -8661,23 +8345,6 @@ modal_pattern       ::= "@" identifier [ "{" [ field_pattern ( "," field_pattern
 range_pattern       ::= pattern ".." pattern
 ```
 
-**Pattern Summary**
-
-| Pattern Type | Example                  | Refutability  | Description                      |
-| :----------- | :----------------------- | :------------ | :------------------------------- |
-| Literal      | `100`, `"hello"`, `true` | Refutable     | Matches if value equals literal  |
-| Wildcard     | `_`                      | Irrefutable   | Matches any value; binds nothing |
-| Identifier   | `x`                      | Irrefutable   | Matches any value; binds to `x`  |
-| Tuple        | `(a, b, c)`              | Conditional*  | Destructures a tuple             |
-| Record       | `Point { x: px, y: py }` | Conditional*  | Destructures a record            |
-| Enum         | `Option::Some(v)`        | Conditional** | Matches a specific enum variant  |
-| Modal State  | `@Valid { ptr }`         | Refutable     | Matches a specific modal state   |
-| Range        | `0..10`                  | Refutable     | Matches if value is within range |
-
-\* Irrefutable only if all sub-patterns are irrefutable.
-
-\** Irrefutable if and only if the enum has exactly one variant.
-
 ##### Static Semantics
 
 **Matching Rules**
@@ -8782,28 +8449,6 @@ Implementations MUST detect unreachable arms and issue diagnostic `E-PAT-2751`.
 - **Right-associative**: Groups right-to-left. `a op b op c` parses as `a op (b op c)`.
 
 ##### Syntax & Declaration
-
-**Precedence Table (Informative)**
-
-The following table summarizes operator precedence and associativity. The normative definition of precedence is encoded in the expression grammar hierarchy (§11.4).
-
-| Precedence | Operator(s)                                              | Description                             | Associativity |
-| :--------- | :------------------------------------------------------- | :-------------------------------------- | :------------ |
-| 1          | `()` `[]` `.` `~>` `::`                                  | Call, Index, Field, Method, Scope       | Left          |
-| 2          | `=>`                                                     | Pipeline                                | Left          |
-| 3          | `!` `-` `&` `*` `^` `move`                               | Unary Not, Neg, Ref, Deref, Alloc, Move | Right         |
-| 4          | `as`                                                     | Type Cast                               | Left          |
-| 5          | `**`                                                     | Exponentiation                          | Right         |
-| 6          | `*` `/` `%`                                              | Multiplicative                          | Left          |
-| 7          | `+` `-`                                                  | Additive                                | Left          |
-| 8          | `<<` `>>`                                                | Bitwise Shift                           | Left          |
-| 9          | `&`                                                      | Bitwise AND                             | Left          |
-| 10         | `^`                                                      | Bitwise XOR                             | Left          |
-| 11         | `\|`                                                     | Bitwise OR                              | Left          |
-| 12         | `==` `!=` `<` `<=` `>` `>=`                              | Comparison                              | Left          |
-| 13         | `&&`                                                     | Logical AND                             | Left          |
-| 14         | `\|\|`                                                   | Logical OR                              | Left          |
-| 15         | `=` `+=` `-=` `*=` `/=` `%=` `&=` `\|=` `^=` `<<=` `>>=` | Assignment                              | Right         |
 
 ##### Static Semantics
 
@@ -9031,10 +8676,6 @@ Value category propagates per §11.1: indexing a place expression yields a place
 **Bounds Checking**
 
 All indexing operations MUST be bounds-checked at runtime. If $\text{index} \ge \text{length}$, the executing thread MUST panic with diagnostic `P-EXP-2530`.
-
-**Optimization Note**
-
-Implementations MAY elide bounds checks when static analysis can prove the index is within bounds. See §10.5 (Verification Facts) for the mechanism by which bounds proofs are established and propagated; common sources include contract verification, loop invariants, and conditional guards that dominate the access site. Such elision MUST NOT alter observable behavior for well-formed programs.
 
 **Relationship to `[[dynamic]]`**
 
@@ -9357,7 +8998,6 @@ $$\frac{\Gamma \vdash e : S \quad \text{CastValid}(S, T)}{\Gamma \vdash e\ \text
 
 A cast is well-formed if and only if the source-target type pair is in one of the categories defined below. All other combinations are ill-formed.
 
-> **Note:** Explicit casts are distinct from implicit coercions (§4.2). While coercion applies automatically for subtype relationships, explicit `as` casts are required for conversions that change representation. In particular, §5.1 prohibits implicit numeric conversions, requiring explicit casts for all numeric type changes.
 
 **Cast Categories**
 
@@ -9414,7 +9054,7 @@ Narrowing casts may lose information:
 
 Float-to-integer casts truncate toward zero. The following conditions trigger a panic:
 
-| Condition                  | Example                |
+| Condition                  | Description            |
 | :------------------------- | :--------------------- |
 | Value exceeds target range | `1e20_f64 as i32`      |
 | Value is NaN               | `f64::NAN as i32`      |
@@ -9475,25 +9115,6 @@ closure_body ::= expression | block_expr
 3. The return type MAY be omitted; it is inferred from the closure body.
 
 4. The closure body is either a single expression (for simple closures) or a block expression (for multi-statement closures).
-
-**Examples**
-
-```cursive
-// No parameters, expression body
-|| 42
-
-// Single parameter, expression body
-|x| x + 1
-
-// Multiple parameters with types, block body
-|a: i32, b: i32| -> i32 {
-    let sum = a + b
-    result sum * 2
-}
-
-// Move parameter
-|move buffer| process(buffer)
-```
 
 ##### Static Semantics
 
@@ -9689,30 +9310,11 @@ When a loop contains `break value` statements, all such breaks for the same loop
 
 Conditional loops desugar to infinite loops:
 
-```cursive
-loop condition { body }
-// Equivalent to:
-loop {
-    if !condition { break }
-    body
-}
-```
+$$\texttt{loop}\ C\ \{\ B\ \} \quad \rightarrow \quad \texttt{loop}\ \{\ \texttt{if}\ !C\ \{\ \texttt{break}\ \}\ B\ \}$$
 
 Iterator loops desugar to match on `Iterator::next`:
 
-```cursive
-loop x: T in iter { body }
-// Equivalent to:
-{
-    var iterator = iter
-    loop {
-        match iterator~>next() {
-            Option::Some(x) => { body },
-            Option::None => { break },
-        }
-    }
-}
-```
+$$\texttt{loop}\ x: T\ \texttt{in}\ iter\ \{\ B\ \} \quad \rightarrow \quad \{\ \texttt{var}\ it = iter;\ \texttt{loop}\ \{\ \texttt{match}\ it\texttt{\sim>next()}\ \{\ \texttt{Some}(x) \Rightarrow B,\ \texttt{None} \Rightarrow \texttt{break}\ \}\ \}\ \}$$
 
 ##### Constraints & Legality
 
@@ -10041,11 +9643,7 @@ When a `defer` statement is executed, the block is not evaluated immediately. In
 When a scope exits—by normal completion, `return`, `result`, `break`, or panic—all deferred blocks for that scope are executed in Last-In, First-Out (LIFO) order.
 
 ```cursive
-procedure example() {
-    defer { log("first defer") }   // Executes second
-    defer { log("second defer") }  // Executes first
-    // ... body ...
-}  // Output: "second defer", "first defer"
+  // Output: "second defer", "first defer"
 ```
 
 **Nested Scopes**
@@ -10239,7 +9837,7 @@ The language defines the following system capability forms: `FileSystem`, `Netwo
 
 # Part 4: Concurrency
 
-This clause defines the Cursive concurrency model, which provides safe concurrent and parallel programming through a key-based synchronization system, structured concurrency primitives, and zero-cost abstractions for shared mutable state.
+This clause defines the Cursive concurrency model, specifying key-based synchronization, structured concurrency primitives, and abstractions for shared mutable state.
 
 ---
 
@@ -10352,8 +9950,6 @@ $$\frac{
 
 The $\text{id}$ operation is defined in §13.3.3.
 
-**Examples:**
-
 ```cursive
 player                      // Depth 1: root only
 player.health               // Depth 2: root + one field
@@ -10387,8 +9983,6 @@ $$\frac{
     \text{KeyPath}((*e).p) = \text{id}(*e).p \quad
     \text{(independent of KeyPath}(e)\text{)}
 }$$
-
-**Examples:**
 
 ```cursive
 // Linked list traversal
@@ -10461,7 +10055,6 @@ $$\frac{
     \text{KeyPath}(e.\text{method}().f) = \text{KeyPath}(e) \cup \{f\}
 }$$
 
-> **Note:** Method calls that return owned values (not references) create new bindings. Key analysis for subsequent accesses on such values is independent of the original receiver's key state.
 
 ##### Memory & Layout
 
@@ -10522,22 +10115,6 @@ $\frac{
 | `E-KEY-0002` | Error    | `#` annotation on non-`shared` path               | Compile-time | Rejection |
 | `E-KEY-0003` | Error    | Multiple `#` markers in single path expression    | Compile-time | Rejection |
 | `E-KEY-0004` | Error    | Key escapes its defining scope                    | Compile-time | Rejection |
-
-**Diagnostic Examples**
-
-`E-KEY-0001` is emitted when the compiler cannot establish a valid key context for a `shared` access:
-
-```cursive
-// Example: E-KEY-0001 — shared access without key acquisition capability
-unsafe {
-    let raw_ptr: *shared Player = get_raw_shared_ptr()
-    (*raw_ptr).health = 100   // ERROR E-KEY-0001: unsafe dereference bypasses key system
-}
-```
-
-> **Note:** In safe code, key acquisition is implicit and E-KEY-0001 is rare. It typically indicates a violation of the key system's invariants, such as accessing `shared` data through raw pointers in `unsafe` blocks where key acquisition has been bypassed.
-
----
 
 #### 13.1.1 Path Prefix and Disjointness
 
@@ -10653,19 +10230,6 @@ $$\frac{
     \text{Covers}((P, M), Q)
 }$$
 
-> **Note (Informative):** Examples  
-> | Path P          | Path Q          | Prefix(P,Q) | Prefix(Q,P) | Disjoint | Concurrent Access   |  
-> | :-------------- | :-------------- | :---------- | :---------- | :------- | :------------------ |  
-> | `player`        | `player.health` | true        | false       | false    | Conflicts           |  
-> | `player.health` | `player.mana`   | false       | false       | true     | **Statically safe** |  
-> | `arr[0]`        | `arr[1]`        | false       | false       | true     | **Statically safe** |  
-> | `arr[0]`        | `arr[0].field`  | true        | false       | false    | Conflicts           |  
-> | `a.b.c`         | `a.b`           | false       | true        | false    | Conflicts           |  
-> | `arr[i]`        | `arr[i]`        | true        | true        | false    | Same path           |  
-> | `arr[i]`        | `arr[j]`        | unknown     | unknown     | unknown  | See §13.6           |
-
----
-
 #### 13.1.2 Key Modes
 
 ##### Definition
@@ -10693,19 +10257,19 @@ $$\text{WriteContext}(e) \iff e \text{ appears in a syntactic position requiring
 
 **Classification Rules:**
 
-| Syntactic Position                                   | Context | Rationale                                |
-| :--------------------------------------------------- | :------ | :--------------------------------------- |
-| Right-hand side of `let`/`var` initializer           | Read    | Value is read for initialization         |
-| Right-hand side of assignment (`=`)                  | Read    | Value is read for assignment             |
-| Operand of arithmetic/logical operator               | Read    | Value is read for computation            |
-| Argument to `const` or `shared` parameter            | Read    | Callee does not require exclusive access |
-| Condition expression (`if`, `while`, `match`)        | Read    | Value is read for branching              |
-| Left-hand side of assignment (`=`)                   | Write   | Target location is mutated               |
-| Left-hand side of compound assignment (`+=`, etc.)   | Write   | Target is read and mutated               |
-| Receiver of method with `~!` (unique) receiver       | Write   | Method requires exclusive access         |
-| Receiver of method with `~%` (shared-write) receiver | Write   | Method requires write access             |
-| Argument to `unique` parameter                       | Write   | Callee requires exclusive access         |
-| Receiver of method with `~` (const) receiver         | Read    | Method requires only read access         |
+| Syntactic Position                                   | Context |
+| :--------------------------------------------------- | :------ |
+| Right-hand side of `let`/`var` initializer           | Read    |
+| Right-hand side of assignment (`=`)                  | Read    |
+| Operand of arithmetic/logical operator               | Read    |
+| Argument to `const` or `shared` parameter            | Read    |
+| Condition expression (`if`, `while`, `match`)        | Read    |
+| Left-hand side of assignment (`=`)                   | Write   |
+| Left-hand side of compound assignment (`+=`, etc.)   | Write   |
+| Receiver of method with `~!` (unique) receiver       | Write   |
+| Receiver of method with `~%` (shared-write) receiver | Write   |
+| Argument to `unique` parameter                       | Write   |
+| Receiver of method with `~` (const) receiver         | Read    |
 
 **Disambiguation Rule:**
 
@@ -10776,7 +10340,6 @@ $$\text{Blocked}(t, K) \land \text{Held}(K, t') \land \Diamond\text{Released}(K,
 
 where $\Diamond$ is the temporal "eventually" operator.
 
-> **Note (Informative):** Implementations MAY satisfy the progress guarantee via FIFO ordering of waiters, priority inheritance, bounded retry with timeout, or other mechanisms. The specific mechanism is IDB.
 
 ##### Constraints & Legality
 
@@ -10826,21 +10389,21 @@ $$\text{Release}(P, \Gamma_{\text{keys}}) = \Gamma_{\text{keys}} \setminus \{(P,
 **(Release by Scope)**
 $$\text{ReleaseScope}(S, \Gamma_{\text{keys}}) = \Gamma_{\text{keys}} \setminus \{(P, M, S') : S' = S\}$$
 
-**(Upgrade)**
+**(Mode Transition)**
 
-The upgrade operation replaces a Read key with a Write key for the same path and scope. This is a compile-time transformation of the key state context; runtime behavior follows release-and-reacquire semantics (§13.7.2).
+The mode transition operation replaces a key of one mode with a key of a different mode for the same path and scope. This is a compile-time transformation of the key state context; runtime behavior follows release-and-reacquire semantics (§13.7.2).
 
-$$\text{Upgrade}(P, \Gamma_{\text{keys}}) = (\Gamma_{\text{keys}} \setminus \{(P, \text{Read}, S)\}) \cup \{(P, \text{Write}, S)\}$$
+$$\text{ModeTransition}(P, M_{\text{new}}, \Gamma_{\text{keys}}) = (\Gamma_{\text{keys}} \setminus \{(P, M_{\text{old}}, S)\}) \cup \{(P, M_{\text{new}}, S)\}$$
 
-where $S$ is the scope of the existing Read key.
+where $S$ is the scope of the existing key and $M_{\text{old}} \neq M_{\text{new}}$.
 
-**Precondition**: A Read key to path $P$ MUST exist in $\Gamma_{\text{keys}}$:
+**Precondition**: A key to path $P$ with a different mode MUST exist in $\Gamma_{\text{keys}}$:
 
-$$\text{Upgrade}(P, \Gamma_{\text{keys}}) \text{ is defined} \iff \exists S : (P, \text{Read}, S) \in \Gamma_{\text{keys}}$$
+$$\text{ModeTransition}(P, M, \Gamma_{\text{keys}}) \text{ is defined} \iff \exists S, M' : (P, M', S) \in \Gamma_{\text{keys}} \land M' \neq M$$
 
 **Dynamic Realization**
 
-At runtime, key upgrade follows the release-and-reacquire protocol defined in §13.7.2. The compile-time `Upgrade` operation reflects the intended final state; the runtime achieves this state through the five-step sequence.
+At runtime, key mode transition follows the release-and-reacquire protocol defined in §13.7.2. The compile-time `ModeTransition` operation reflects the intended final state; the runtime achieves this state through the five-step sequence.
 
 **Panic Release Semantics**
 
@@ -10900,16 +10463,16 @@ $$\frac{
     \Gamma'_{\text{keys}} = \Gamma_{\text{keys}}
 }$$
 
-**(K-Acquire-Upgrade)**
+**(K-Acquire-Mode-Transition)**
 
-If an access is covered by an existing key but requires a stronger mode, the covering key is upgraded:
+If an access is covered by an existing key but requires a different mode, a mode transition occurs:
 
 $$\frac{
     \Gamma \vdash P : \texttt{shared}\ T \quad
-    \text{RequiredMode}(P) = \text{Write} \quad
-    \exists (Q, \text{Read}, S) \in \Gamma_{\text{keys}} : \text{Prefix}(Q, P)
+    \text{RequiredMode}(P) = M_{\text{new}} \quad
+    \exists (Q, M_{\text{old}}, S) \in \Gamma_{\text{keys}} : \text{Prefix}(Q, P) \land M_{\text{old}} \neq M_{\text{new}}
 }{
-    \text{Upgrade}(Q, \Gamma_{\text{keys}})
+    \text{ModeTransition}(Q, M_{\text{new}}, \Gamma_{\text{keys}})
 }$$
 
 **Release Rules**
@@ -10964,8 +10527,6 @@ $$\frac{
 | `match shared_enum { ... }`   | scrutinee              | Root of scrutinee          | Read     |
 | `let (a, b) = (expr1, expr2)` | tuple literal          | Each expression separately | Per-expr |
 
-> **Note:** When the RHS is a tuple literal (not a binding), each component is a separate expression and keys are acquired per component.
-
 ##### Dynamic Semantics
 
 **Runtime Realization (When Required)**
@@ -10995,16 +10556,16 @@ If a panic occurs while keys are held:
 
 1. All keys held by the panicking task MUST be released before unwinding propagates to the caller.
 2. If panic occurs during key acquisition, any partially-acquired keys MUST be released.
-3. If panic occurs during mode upgrade—whether while blocked waiting for conflicting keys to be released or during the atomic state transition—the key MUST be released entirely (not left in original mode).
+3. If panic occurs during mode transition—whether while blocked waiting for conflicting keys to be released or during the atomic state transition—the key MUST be released entirely (not left in original mode).
 4. Key release during panic MUST occur **before** any `Drop::drop` calls for bindings in the same scope.
 
-**Upgrade Panic Clarification**
+**Mode Transition Panic Clarification**
 
-"During mode upgrade" encompasses:
+"During mode transition" encompasses:
 - The period while the task is blocked waiting for conflicting keys to be released
-- The atomic state transition from Read to Write mode
+- The atomic state transition between modes (e.g., Read to Write or Write to Read)
 
-In either case, the original Read key (if any) is released, and no Write key is acquired.
+In either case, the original key (if any) is released, and no new key is acquired.
 
 **Defer Interaction**
 
@@ -11188,8 +10749,6 @@ A `shared dyn Class` type is the composition of the `shared` permission (§4.5) 
 
 Because dynamic dispatch erases the concrete type, only forms with exclusively read-only methods (`~` receiver) are compatible with `shared` permission. This constraint follows from the receiver compatibility rules defined in §4.5.4–§4.5.5.
 
-> **Note:** This is not a distinct syntactic construct. The type `shared dyn Class` is parsed as the permission modifier `shared` applied to the dyn type `dyn Class`, following the standard permission type composition rules in §4.5.
-
 ##### Static Semantics
 
 The following well-formedness rule constrains which forms can appear in `shared dyn` types. This rule derives from §4.5's receiver compatibility matrix and §9.5's dyn safety requirements:
@@ -11221,10 +10780,6 @@ $$\frac{
 | Code         | Severity | Condition                                     | Detection    | Effect    |
 | :----------- | :------- | :-------------------------------------------- | :----------- | :-------- |
 | `E-KEY-0083` | Error    | `shared dyn Class` where Form has `~%` method | Compile-time | Rejection |
-
-> **Note:** To mutate through a polymorphic interface, use concrete types or 
-> restructure to pass the dyn with `unique` permission and downgrade within 
-> a controlled scope.
 
 #### 13.3.2 Modal Type Transitions
 
@@ -11290,59 +10845,7 @@ $$\text{id}(r_1) = \text{id}(r_2) \iff r_1 \text{ and } r_2 \text{ refer to the 
 | Comparability | Identity values support equality comparison                                    |
 | Non-forgeable | Identity values cannot be constructed except by taking identity of a reference |
 
-**Usage in Key Analysis**
-
-Identity values serve as key path roots when the original binding name is not available—specifically, for:
-
-1. Dereferenced pointers: `(*ptr).field` uses `id(*ptr)` as root
-2. Escaping closures: captured references use their identity as key roots
-
-**Shared Dependency Type Annotation**
-
-An escaping closure that captures `shared` bindings carries a **shared dependency set** in its type. This annotation enables key analysis at invocation sites where the original binding names are not in scope.
-
-**Grammar**
-
-```ebnf
-closure_type        ::= "|" param_list "|" "->" return_type shared_deps?
-
-shared_deps         ::= "[" "shared" ":" dep_list "]"
-
-dep_list            ::= "{" dep_entry ("," dep_entry)* "}"
-
-dep_entry           ::= IDENTIFIER ":" type
-```
-
-**Type Notation**
-
-The type of an escaping closure with shared dependencies is written:
-
-$$|\vec{T}| \to R\ [\texttt{shared}: \{x_1 : T_1, \ldots, x_n : T_n\}]$$
-
-where:
-- $|\vec{T}|$ is the parameter type list
-- $R$ is the return type
-- $\{x_1 : T_1, \ldots, x_n : T_n\}$ is the shared dependency set
-
-**Well-Formedness**
-
-**(WF-Closure-SharedDeps)**
-$$\frac{
-    \forall i \in 1..n : \Gamma \vdash T_i\ \text{wf} \quad
-    \forall i \in 1..n : x_i \text{ is a valid identifier}
-}{
-    \Gamma \vdash |\vec{T}| \to R\ [\texttt{shared}: \{x_1 : T_1, \ldots, x_n : T_n\}]\ \text{wf}
-}$$
-
-**Subtyping**
-
-A closure type with shared dependencies is a subtype of the corresponding closure type without dependencies when the dependency set is empty:
-
-$$|\vec{T}| \to R\ [\texttt{shared}: \{\}] \equiv |\vec{T}| \to R$$
-
-Closure types with non-empty shared dependencies are invariant in their dependency sets—no subtyping relationship exists between closures with different dependencies.
-
-##### Static Semantics
+**##### Static Semantics
 
 **Local Closure Analysis**
 
@@ -11420,9 +10923,6 @@ root, preserving fine-grained path analysis.
 | `E-KEY-0086` | Error    | Escaping closure outlives captured `shared` binding          | Compile-time | Rejection |
 | `W-KEY-0009` | Warning  | Closure captures `shared` data                               | Compile-time | Warning   |
 
-> **Note:** The warning `W-KEY-0009` is advisory. It alerts programmers to shared 
-> captures that may affect concurrent behavior, but does not indicate an error.
-
 ---
 
 ### 13.4 The `#` Key Block
@@ -11430,12 +10930,6 @@ root, preserving fine-grained path analysis.
 ##### Definition
 
 The **`#` key block** is the explicit key acquisition construct. It acquires a key to one or more paths at block entry and holds those keys until block exit.
-
-The `#` operator serves three purposes:
-
-1. **Key coarsening:** Acquire a key to a path prefix rather than the full access path, reducing key granularity for atomicity or performance.
-2. **Consistent snapshots:** Hold a Read key across multiple reads to ensure atomicity.
-3. **Read-modify-write enablement:** With the `write` modifier, permit read-then-write patterns that would otherwise be prohibited.
 
 **Mode Semantics**
 
@@ -11455,19 +10949,23 @@ key_block       ::= "#" path_list mode_modifier* block
 
 path_list       ::= path_expr ("," path_expr)*
 
-mode_modifier   ::= "write" | "upgrade" | "ordered" | "speculative"
+mode_modifier   ::= "write" | "read" | release_modifier | "ordered" | "speculative"
+
+release_modifier ::= "release" ("write" | "read")
 ```
 
 **Modifier Constraints:**
-- `upgrade` MUST be followed by `write` (either immediately or with `ordered` between)
+- `release` MUST be followed by a target mode (`write` or `read`)
+- `release write` is used for escalation (Read → Write) in nested blocks
+- `release read` is used for downgrade (Write → Read) in nested blocks
 - `ordered` MAY combine with any other modifiers
 - `speculative` MUST be followed by `write`; speculative read-only blocks are ill-formed
-- `speculative` MUST NOT combine with `upgrade`
+- `speculative` MUST NOT combine with `release`
 - Modifier order is not significant: `ordered write` ≡ `write ordered`
 
 The `path_expr`, `key_marker`, and `index_suffix` productions are defined in §13.1.
 
-The `upgrade` modifier is used for nested mode escalation; see §13.7.2 for semantics.
+The `release` modifier is used for nested key release (mode transitions); see §13.7.2 for semantics.
 
 **Desugaring**
 
@@ -11483,114 +10981,31 @@ $$\texttt{\#}P_1, P_2\ \texttt{write}\ \{\ B\ \} \quad \equiv \quad \texttt{\#}P
 
 **Read Mode (Default)**
 
-When no modifier is specified, the `#` block acquires Read keys. The body MUST NOT contain writes to keyed paths:
-
-```cursive
-#player {
-    let h = player.health
-    let m = player.mana
-    // Consistent snapshot; concurrent readers permitted
-}
-```
+When no modifier is specified, the `#` block acquires Read keys, and the body MUST NOT write through keyed paths.
 
 **Write Mode (Explicit)**
 
-The `write` modifier acquires Write keys, enabling mutation and read-modify-write patterns:
-
-```cursive
-#player write {
-    let h = player.health
-    player.health = h + heal_amount    // Mutation permitted
-}
-```
+The `write` modifier acquires Write keys, allowing read–modify–write within the block.
 
 **Multiple Paths**
 
-Both modes support multiple paths. Keys are acquired in canonical order (§13.7):
-
-```cursive
-#player, enemy {
-    let diff = player.health - enemy.health
-}
-
-#player, enemy write {
-    player.health -= enemy.damage
-    enemy.health -= player.damage
-}
-```
+`#` blocks MAY list multiple paths; keys are acquired in canonical order (§13.7).
 
 **Ordered Mode**
 
-The `ordered` modifier forces runtime evaluation and comparison of dynamic indices, establishing a deterministic acquisition order across all tasks. This is necessary when multiple tasks may execute `#` blocks with incomparable dynamic indices on overlapping paths.
-
-```cursive
-// Without ordered: acquisition order is USB when i and j cannot be statically compared
-#arr[i], arr[j] { ... }           // HAZARD: potential cross-task deadlock
-
-// With ordered: indices evaluated at runtime, keys acquired in sorted order
-#arr[i], arr[j] ordered {
-    let a = arr[i]
-    let b = arr[j]
-}
-
-// Ordered with write mode
-#arr[i], arr[j] ordered write {
-    arr[i] = arr[j] + 1
-}
-
-// Ordered with upgrade (from enclosing Read block)
-#arr[i], arr[j] ordered upgrade write {
-    // Release-and-reacquire with deterministic ordering
-}
-```
-
-For paths with the same array base and dynamic indices:
-- Indices are evaluated to values $v_1, \ldots, v_n$
-- Paths are acquired in ascending order of index value
-- If two indices have equal values, the paths are identical (single acquisition)
-
-> **Note:** The `ordered` modifier incurs runtime overhead (index evaluation and comparison). Use it only when cross-task deadlock prevention is required without sacrificing fine-grained parallelism. When indices are statically comparable, canonical ordering applies automatically and `ordered` is unnecessary.
+The `ordered` modifier enforces deterministic acquisition for dynamic indices and MUST be used when static ordering cannot be proven.
 
 **Speculative Mode**
 
-The `speculative write` modifier requests optimistic concurrency semantics. Instead of blocking until an exclusive key is available, the block executes immediately and attempts an atomic commit at block exit. If the commit fails due to concurrent modification, the block re-executes.
-
-```cursive
-#counter speculative write {
-    let v = counter
-    counter = v + 1
-}
-```
-
-See §13.7.3 for complete semantics.
+`speculative write` requests optimistic execution with retry on commit failure; semantics are in §13.7.3.
 
 **Inline Coarsening**
 
-The `#` marker MAY appear inline within a path expression to specify the key granularity. Inline coarsening acquires keys in the mode determined by syntactic context (read context → Read key; write context → Write key):
-
-```cursive
-let x = #player.stats.health    // Read key to `player`
-#player.stats.health = 100      // Write key to `player`
-```
+`#` may appear inline in a path expression to set key granularity; the mode is derived from the surrounding read/write context.
 
 **Desugaring: Compound Assignment**
 
-Compound assignment operators desugar to `#` blocks with `write` modifier:
-
-$$P\ \oplus\texttt{=}\ e \quad \Longrightarrow \quad \#P\ \texttt{write}\ \{\ \texttt{let}\ v = P;\ P = v \oplus e\ \}$$
-
-| Source                    | Desugared Form                                                               |
-| :------------------------ | :--------------------------------------------------------------------------- |
-| `x += 1`                  | `#x write { let v = x; x = v + 1 }`                                          |
-| `player.health -= damage` | `#player.health write { let v = player.health; player.health = v - damage }` |
-
-**Increment and Decrement Operators**
-
-The increment (`++`) and decrement (`--`) operators are defined in §11.4.5 (Unary Operators). When applied to `shared` paths, they implicitly acquire keys using the compound assignment pattern above.
-
-**Desugaring Phase**
-
-Compound assignment desugaring (as defined above) occurs during the Parsing phase (Translation Phase 1, per §2.12), before key analysis. Key analysis operates on the desugared form. Consequently, the expression `p += e` is analyzed as `#p write { let v = p; p = v + e }`, and a covering Write key is always present for the read-then-write pattern.
+Compound assignment operators desugar to `#` blocks with `write` mode before key analysis.
 
 ##### Static Semantics
 
@@ -11667,10 +11082,10 @@ When a `#` block executes:
 
 When runtime synchronization is required:
 
-| Block Mode | Typical Implementation                         |
-| :--------- | :--------------------------------------------- |
-| Read       | Shared/reader lock; atomic load for primitives |
-| Write      | Exclusive/writer lock; CAS for primitives      |
+| Block Mode | Typical Implementation    |
+| :--------- | :------------------------ |
+| Read       | May have multiple holders |
+| Write      | Exclusive holder          |
 
 The implementation strategy is Implementation-Defined Behavior (IDB).
 
@@ -11721,8 +11136,6 @@ A **type-level key boundary** is a permanent granularity constraint declared on 
 field_decl      ::= "#"? visibility? IDENTIFIER ":" type
 ```
 
-**Example:**
-
 ```cursive
 record Player {
     health: i32,              // Fine-grained
@@ -11752,31 +11165,6 @@ $$\frac{
 }{
     \text{KeyPath}(P) = r.f
 }$$
-
-**Boundary Enforcement Examples:**
-
-| Expression                 | Key Path           | Reason        |
-| :------------------------- | :----------------- | :------------ |
-| `player.health`            | `player.health`    | No boundary   |
-| `player.inventory[5]`      | `player.inventory` | Type boundary |
-| `player.inventory[5].name` | `player.inventory` | Type boundary |
-
-**Coarsening Beyond Boundaries**
-
-Expression-level `#` MAY coarsen beyond a type boundary:
-
-| Expression             | Key Path                       |
-| :--------------------- | :----------------------------- |
-| `#player.inventory[5]` | `player`                       |
-| `player.#inventory[5]` | `player.inventory` (redundant) |
-
-**(K-Boundary-Override)**
-
-If path $P$ contains both explicit `#` at position $k$ and type-level boundary at position $b$:
-
-$$\text{KeyPath}(P) = p_1.\ldots.p_{\min(k, b)}$$
-
-The explicit `#` can coarsen further but cannot refine past a type boundary.
 
 ##### Constraints & Legality
 
@@ -11818,8 +11206,6 @@ For two index expressions $e_1$ and $e_2$ accessing the same array within a sing
 ##### Definition
 
 When multiple dynamic indices access the same array within a single statement, the compiler MUST either prove they are disjoint (per §13.1.1) or reject the program with `E-KEY-0010`. Same-statement accesses cannot be serialized by runtime key acquisition—they occur as part of one atomic key-holding scope.
-
-> **Note:** The `[[dynamic]]` attribute does NOT permit same-statement conflicts. These remain compile-time errors because runtime synchronization cannot serialize accesses within a single atomic statement.
 
 ##### Static Semantics
 
@@ -12010,8 +11396,6 @@ When a `#` block contains both statically-orderable and dynamically-orderable pa
 
 The merge ordering is Implementation-Defined but MUST satisfy cross-task consistency.
 
-**Example**
-
 ```cursive
 [[dynamic]]
 procedure swap(arr: shared [i32], i: usize, j: usize) {
@@ -12079,11 +11463,16 @@ Nested `#` blocks acquire keys independently. The outer block's keys remain held
 
 When a nested `#` block specifies a path that overlaps with an outer `#` block's path:
 
-1. **Identical path, same or weaker mode:** The inner block's key request is covered by the outer block's key. No additional acquisition occurs.
+1. **Identical path, same mode:** The inner block's key request is covered by the outer block's key. No additional acquisition occurs.
 
-2. **Identical path, stronger mode (Read → Write):** If the outer block holds a Read key and the inner block requests Write, the inner block MUST use the `upgrade write` modifier. This triggers release-and-reacquire semantics as defined in §13.7.2. The `upgrade` keyword is required to acknowledge that interleaving may occur between the release of the Read key and acquisition of the Write key.
+2. **Identical path, different mode (escalation or downgrade):** If the outer and inner blocks request different modes, the inner block MUST use the `release` modifier with a target mode. This triggers release-and-reacquire semantics as defined in §13.7.2. The `release` keyword is required to acknowledge that interleaving may occur between the release of the outer key and acquisition of the inner key.
 
-   Omitting the `upgrade` keyword when escalating mode is a compile-time error (`E-KEY-0012`).
+   - `release write`: Escalation (Read → Write)
+   - `release read`: Downgrade (Write → Read)
+
+   Omitting the `release` modifier when changing mode is a compile-time error (`E-KEY-0012`).
+
+   Using `release` with a target mode matching the outer mode is a compile-time error (`E-KEY-0018`).
 
 3. **Prefix relationship:** If the inner path is a prefix of the outer path (coarser granularity), the inner block acquires a separate, coarser key. If the outer path is a prefix of the inner path (finer granularity), the inner block's access is covered by the outer key.
 
@@ -12093,30 +11482,44 @@ $$\frac{
     \#P\ M_{\text{inner}}\ \{\ \ldots\ \}
 }{
     \begin{cases}
-    \text{Covered (no acquisition)} & \text{if } M_{\text{inner}} \leq M_{\text{outer}} \\
-    \text{Release-and-Reacquire per §13.7.2} & \text{if } M_{\text{inner}} > M_{\text{outer}} \land \texttt{upgrade} \in \text{modifiers} \\
-    \text{Emit}(\texttt{E-KEY-0012}) & \text{if } M_{\text{inner}} > M_{\text{outer}} \land \texttt{upgrade} \notin \text{modifiers}
+    \text{Covered (no acquisition)} & \text{if } M_{\text{inner}} = M_{\text{outer}} \\
+    \text{Release-and-Reacquire per §13.7.2} & \text{if } M_{\text{inner}} \neq M_{\text{outer}} \land \texttt{release} \in \text{modifiers} \\
+    \text{Emit}(\texttt{E-KEY-0012}) & \text{if } M_{\text{inner}} \neq M_{\text{outer}} \land \texttt{release} \notin \text{modifiers}
     \end{cases}
 }$$
 
-where $\text{Read} < \text{Write}$.
 ```cursive
-// Example: Outer Read, Inner Write (release-and-reacquire)
+// Escalation: Read → Write
 #player {
     let h = player.health          // Read access, covered
-    #player upgrade write {
+    #player release write {
         // WARNING: h may be stale after reacquisition
-        player.health = h + 10     // Write access via upgrade
+        player.health = h + 10     // Write access via release
     }
     let m = player.mana            // Read key reacquired after inner block
 }
 
-// ERROR: Missing `upgrade` keyword
+// Downgrade: Write → Read
+#player write {
+    player.health = 100            // Write access
+    #player release read {
+        // Other writers may interleave during this block
+        let snapshot = player.health  // Read-only access
+    }
+    player.mana = 50               // Write key reacquired after inner block
+}
+
+// ERROR: Missing `release` keyword
 #player {
     let h = player.health
-    #player write {                // E-KEY-0012: nested escalation requires `upgrade`
+    #player write {                // E-KEY-0012: nested mode change requires `release`
         player.health = h + 10
     }
+}
+
+// ERROR: Redundant release (same mode)
+#player {
+    #player release read { }       // E-KEY-0018: already hold Read, release read is redundant
 }
 ```
 
@@ -12163,7 +11566,6 @@ $$\frac{
 | `W-KEY-0012` | Warning  | Nested `#` blocks with potential order cycle            | Compile-time | Warning   |
 | `I-KEY-0011` | Info     | `#` block uses runtime ordering for dynamic indices     | Compile-time | Advisory  |
 | `I-KEY-0013` | Info     | `#` block coarsened due to incomparable dynamic indices | Compile-time | Advisory  |
-
 
 #### 13.7.1 Read-Then-Write Prohibition
 
@@ -12222,8 +11624,6 @@ player.health = current + 10   // Write key acquired fresh — no conflict
 
 This is safe because no key is held across statements; no upgrade occurs.
 
-> **Note:** The implementation SHOULD emit `W-KEY-0004` when a read-then-write pattern in separate statements occurs within a procedure that captures `shared` data and may later be invoked from a `parallel` context. This warns developers of potential contention if the code is parallelized.
-
 **Aliasing Considerations**
 
 When the compiler cannot prove that two paths are distinct, it MUST assume they may alias:
@@ -12270,78 +11670,82 @@ The implementation SHOULD emit `W-KEY-0006` when a programmer writes an explicit
 
 ---
 
-#### 13.7.2 Nested Block Mode Escalation
+#### 13.7.2 Nested Key Release
 
 ##### Definition
 
-A nested `#` block that requests a stronger mode than its enclosing block performs a **key upgrade**. Because true atomic upgrade risks deadlock when multiple tasks attempt simultaneous upgrades, Cursive uses **release-and-reacquire** semantics.
+A nested `#` block that requests a different mode than its enclosing block performs a **key release and reacquire**. This includes both escalation (Read → Write) and downgrade (Write → Read). Because true atomic mode change risks deadlock when multiple tasks attempt simultaneous changes, Cursive uses **release-and-reacquire** semantics.
 
-The `upgrade` keyword MUST be present to indicate the programmer understands and accepts potential interleaving between the release and reacquisition.
+The `release` keyword MUST be present to indicate the programmer understands and accepts potential interleaving between the release and reacquisition.
 
 ##### Syntax & Declaration
 
 **Grammar**
 
-The `upgrade write` modifier is part of the `key_block` grammar defined in §13.4.
+The `release write` and `release read` modifiers are part of the `key_block` grammar defined in §13.4.
 
-**Usage**
-```cursive
-#player {                          // Acquires Read key
-    let h = player.health
-    if should_heal(h) {
-        #player upgrade write {    // Release Read, acquire Write
-            player.health = h + 10
-        }                          // Release Write, reacquire Read
-    }
-    let m = player.mana            // Continues with Read key
-}
-```
+**Mode Transition Table**
+
+| Outer Mode | `release` Target | Operation                                                          |
+| ---------- | ---------------- | ------------------------------------------------------------------ |
+| Read       | `write`          | Escalation: Release Read → Gap → Acquire Write                     |
+| Write      | `read`           | Downgrade: Release Write → Gap → Acquire Read                      |
+| X          | X                | **Error E-KEY-0018**: Redundant release (already hold target mode) |
+
+Both escalation and downgrade create **two interleaving windows**: one at block entry (release outer, acquire inner) and one at block exit (release inner, reacquire outer).
 
 ##### Static Semantics
 
-**(K-Upgrade-Required)**
+**(K-Release-Required)**
 $$\frac{
     \text{Held}(P, M_{\text{outer}}, \Gamma_{\text{keys}}) \quad
     \#Q\ M_{\text{inner}}\ \{\ \ldots\ \} \quad
     \text{Overlaps}(P, Q) \quad
-    M_{\text{inner}} > M_{\text{outer}} \quad
-    \texttt{upgrade} \notin \text{modifiers}
+    M_{\text{inner}} \neq M_{\text{outer}} \quad
+    \texttt{release} \notin \text{modifiers}
 }{
     \text{Emit}(\texttt{E-KEY-0012})
 }$$
 
-**(K-Upgrade-Prohibited)**
+**(K-Release-Redundant)**
 $$\frac{
-    \#Q\ \texttt{upgrade}\ M\ \{\ \ldots\ \} \quad
-    \neg\exists (P, M', \_) \in \Gamma_{\text{keys}} : \text{Overlaps}(P, Q) \land M > M'
+    \#Q\ \texttt{release}\ M\ \{\ \ldots\ \} \quad
+    \exists (P, M', \_) \in \Gamma_{\text{keys}} : \text{Overlaps}(P, Q) \land M = M'
 }{
-    \text{Emit}(\texttt{E-KEY-0013})
+    \text{Emit}(\texttt{E-KEY-0018})
+}$$
+
+**(K-Release-No-Target)**
+$$\frac{
+    \#Q\ \texttt{release}\ \{\ \ldots\ \} \quad
+    \text{no target mode specified}
+}{
+    \text{Emit}(\texttt{E-KEY-0017})
 }$$
 
 ##### Dynamic Semantics
 
 **Release-and-Reacquire Sequence**
 
-When entering `#path upgrade write { body }` while holding a Read key to an 
-overlapping path:
+When entering `#path release <target> { body }` while holding a key to an overlapping path with a different mode:
 
-1. **Release:** Release the Read key held by the enclosing block
-2. **Acquire:** Acquire a Write key to `path` (blocking if contended)
+1. **Release:** Release the outer key held by the enclosing block
+2. **Acquire:** Acquire the target mode key to `path` (blocking if contended)
 3. **Execute:** Evaluate `body`
-4. **Release:** Release the Write key
-5. **Reacquire:** Acquire a Read key for the enclosing block's remaining scope
+4. **Release:** Release the inner key
+5. **Reacquire:** Acquire the outer mode key for the enclosing block's remaining scope
 
-**(K-Upgrade-Sequence)**
+**(K-Release-Sequence)**
 $$\frac{
-    \text{Held}(P, \text{Read}, S_{\text{outer}}) \quad
-    \#P\ \texttt{upgrade write}\ \{\ B\ \}
+    \text{Held}(P, M_{\text{outer}}, S_{\text{outer}}) \quad
+    \#P\ \texttt{release}\ M_{\text{inner}}\ \{\ B\ \}
 }{
     \begin{array}{l}
     \text{Release}(P, \Gamma_{\text{keys}});\
-    \text{Acquire}(P, \text{Write}, S_{\text{inner}});\
+    \text{Acquire}(P, M_{\text{inner}}, S_{\text{inner}});\
     \text{Eval}(B);\ \\
     \text{Release}(P, \Gamma_{\text{keys}});\
-    \text{Acquire}(P, \text{Read}, S_{\text{outer}})
+    \text{Acquire}(P, M_{\text{outer}}, S_{\text{outer}})
     \end{array}
 }$$
 
@@ -12349,42 +11753,45 @@ $$\frac{
 
 Step 5 (Reacquire) follows normal key acquisition semantics:
 
-1. If another task holds a Write key to an overlapping path, the current task blocks until the key is released.
+1. If another task holds a conflicting key to an overlapping path, the current task blocks until the key is released.
 2. Multiple tasks MAY hold Read keys concurrently after reacquisition.
 3. An interleaving window exists between steps 4 and 5, during which other tasks MAY acquire and release keys.
 
 **Optimization: Eliding Reacquisition**
 
-The implementation MAY elide step 5 if static analysis proves that no statements in the enclosing block's remaining scope access paths covered by the original Read key. This is an optimization; observable behavior MUST be equivalent to performing the reacquisition.
+The implementation MAY elide step 5 if static analysis proves that no statements in the enclosing block's remaining scope access paths covered by the original key. This is an optimization; observable behavior MUST be equivalent to performing the reacquisition.
 
-**(K-Upgrade-Reacquire-Elision)**
+**(K-Release-Reacquire-Elision)**
 $$\frac{
     \text{RemainingStatements}(S_{\text{outer}}) \cap \text{AccessPaths}(P) = \emptyset
 }{
     \text{Step 5 MAY be elided}
 }$$
 
-**Interleaving Window**
+**Interleaving Windows**
 
-Between steps 1 and 2, other tasks MAY:
+Between steps 1 and 2 (entry), and between steps 4 and 5 (exit), other tasks MAY:
 - Acquire keys to the same path
 - Modify the shared data
 - Complete their operations
 
-The programmer MUST account for this interleaving. Values read before the `upgrade` 
-block MAY be stale after it completes.
+The programmer MUST account for this interleaving. Values read before the `release` block SHOULD be considered potentially stale after it completes. The compiler emits `W-KEY-0011` when a binding derived from shared data is accessed after a release block on an overlapping path.
+
+**Staleness Warning Suppression**
+
+Apply `#[stale_ok]` to a binding declaration to suppress the staleness warning when intentional (e.g., optimistic concurrency patterns):
 
 ##### Constraints & Legality
 
 **Diagnostic Table**
 
-| Code         | Severity | Condition                                        | Detection    | Effect    |
-| :----------- | :------- | :----------------------------------------------- | :----------- | :-------- |
-| `E-KEY-0012` | Error    | Nested mode escalation without `upgrade` keyword | Compile-time | Rejection |
-| `E-KEY-0013` | Error    | `upgrade` keyword on non-escalating block        | Compile-time | Rejection |
-| `W-KEY-0010` | Warning  | `upgrade` block permits interleaving             | Compile-time | Warning   |
-
-> **Note:** If atomicity between read and write operations is required, declare `write` mode on the outermost `#` block. The `upgrade` keyword is for cases where reduced exclusion duration is worth the interleaving trade-off.
+| Code         | Severity | Condition                                         | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------ | :----------- | :-------- |
+| `E-KEY-0012` | Error    | Nested mode change without `release` modifier     | Compile-time | Rejection |
+| `E-KEY-0017` | Error    | `release` modifier without target mode            | Compile-time | Rejection |
+| `E-KEY-0018` | Error    | `release` with target mode matching outer mode    | Compile-time | Rejection |
+| `W-KEY-0010` | Warning  | `release` block permits interleaving              | Compile-time | Warning   |
+| `W-KEY-0011` | Warning  | Access to potentially stale binding after release | Compile-time | Warning   |
 
 ---
 
@@ -12409,32 +11816,6 @@ $$\text{SpeculativeCommit}(R, W) \iff \text{Atomic}\left(\bigwedge_{(p,v) \in R}
 **Grammar**
 
 The `speculative write` modifier is part of the `key_block` grammar defined in §13.4.
-
-**Usage Patterns**
-
-```cursive
-// Single-value atomic update
-#counter speculative write {
-    let v = counter
-    counter = v + 1
-}
-
-// Multi-field atomic update
-#point speculative write {
-    let x = point.x
-    let y = point.y
-    point.x = y
-    point.y = x
-}
-
-// With computation
-#balance speculative write {
-    let current = balance
-    if current >= amount {
-        balance = current - amount
-    }
-}
-```
 
 ##### Static Semantics
 
@@ -12501,9 +11882,9 @@ $$\frac{
     \text{Emit}(\texttt{E-KEY-0093})
 }$$
 
-**(K-Spec-No-Upgrade)**
+**(K-Spec-No-Release)**
 $$\frac{
-    \#P\ \texttt{speculative upgrade write}\ \{B\}
+    \#P\ \texttt{speculative release}\ M\ \{B\}
 }{
     \text{Emit}(\texttt{E-KEY-0094})
 }$$
@@ -12627,7 +12008,7 @@ If the compiler proves a `shared` value is never accessed speculatively (no `spe
 3. A speculative block MUST NOT contain `wait` expressions.
 4. A speculative block MUST NOT contain `defer` statements.
 5. A speculative block MUST NOT write to paths outside the keyed set.
-6. A speculative block MUST NOT combine with the `upgrade` modifier.
+6. A speculative block MUST NOT combine with the `release` modifier.
 7. Memory ordering annotations MUST NOT appear inside speculative blocks.
 
 **Diagnostic Table**
@@ -12638,15 +12019,11 @@ If the compiler proves a `shared` value is never accessed speculatively (no `spe
 | `E-KEY-0091` | Error    | Write to path outside keyed set in speculative block   | Compile-time | Rejection |
 | `E-KEY-0092` | Error    | `wait` expression inside speculative block             | Compile-time | Rejection |
 | `E-KEY-0093` | Error    | `defer` statement inside speculative block             | Compile-time | Rejection |
-| `E-KEY-0094` | Error    | `speculative` combined with `upgrade`                  | Compile-time | Rejection |
+| `E-KEY-0094` | Error    | `speculative` combined with `release`                  | Compile-time | Rejection |
 | `E-KEY-0095` | Error    | `speculative` without `write` modifier                 | Compile-time | Rejection |
 | `E-KEY-0096` | Error    | Memory ordering annotation inside speculative block    | Compile-time | Rejection |
 | `W-KEY-0020` | Warning  | Speculative block on large struct (may be inefficient) | Compile-time | Warning   |
 | `W-KEY-0021` | Warning  | Speculative block body may be expensive to re-execute  | Compile-time | Warning   |
-
-> **Note:** `W-KEY-0020` is emitted when `sizeof(T) > 2 * sizeof(usize)` for the keyed type. Speculative operations on large types may degrade to lock-based fallback frequently. Consider using blocking keys or restructuring data.
-
-> **Note:** `W-KEY-0021` is emitted when the block body contains loops, recursive calls, or procedure calls that are not provably cheap. Speculative blocks work best with small, deterministic bodies.
 
 ---
 
@@ -12677,11 +12054,8 @@ yield health                             // No keys held at yield point
 }
 ```
 
-> **Rationale:** Keys represent synchronization primitives. Holding a key across suspension could cause deadlock or priority inversion when other tasks contend for the same key.
-
 ##### Constraints & Legality
 
-> **Note:** The diagnostic for holding keys at async suspension points is `E-ASYNC-0013`, defined in §15.13.
 
 ---
 
@@ -12755,16 +12129,6 @@ $$\frac{
     \text{EmitRuntimeSync}(P)
 }$$
 
-**When `[[dynamic]]` Is Needed**
-
-| Situation                          | Why Static Proof Fails        |
-| :--------------------------------- | :---------------------------- |
-| `shared` escapes to multiple tasks | Cannot track all access sites |
-| Dynamic indices to same array      | Cannot prove disjointness     |
-| External `shared` parameter        | Caller context unknown        |
-| `shared` captured from outer scope | May be accessed concurrently  |
-| Cross-compilation-unit call        | Callee access pattern unknown |
-
 ##### Dynamic Semantics
 
 **Runtime Realization**
@@ -12784,30 +12148,6 @@ When a `#` block within `[[dynamic]]` context contains incomparable dynamic indi
 2. The compiler emits code to determine acquisition order (mechanism is IDB).
 3. Key acquisition proceeds in the computed order.
 
-**Cost Model (Informative)**
-
-| Mechanism              | Cost                                        |
-| :--------------------- | :------------------------------------------ |
-| Index-value comparison | O(k log k) comparisons, O(1) per comparison |
-| Address comparison     | O(k log k) comparisons, O(1) per comparison |
-| Lock coarsening        | O(1), but reduced concurrency               |
-
-where $k$ is the number of dynamically-indexed paths. For typical cases ($k \leq 4$), overhead is negligible.
-
-**Implementation Strategies (IDB)**
-
-| Data Characteristic         | Typical Implementation       |
-| :-------------------------- | :--------------------------- |
-| Small primitive (≤ 8 bytes) | Atomic operations            |
-| Record/struct               | Reader-writer lock           |
-| Array (static indices)      | Per-element or segment locks |
-| Array (dynamic indices)     | Address-keyed lock table     |
-| `#` boundary                | Single lock for subtree      |
-| Speculative on primitive    | Compare-and-swap loop        |
-| Speculative on struct       | Seqlock or versioned commit  |
-
-The specific strategy is IDB.
-
 **Observational Equivalence**
 
 Program behavior MUST be identical whether safety is proven statically or enforced at runtime. The only permitted difference is performance:
@@ -12825,14 +12165,10 @@ When all accesses to a `shared` value are statically safe:
 
 **Runtime Case — With `[[dynamic]]`**
 
-When runtime synchronization is permitted via `[[dynamic]]`:
-
-| Aspect              | Specification                             |
-| :------------------ | :---------------------------------------- |
-| Metadata location   | IDB: inline or external                   |
-| Metadata size       | IDB: MUST be documented                   |
-| Lock granularity    | IDB: per-value, per-field, or per-element |
-| Lock implementation | IDB: spinlock, mutex, RwLock, etc.        |
+When runtime synchronization is permitted via `[[dynamic]]`: 
+- Synchronization metadata is added to the `shared` value
+- Layout is implementation-defined
+- Runtime code is generated for key operations
 
 ##### Constraints & Legality
 
@@ -12842,76 +12178,6 @@ When runtime synchronization is permitted via `[[dynamic]]`:
 | :----------- | :------- | :--------------------------------------------------------------- | :----------- | :-------- |
 | `E-KEY-0020` | Error    | Key safety not statically provable outside `[[dynamic]]`         | Compile-time | Rejection |
 | `W-KEY-0021` | Warning  | `[[dynamic]]` present but all key operations are statically safe | Compile-time | Advisory  |
-
-**Examples**
-
-```cursive
-procedure static_only(player: shared Player) {
-    player.health = 100        // OK: sequential context
-    player.mana = 50           // OK: disjoint path
-}
-
-procedure needs_dynamic(players: shared [Player], idx: usize) {
-    players[0].health = 100               // OK: static index
-    players[idx].health = 50              // Error E-KEY-0020
-    [[dynamic]] players[idx].health = 50  // OK: runtime sync
-}
-
-[[dynamic]]
-procedure all_dynamic(players: shared [Player], idx: usize) {
-    players[idx].health = 100  // OK: runtime sync
-    players[idx].mana = 50     // OK: runtime sync
-}
-```
-
-**Generic Code and Key Analysis**
-
-Key analysis operates on monomorphized code. For generic procedures parameterized over permission:
-
-1. **Monomorphization:** When a generic procedure is instantiated with `shared` as the permission parameter, key analysis applies to the instantiated procedure body.
-
-2. **Permission-Polymorphic Code:** A procedure with signature `procedure f<P>(x: P T) requires comptime { is_permission::<P>() }` is analyzed separately for each instantiation. When `P = shared`, key analysis rules apply; when `P = const` or `P = unique`, key analysis is not required.
-
-3. **Class Bounds:** If a generic procedure requires `P <: Shareable` or similar bounds, the implementation MUST perform key analysis for all instantiations satisfying those bounds.
-
-**(K-Generic-Instantiation)**
-$$\frac{
-    \text{Generic } f\langle P \rangle \text{ instantiated with } P = \texttt{shared} \quad
-    \Gamma \vdash \text{body}(f) : \texttt{shared}\ T
-}{
-    \text{KeyAnalysis applies to } f\langle\texttt{shared}\rangle
-}$$
-
-**Generic Procedures and Class Bounds**
-
-When a generic procedure has a form bound `T <: Class` and is instantiated with a `shared` type, key analysis proceeds as follows:
-
-1. Each form method call on the `shared` parameter is analyzed for key requirements.
-2. The key mode is determined by the method's receiver permission: `~` requires Read, `~%` requires Write.
-3. Class methods with `~!` receivers are not callable through `shared` paths (per §4.5.5).
-
-**(K-Generic-Class-Method)**
-$$\frac{
-    \Gamma \vdash e : \texttt{shared}\ T \quad
-    T <: Cl \quad
-    m \in \text{Methods}(Cl) \quad
-    m.\text{receiver} = P\ \texttt{Self}
-}{
-    \text{KeyMode}(e.m(\ldots)) = \begin{cases}
-    \text{Read} & \text{if } P = \texttt{const} \\
-    \text{Write} & \text{if } P = \texttt{shared} \\
-    \text{Reject} & \text{if } P = \texttt{unique}
-    \end{cases}
-}$$
-
-**Conservative Fallback for Opaque Types**
-
-When the concrete type is unknown (e.g., `dyn Class`), the implementation MUST assume the most restrictive key requirements compatible with the class's method signatures:
-
-- If any method in the class has a `~%` receiver, assume Write mode may be required
-- If all methods have `~` receivers, Read mode is sufficient
-
----
 
 ### 13.10 Memory Ordering
 
@@ -13022,7 +12288,6 @@ block             ::= "{" statement* "}"
 
 The `domain_expr` MUST evaluate to a type that implements the `ExecutionDomain` form (§14.6).
 
-> **Note:** Block options use single-bracket syntax `[...]` and are distinct from attributes (which use double-bracket syntax `[[...]]`). Block options are specific to parallel blocks and are not part of the general Attribute Registry (§7.2).
 
 **Block Option Semantics**
 
@@ -13430,13 +12695,6 @@ The `Realtime` priority requires elevated OS privileges. Attempting to use `Real
 
 ##### Dynamic Semantics
 
-**Thread Pool Management**
-
-1. On first parallel block entry with a given configuration, worker threads are created.
-2. Worker threads execute work items from a shared queue.
-3. Threads MAY be reused across parallel blocks with compatible configurations.
-4. Thread creation and destruction timing is Implementation-Defined.
-
 #### 14.6.2 GPU Domain
 
 ##### Definition
@@ -13483,21 +12741,6 @@ The following are NOT capturable:
 **Memory Model**
 
 GPU and CPU have separate memory spaces. Data transfer is explicit:
-
-```cursive
-parallel ctx.gpu() {
-    let d_input: GpuBuffer<f32> = gpu::alloc(n)
-    let d_output: GpuBuffer<f32> = gpu::alloc(n)
-    
-    gpu::upload(host_input, d_input)
-    
-    dispatch i in 0..n {
-        d_output[i] = d_input[i] * 2.0
-    }
-    
-    gpu::download(d_output, host_output)
-}
-```
 
 **GPU Intrinsics**
 
@@ -13639,28 +12882,6 @@ modal CancelToken {
     }
 
     procedure new() -> CancelToken@Active
-}
-```
-
-**Usage**
-
-```cursive
-let token = CancelToken::new()
-
-parallel ctx.cpu() [cancel: token] {
-    dispatch i in 0..n {
-        if token.is_cancelled() {
-            return
-        }
-        
-        expensive_work(i)
-        
-        if token.is_cancelled() {
-            return
-        }
-        
-        more_work(i)
-    }
 }
 ```
 
@@ -13889,44 +13110,6 @@ This clause defines Cursive's model for asynchronous computation. Asynchronous o
 
 ---
 
-### 15.1 Overview and Design Principles
-
-##### Definition
-
-An **asynchronous operation** is a computation with addressable resumption points. Unlike a standard procedure that runs to completion in a single invocation, an asynchronous operation may pause and resume multiple times, exchanging values with its caller at each resumption point. The `Async` modal class defines the interface for all asynchronous operations; each async-returning procedure produces a distinct compiler-generated modal type implementing this class.
-
-**Formal Definition**
-
-An asynchronous operation $A$ is characterized by the tuple:
-
-$$A = (\mathcal{S}, s_0, \delta, \omega)$$
-
-where:
-- $\mathcal{S}$ is a finite set of internal states (captured local bindings)
-- $s_0 \in \mathcal{S}$ is the initial state
-- $\delta : \mathcal{S} \times In \to \mathcal{S} \times (Out \mid Result \mid E)$ is the transition function
-- $\omega \subseteq \mathcal{S}$ is the set of terminal states
-
-Each invocation of `resume` applies $\delta$, transitioning the operation to a new state and producing either an intermediate output, a final result, or an error.
-
-##### Static Semantics
-
-**Design Principles**
-
-The asynchronous model adheres to the following principles:
-
-**Unified Abstraction**: All asynchronous patterns—sequences, futures, coroutines, streams—are instances of a single parameterized modal type. There are no separate mechanisms for different asynchronous patterns.
-
-**Explicit Suspension**: Every point at which execution may pause is syntactically visible via the `yield` expression. There is no implicit suspension.
-
-**No Function Coloring**: Procedures are not marked with special modifiers in their declaration. The return type indicates asynchronous behavior. A procedure returning `Async<...>` may be called from any context; the caller decides how to consume the result.
-
-**Pull-Based Execution**: Asynchronous operations advance only when explicitly resumed by their consumer. This provides natural backpressure and resource control.
-
-**Capability Integration**: External events (I/O, timers) require capabilities. Pure computation sequences require no capabilities.
-
----
-
 ### 15.2 The Async Class
 
 ##### Definition
@@ -13969,8 +13152,6 @@ class Async<Out; In = (); Result = (); E = !> {
 As a modal class (§9.2), `Async` declares abstract states that implementing modal types must provide. The `resume` procedure is an abstract procedure that all implementations must define.
 
 ##### Static Semantics
-
-**State Semantics**
 
 | State        | Meaning                                          | Payload         |
 | ------------ | ------------------------------------------------ | --------------- |
@@ -14114,8 +13295,7 @@ $$\texttt{Pipe}\langle In, Out \rangle \equiv \texttt{Async}\langle Out, In, (),
 
 $$\texttt{Stream}\langle T, E \rangle \equiv \texttt{Async}\langle T, (), (), E \rangle$$
 
-**Variance Inheritance**
-
+**
 Type aliases inherit variance from their expansion:
 
 | Alias           | Expansion               | Variance                              |
@@ -14232,8 +13412,10 @@ The `yield` expression suspends an asynchronous computation, producing an interm
 **Grammar**
 
 ```ebnf
-yield_expr ::= "yield" expression
+yield_expr ::= "yield" ["release"] expression
 ```
+
+The optional `release` modifier enables yielding while keys are held, using release-and-reacquire semantics.
 
 ##### Static Semantics
 
@@ -14282,22 +13464,42 @@ Evaluation of `yield e`:
 4. When `resume(input)` is called, bind $input$ as the result of the `yield` expression.
 5. Continue execution from the point immediately after `yield`.
 
+**Evaluation of `yield release e` (Key Parking)**
+
+When `yield release` is used within a key block:
+
+1. Let $\Gamma_{keys}$ be the set of currently held keys.
+2. **Release all keys** in LIFO order (reverse acquisition order).
+3. Let $v$ be the result of evaluating $e$.
+4. Transition the `Async` to `@Suspended { output: v }`.
+5. Return control to the caller.
+6. When `resume(input)` is called:
+   a. **Reacquire all keys** in canonical order (same keys as before suspension).
+   b. Bind $input$ as the result of the `yield release` expression.
+7. Continue execution from the point immediately after `yield release`.
+
+**Staleness at Yield Release**
+
+Values read from `shared` data before `yield release` SHOULD be considered potentially stale after the yield returns. During the suspension period, other tasks may have modified the shared data. The compiler emits `W-KEY-0011` when a binding derived from shared data is accessed after a `yield release` on an overlapping path.
+
 ##### Constraints & Legality
 
 **Negative Constraints**
 
 1. `yield` MUST NOT appear outside an async-returning procedure.
 2. `yield` MUST NOT appear inside a `sync` expression.
-3. `yield` MUST NOT appear while any keys are logically held (§13).
+3. `yield` (without `release`) MUST NOT appear while any keys are logically held (§13).
+4. `yield release` MAY appear while keys are held; keys are released before suspension and reacquired after resumption.
 
 **Diagnostic Table**
 
-| Code           | Severity | Condition                                 | Detection    | Effect    |
-| :------------- | :------- | :---------------------------------------- | :----------- | :-------- |
-| `E-ASYNC-0010` | Error    | `yield` outside async-returning procedure | Compile-time | Rejection |
-| `E-ASYNC-0011` | Error    | `yield` operand type does not match `Out` | Compile-time | Rejection |
-| `E-ASYNC-0012` | Error    | `yield` inside `sync` expression          | Compile-time | Rejection |
-| `E-ASYNC-0013` | Error    | `yield` while key is held                 | Compile-time | Rejection |
+| Code           | Severity | Condition                                                 | Detection    | Effect    |
+| :------------- | :------- | :-------------------------------------------------------- | :----------- | :-------- |
+| `E-ASYNC-0010` | Error    | `yield` outside async-returning procedure                 | Compile-time | Rejection |
+| `E-ASYNC-0011` | Error    | `yield` operand type does not match `Out`                 | Compile-time | Rejection |
+| `E-ASYNC-0012` | Error    | `yield` inside `sync` expression                          | Compile-time | Rejection |
+| `E-ASYNC-0013` | Error    | `yield` while key is held (without `release`)             | Compile-time | Rejection |
+| `W-KEY-0011`   | Warning  | Access to potentially stale binding after `yield release` | Compile-time | Warning   |
 
 ---
 
@@ -14312,8 +13514,10 @@ The `yield from` expression delegates to another asynchronous computation, forwa
 **Grammar**
 
 ```ebnf
-yield_from_expr ::= "yield" "from" expression
+yield_from_expr ::= "yield" ["release"] "from" expression
 ```
+
+The optional `release` modifier enables delegation while keys are held, using release-and-reacquire semantics at each suspension point.
 
 ##### Static Semantics
 
@@ -14349,25 +13553,45 @@ Evaluation of `yield from source`:
      - `@Completed { value }`: The `yield from` expression evaluates to $value$. Exit loop.
      - `@Failed { error }`: Propagate $error$ to the enclosing computation. Exit loop.
 
+**Delegation with Key Parking**
+
+Evaluation of `yield release from source`:
+
+1. Let $\Gamma_{keys}$ be the set of currently held keys.
+2. Let $s$ be the result of evaluating $source$.
+3. Loop:
+   - Match $s$:
+     - `@Suspended { output }`:
+       a. **Release all keys** in LIFO order.
+       b. Execute `yield output` in the enclosing computation.
+       c. When resumed with $input$, **reacquire all keys** in canonical order.
+       d. Let $s$ := $s$~>resume$(input)$.
+     - `@Completed { value }`: The `yield release from` expression evaluates to $value$. Exit loop.
+     - `@Failed { error }`: Propagate $error$ to the enclosing computation. Exit loop.
+
+Keys are released before each suspension point and reacquired after each resumption, allowing other tasks to access the shared data during delegation.
+
 ##### Constraints & Legality
 
 **Negative Constraints**
 
 1. `yield from` MUST NOT appear outside an async-returning procedure.
 2. `yield from` MUST NOT appear inside a `sync` expression.
-3. `yield from` MUST NOT appear while any keys are logically held.
-4. The delegated `Async` MUST have compatible `Out` and `In` parameters.
+3. `yield from` (without `release`) MUST NOT appear while any keys are logically held.
+4. `yield release from` MAY appear while keys are held; keys are released at each suspension and reacquired after each resumption.
+5. The delegated `Async` MUST have compatible `Out` and `In` parameters.
 
 **Diagnostic Table**
 
-| Code           | Severity | Condition                                    | Detection    | Effect    |
-| :------------- | :------- | :------------------------------------------- | :----------- | :-------- |
-| `E-ASYNC-0020` | Error    | `yield from` outside async-returning proc    | Compile-time | Rejection |
-| `E-ASYNC-0021` | Error    | Incompatible `Out` parameter in `yield from` | Compile-time | Rejection |
-| `E-ASYNC-0022` | Error    | Incompatible `In` parameter in `yield from`  | Compile-time | Rejection |
-| `E-ASYNC-0023` | Error    | `yield from` inside `sync` expression        | Compile-time | Rejection |
-| `E-ASYNC-0024` | Error    | `yield from` while key is held               | Compile-time | Rejection |
-| `E-ASYNC-0025` | Error    | Error type not compatible in `yield from`    | Compile-time | Rejection |
+| Code           | Severity | Condition                                                      | Detection    | Effect    |
+| :------------- | :------- | :------------------------------------------------------------- | :----------- | :-------- |
+| `E-ASYNC-0020` | Error    | `yield from` outside async-returning proc                      | Compile-time | Rejection |
+| `E-ASYNC-0021` | Error    | Incompatible `Out` parameter in `yield from`                   | Compile-time | Rejection |
+| `E-ASYNC-0022` | Error    | Incompatible `In` parameter in `yield from`                    | Compile-time | Rejection |
+| `E-ASYNC-0023` | Error    | `yield from` inside `sync` expression                          | Compile-time | Rejection |
+| `E-ASYNC-0024` | Error    | `yield from` while key is held (without `release`)             | Compile-time | Rejection |
+| `E-ASYNC-0025` | Error    | Error type not compatible in `yield from`                      | Compile-time | Rejection |
+| `W-KEY-0011`   | Warning  | Access to potentially stale binding after `yield release from` | Compile-time | Warning   |
 
 ---
 
@@ -14445,46 +13669,7 @@ Direct interaction with the `Async` state machine via pattern matching and expli
 
 ##### Dynamic Semantics
 
-**Pattern Matching on State**
-
-The consumer matches on the async value's modal state and invokes the `resume` transition to advance:
-
-```cursive
-var acc = accumulator(0)
-
-match acc {
-    @Suspended { output } => {
-        assert(output == 0)
-        acc = acc~>resume(5)
-    }
-    _ => panic("expected suspended"),
-}
-
-match acc {
-    @Suspended { output } => {
-        assert(output == 5)
-        acc = acc~>resume(3)
-    }
-    _ => panic("expected suspended"),
-}
-
-match acc {
-    @Completed { value } => assert(value == 8),
-    _ => panic("expected completed"),
-}
-```
-
-**Chained Resumption**
-
-Multiple resumptions may be chained when the intermediate states are not inspected:
-
-```cursive
-// Step through three iterations, ignoring intermediate outputs
-var seq = some_sequence()
-seq = seq~>resume(())
-seq = seq~>resume(())
-seq = seq~>resume(())
-```
+The consumer matches on the async value's modal state and invokes `resume` to advance. Resumptions MAY be chained when intermediate states do not need inspection.
 
 ---
 
@@ -14535,12 +13720,7 @@ Evaluation of `sync e`:
 
 The `sync` expression desugars to use the reactor capability (§15.11.1):
 
-```cursive
-sync future
-
-// Semantically equivalent to:
-ctx.reactor~>run(future)
-```
+$$\texttt{sync}\ f \quad \rightarrow \quad \texttt{ctx.reactor\sim>run}(f)$$
 
 The reactor polls the future and any dependent I/O operations until completion.
 
@@ -14778,7 +13958,7 @@ When a waiter is notified:
 
 1. Acquire a Read key to the waiter's path.
 2. Evaluate $pred(value)$.
-3. If true: upgrade to Write key, execute $action(value)$, complete the Future.
+3. If true: transition to Write key via release-and-reacquire, execute $action(value)$, complete the Future.
 4. If false: release Read key, remain in wait table.
 
 **Ordering Guarantees**
@@ -14796,16 +13976,6 @@ When a waiter is notified:
 The `Async` type provides methods for transforming and composing asynchronous computations. These combinators enable declarative pipeline construction.
 
 ##### Static Semantics
-
-> **Invocation Syntax**
->
-> Combinator methods are invoked via the `~>` dispatch operator:
->
-> ```cursive
-> let doubled = sequence~>map(|x| x * 2)
-> let first_ten = sequence~>take(10)
-> let total = sequence~>fold(0, |acc, x| acc + x)
-> ```
 
 **Core Transformation Signatures**
 
@@ -14886,7 +14056,7 @@ The concrete generated type is a subtype of the declared return type:
 
 $$\text{gen\_map}\langle M_1, Out, U, In, R, E \rangle <: \texttt{Async}\langle U, In, R, E \rangle$$
 
-This enables zero-cost chaining when types are statically known, while supporting polymorphic use via `dyn Async<...>` when needed.
+This enables direct chaining when types are statically known, while still supporting polymorphic use via `dyn Async<...>` when needed.
 
 ##### Dynamic Semantics
 
@@ -15158,7 +14328,7 @@ This subsection specifies the capability requirements for async operations and h
 
 **Pure vs I/O Async**
 
-| Async Category | Capability Required | Example                |
+| Async Category | Capability Required | Description            |
 | :------------- | :------------------ | :--------------------- |
 | Pure sequence  | None                | `range(0, 100)`        |
 | I/O operation  | Specific dyn        | `fs~>read(file)`       |
@@ -15277,20 +14447,37 @@ The captured data MUST remain valid for the entire lifetime of the `Async` value
 
 ##### Constraints & Legality
 
-**Key Prohibition at Suspension**
+**Key State at Suspension**
 
-A `yield` or `yield from` expression MUST NOT occur while any keys are logically held.
+Asynchronous suspension points interact with the Key System by managing the lifecycle of held keys.
+
+**Default: Prohibition**
+
+By default, `yield` or `yield from` (without `release`) MUST NOT occur while any keys are logically held.
 
 $$\frac{
     \Gamma_{\text{keys}} \neq \emptyset \quad
-    \text{IsYield}(e) \lor \text{IsYieldFrom}(e)
+    (\text{IsYield}(e) \lor \text{IsYieldFrom}(e)) \quad
+    \texttt{release} \notin \text{modifiers}
 }{
     \text{Emit}(\texttt{E-ASYNC-0013})
 } \quad \text{(A-No-Keys)}$$
 
 > **Rationale:** Keys represent synchronization primitives. Holding a key across suspension could cause deadlock or priority inversion.
 
-**Valid Pattern**
+**Opt-In: Yield Release**
+
+To suspend within a key block, the programmer MUST use the `release` modifier (`yield release` or `yield release from`). This invokes the **Release-and-Reacquire** mechanism analogous to §13.7.2.
+
+**Semantics:**
+1. **Release:** All keys in $\Gamma_{keys}$ are released (LIFO order).
+2. **Suspend:** The task yields. Keys are available to other tasks.
+3. **Resume:** The task wakes.
+4. **Re-acquire:** All keys in $\Gamma_{keys}$ are re-acquired (canonical order).
+
+The `release` keyword serves as a visual marker that atomicity is broken. Local bindings derived from shared data prior to the `yield release` SHOULD be treated as potentially stale.
+
+**Valid Pattern: Manual Key Release**
 
 ```cursive
 procedure read_player_stats(player: shared Player, ctx: Context) -> Sequence<i32> {
@@ -15302,23 +14489,39 @@ procedure read_player_stats(player: shared Player, ctx: Context) -> Sequence<i32
 }
 ```
 
+**Valid Pattern: Yield Release**
+
+```cursive
+procedure monitor_player(player: shared Player, ctx: Context) -> Sequence<i32> {
+    #player {
+        loop {
+            let health = player.health
+            yield release health       // Release key, suspend, reacquire key
+            // health may be stale after reacquisition
+        }
+    }
+}
+```
+
 **Invalid Pattern**
 
 ```cursive
 procedure bad(player: shared Player) -> Sequence<i32> {
     #player {
-        yield player.health    // ERROR E-ASYNC-0013: key held at yield
+        yield player.health    // ERROR E-ASYNC-0013: key held at yield (no release)
     }
 }
 ```
 
 **Diagnostic Table**
 
-| Code           | Severity | Condition                               | Detection    | Effect    |
-| :------------- | :------- | :-------------------------------------- | :----------- | :-------- |
-| `E-ASYNC-0080` | Error    | Captured binding does not outlive async | Compile-time | Rejection |
-| `E-ASYNC-0081` | Error    | Async operation escapes its region      | Compile-time | Rejection |
-| `W-ASYNC-0001` | Warning  | Large captured state (performance)      | Compile-time | Warning   |
+| Code           | Severity | Condition                                                 | Detection    | Effect    |
+| :------------- | :------- | :-------------------------------------------------------- | :----------- | :-------- |
+| `E-ASYNC-0013` | Error    | `yield` while key is held (without `release`)             | Compile-time | Rejection |
+| `E-ASYNC-0080` | Error    | Captured binding does not outlive async                   | Compile-time | Rejection |
+| `E-ASYNC-0081` | Error    | Async operation escapes its region                        | Compile-time | Rejection |
+| `W-ASYNC-0001` | Warning  | Large captured state (performance)                        | Compile-time | Warning   |
+| `W-KEY-0011`   | Warning  | Access to potentially stale binding after `yield release` | Compile-time | Warning   |
 
 ---
 
@@ -15442,14 +14645,14 @@ All expressions evaluated in comptime context MUST be pure as defined in §10.1.
 
 The following constructs are prohibited in comptime context:
 
-| Construct                       | Rationale                                  |
-| :------------------------------ | :----------------------------------------- |
-| `unsafe` blocks                 | Cannot verify memory safety                |
-| FFI calls (`extern` procedures) | Foreign code may have side effects         |
-| Runtime capability access       | Runtime capabilities unavailable           |
-| Random number generation        | Violates determinism                       |
-| System time queries             | Violates determinism                       |
-| I/O operations                  | Violates isolation (except `ProjectFiles`) |
+| Construct                              |
+| :------------------------------------- |
+| `unsafe` blocks                        |
+| FFI calls (`extern` procedures)        |
+| Runtime capability access              |
+| Random number generation               |
+| System time queries                    |
+| I/O operations (except `ProjectFiles`) |
 
 **Diagnostic Table**
 
@@ -15515,12 +14718,12 @@ $$\frac{\texttt{enum}\; E\; \{\; V_1(T_1), \ldots, V_n(T_n) \;\} \quad \forall i
 
 The following types are NOT comptime-available:
 
-| Type Category          | Rationale                                  |
-| :--------------------- | :----------------------------------------- |
-| Reference types        | Require runtime memory                     |
-| Capability types       | Runtime resources unavailable              |
-| Modal types            | State machines require runtime transitions |
-| Types containing `dyn` | Dynamic dispatch requires runtime vtables  |
+| Type Category          |
+| :--------------------- |
+| Reference types        |
+| Capability types       |
+| Modal types            |
+| Types containing `dyn` |
 
 **Diagnostic Table**
 
@@ -16084,63 +15287,6 @@ Implementations MAY support higher limits. The actual limits are implementation-
 
 ---
 
-### 16.9 Diagnostic Summary
-
-##### Definition
-
-This subsection summarizes the diagnostics defined in Clause 16 for quick reference.
-
-##### Constraints & Legality
-
-| Code         | Section | Condition                                       |
-| :----------- | :------ | :---------------------------------------------- |
-| `E-CTE-0001` | §16.1   | `unsafe` block in comptime context              |
-| `E-CTE-0002` | §16.1   | FFI call in comptime context                    |
-| `E-CTE-0003` | §16.1   | Runtime capability access in comptime context   |
-| `E-CTE-0004` | §16.1   | Non-deterministic operation in comptime context |
-| `E-CTE-0005` | §16.1   | Prohibited I/O operation in comptime context    |
-| `E-CTE-0010` | §16.2   | Non-comptime-available type in comptime expr    |
-| `E-CTE-0011` | §16.2   | Reference type in comptime context              |
-| `E-CTE-0012` | §16.2   | Capability type in comptime context             |
-| `E-CTE-0020` | §16.3   | Comptime block contains prohibited construct    |
-| `E-CTE-0021` | §16.3   | Comptime expression has non-comptime type       |
-| `E-CTE-0022` | §16.3   | Comptime evaluation diverges                    |
-| `E-CTE-0023` | §16.3   | Comptime evaluation panics                      |
-| `E-CTE-0030` | §16.4   | Parameter type not comptime-available           |
-| `E-CTE-0031` | §16.4   | Return type not comptime-available              |
-| `E-CTE-0032` | §16.4   | Comptime procedure body violates restrictions   |
-| `E-CTE-0033` | §16.4   | Requires clause predicate evaluates to false    |
-| `E-CTE-0034` | §16.4   | Comptime procedure called from runtime context  |
-| `E-CTE-0040` | §16.5.1 | Emit without TypeEmitter capability             |
-| `E-CTE-0041` | §16.5.1 | `[[emit]]` on non-comptime block                |
-| `E-CTE-0042` | §16.5.1 | Emitted AST is ill-formed                       |
-| `E-CTE-0050` | §16.5.2 | `fields` called on non-record type              |
-| `E-CTE-0051` | §16.5.2 | `variants` called on non-enum type              |
-| `E-CTE-0052` | §16.5.2 | `states` called on non-modal type               |
-| `E-CTE-0053` | §16.5.2 | Introspection of incomplete type                |
-| `E-CTE-0060` | §16.5.3 | File operation without ProjectFiles capability  |
-| `E-CTE-0061` | §16.5.3 | `[[files]]` on non-comptime block               |
-| `E-CTE-0062` | §16.5.3 | Path escapes project directory                  |
-| `E-CTE-0063` | §16.5.3 | Absolute path in file operation                 |
-| `E-CTE-0064` | §16.5.3 | File not found                                  |
-| `E-CTE-0070` | §16.5.4 | Comptime error emitted by user code             |
-| `W-CTE-0071` | §16.5.4 | Comptime warning emitted by user code           |
-| `E-CTE-0080` | §16.6   | Comptime if condition not comptime-evaluable    |
-| `E-CTE-0081` | §16.6   | Comptime if condition not boolean               |
-| `E-CTE-0082` | §16.6   | Comptime for iterator not comptime-evaluable    |
-| `E-CTE-0083` | §16.6   | Comptime for iterator not iterable              |
-| `E-CTE-0084` | §16.6   | Comptime for exceeds iteration limit            |
-| `E-CTE-0090` | §16.7   | Comptime assertion failed                       |
-| `E-CTE-0091` | §16.7   | Comptime assertion condition not boolean        |
-| `E-CTE-0092` | §16.7   | Comptime assertion condition not comptime-eval  |
-| `E-CTE-0100` | §16.8   | Comptime recursion depth exceeded               |
-| `E-CTE-0101` | §16.8   | Comptime iteration limit exceeded               |
-| `E-CTE-0102` | §16.8   | Comptime memory limit exceeded                  |
-| `E-CTE-0103` | §16.8   | Comptime AST node limit exceeded                |
-| `E-CTE-0104` | §16.8   | Comptime execution time limit exceeded          |
-
----
-
 ## Clause 17: Type Reflection
 
 This clause defines the type reflection system for Cursive. Type reflection enables compile-time introspection of type structure, enabling generic programming patterns and code generation based on type properties.
@@ -16569,29 +15715,6 @@ For generic types, the name includes type parameters: `"Vec<i32>"`.
 
 ---
 
-### 17.7 Diagnostic Summary
-
-##### Definition
-
-This subsection summarizes diagnostics defined in Clause 17.
-
-##### Constraints & Legality
-
-| Code         | Section | Condition                                  |
-| :----------- | :------ | :----------------------------------------- |
-| `E-REF-0010` | §17.1   | Type argument to Type::<> is ill-formed    |
-| `E-REF-0011` | §17.1   | Type::<> used in runtime context           |
-| `E-REF-0020` | §17.2   | Category query on incomplete type          |
-| `E-REF-0030` | §17.3.1 | `fields` called on non-record type         |
-| `E-REF-0040` | §17.3.2 | `variants` called on non-enum type         |
-| `E-REF-0050` | §17.3.3 | `states` called on non-modal type          |
-| `E-REF-0060` | §17.4   | `required_procedures` called on non-form   |
-| `E-REF-0061` | §17.4   | `implements_form` with non-form second arg |
-| `E-REF-0070` | §17.5   | Type predicate on incomplete type          |
-| `E-REF-0080` | §17.6   | Name introspection on incomplete type      |
-
----
-
 ## Clause 18: Code Generation
 
 This clause defines the code generation system for Cursive. Code generation enables compile-time construction and emission of AST fragments, providing the foundation for derive targets (§19) and custom metaprogramming.
@@ -16938,9 +16061,6 @@ Within a single Metaprogramming Phase:
 
 ##### Syntax & Declaration
 
-```cursive
-comptime procedure type_repr_of(t: Type) -> Ast::Type
-```
 
 ##### Static Semantics
 
@@ -16951,22 +16071,6 @@ $$\frac{
 }{
     \Gamma_{ct} \vdash \texttt{type\_repr\_of}(t) : \texttt{Ast::Type}
 } \quad \text{(T-TypeRepr)}$$
-
-**Usage**
-
-Type representation enables splicing type parameters into generated code:
-
-```cursive
-comptime {
-    let target = emitter~>target_type()
-    let ast = quote {
-        record GeneratedWrapper {
-            inner: $(type_repr_of(target)),
-        }
-    }
-    emitter~>emit(ast)
-}
-```
 
 ##### Constraints & Legality
 
@@ -17026,35 +16130,6 @@ $$\frac{
 | :----------- | :------- | :------------------------------------------- | :----------- | :-------- |
 | `E-GEN-0070` | Error    | Write key already held for (type, form) pair | Compile-time | Rejection |
 | `E-GEN-0071` | Error    | Duplicate form implementation emitted        | Compile-time | Rejection |
-
----
-
-### 18.8 Diagnostic Summary
-
-##### Definition
-
-This subsection summarizes diagnostics defined in Clause 18.
-
-##### Constraints & Legality
-
-| Code         | Section | Condition                                    |
-| :----------- | :------ | :------------------------------------------- |
-| `E-GEN-0010` | §18.1   | Ast used in runtime context                  |
-| `E-GEN-0020` | §18.2   | Quoted content is syntactically invalid      |
-| `E-GEN-0021` | §18.2   | Quote expression outside comptime            |
-| `E-GEN-0030` | §18.3   | Splice type incompatible with context        |
-| `E-GEN-0031` | §18.3   | Splice expression not comptime-evaluable     |
-| `E-GEN-0032` | §18.3   | Invalid identifier string in splice          |
-| `E-GEN-0033` | §18.3   | Splice expression outside quote context      |
-| `E-GEN-0040` | §18.4   | Captured identifier out of scope at emission |
-| `E-GEN-0041` | §18.4   | Hygiene renaming collision                   |
-| `E-GEN-0050` | §18.5   | Emit without TypeEmitter capability          |
-| `E-GEN-0051` | §18.5   | Emitted AST is not an item                   |
-| `E-GEN-0052` | §18.5   | Emitted AST is ill-formed                    |
-| `E-GEN-0053` | §18.5   | Type error in emitted code                   |
-| `E-GEN-0060` | §18.6   | type_repr_of called on invalid Type          |
-| `E-GEN-0070` | §18.7   | Write key already held                       |
-| `E-GEN-0071` | §18.7   | Duplicate form implementation emitted        |
 
 ---
 
@@ -17530,94 +16605,9 @@ $$\frac{
 
 ---
 
-### 19.8 Diagnostic Summary
-
-##### Definition
-
-This subsection summarizes diagnostics defined in Clause 19.
-
-##### Constraints & Legality
-
-| Code         | Section | Condition                                     |
-| :----------- | :------ | :-------------------------------------------- |
-| `E-DRV-0010` | §19.1   | Unknown derive target name                    |
-| `E-DRV-0011` | §19.1   | Derive attribute on non-type declaration      |
-| `E-DRV-0012` | §19.1   | Duplicate derive target in attribute          |
-| `E-DRV-0020` | §19.2   | Derive target body violates comptime rules    |
-| `E-DRV-0021` | §19.2   | Contract references unknown form              |
-| `E-DRV-0022` | §19.2   | Derive target has invalid signature           |
-| `E-DRV-0030` | §19.3   | Required form not implemented                 |
-| `E-DRV-0031` | §19.3   | Emits clause not satisfied                    |
-| `E-DRV-0032` | §19.3   | Undeclared form emitted                       |
-| `E-DRV-0040` | §19.4   | Cyclic derive dependency                      |
-| `E-DRV-0041` | §19.4   | Derive target execution panics                |
-| `E-DRV-0042` | §19.4   | Derive execution exceeds resource limits      |
-| `E-DRV-0050` | §19.5   | Emitted declaration missing original fields   |
-| `E-DRV-0051` | §19.5   | Emitted declaration has wrong type name       |
-| `E-DRV-0052` | §19.5   | Form procedure missing from emission          |
-| `E-DRV-0060` | §19.6.1 | Field does not implement Debug                |
-| `E-DRV-0061` | §19.6.2 | Field does not implement Clone                |
-| `E-DRV-0062` | §19.6.3 | Field does not implement Eq                   |
-| `E-DRV-0063` | §19.6.4 | Field does not implement Hash                 |
-| `E-DRV-0064` | §19.6.5 | Field does not implement Default              |
-| `E-DRV-0065` | §19.6.5 | Default derive on non-record type             |
-| `E-DRV-0066` | §19.6.6 | Field does not implement Serialize            |
-| `E-DRV-0067` | §19.6.6 | Field does not implement Deserialize          |
-| `E-DRV-0070` | §19.7   | Derive target not applicable to type category |
-
----
-
 # Part 6: Interoperability and ABI
 
 ## Clause 20: Foreign Function Interface
-
-### 20.1 Design Principles
-
-##### Definition
-
-The **Foreign Function Interface (FFI)** is the subsystem through which Cursive code interoperates with code written in other languages—primarily C and C-compatible ABIs. FFI enables Cursive programs to call foreign procedures, access foreign global variables, and export Cursive procedures for invocation by foreign code.
-
-**Core Principles**
-
-The Cursive FFI adheres to five foundational design principles:
-
-**Principle 1: Static-by-Default**
-
-FFI bindings are resolved at compile time or link time. Ad-hoc runtime symbol lookup is not permitted in safe code. Dynamic loading (§20.10) is an explicit, capability-controlled extension.
-
-**Principle 2: Unverifiable Behavior (UVB) at Boundary**
-
-Foreign code executes outside Cursive's semantic model. All interactions with foreign code constitute **Unverifiable Behavior** per §1.2 and MUST occur within `unsafe` blocks.
-
-**Principle 3: Capability Blindness**
-
-Foreign code cannot exercise, inspect, or forge Cursive capabilities. Dyn types are prohibited in FFI signatures. The capability system's invariants are maintained by ensuring capabilities never cross the FFI boundary.
-
-**Principle 4: Separation from Comptime**
-
-FFI is a runtime facility. Comptime code (§16) MUST NOT invoke foreign procedures or access foreign globals, except for binding generation via the Introspection API.
-
-**Principle 5: Two-Layer Architecture**
-
-FFI operates in two layers:
-
-| Layer         | Safety   | Purpose                                             |
-| :------------ | :------- | :-------------------------------------------------- |
-| Raw FFI       | `unsafe` | Direct foreign calls, raw pointers, no abstractions |
-| Safe Wrappers | Safe     | Capability-requiring APIs built atop raw FFI        |
-
-Safe wrappers transform raw FFI into idiomatic Cursive APIs that integrate with the capability and type systems.
-
-> **Rationale:**
-
-These principles ensure that:
-
-1. **Safety is explicit:** The `unsafe` keyword marks all FFI interaction points, making audit boundaries clear.
-2. **Capabilities remain unforgeable:** Foreign code cannot conjure authority it was not granted.
-3. **Verification is scoped:** The contract and region systems operate normally within Cursive; only the foreign boundary is unverifiable.
-4. **Interop is practical:** Real-world systems programming requires calling C libraries; the FFI makes this possible without compromising the safety model elsewhere.
-
----
 
 ### 20.2 The FfiSafe Class
 
@@ -17680,42 +16670,7 @@ The following types have compiler-provided `FfiSafe` implementations:
 | Fixed-size arrays        | `[T; N]`                                   | When `T <: FfiSafe`                            |
 | Sparse function pointers | `(T₁, ..., Tₙ) -> R`                       | When all `Tᵢ` and `R` are `FfiSafe`            |
 
-**Primitive Type Definitions (Conceptual)**
-
-```cursive
-// Compiler-provided primitive definitions
-record i8 <: FfiSafe, Copy, Clone, Eq, Ord, Hash {
-    comptime procedure c_size() -> usize { 1 }
-    comptime procedure c_alignment() -> usize { 1 }
-}
-
-record i16 <: FfiSafe, Copy, Clone, Eq, Ord, Hash {
-    comptime procedure c_size() -> usize { 2 }
-    comptime procedure c_alignment() -> usize { 2 }
-}
-
-record i32 <: FfiSafe, Copy, Clone, Eq, Ord, Hash {
-    comptime procedure c_size() -> usize { 4 }
-    comptime procedure c_alignment() -> usize { 4 }
-}
-
-record i64 <: FfiSafe, Copy, Clone, Eq, Ord, Hash {
-    comptime procedure c_size() -> usize { 8 }
-    comptime procedure c_alignment() -> usize { 8 }
-}
-
-record i128 <: FfiSafe, Copy, Clone, Eq, Ord, Hash {
-    comptime procedure c_size() -> usize { 16 }
-    comptime procedure c_alignment() -> usize { 16 }
-}
-
-record isize <: FfiSafe, Copy, Clone, Eq, Ord, Hash {
-    comptime procedure c_size() -> usize { introspect~>size_of::<isize>() }
-    comptime procedure c_alignment() -> usize { introspect~>align_of::<isize>() }
-}
-
-// Similar definitions for u8, u16, u32, u64, u128, usize, f16, f32, f64
-```
+The primitive types `i8`, `i16`, `i32`, `i64`, `i128`, `isize`, `u8`, `u16`, `u32`, `u64`, `u128`, `usize`, `f16`, `f32`, `f64` implement `FfiSafe` with size and alignment matching the target C ABI.
 
 **User-Defined FFI-Safe Types**
 
@@ -17766,23 +16721,6 @@ The derive macro:
 3. Verifies the type contains no prohibited types (else emits `E-FFI-3303`)
 4. Generates `c_size()` and `c_alignment()` using introspection
 
-**Generated Code (Conceptual)**
-
-```cursive
-// [[derive(FfiSafe)]] generates:
-record Point <: FfiSafe {
-    x: f64,
-    y: f64,
-    
-    comptime procedure c_size() -> usize { 
-        introspect~>size_of::<Point>() 
-    }
-    comptime procedure c_alignment() -> usize { 
-        introspect~>align_of::<Point>() 
-    }
-}
-```
-
 **Generic FFI-Safe Types**
 
 For a generic type to be FFI-safe, type parameters appearing in the layout MUST be constrained to `FfiSafe`:
@@ -17800,30 +16738,26 @@ record Pair<T <: FfiSafe> <: FfiSafe {
         introspect~>align_of::<Pair<T>>() 
     }
 }
-
-// Usage:
-// Pair<i32> is FFI-safe ✓
-// Pair<string@View> is ill-formed (constraint violation) ✗
 ```
 
 **Prohibited Types**
 
 The following types MUST NOT implement `FfiSafe`:
 
-| Type Category                | Rationale                                                    |
-| :--------------------------- | :----------------------------------------------------------- |
-| `bool`                       | C booleans may have non-normalized bit patterns; use `CBool` |
-| Modal types                  | Runtime discriminant encoding is not C-compatible            |
-| `Ptr<T>` (safe pointer)      | Modal type with state tracking                               |
-| Dyn types (`dyn Class`)      | Zero-sized capability tokens have no ABI representation      |
-| Capability classes           | Authority cannot cross the FFI boundary                      |
-| `Context`                    | Contains capability dynes                                    |
-| Types containing dynes       | Transitive prohibition                                       |
-| Opaque classes (`opaque`)    | Size unknown; layout undefined                               |
-| Tuples                       | C ABI handling is not portable                               |
-| Slices (`[T]`)               | Fat pointer representation                                   |
-| String types                 | Modal types; use `CStr`/`CString`                            |
-| Closure types (`\|T\| -> U`) | Contains environment pointer                                 |
+| Type Category                |
+| :--------------------------- |
+| `bool`                       |
+| Modal types                  |
+| `Ptr<T>` (safe pointer)      |
+| Dyn types (`dyn Class`)      |
+| Capability classes           |
+| `Context`                    |
+| Types containing dynes       |
+| Opaque classes (`opaque`)    |
+| Tuples                       |
+| Slices (`[T]`)               |
+| String types                 |
+| Closure types (`\|T\| -> U`) |
 
 **Diagnostic for Prohibited Types**
 
@@ -17860,8 +16794,6 @@ record CString <: FfiSafe, Drop {
     }
 }
 ```
-
-**Rationale:** Foreign code may copy the value per C semantics. Cursive's `Drop` runs only on the Cursive-side value. The attribute acknowledges this potential for resource duplication.
 
 Without `[[ffi_pass_by_value]]`, passing a `Drop + FfiSafe` type by value in FFI emits `E-FFI-3306`.
 
@@ -17911,8 +16843,6 @@ foreign_assumes     ::= "@foreign_assumes" "(" predicate_list ")"
 
 predicate_list      ::= predicate ("," predicate)*
 ```
-
-**Example**
 
 ```cursive
 extern "C" {
@@ -17993,11 +16923,7 @@ Invoking a foreign procedure:
 5. Returns result (if any) upon foreign code completion
 
 ```cursive
-procedure example() {
-    let ptr = unsafe { malloc(1024) };  // ✓ unsafe block
-    
-    // let ptr2 = malloc(1024);  // ✗ E-FFI-3320: extern call outside unsafe
-}
+
 ```
 
 **Link Attributes**
@@ -18057,8 +16983,6 @@ A **foreign global declaration** introduces a global variable whose storage is p
 ```ebnf
 foreign_global      ::= [visibility] ["mut"] identifier ":" type ";"
 ```
-
-**Example**
 
 ```cursive
 extern "C" {
@@ -18120,8 +17044,6 @@ export_opts         ::= export_opt ("," export_opt)*
 
 export_opt          ::= "link_name" ":" string_literal
 ```
-
-**Example**
 
 ```cursive
 [[export("C")]]
@@ -18220,847 +17142,18 @@ Capability isolation patterns ensure that FFI interactions do not grant foreign 
 
 **Diagnostic Table**
 
-| Code         | Severity | Condition                                         | Detection    | Effect    |
-| :----------- | :------- | :------------------------------------------------ | :----------- | :-------- |
+| Code         | Severity | Condition                                          | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------- | :----------- | :-------- |
 | `E-FFI-3351` | Error    | Capability-bearing dyn or Context in FFI signature | Compile-time | Rejection |
 | `E-FFI-3353` | Error    | Context or dyn-containing type in export           | Compile-time | Rejection |
 | `E-FFI-3360` | Error    | Region-local pointer escapes via FFI               | Compile-time | Rejection |
 
-> **Note (Informative):** Handle and callback context patterns may be implemented with opaque `[[layout(C)]]` records and registries; see Clause 20 source examples for a reference implementation.
 
 ### 20.7 Standard FFI Types
 
-##### Definition
+Standard library FFI helper types (string wrappers, pointer wrappers, buffers, booleans, file descriptors, opaque void, error enums, modal foreign resources, variadic helpers, and wide character aliases) are specified in **Appendix H (Core Library Specification)** and are not repeated here.
 
-Standard FFI types are library-provided, `FfiSafe` types that model common C ABI types for interoperable signatures. The following subsections specify each type family.
-
-#### 20.7.1 String Types
-
-##### Definition
-
-**`CStr` — Borrowed Null-Terminated String**
-
-```cursive
-[[layout(C)]]
-record CStr <: FfiSafe {
-    ptr: *imm c_char,
-    
-    comptime procedure c_size() -> usize { introspect~>size_of::<*imm c_char>() }
-    comptime procedure c_alignment() -> usize { introspect~>align_of::<*imm c_char>() }
-    
-    /// Returns the raw pointer.
-    procedure as_ptr(~) -> *imm c_char { self.ptr }
-    
-    /// Attempts to convert to a Cursive string view.
-    /// Returns error if not valid UTF-8.
-    procedure to_string_view(~) -> string@View | Utf8Error {
-        unsafe {
-            let len = c_strlen(self.ptr);
-            let bytes = BufferView::from_raw(self.ptr as *imm u8, len);
-            string::from_utf8_view(bytes)
-        }
-    }
-    
-    /// Returns the length in bytes (excluding null terminator).
-    procedure len(~) -> usize {
-        unsafe { c_strlen(self.ptr) }
-    }
-}
-
-module cstr {
-    /// Create a CStr from a raw pointer.
-    /// # Safety
-    /// Pointer must be valid and null-terminated.
-    public unsafe procedure from_ptr(ptr: *imm c_char) -> CStr {
-        CStr { ptr }
-    }
-}
-```
-
-**`CString` — Owned Null-Terminated String**
-
-```cursive
-[[layout(C)]]
-[[ffi_pass_by_value]]
-record CString <: FfiSafe, Drop {
-    ptr: *mut c_char,
-    len: usize,
-    cap: usize,
-    
-    comptime procedure c_size() -> usize { introspect~>size_of::<CString>() }
-    comptime procedure c_alignment() -> usize { introspect~>align_of::<CString>() }
-    
-    procedure drop(~!) {
-        if self.ptr != null {
-            unsafe { c_free(self.ptr as *mut opaque c_void); }
-        }
-    }
-    
-    /// Borrow as CStr.
-    procedure as_cstr(~) -> CStr {
-        CStr { ptr: self.ptr as *imm c_char }
-    }
-    
-    /// Returns the raw pointer.
-    procedure as_ptr(~) -> *imm c_char { 
-        self.ptr as *imm c_char 
-    }
-    
-    /// Returns mutable raw pointer.
-    procedure as_mut_ptr(~!) -> *mut c_char { 
-        self.ptr 
-    }
-    
-    /// Consumes self and returns raw pointer without deallocating.
-    procedure into_raw(~!) -> *mut c_char {
-        let p = self.ptr;
-        self.ptr = null;
-        p
-    }
-    
-    /// Length in bytes (excluding null terminator).
-    procedure len(~) -> usize { self.len }
-}
-
-module cstring {
-    /// Create CString from Cursive string.
-    public procedure from_str(s: string@View, heap: dyn HeapAllocator) -> CString {
-        let len = s~>byte_len();
-        let ptr = unsafe { heap~>allocate_bytes(len + 1) } as *mut c_char;
-        
-        unsafe {
-            mem::copy(s~>as_ptr() as *imm c_char, ptr, len);
-            *(ptr + len) = 0;  // null terminator
-        }
-        
-        CString { ptr, len, cap: len + 1 }
-    }
-    
-    /// Create CString from raw parts.
-    /// # Safety
-    /// Pointer must be valid, null-terminated, and allocated with c_malloc.
-    public unsafe procedure from_raw(ptr: *mut c_char, len: usize, cap: usize) -> CString {
-        CString { ptr, len, cap }
-    }
-}
-```
-
-#### 20.7.2 Pointer Wrappers
-
-##### Definition
-
-**`OwnedPtr<T>` — RAII Wrapper for Foreign Pointers**
-
-```cursive
-[[layout(C)]]
-record OwnedPtr<T <: FfiSafe> <: FfiSafe, Drop {
-    ptr: *mut T,
-    deallocator: (*mut T) -> (),
-    
-    comptime procedure c_size() -> usize { introspect~>size_of::<OwnedPtr<T>>() }
-    comptime procedure c_alignment() -> usize { introspect~>align_of::<OwnedPtr<T>>() }
-    
-    procedure drop(~!) {
-        if self.ptr != null {
-            (self.deallocator)(self.ptr);
-        }
-    }
-    
-    /// Borrow immutably.
-    procedure borrow(~) -> *imm T { 
-        self.ptr as *imm T 
-    }
-    
-    /// Borrow mutably.
-    procedure borrow_mut(~!) -> *mut T { 
-        self.ptr 
-    }
-    
-    /// Check if null.
-    procedure is_null(~) -> bool { 
-        self.ptr == null 
-    }
-    
-    /// Consume and return raw pointer without calling deallocator.
-    procedure into_raw(~!) -> *mut T {
-        let p = self.ptr;
-        self.ptr = null;
-        p
-    }
-}
-
-module owned_ptr {
-    /// Create OwnedPtr from raw pointer and deallocator.
-    public procedure new<T <: FfiSafe>(
-        ptr: *mut T, 
-        deallocator: (*mut T) -> ()
-    ) -> OwnedPtr<T> {
-        OwnedPtr { ptr, deallocator }
-    }
-}
-```
-
-**`BorrowedPtr<T>` — Non-Owning Pointer Wrapper**
-
-```cursive
-[[layout(C)]]
-record BorrowedPtr<T <: FfiSafe> <: FfiSafe {
-    ptr: *imm T,
-    
-    comptime procedure c_size() -> usize { introspect~>size_of::<*imm T>() }
-    comptime procedure c_alignment() -> usize { introspect~>align_of::<*imm T>() }
-    
-    procedure get(~) -> *imm T { self.ptr }
-    procedure is_null(~) -> bool { self.ptr == null }
-}
-
-module borrowed_ptr {
-    public procedure new<T <: FfiSafe>(ptr: *imm T) -> BorrowedPtr<T> {
-        BorrowedPtr { ptr }
-    }
-}
-```
-
-#### 20.7.3 Buffer Types
-
-##### Definition
-
-**`BufferView<T>` — Borrowed Slice-Like View**
-
-```cursive
-[[layout(C)]]
-record BufferView<T <: FfiSafe> <: FfiSafe {
-    ptr: *imm T,
-    len: usize,
-    
-    comptime procedure c_size() -> usize { introspect~>size_of::<BufferView<T>>() }
-    comptime procedure c_alignment() -> usize { introspect~>align_of::<BufferView<T>>() }
-    
-    procedure as_ptr(~) -> *imm T { self.ptr }
-    procedure len(~) -> usize { self.len }
-    procedure is_empty(~) -> bool { self.len == 0 }
-    
-    /// Get element at index (bounds checked).
-    procedure get(~, index: usize) -> T | OutOfBoundsError {
-        if index >= self.len {
-            return OutOfBoundsError { index, len: self.len };
-        }
-        unsafe { *(self.ptr + index) }
-    }
-    
-    /// Get element at index (unchecked).
-    unsafe procedure get_unchecked(~, index: usize) -> T {
-        *(self.ptr + index)
-    }
-}
-
-module buffer_view {
-    /// Create BufferView from raw parts.
-    /// # Safety
-    /// Pointer must be valid for `len` elements.
-    public unsafe procedure from_raw<T <: FfiSafe>(ptr: *imm T, len: usize) -> BufferView<T> {
-        BufferView { ptr, len }
-    }
-    
-    /// Create empty BufferView.
-    public procedure empty<T <: FfiSafe>() -> BufferView<T> {
-        BufferView { ptr: null, len: 0 }
-    }
-}
-```
-
-**`BufferMut<T>` — Mutable Buffer View**
-
-```cursive
-[[layout(C)]]
-record BufferMut<T <: FfiSafe> <: FfiSafe {
-    ptr: *mut T,
-    len: usize,
-    
-    comptime procedure c_size() -> usize { introspect~>size_of::<BufferMut<T>>() }
-    comptime procedure c_alignment() -> usize { introspect~>align_of::<BufferMut<T>>() }
-    
-    procedure as_ptr(~) -> *mut T { self.ptr }
-    procedure len(~) -> usize { self.len }
-    procedure is_empty(~) -> bool { self.len == 0 }
-    
-    procedure as_view(~) -> BufferView<T> {
-        BufferView { ptr: self.ptr as *imm T, len: self.len }
-    }
-    
-    /// Set element at index (bounds checked).
-    procedure set(~!, index: usize, value: T) -> () | OutOfBoundsError {
-        if index >= self.len {
-            return OutOfBoundsError { index, len: self.len };
-        }
-        unsafe { *(self.ptr + index) = value; }
-        ()
-    }
-    
-    /// Set element at index (unchecked).
-    unsafe procedure set_unchecked(~!, index: usize, value: T) {
-        *(self.ptr + index) = value;
-    }
-}
-
-module buffer_mut {
-    /// Create BufferMut from raw parts.
-    /// # Safety
-    /// Pointer must be valid for `len` elements and allow mutation.
-    public unsafe procedure from_raw<T <: FfiSafe>(ptr: *mut T, len: usize) -> BufferMut<T> {
-        BufferMut { ptr, len }
-    }
-}
-```
-
-**`OwnedBuffer<T>` — Owned Foreign Buffer**
-
-```cursive
-[[layout(C)]]
-record OwnedBuffer<T <: FfiSafe> <: FfiSafe, Drop {
-    ptr: *mut T,
-    len: usize,
-    cap: usize,
-    deallocator: (*mut T, usize) -> (),
-    
-    comptime procedure c_size() -> usize { introspect~>size_of::<OwnedBuffer<T>>() }
-    comptime procedure c_alignment() -> usize { introspect~>align_of::<OwnedBuffer<T>>() }
-    
-    procedure drop(~!) {
-        if self.ptr != null {
-            (self.deallocator)(self.ptr, self.cap);
-        }
-    }
-    
-    procedure as_view(~) -> BufferView<T> {
-        BufferView { ptr: self.ptr as *imm T, len: self.len }
-    }
-    
-    procedure as_mut(~!) -> BufferMut<T> {
-        BufferMut { ptr: self.ptr, len: self.len }
-    }
-    
-    procedure len(~) -> usize { self.len }
-    procedure capacity(~) -> usize { self.cap }
-    
-    /// Consume and return raw parts without deallocating.
-    procedure into_raw_parts(~!) -> (*mut T, usize, usize) {
-        let parts = (self.ptr, self.len, self.cap);
-        self.ptr = null;
-        parts
-    }
-}
-
-module owned_buffer {
-    public procedure new<T <: FfiSafe>(
-        ptr: *mut T,
-        len: usize,
-        cap: usize,
-        deallocator: (*mut T, usize) -> ()
-    ) -> OwnedBuffer<T> {
-        OwnedBuffer { ptr, len, cap, deallocator }
-    }
-}
-```
-
-#### 20.7.4 C Boolean Type
-
-##### Definition
-
-```cursive
-[[layout(C)]]
-record CBool <: FfiSafe {
-    value: u8,
-    
-    comptime procedure c_size() -> usize { 1 }
-    comptime procedure c_alignment() -> usize { 1 }
-    
-    /// Convert to Cursive bool (any non-zero is true).
-    procedure to_bool(~) -> bool { 
-        self.value != 0 
-    }
-    
-    /// Convert to Cursive bool assuming normalized value.
-    /// # Safety
-    /// Value must be 0 or 1.
-    unsafe procedure to_bool_unchecked(~) -> bool {
-        transmute::<u8, bool>(self.value)
-    }
-}
-
-public let CBOOL_FALSE: CBool = CBool { value: 0 };
-public let CBOOL_TRUE: CBool = CBool { value: 1 };
-
-module cbool {
-    /// Create CBool from Cursive bool.
-    public procedure from_bool(b: bool) -> CBool {
-        CBool { value: if b { 1 } else { 0 } }
-    }
-}
-```
-
-#### 20.7.5 File Descriptor Types
-
-##### Definition
-
-**`Fd` — Raw File Descriptor**
-
-```cursive
-[[layout(C)]]
-record Fd <: FfiSafe, Copy, Clone {
-    raw: c_int,
-    
-    comptime procedure c_size() -> usize { introspect~>size_of::<c_int>() }
-    comptime procedure c_alignment() -> usize { introspect~>align_of::<c_int>() }
-    
-    procedure as_raw(~) -> c_int { self.raw }
-    procedure is_valid(~) -> bool { self.raw >= 0 }
-}
-
-public let INVALID_FD: Fd = Fd { raw: -1 };
-public let STDIN_FD: Fd = Fd { raw: 0 };
-public let STDOUT_FD: Fd = Fd { raw: 1 };
-public let STDERR_FD: Fd = Fd { raw: 2 };
-```
-
-**`OwnedFd` — RAII File Descriptor**
-
-```cursive
-// Note: OwnedFd does NOT implement FfiSafe - pass Fd instead
-record OwnedFd <: Drop {
-    fd: Fd,
-    
-    procedure drop(~!) {
-        if self.fd.raw >= 0 {
-            unsafe { close(self.fd.raw); }
-        }
-    }
-    
-    /// Borrow as raw Fd.
-    procedure as_fd(~) -> Fd { self.fd }
-    
-    /// Get raw value.
-    procedure as_raw(~) -> c_int { self.fd.raw }
-    
-    /// Consume and return raw value without closing.
-    procedure into_raw(~!) -> c_int {
-        let raw = self.fd.raw;
-        self.fd.raw = -1;
-        raw
-    }
-}
-
-module owned_fd {
-    /// Create OwnedFd from raw file descriptor.
-    /// # Safety
-    /// The fd must be valid and owned by the caller.
-    public unsafe procedure from_raw(raw: c_int) -> OwnedFd {
-        OwnedFd { fd: Fd { raw } }
-    }
-}
-```
-
-#### 20.7.6 Opaque Void Type
-
-##### Definition
-
-```cursive
-/// C's void type for generic pointer operations.
-opaque c_void;
-
-// Note: The compiler specially handles *mut opaque c_void and *imm opaque c_void
-// as FfiSafe types for interoperability with C's void*.
-```
-
-#### 20.7.7 Error Types
-
-##### Definition
-
-```cursive
-[[layout(C)]]
-record Errno <: FfiSafe, Copy, Clone {
-    code: c_int,
-    
-    comptime procedure c_size() -> usize { introspect~>size_of::<c_int>() }
-    comptime procedure c_alignment() -> usize { introspect~>align_of::<c_int>() }
-    
-    procedure is_success(~) -> bool { self.code == 0 }
-    procedure as_code(~) -> c_int { self.code }
-}
-
-enum HandleError {
-    /// The handle ID does not correspond to any registered context.
-    InvalidHandle,
-    /// The handle was valid but has been unregistered.
-    Expired,
-    /// The context registry's lock was poisoned by a panic.
-    /// This indicates a previous operation panicked while holding the lock.
-    RegistryPoisoned,
-}
-
-enum LoadError {
-    /// Library file not found at specified path.
-    NotFound,
-    /// Insufficient permissions to load library.
-    PermissionDenied,
-    /// File exists but is not a valid dynamic library.
-    InvalidFormat,
-    /// Operating system reported an error.
-    OsError { code: Errno },
-}
-
-enum SymbolError {
-    /// No symbol with this name exists in the library.
-    NotFound,
-    /// Symbol exists but cannot be loaded.
-    LoadFailed { code: Errno },
-}
-
-enum Utf8Error {
-    /// Invalid UTF-8 byte sequence at given offset.
-    InvalidByte { offset: usize },
-    /// Incomplete UTF-8 sequence at end.
-    IncompleteSequence,
-}
-
-record OutOfBoundsError {
-    index: usize,
-    len: usize,
-}
-```
-
-#### 20.7.8 Modal Foreign Resource
-
-##### Definition
-
-```cursive
-/// A modal type for managing foreign resources with compile-time state tracking.
-/// Prevents double-free and use-after-free at compile time.
-modal ForeignResource<T> {
-    @Uninitialized { }
-    
-    @Initialized {
-        handle: *mut T,
-        destructor: (*mut T) -> (),
-    } {
-        /// Borrow the raw handle.
-        procedure borrow(~) -> *mut T {
-            self.handle
-        }
-        
-        /// Borrow immutably.
-        procedure borrow_imm(~) -> *imm T {
-            self.handle as *imm T
-        }
-    }
-    
-    @Released { }
-    
-    /// Initialize with a handle and destructor.
-    transition initialize(
-        handle: *mut T,
-        destructor: (*mut T) -> ()
-    ) : @Uninitialized -> @Initialized {
-        ForeignResource@Initialized { handle, destructor }
-    }
-    
-    /// Release ownership and return the raw handle.
-    /// Destructor will NOT be called.
-    transition release(~!) : @Initialized -> @Released -> *mut T {
-        let h = self.handle;
-        ForeignResource@Released { };
-        h
-    }
-    
-    /// Forget the resource without running destructor.
-    transition forget(~!) : @Initialized -> @Released {
-        ForeignResource@Released { }
-    }
-}
-
-// Drop only runs in @Initialized state
-record ForeignResource@Initialized<T> <: Drop {
-    handle: *mut T,
-    destructor: (*mut T) -> (),
-    
-    procedure drop(~!) {
-        (self.destructor)(self.handle);
-    }
-}
-```
-
-> **Note (Informative):** Usage example
-
-```cursive
-extern "C" {
-    procedure create_widget() -> *mut Widget;
-    procedure destroy_widget(w: *mut Widget);
-}
-
-procedure example() {
-    // Create uninitialized
-    var resource: ForeignResource<Widget>@Uninitialized := 
-        ForeignResource@Uninitialized { };
-    
-    // Initialize with foreign allocation
-    let ptr = unsafe { create_widget() };
-    resource = resource~>initialize(ptr, destroy_widget);
-    
-    // Use while in @Initialized state
-    let handle = resource~>borrow();
-    unsafe { do_something_with(handle); }
-    
-    // Destructor runs automatically when resource goes out of scope
-    // OR explicitly release:
-    // let raw = resource~>release();  // Now in @Released, no destructor called
-}
-```
-
-#### 20.7.9 Variadic Helpers
-
-##### Definition
-
-**`CPromotable` Class**
-
-```cursive
-/// Types that undergo C default argument promotion in variadic contexts.
-class CPromotable {
-    /// The type this promotes to under C variadic calling conventions.
-    type Promoted <: FfiSafe;
-    
-    /// Perform the promotion.
-    procedure promote(value: Self) -> Self::Promoted;
-}
-```
-
-**Implementations for Primitives**
-
-```cursive
-// Primitives that widen under C promotion rules
-
-record f32 <: FfiSafe, CPromotable, Copy, Clone {
-    // ... FfiSafe procedures ...
-    
-    type Promoted = f64;
-    
-    procedure promote(value: f32) -> f64 {
-        value as f64
-    }
-}
-
-record i8 <: FfiSafe, CPromotable, Copy, Clone {
-    // ... FfiSafe procedures ...
-    
-    type Promoted = c_int;
-    
-    procedure promote(value: i8) -> c_int {
-        value as c_int
-    }
-}
-
-record i16 <: FfiSafe, CPromotable, Copy, Clone {
-    // ... FfiSafe procedures ...
-    
-    type Promoted = c_int;
-    
-    procedure promote(value: i16) -> c_int {
-        value as c_int
-    }
-}
-
-record u8 <: FfiSafe, CPromotable, Copy, Clone {
-    // ... FfiSafe procedures ...
-    
-    type Promoted = c_int;
-    
-    procedure promote(value: u8) -> c_int {
-        value as c_int
-    }
-}
-
-record u16 <: FfiSafe, CPromotable, Copy, Clone {
-    // ... FfiSafe procedures ...
-    
-    type Promoted = c_int;
-    
-    procedure promote(value: u16) -> c_int {
-        value as c_int
-    }
-}
-
-// Types that don't change under promotion
-
-record i32 <: FfiSafe, CPromotable, Copy, Clone {
-    // ... FfiSafe procedures ...
-    
-    type Promoted = i32;
-    
-    procedure promote(value: i32) -> i32 {
-        value
-    }
-}
-
-record i64 <: FfiSafe, CPromotable, Copy, Clone {
-    // ... FfiSafe procedures ...
-    
-    type Promoted = i64;
-    
-    procedure promote(value: i64) -> i64 {
-        value
-    }
-}
-
-record f64 <: FfiSafe, CPromotable, Copy, Clone {
-    // ... FfiSafe procedures ...
-    
-    type Promoted = f64;
-    
-    procedure promote(value: f64) -> f64 {
-        value
-    }
-}
-```
-
-#### 20.7.10 Wide Character Types
-
-##### Definition
-
-Wide character types for interoperability with C wide string APIs.
-
-**Platform-Dependent Width**
-
-| Type      | Windows          | POSIX (Linux/macOS) |
-| :-------- | :--------------- | :------------------ |
-| `c_wchar` | `u16` (UTF-16LE) | `u32` (UTF-32)      |
-| `c_wint`  | `u16`            | `u32`               |
-
-**Type Definitions**
-
-```cursive
-module std::ffi::ctypes {
-    // Wide character types (platform-dependent)
-    #[cfg(target_os = "windows")]
-    public type c_wchar = u16;
-
-    #[cfg(target_family = "unix")]
-    public type c_wchar = u32;
-
-    #[cfg(target_os = "windows")]
-    public type c_wint = u16;
-
-    #[cfg(target_family = "unix")]
-    public type c_wint = u32;
-}
-```
-
-**Wide String Types**
-
-```cursive
-/// Borrowed null-terminated wide string.
-[[layout(C)]]
-record WCStr <: FfiSafe {
-    ptr: *imm c_wchar,
-
-    comptime procedure c_size() -> usize { introspect~>size_of::<*imm c_wchar>() }
-    comptime procedure c_alignment() -> usize { introspect~>align_of::<*imm c_wchar>() }
-
-    /// Returns the raw pointer.
-    procedure as_ptr(~) -> *imm c_wchar { self.ptr }
-
-    /// Returns the length in wide characters (excluding null terminator).
-    procedure len(~) -> usize {
-        unsafe { wcslen(self.ptr) }
-    }
-
-    /// Attempts to convert to a Cursive string.
-    /// On Windows: decodes UTF-16LE
-    /// On POSIX: decodes UTF-32
-    procedure to_string(~, heap: dyn HeapAllocator) -> string@Managed | EncodingError {
-        // Platform-specific implementation
-        // ...
-    }
-}
-
-/// Owned null-terminated wide string.
-[[layout(C)]]
-[[ffi_pass_by_value]]
-record WCString <: FfiSafe, Drop {
-    ptr: *mut c_wchar,
-    len: usize,
-    cap: usize,
-
-    comptime procedure c_size() -> usize { introspect~>size_of::<WCString>() }
-    comptime procedure c_alignment() -> usize { introspect~>align_of::<WCString>() }
-
-    procedure drop(~!) {
-        if self.ptr != null {
-            unsafe { c_free(self.ptr as *mut opaque c_void); }
-        }
-    }
-
-    /// Borrow as WCStr.
-    procedure as_wcstr(~) -> WCStr {
-        WCStr { ptr: self.ptr as *imm c_wchar }
-    }
-
-    /// Returns the length in wide characters.
-    procedure len(~) -> usize { self.len }
-}
-
-module wcstring {
-    /// Create WCString from Cursive string.
-    /// On Windows: encodes as UTF-16LE
-    /// On POSIX: encodes as UTF-32
-    public procedure from_str(s: string@View, heap: dyn HeapAllocator) -> WCString {
-        // Platform-specific implementation
-        // ...
-    }
-}
-
-extern "C" {
-    procedure wcslen(s: *imm c_wchar) -> c_size_t;
-}
-```
-
-> **Note (Informative):** Usage example
-
-```cursive
-extern "C" {
-    // Windows API
-    #[cfg(target_os = "windows")]
-    procedure MessageBoxW(
-        hWnd: HWND,
-        lpText: *imm c_wchar,
-        lpCaption: *imm c_wchar,
-        uType: c_uint
-    ) -> c_int;
-}
-
-#[cfg(target_os = "windows")]
-procedure show_message(text: string@View, caption: string@View) {
-    let wtext = wcstring::from_str(text, Context::heap());
-    let wcaption = wcstring::from_str(caption, Context::heap());
-
-    unsafe {
-        MessageBoxW(null, wtext~>as_wcstr()~>as_ptr(), wcaption~>as_wcstr()~>as_ptr(), 0);
-    }
-}
-```
-
-**Encoding Errors**
-
-```cursive
-enum EncodingError {
-    /// Invalid UTF-16 surrogate pair (Windows)
-    InvalidSurrogate { offset: usize },
-    /// Invalid UTF-32 code point (POSIX)
-    InvalidCodePoint { offset: usize, value: u32 },
-    /// String contains embedded null
-    EmbeddedNull { offset: usize },
-}
-```
-
----
+----
 
 ### 20.8 Foreign Contracts
 
@@ -19085,8 +17178,6 @@ null_check          ::= expr "!=" "null" | expr "==" "null"
 
 range_check         ::= expr "in" range_expr
 ```
-
-**Example**
 
 ```cursive
 extern "C" {
@@ -19136,18 +17227,6 @@ extern "C" {
         |= @foreign_assumes(buf != null, len > 0);
 }
 
-procedure example(data: BufferView<u8>) {
-    if data~>is_empty() {
-        return;
-    }
-    
-    // Compiler can prove: data.ptr != null (from BufferView invariants)
-    // Compiler can prove: data.len > 0 (from !is_empty() check)
-    unsafe {
-        process(data~>as_ptr(), data~>len());  // ✓ Contracts satisfied
-    }
-}
-
 procedure bad_example() {
     unsafe {
         process(null, 0);  // E-CON-2850: Cannot prove `buf != null`
@@ -19164,12 +17243,6 @@ extern "C" {
         |= @foreign_assumes(ptr != null);
 }
 
-procedure example(ptr: *mut u8) {
-    // Runtime check inserted: if ptr == null { panic!(...) }
-    unsafe {
-        risky_call(ptr);
-    }
-}
 ```
 
 #### 20.8.1 Foreign Postconditions
@@ -19204,8 +17277,6 @@ Postcondition predicates may reference:
 - Parameter names (for checking output parameters)
 - `@error`: Predicates that hold when the call fails (e.g., returns null or error code)
 - `@null_result`: Predicates that hold specifically when result is null
-
-**Example**
 
 ```cursive
 extern "C" {
@@ -19258,16 +17329,6 @@ extern "C" {
         |= @foreign_ensures(@result != null, valid_for(@result, size));
 }
 
-procedure example() {
-    let buf = unsafe { get_buffer(100) };
-    // Compiler knows: buf != null, valid_for(buf, 100)
-    // Can verify downstream pointer arithmetic
-    unsafe {
-        *buf = 0;           // ✓ Provably valid
-        *(buf + 99) = 0;    // ✓ Provably valid (within size)
-        // *(buf + 100) = 0; // Would fail: outside guaranteed range
-    }
-}
 ```
 
 **Dynamic Verification**
@@ -19279,11 +17340,6 @@ extern "C" {
         |= @foreign_ensures(@result != null);
 }
 
-procedure example() {
-    // Runtime check inserted after call: if result == null { panic!(...) }
-    let ptr = unsafe { risky_alloc(100) };
-    // Guaranteed non-null here (or panicked)
-}
 ```
 
 **Trust Annotation**
@@ -19323,869 +17379,7 @@ extern "C" {
 
 ### 20.9 Platform Type Aliases
 
-##### Definition
-
-Platform type aliases provide portable names for C types whose sizes vary across platforms.
-
-##### Syntax & Declaration
-
-```cursive
-module std::ffi::ctypes {
-    // Character types
-    public type c_char = i8;        // IDB: may be u8 on some platforms
-    public type c_schar = i8;
-    public type c_uchar = u8;
-    
-    // Short types
-    public type c_short = i16;
-    public type c_ushort = u16;
-    
-    // Int types
-    public type c_int = i32;
-    public type c_uint = u32;
-    
-    // Long types (platform-dependent)
-    public type c_long = i64;       // IDB: i32 on 32-bit Windows
-    public type c_ulong = u64;      // IDB: u32 on 32-bit Windows
-    
-    // Long long types
-    public type c_longlong = i64;
-    public type c_ulonglong = u64;
-    
-    // Size types
-    public type c_size_t = usize;
-    public type c_ssize_t = isize;
-    public type c_ptrdiff_t = isize;
-    
-    // Floating-point types
-    public type c_float = f32;
-    public type c_double = f64;
-}
-```
-
-> **Note:** `IDB` indicates Implementation-Defined Behavior. The actual type depends on the target platform's C ABI.
-
-##### Static Semantics
-
-Implementations MUST provide correct type aliases for each supported target. For example:
-
-| Type       | LP64 (Linux/macOS 64-bit) | LLP64 (Windows 64-bit) | ILP32 (32-bit) |
-| :--------- | :------------------------ | :--------------------- | :------------- |
-| `c_long`   | `i64`                     | `i32`                  | `i32`          |
-| `c_ulong`  | `u64`                     | `u32`                  | `u32`          |
-| `c_size_t` | `u64`                     | `u64`                  | `u32`          |
-
----
-
-### 20.10 Dynamic Loading
-
-##### Definition
-
-**Dynamic loading** is the capability to load shared libraries at runtime and resolve symbols dynamically. This is an explicit extension to the static-by-default FFI model.
-
-**Capability Requirement**
-
-Dynamic loading requires the `DynamicLoader` capability:
-
-```cursive
-class DynamicLoader {
-    /// Load a shared library from the filesystem.
-    procedure load(~, path: string@View) -> DynamicLibrary | LoadError;
-}
-```
-
-**The `DynamicLibrary` Class**
-
-```cursive
-class DynamicLibrary {
-    /// Look up a raw symbol by name.
-    procedure symbol(~, name: string@View) -> *mut opaque c_void | SymbolError;
-    
-    /// Look up a typed function pointer by name.
-    procedure procedure_symbol<F>(~, name: string@View) -> F | SymbolError
-        where F <: FfiSafe;
-    
-    /// Unload the library.
-    procedure unload(~!);
-}
-```
-
-**Standard Implementation**
-
-```cursive
-module std::ffi::dl {
-    /// Handle to a dynamically loaded library.
-    record Library <: DynamicLibrary, Drop {
-        handle: *mut opaque c_void,
-        path: CString,
-        
-        procedure drop(~!) {
-            if self.handle != null {
-                unsafe { dlclose(self.handle); }
-            }
-        }
-        
-        procedure symbol(~, name: string@View) -> *mut opaque c_void | SymbolError {
-            let cname = cstring::from_str(name, Context::heap());
-            let sym = unsafe { dlsym(self.handle, cname~>as_ptr()) };
-            
-            if sym == null {
-                return SymbolError::NotFound;
-            }
-            sym
-        }
-        
-        procedure procedure_symbol<F>(~, name: string@View) -> F | SymbolError
-            where F <: FfiSafe
-        {
-            let sym = self~>symbol(name)?;
-            unsafe { transmute::<*mut opaque c_void, F>(sym) }
-        }
-        
-        procedure unload(~!) {
-            if self.handle != null {
-                unsafe { dlclose(self.handle); }
-                self.handle = null;
-            }
-        }
-    }
-    
-    /// Standard dynamic loader implementation.
-    record Loader <: DynamicLoader {
-        procedure load(~, path: string@View) -> Library | LoadError {
-            let cpath = cstring::from_str(path, Context::heap());
-            let handle = unsafe { dlopen(cpath~>as_ptr(), RTLD_NOW) };
-            
-            if handle == null {
-                return LoadError::NotFound;  // Simplified; real impl checks dlerror()
-            }
-            
-            Library { handle, path: cpath }
-        }
-    }
-    
-    extern "C" {
-        procedure dlopen(path: *imm c_char, mode: c_int) -> *mut opaque c_void;
-        procedure dlsym(handle: *mut opaque c_void, symbol: *imm c_char) -> *mut opaque c_void;
-        procedure dlclose(handle: *mut opaque c_void) -> c_int;
-        procedure dlerror() -> *imm c_char;
-    }
-    
-    public let RTLD_NOW: c_int = 2;
-    public let RTLD_LAZY: c_int = 1;
-}
-```
-
-**Platform-Specific Implementations**
-
-**POSIX Implementation** (Linux, macOS, BSD)
-
-```cursive
-module std::ffi::dl::posix {
-    // ... existing dlopen/dlsym/dlclose implementation ...
-}
-```
-
-**Windows Implementation**
-
-```cursive
-module std::ffi::dl::windows {
-    extern "system" {
-        procedure LoadLibraryW(lpLibFileName: *imm u16) -> HMODULE;
-        procedure FreeLibrary(hLibModule: HMODULE) -> BOOL;
-        procedure GetProcAddress(hModule: HMODULE, lpProcName: *imm c_char) -> FARPROC;
-        procedure GetLastError() -> DWORD;
-    }
-
-    type HMODULE = *mut opaque c_void;
-    type FARPROC = *mut opaque c_void;
-    type BOOL = c_int;
-    type DWORD = u32;
-
-    /// Windows library handle.
-    record Library <: DynamicLibrary, Drop {
-        handle: HMODULE,
-
-        procedure drop(~!) {
-            if self.handle != null {
-                unsafe { FreeLibrary(self.handle); }
-            }
-        }
-
-        procedure symbol(~, name: string@View) -> *mut opaque c_void | SymbolError {
-            let cname = cstring::from_str(name, Context::heap());
-            let sym = unsafe { GetProcAddress(self.handle, cname~>as_ptr()) };
-
-            if sym == null {
-                return SymbolError::NotFound;
-            }
-            sym
-        }
-
-        procedure procedure_symbol<F>(~, name: string@View) -> F | SymbolError
-            where F <: FfiSafe
-        {
-            let sym = self~>symbol(name)?;
-            unsafe { transmute::<*mut opaque c_void, F>(sym) }
-        }
-
-        procedure unload(~!) {
-            if self.handle != null {
-                unsafe { FreeLibrary(self.handle); }
-                self.handle = null;
-            }
-        }
-    }
-
-    /// Windows dynamic loader.
-    record Loader <: DynamicLoader {
-        procedure load(~, path: string@View) -> Library | LoadError {
-            let wpath = to_wide_string(path, Context::heap());
-            let handle = unsafe { LoadLibraryW(wpath~>as_ptr()) };
-
-            if handle == null {
-                let err = unsafe { GetLastError() };
-                return match err {
-                    2 => LoadError::NotFound,        // ERROR_FILE_NOT_FOUND
-                    5 => LoadError::PermissionDenied, // ERROR_ACCESS_DENIED
-                    _ => LoadError::OsError { code: Errno { code: err as c_int } },
-                };
-            }
-
-            Library { handle }
-        }
-    }
-
-    /// Convert UTF-8 string to null-terminated UTF-16 for Windows APIs.
-    procedure to_wide_string(s: string@View, heap: dyn HeapAllocator) -> WideString {
-        // Implementation converts UTF-8 to UTF-16LE
-        // ...
-    }
-}
-```
-
-**Delay-Load Support (Windows)**
-
-```cursive
-module std::ffi::dl::windows::delay_load {
-    /// Delay-loaded library that resolves symbols on first use.
-    record DelayLoadLibrary <: DynamicLibrary {
-        name: CString,
-        handle: HMODULE,  // Lazily initialized
-
-        procedure symbol(~, name: string@View) -> *mut opaque c_void | SymbolError {
-            self~>ensure_loaded()?;
-            // ... resolve symbol ...
-        }
-
-        procedure ensure_loaded(~!) -> () | LoadError {
-            if self.handle == null {
-                self.handle = unsafe { LoadLibraryW(/* ... */) };
-                // ...
-            }
-            ()
-        }
-    }
-}
-```
-
-**Platform-Agnostic Interface**
-
-The `std::ffi::dl` module re-exports the appropriate platform implementation:
-
-```cursive
-module std::ffi::dl {
-    #[cfg(target_os = "windows")]
-    pub use std::ffi::dl::windows::*;
-
-    #[cfg(target_family = "unix")]
-    pub use std::ffi::dl::posix::*;
-}
-```
-
-> **Note (Informative):** Usage example
-
-```cursive
-use std::ffi::dl;
-
-extern "C" {
-    type MathFunc = (f64) -> f64;
-}
-
-procedure load_math_library(loader: dyn DynamicLoader) -> MathFunc | LoadError | SymbolError {
-    let lib = loader~>load("libm.so.6")?;
-    let sin_func: MathFunc = lib~>procedure_symbol("sin")?;
-    sin_func
-}
-```
-
-**Symbol Versioning**
-
-On platforms that support symbol versioning (primarily Linux with glibc), specific symbol versions can be requested using the `[[symbol_version]]` attribute:
-
-**Grammar**
-
-```ebnf
-symbol_version_attr ::= "[[" "symbol_version" "(" string_literal ")" "]]"
-```
-
-**Example**
-
-```cursive
-extern "C" {
-    // Request specific glibc version of realpath
-    [[symbol_version("GLIBC_2.3")]]
-    procedure realpath(path: *imm c_char, resolved: *mut c_char) -> *mut c_char;
-
-    // Use default (latest) version
-    procedure strlen(s: *imm c_char) -> c_size_t;
-}
-```
-
-**Dynamic Loading with Versioning**
-
-```cursive
-class DynamicLibrary {
-    // ... existing methods ...
-
-    /// Look up a versioned symbol by name and version string.
-    procedure versioned_symbol(
-        ~,
-        name: string@View,
-        version: string@View
-    ) -> *mut opaque c_void | SymbolError;
-
-    /// Look up a typed versioned function pointer.
-    procedure versioned_procedure_symbol<F>(
-        ~,
-        name: string@View,
-        version: string@View
-    ) -> F | SymbolError
-        where F <: FfiSafe;
-}
-```
-
-**Platform Behavior**
-
-| Platform      | Symbol Versioning Support |
-| :------------ | :------------------------ |
-| Linux (glibc) | Full support via `dlvsym` |
-| Linux (musl)  | Not supported; ignored    |
-| macOS         | Not supported; ignored    |
-| Windows       | Not applicable            |
-
-When symbol versioning is not supported, the `[[symbol_version]]` attribute is ignored and the default symbol is used. Implementations MAY emit a warning (`W-FFI-3380`).
-
-**Constraints & Legality**
-
-| Code         | Severity | Condition                                       | Detection    | Effect    |
-| :----------- | :------- | :---------------------------------------------- | :----------- | :-------- |
-| `W-FFI-3380` | Warning  | `[[symbol_version]]` on non-supporting platform | Compile-time | Ignored   |
-| `E-FFI-3381` | Error    | Versioned symbol not found                      | Link-time    | Rejection |
-
-**Safety Considerations**
-
-1. **Symbol type safety is not guaranteed.** The programmer must ensure the declared function type matches the actual symbol.
-
-2. **Library lifetime.** Functions obtained from a library become invalid after `unload()`. Calling them is UVB.
-
-3. **Thread safety.** Loading/unloading libraries may not be thread-safe on all platforms.
-
----
-
-### 20.11 Unwind Semantics
-
-##### Definition
-
-**Unwind semantics** define behavior when control flow crosses the FFI boundary abnormally (via exceptions, panics, or longjmp).
-
-**The `[[unwind]]` Attribute**
-
-```cursive
-[[unwind("abort")]]     // Abort if foreign code attempts to unwind through this frame
-[[unwind("allowed")]]   // Allow unwinding (requires "C-unwind" ABI)
-```
-
-**Default Behavior**
-
-| Scenario                         | Default | Effect             |
-| :------------------------------- | :------ | :----------------- |
-| Foreign exception enters Cursive | Abort   | Process terminates |
-| Cursive panic in callback to C   | Abort   | Process terminates |
-| C longjmp across Cursive frames  | UVB     | Undefined behavior |
-
-**Safe Unwinding**
-
-To allow unwinding across FFI:
-
-```cursive
-extern "C-unwind" {
-    [[unwind("allowed")]]
-    procedure may_throw() -> c_int;
-}
-
-[[export("C-unwind")]]
-[[unwind("allowed")]]
-public procedure callback_that_may_panic() {
-    // Panic here will unwind into C++ caller
-}
-```
-
-> **Warning:** Allowing unwinding across FFI boundaries requires careful coordination with foreign code. Mismatched unwind semantics cause undefined behavior.
-
-**Cursive Panic Representation in Foreign Code**
-
-When a Cursive panic unwinds through a `[[unwind("allowed")]]` boundary into foreign code, the panic is represented as a platform-specific foreign exception.
-
-**Representation**
-
-| Platform | Representation                                       |
-| :------- | :--------------------------------------------------- |
-| Linux    | C++ exception of type `cursive::Panic`               |
-| macOS    | C++ exception of type `cursive::Panic`               |
-| Windows  | SEH exception with code `CURSIVE_PANIC` (0xE0435253) |
-
-**The `cursive::Panic` C++ Type**
-
-For platforms using Itanium C++ ABI (Linux, macOS), Cursive panics appear as:
-
-```cpp
-// C++ header (provided by Cursive runtime)
-namespace cursive {
-    class Panic : public std::exception {
-    public:
-        // Returns the panic message, if any
-        const char* what() const noexcept override;
-
-        // Returns the panic payload type name
-        const char* payload_type() const noexcept;
-
-        // Returns raw pointer to payload (type-erased)
-        const void* payload() const noexcept;
-
-        // Returns source location where panic occurred
-        const char* location() const noexcept;
-    };
-}
-```
-
-**Catching Cursive Panics in C++**
-
-```cpp
-extern "C" int call_cursive_function();  // [[unwind("allowed")]]
-
-void example() {
-    try {
-        call_cursive_function();
-    } catch (const cursive::Panic& p) {
-        std::cerr << "Cursive panic: " << p.what() << std::endl;
-        std::cerr << "Location: " << p.location() << std::endl;
-        // Handle or rethrow
-    }
-}
-```
-
-**Windows SEH Handling**
-
-On Windows, Cursive panics are SEH exceptions:
-
-```cpp
-#include <windows.h>
-
-#define CURSIVE_PANIC 0xE0435253  // "CRS\0" in little-endian
-
-extern "C" int call_cursive_function();
-
-void example() {
-    __try {
-        call_cursive_function();
-    } __except (GetExceptionCode() == CURSIVE_PANIC
-                ? EXCEPTION_EXECUTE_HANDLER
-                : EXCEPTION_CONTINUE_SEARCH) {
-        // Handle Cursive panic
-        // Exception record contains panic info
-    }
-}
-```
-
-**Panic Payload Limitations**
-
-When crossing FFI boundaries, panic payloads have restrictions:
-
-1. **Non-`FfiSafe` payloads:** The payload is converted to a string representation; the original value is not recoverable
-2. **Payload size:** Limited to implementation-defined maximum (minimum 4KB)
-3. **Payload lifetime:** The payload is valid only during unwinding; do not store pointers to it
-
-**Constraints & Legality**
-
-| Code         | Severity | Condition                                   | Detection | Effect  |
-| :----------- | :------- | :------------------------------------------ | :-------- | :------ |
-| `W-FFI-3384` | Warning  | Large panic payload may be truncated at FFI | Runtime   | Warning |
-| `W-FFI-3385` | Warning  | Non-FfiSafe panic payload crosses FFI       | Runtime   | Warning |
-
-**C++ Exception Interoperability**
-
-When interoperating with C++ code, additional considerations apply for exception handling across the language boundary.
-
-**C++ Exception Catching**
-
-Cursive code cannot directly catch C++ exceptions by type. When a C++ exception propagates into Cursive:
-
-| ABI          | `[[unwind]]` Setting | Behavior                                           |
-| :----------- | :------------------- | :------------------------------------------------- |
-| `"C"`        | `"abort"` (default)  | Process aborts via `std::terminate`                |
-| `"C-unwind"` | `"abort"`            | Process aborts via `std::terminate`                |
-| `"C-unwind"` | `"allowed"`          | Exception propagates; Cursive destructors run      |
-| `"C++"`      | `"allowed"`          | Exception can be caught via `catch_foreign_unwind` |
-
-**The `catch_foreign_unwind` Expression**
-
-To handle C++ exceptions without catching by type:
-
-```cursive
-extern "C++" {
-    [[unwind("allowed")]]
-    procedure may_throw_cpp() -> c_int;
-}
-
-procedure example() -> c_int | ForeignUnwind {
-    catch_foreign_unwind {
-        unsafe { may_throw_cpp() }
-    } on_unwind |info: UnwindInfo| {
-        // C++ exception caught
-        // info.type_name() returns mangled C++ type name (if available)
-        // info.message() returns exception message (if std::exception)
-        return ForeignUnwind { info };
-    }
-}
-```
-
-**Grammar**
-
-```ebnf
-catch_foreign_unwind_expr ::= "catch_foreign_unwind" block
-                              "on_unwind" "|" identifier ":" "UnwindInfo" "|" block
-```
-
-**The `UnwindInfo` Type**
-
-```cursive
-record UnwindInfo {
-    /// Returns the mangled C++ type name, if available.
-    procedure type_name(~) -> string@View | () { ... }
-
-    /// Returns the exception message if it derives from std::exception.
-    procedure message(~) -> string@View | () { ... }
-
-    /// Returns the raw exception pointer for advanced interop.
-    procedure raw_exception_ptr(~) -> *mut opaque c_void { ... }
-
-    /// Rethrows the caught exception into C++ code.
-    /// MUST only be called when control will transfer to C++ code.
-    procedure rethrow(~!) -> never { ... }
-}
-```
-
-**Rethrowing to C++**
-
-```cursive
-[[export("C++")]]
-[[unwind("allowed")]]
-public procedure cursive_callback() {
-    catch_foreign_unwind {
-        do_work()
-    } on_unwind |info: UnwindInfo| {
-        // Log or handle, then rethrow to C++ caller
-        log_exception(info~>message());
-        info~>rethrow();  // Never returns
-    }
-}
-```
-
-**Throwing C++ Exceptions from Cursive**
-
-Cursive cannot directly throw C++ exceptions. To signal errors to C++ callers:
-
-1. **Return error codes** (preferred for C interop)
-2. **Use `panic!` with `[[unwind("allowed")]]`** — C++ sees this as a foreign exception
-3. **Call a C++ helper that throws** — wrap in extern block
-
-```cursive
-extern "C++" {
-    /// C++ helper that throws std::runtime_error
-    procedure throw_runtime_error(msg: *imm c_char) -> never;
-}
-
-[[export("C++")]]
-[[unwind("allowed")]]
-public procedure may_fail() {
-    if error_condition() {
-        let msg = cstring::from_str("operation failed", Context::heap());
-        unsafe { throw_runtime_error(msg~>as_ptr()); }
-    }
-}
-```
-
-**The `"C++"` ABI**
-
-The `"C++"` ABI string enables C++ name mangling and calling conventions:
-
-```cursive
-extern "C++" {
-    [[link_name("_ZN7MyClass6methodEi")]]  // Mangled name
-    procedure MyClass_method(this: *mut MyClass, arg: c_int) -> c_int;
-}
-```
-
-> **Note:** C++ name mangling is platform and compiler-specific. Use `[[link_name]]` for portability or rely on tooling to generate correct manglings.
-
-**Constraints & Legality**
-
-| Code         | Severity | Condition                                          | Detection    | Effect    |
-| :----------- | :------- | :------------------------------------------------- | :----------- | :-------- |
-| `E-FFI-3373` | Error    | `catch_foreign_unwind` without `"C-unwind"` ABI    | Compile-time | Rejection |
-| `E-FFI-3374` | Error    | `rethrow()` called outside unwind handler          | Compile-time | Rejection |
-| `E-FFI-3375` | Error    | `"C++"` ABI on non-unwind procedure                | Compile-time | Rejection |
-| `A-FFI-3376` | Abort    | Unhandled C++ exception with `[[unwind("abort")]]` | Runtime      | Abort     |
-
-##### Constraints & Legality
-
-| Code         | Severity | Condition                                  | Detection    | Effect    |
-| :----------- | :------- | :----------------------------------------- | :----------- | :-------- |
-| `E-FFI-3370` | Error    | `[[unwind("allowed")]]` without unwind ABI | Compile-time | Rejection |
-| `E-FFI-3371` | Error    | Invalid `[[unwind]]` argument              | Compile-time | Rejection |
-| `A-FFI-3372` | Abort    | Unwind across non-unwind FFI boundary      | Runtime      | Abort     |
-
-**setjmp/longjmp Considerations**
-
-C's `setjmp`/`longjmp` mechanism performs non-local jumps that bypass normal control flow. Using `longjmp` to jump across Cursive stack frames is **Unverifiable Behavior (UVB)** because:
-
-1. Cursive destructors (`Drop`) will not run for bypassed frames
-2. Region-allocated memory will not be deallocated
-3. Key acquisitions will not be released
-4. The runtime's internal state may become inconsistent
-
-**Safe Patterns for setjmp/longjmp Libraries**
-
-When interfacing with C libraries that use `setjmp`/`longjmp` (e.g., libjpeg, Lua), use these patterns:
-
-**Pattern 1: Contain the Jump (Preferred)**
-
-Ensure `longjmp` never crosses into Cursive frames:
-
-```cursive
-extern "C" {
-    procedure setjmp(env: *mut JmpBuf) -> c_int;
-    procedure longjmp(env: *mut JmpBuf, val: c_int) -> never;
-}
-
-/// Opaque jump buffer - size is platform-specific
-[[layout(C)]]
-record JmpBuf {
-    _data: [u8; JMP_BUF_SIZE],  // IDB: platform-dependent
-}
-
-/// C wrapper that contains the setjmp/longjmp entirely in C
-extern "C" {
-    /// Calls `callback` with `user_data`. If callback calls `error_longjmp`,
-    /// returns the error code. Otherwise returns 0.
-    procedure with_error_handler(
-        callback: (*mut opaque c_void) -> c_int,
-        user_data: *mut opaque c_void
-    ) -> c_int;
-}
-
-// Usage: the longjmp stays within C code
-procedure safe_usage() -> c_int | LibraryError {
-    let result = unsafe {
-        with_error_handler(my_c_callback, null)
-    };
-
-    if result != 0 {
-        return LibraryError::from_code(result);
-    }
-    0
-}
-```
-
-**Pattern 2: C Trampoline**
-
-For libraries where you control the error handling:
-
-```cursive
-// C code (in a separate .c file):
-//
-// #include <setjmp.h>
-// static jmp_buf error_buf;
-// static int error_code;
-//
-// int try_operation(int (*op)(void*), void* data) {
-//     if (setjmp(error_buf) != 0) {
-//         return error_code;
-//     }
-//     return op(data);
-// }
-//
-// void signal_error(int code) {
-//     error_code = code;
-//     longjmp(error_buf, 1);
-// }
-
-extern "C" {
-    procedure try_operation(
-        op: (*mut opaque c_void) -> c_int,
-        data: *mut opaque c_void
-    ) -> c_int;
-
-    procedure signal_error(code: c_int) -> never;
-}
-```
-
-**Pattern 3: Convert to Cursive Error Handling**
-
-Wrap the C library to convert longjmp to return codes:
-
-```cursive
-module jpeg_wrapper {
-    extern "C" {
-        // libjpeg's error handler that we'll customize
-        procedure jpeg_std_error(err: *mut JpegErrorMgr) -> *mut JpegErrorMgr;
-    }
-
-    /// Safe wrapper that converts libjpeg errors to Cursive errors
-    public procedure decode_jpeg(
-        data: BufferView<u8>
-    ) -> Image | JpegError {
-        // Set up error handler that returns error code instead of longjmp
-        // ... implementation using C helper ...
-    }
-}
-```
-
-**Prohibited Usage**
-
-The following is **UVB** and MUST NOT be done:
-
-```cursive
-procedure dangerous_example() {
-    var buf: JmpBuf;
-
-    // UVB: setjmp in Cursive code where longjmp might occur
-    if unsafe { setjmp(&buf) } != 0 {
-        // If we get here via longjmp, destructors were skipped!
-        return;
-    }
-
-    region r {
-        var resource := acquire_resource();
-        unsafe {
-            call_c_that_may_longjmp();  // UVB: longjmp will skip region cleanup
-        }
-    }  // resource.drop() may never run!
-}
-```
-
-**Diagnostic**
-
-```
-W-FFI-3382: setjmp called in Cursive procedure
-  --> src/example.cur:5:9
-   |
- 5 |     if unsafe { setjmp(&buf) } != 0 {
-   |                 ^^^^^^
-   |
-   = warning: longjmp across Cursive frames is Unverifiable Behavior
-   = help: use a C trampoline to contain setjmp/longjmp within C code
-```
-
-| Code         | Severity | Condition                               | Detection    | Effect  |
-| :----------- | :------- | :-------------------------------------- | :----------- | :------ |
-| `W-FFI-3382` | Warning  | `setjmp` called in Cursive procedure    | Compile-time | Warning |
-| `W-FFI-3383` | Warning  | `longjmp` callable from Cursive context | Compile-time | Warning |
-
----
-
-### 20.12 Diagnostics
-
-##### Definition
-
-This subsection aggregates diagnostics for Clause 20 (FFI).
-
-##### Constraints & Legality
-
-**FfiSafe Diagnostics (E-FFI-33xx)**
-
-| Code         | Condition                                                 |
-| :----------- | :-------------------------------------------------------- |
-| `E-FFI-3301` | `FfiSafe` on type without `[[layout(C)]]`                 |
-| `E-FFI-3302` | `FfiSafe` type has non-FFI-safe field                     |
-| `E-FFI-3303` | `FfiSafe` on prohibited type category                     |
-| `E-FFI-3304` | Generic `FfiSafe` with unconstrained type parameter       |
-| `E-FFI-3305` | `FfiSafe` type has field with incomplete type             |
-| `E-FFI-3306` | `Drop + FfiSafe` by-value without `[[ffi_pass_by_value]]` |
-
-**Foreign Declaration Diagnostics (E-FFI-331x)**
-
-| Code         | Condition                            |
-| :----------- | :----------------------------------- |
-| `E-FFI-3310` | Non-FfiSafe type in extern signature |
-| `E-FFI-3311` | Unknown ABI string                   |
-| `E-FFI-3312` | Variadic without fixed parameters    |
-| `E-FFI-3313` | Body provided for foreign procedure  |
-
-**Call-Site Diagnostics (E-FFI-332x)**
-
-| Code         | Condition                                |
-| :----------- | :--------------------------------------- |
-| `E-FFI-3320` | Extern call outside `unsafe` block       |
-| `E-FFI-3321` | Non-promotable type in variadic position |
-
-**Foreign Global Diagnostics (E-FFI-333x)**
-
-| Code         | Condition                            |
-| :----------- | :----------------------------------- |
-| `E-FFI-3330` | Non-FfiSafe type for foreign global  |
-| `E-FFI-3331` | Write to non-mut foreign global      |
-| `E-FFI-3332` | Foreign global access outside unsafe |
-
-**Export Diagnostics (E-FFI-335x)**
-
-| Code         | Condition                                |
-| :----------- | :--------------------------------------- |
-| `E-FFI-3350` | `[[export]]` on non-public procedure     |
-| `E-FFI-3351` | Dyn/capability parameter in export       |
-| `E-FFI-3352` | Non-FfiSafe type in export signature     |
-| `E-FFI-3353` | Context or dyn-containing type in export |
-| `E-FFI-3354` | Duplicate export symbol name             |
-
-**Escape Analysis Diagnostics (E-FFI-336x)**
-
-| Code         | Condition                            |
-| :----------- | :----------------------------------- |
-| `E-FFI-3360` | Region-local pointer escapes via FFI |
-
-**Unwind Diagnostics (E-FFI-337x)**
-
-| Code         | Condition                                             |
-| :----------- | :---------------------------------------------------- |
-| `E-FFI-3370` | `[[unwind("allowed")]]` without unwind ABI            |
-| `E-FFI-3371` | Invalid `[[unwind]]` argument                         |
-| `A-FFI-3372` | Unwind across non-unwind FFI boundary (runtime abort) |
-
-**Contract Diagnostics (E-CON-285x)**
-
-| Code         | Condition                                        |
-| :----------- | :----------------------------------------------- |
-| `E-CON-2850` | Cannot prove `@foreign_assumes` predicate        |
-| `E-CON-2851` | Invalid predicate in foreign contract            |
-| `E-CON-2852` | Predicate references out-of-scope value          |
-| `P-CON-2860` | `[[dynamic]]` contract violation (runtime panic) |
-
----
-
-# Appendices
-
----
+Platform ABI-specific aliases (`c_long`, `c_ulong`, `c_size_t`, etc.) MUST match the target C ABI types for the compilation target; exact sizes and alignments are implementation-defined and documented with the target triple.
 
 ## Appendix A: C Type Mapping Reference
 
@@ -20258,171 +17452,6 @@ comptime {
 
 ---
 
-## Appendix C: Complete Example — Wrapping a C Library
-
-##### Definition
-
-This appendix is **informative** and provides a complete worked example showing how to wrap the standard C `stdio.h` file operations in Cursive.
-
-```cursive
-module mylib::stdio {
-    use std::ffi::*;
-    use std::ffi::ctypes::*;
-    
-    // Foreign declarations
-    extern "C" {
-        procedure fopen(path: *imm c_char, mode: *imm c_char) -> *mut FILE;
-        procedure fclose(file: *mut FILE) -> c_int;
-        procedure fread(
-            ptr: *mut opaque c_void,
-            size: c_size_t,
-            count: c_size_t,
-            stream: *mut FILE
-        ) -> c_size_t;
-        procedure fwrite(
-            ptr: *imm opaque c_void,
-            size: c_size_t,
-            count: c_size_t,
-            stream: *mut FILE
-        ) -> c_size_t;
-        procedure fseek(stream: *mut FILE, offset: c_long, whence: c_int) -> c_int;
-        procedure ftell(stream: *mut FILE) -> c_long;
-        procedure feof(stream: *mut FILE) -> c_int;
-        procedure ferror(stream: *mut FILE) -> c_int;
-    }
-    
-    // Opaque C type
-    opaque FILE;
-    
-    // Constants
-    public let SEEK_SET: c_int = 0;
-    public let SEEK_CUR: c_int = 1;
-    public let SEEK_END: c_int = 2;
-    
-    // Error type
-    public enum FileError {
-        OpenFailed,
-        ReadFailed,
-        WriteFailed,
-        SeekFailed,
-        Eof,
-    }
-    
-    // Safe wrapper type
-    public record File <: Drop {
-        handle: *mut FILE,
-        
-        procedure drop(~!) {
-            if self.handle != null {
-                unsafe { fclose(self.handle); }
-            }
-        }
-        
-        /// Read bytes into buffer. Returns number of bytes read.
-        public procedure read(~!, buf: BufferMut<u8>) -> usize | FileError {
-            let count = unsafe {
-                fread(
-                    buf~>as_ptr() as *mut opaque c_void,
-                    1,
-                    buf~>len(),
-                    self.handle
-                )
-            };
-            
-            if count == 0 {
-                if unsafe { feof(self.handle) } != 0 {
-                    return FileError::Eof;
-                }
-                if unsafe { ferror(self.handle) } != 0 {
-                    return FileError::ReadFailed;
-                }
-            }
-            
-            count
-        }
-        
-        /// Write bytes from buffer. Returns number of bytes written.
-        public procedure write(~!, buf: BufferView<u8>) -> usize | FileError {
-            let count = unsafe {
-                fwrite(
-                    buf~>as_ptr() as *imm opaque c_void,
-                    1,
-                    buf~>len(),
-                    self.handle
-                )
-            };
-            
-            if count < buf~>len() {
-                return FileError::WriteFailed;
-            }
-            
-            count
-        }
-        
-        /// Seek to position.
-        public procedure seek(~!, offset: i64, whence: c_int) -> () | FileError {
-            let result = unsafe { fseek(self.handle, offset as c_long, whence) };
-            if result != 0 {
-                return FileError::SeekFailed;
-            }
-            ()
-        }
-        
-        /// Get current position.
-        public procedure tell(~) -> i64 {
-            unsafe { ftell(self.handle) as i64 }
-        }
-    }
-    
-    /// Open a file. Requires FileSystem capability.
-    public procedure open(
-        path: string@View,
-        mode: string@View,
-        fs: dyn FileSystem
-    ) -> File | FileError {
-        let cpath = cstring::from_str(path, Context::heap());
-        let cmode = cstring::from_str(mode, Context::heap());
-        
-        let handle = unsafe { fopen(cpath~>as_ptr(), cmode~>as_ptr()) };
-        
-        if handle == null {
-            return FileError::OpenFailed;
-        }
-        
-        File { handle }
-    }
-}
-```
-
-**Usage**
-
-```cursive
-use mylib::stdio;
-
-procedure example(fs: dyn FileSystem) {
-    let file = stdio::open("data.txt", "r", fs)?;
-    
-    var buffer: [u8; 1024];
-    let buf_mut = buffer_mut::from_raw(&buffer[0], 1024);
-    
-    loop {
-        match file~>read(buf_mut) {
-            n: usize => {
-                // Process n bytes
-            },
-            FileError::Eof => break,
-            err: FileError => {
-                // Handle error
-                return;
-            },
-        }
-    }
-    
-    // File automatically closed when `file` goes out of scope
-}
-```
-
----
 ## Appendix D: Formal Grammar (ANTLR)
 
 ##### Definition
@@ -20443,8 +17472,6 @@ Complete normative grammar for Cursive in ANTLR4 format. This grammar defines al
 - Keywords are reserved per §2.6.
 - Receiver shorthands (`~`, `~%`, `~!`) MUST appear only as first parameter in type method declarations.
 - All lexical rules MUST conform to preprocessing pipeline output (§2.1).
-
-> **Note (Informative):** A complete ANTLR4 grammar suitable for parser generators is provided in the accompanying grammar file; it includes all productions from the top-level `sourceFile` rule to terminal tokens.
 
 ## Appendix E: Diagnostics (Normative)
 
@@ -20642,8 +17669,6 @@ This appendix provides normative definitions for foundational forms and system c
 - Drop execution and panic handling: See §3.6.
 - HeapAllocator failures cause panic (no null returns).
 
-> **Note (Informative):** Complete form signatures must be provided for Drop, Copy, Clone, HeapAllocator, FileSystem, Network, Time, and System (which implements Time and provides `exit` and `get_env`).
-
 ## Appendix H: Core Library Specification
 
 ##### Definition
@@ -20696,6 +17721,27 @@ record Context {
 ##### Static Semantics
 
 *   All context capabilities are passed explicitly (no ambient authority)
+  
+### H.1 Standard FFI Types
+
+The following library types provide C-compatible representations. They are **normative** parts of the core library and are referenced by Clause 20.
+
+| Type                       | Definition (fields or states)                                                                          | Constraints                                                                                          |
+| :------------------------- | :----------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------- |
+| `CStr`                     | `ptr: *imm c_char`                                                                                     | `ptr` non-null; buffer MUST be null-terminated.                                                      |
+| `CString`                  | `ptr: *mut c_char`, `len: usize`, `cap: usize`                                                         | `ptr` MAY be null only when `len = cap = 0`; `len < cap`; byte at `ptr[len]` MUST be null.           |
+| `NonNull<T>`               | `ptr: *mut T`                                                                                          | `ptr` non-null.                                                                                      |
+| `OwnedPtr<T>`              | `ptr: *mut T`, `allocator: extern "C" fn(*mut opaque c_void)`                                          | `Drop`; destructor calls `allocator(ptr)` when `ptr` non-null.                                       |
+| `BufferView<T <: FfiSafe>` | `ptr: *imm T`, `len: usize`                                                                            | `ptr` MAY be null only when `len = 0`; bounds checking is caller responsibility.                     |
+| `BufferMut<T <: FfiSafe>`  | `ptr: *mut T`, `len: usize`                                                                            | Same null/len rule as `BufferView`; caller ensures uniqueness and bounds.                            |
+| `CBool`                    | `[[layout(C)]] record { value: u8 }`                                                                   | Valid values `0` or `1`; size/alignment are IDB per platform ABI.                                    |
+| `OwnedFd`                  | `fd: c_int`                                                                                            | `Drop` closes descriptor.                                                                            |
+| `BorrowedFd`               | `fd: c_int`                                                                                            | Does not own; no `Drop`.                                                                             |
+| `opaque c_void`            | Opaque type                                                                                            | Represents C `void`.                                                                                 |
+| `IoError`                  | `enum { WouldBlock, Interrupted, InvalidData, NotFound, PermissionDenied, UnexpectedEof, Other(u32) }` | Enumerates standard I/O errors; `Other` carries platform code.                                       |
+| `ForeignResource<T>`       | Modal with states `@Borrowed { ptr: *imm T }`, `@Owned { ptr: *mut T, dtor: extern "C" fn(*mut T) }`   | Transition rules follow modal semantics; ownership respected by destructor.                          |
+| `VaList`                   | `record { handle: opaque c_void }`; `va_copy(dst: *mut VaList, src: *imm VaList)`                      | ABI-defined handle layout; `va_copy` mirrors C `va_copy`.                                            |
+| Wide character aliases     | `c_wchar`, `c_char16`, `c_char32`                                                                      | `c_wchar` size/alignment IDB (2 or 4 bytes); `c_char16` = 2-byte UTF-16; `c_char32` = 4-byte UTF-32. |
   
 
 ## Appendix I: Behavior Classification Index (Normative)
@@ -20770,150 +17816,3 @@ The minimum guaranteed capacities for compile-time execution are defined in §16
 *   **Total Emitted Declarations**: 100,000
 
 ---
-
-## Appendix K: Migration Guide for `[[dynamic]]` (Informative)
-
-##### Definition
-
-This appendix provides guidance for migrating code from the previous specification (which used `[[verify(...)]]` and implicit runtime synchronization) to the current specification.
-
-### H.1 Key Differences
-
-##### Definition
-
-This subsection summarizes key semantic differences between the prior and current specifications relevant to `[[dynamic]]`.
-
-| Aspect             | Previous Specification           | Current Specification   |
-| :----------------- | :------------------------------- | :---------------------- |
-| Key system default | Runtime sync with static elision | Static proof required   |
-| Contract default   | `[[verify(dynamic)]]` (runtime)  | Static proof required   |
-| Refinement default | Runtime check                    | Static proof required   |
-| Opt-in runtime     | N/A (was default)                | `[[dynamic]]` attribute |
-| Trusted mode       | `[[verify(trusted)]]`            | **Removed**             |
-
-### H.2 Migration Patterns
-
-##### Definition
-
-This subsection provides recommended migration patterns for adopting `[[dynamic]]`.
-
-**Pattern 1: Implicit Runtime Key Synchronization**
-
-Before:
-```cursive
-procedure update(data: shared [Record], idx: usize) {
-    data[idx].process()    // Implicit runtime sync
-}
-```
-
-After:
-```cursive
-// Option A: Add [[dynamic]] to permit runtime sync
-[[dynamic]]
-procedure update(data: shared [Record], idx: usize) {
-    data[idx].process()
-}
-
-// Option B: Restructure to enable static proof
-procedure update(data: shared [Record], idx: usize)
-    |= idx < data.len()
-{
-    // With precondition, may be statically provable in some contexts
-    data[idx].process()
-}
-```
-
-**Pattern 2: Dynamic Contract Verification**
-
-Before:
-```cursive
-procedure sqrt(x: f64) -> f64
-    |= x >= 0.0
-{
-    // Runtime check on precondition by default
-}
-```
-
-After:
-```cursive
-// Static proof now required at call sites
-// Callers must prove x >= 0.0 or use [[dynamic]]
-
-// Option A: Caller proves statically
-if x >= 0.0 {
-    sqrt(x)    // Provable
-}
-
-// Option B: Caller opts into runtime check
-[[dynamic]] sqrt(x)
-```
-
-**Pattern 3: `[[verify(static)]]`**
-
-Before:
-```cursive
-[[verify(static)]]
-procedure critical(x: i32)
-    |= x > 0
-{ ... }
-```
-
-After:
-```cursive
-// [[verify(static)]] is now default; remove attribute
-procedure critical(x: i32)
-    |= x > 0
-{ ... }
-```
-
-**Pattern 4: `[[verify(trusted)]]`**
-
-Before:
-```cursive
-unsafe {
-    [[verify(trusted)]]
-    let ptr = external_alloc(size)
-    // Assumed: ptr != null
-}
-```
-
-After:
-```cursive
-// Option A: Remove the contract entirely
-unsafe {
-    let ptr = external_alloc(size)
-    // Document assumption in comment: ptr is assumed non-null
-}
-
-// Option B: Use [[dynamic]] if runtime check is acceptable
-unsafe {
-    let ptr = [[dynamic]] external_alloc_checked(size)
-    // Runtime check: panics if null
-}
-```
-
-### H.3 Compiler Migration Assistance
-
-##### Definition
-
-This subsection describes tooling support to help migrate codebases to the `[[dynamic]]` semantics.
-
-Implementations SHOULD provide a migration flag that:
-
-1. **`--warn-implicit-dynamic`**: Identifies all locations that would require `[[dynamic]]` under the new specification
-2. **`--migrate-dynamic`**: Automatically inserts `[[dynamic]]` at required locations
-
-Example workflow:
-
-```bash
-# Step 1: Identify required changes
-cursive build --warn-implicit-dynamic
-
-# Step 2: Review warnings and decide:
-#   - Add [[dynamic]] where runtime cost is acceptable
-#   - Restructure code to enable static proof where possible
-#   - Remove contracts that were only documentation (use comments instead)
-
-# Step 3: Build with new semantics
-cursive build
-```
