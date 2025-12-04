@@ -633,7 +633,7 @@ loop {
 }
 ```
 
-## 9. GENERICS AND TRAITS
+## 9. GENERICS AND CLASSES
 
 ### 9.1 Generic Types
 
@@ -647,10 +647,10 @@ procedure identity<T>(x: T) -> T {
 }
 ```
 
-### 9.2 Trait Definition and Implementation
+### 9.2 Class Definition and Implementation
 
 ```cursive
-trait Printable {
+class Printable {
     procedure print(~, output: witness FileSystem)
 }
 
@@ -661,7 +661,7 @@ record Point { x: f64, y: f64 } <: Printable {
 }
 ```
 
-### 9.3 Trait Bounds
+### 9.3 Class Bounds
 
 ```cursive
 procedure process<T>(value: T) where T: Printable + Clone {
@@ -670,9 +670,9 @@ procedure process<T>(value: T) where T: Printable + Clone {
 }
 ```
 
-### 9.4 Important Built-in Traits
+### 9.4 Important Built-in Classes
 
-| Trait   | Purpose              | Auto-Derive        |
+| Class   | Purpose              | Auto-Derive        |
 | ------- | -------------------- | ------------------ |
 | `Copy`  | Bitwise copyable     | If all fields Copy |
 | `Clone` | Explicit duplication | Manual             |

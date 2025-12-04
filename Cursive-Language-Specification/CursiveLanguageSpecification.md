@@ -367,15 +367,7 @@ $$S \in \mathcal{U}^* \setminus \{s : \exists c \in s. c \in \mathcal{F}\}$$
 
 **UTF-8 Mandate**
 
-Cursive source input MUST be encoded as UTF-8 as specified in RFC 3629.
-
-A byte sequence is a legal UTF-8 sequence if and only if it satisfies all of the following conditions:
-
-1. Each code unit sequence correctly encodes a Unicode scalar value (U+0000–U+D7FF and U+E000–U+10FFFF).
-2. The encoding uses the shortest possible representation for each scalar value (overlong encodings are forbidden).
-3. No byte sequence encodes a surrogate code point (U+D800–U+DFFF).
-
-Invalid byte sequences MUST trigger diagnostic `E-SRC-0101` identifying the byte offset of the first invalid byte.
+Cursive source input MUST be encoded as UTF-8 (RFC 3629). Invalid byte sequences are ill-formed and MUST trigger diagnostic `E-SRC-0101`.
 
 **BOM Handling**
 
@@ -1012,15 +1004,11 @@ This clause defines the Cursive memory model: how objects are represented, how t
 
 ##### Definition
 
-**Memory Safety Axes**
+**Liveness**: The property that all pointers and bindings refer to allocated, initialized memory.
 
-Cursive's memory safety is decomposed into two orthogonal concerns:
+**Aliasing**: The property that shared or reentrant access to the same memory location does not violate data integrity.
 
-1.  **Liveness**: The property that all pointers and bindings refer to allocated, initialized memory.
-
-2.  **Aliasing**: The property that shared or reentrant access to the same memory location does not violate data integrity.
-
-A program is **memory-safe** if and only if it satisfies both the Liveness property (all accesses target live memory) and the Aliasing property (no write conflicts occur).
+A program is **memory-safe** if and only if it satisfies both the Liveness property and the Aliasing property.
 
 ##### Static Semantics
 
@@ -1498,10 +1486,6 @@ This clause defines the foundational machinery of the Cursive type system: the a
 
 ### 4.1 Type System Architecture
 
-##### Definition
-
-The **type system** is the static semantic framework that assigns a type to every well-formed expression and validates the consistency of those types across the program. A **type** is a classification of values that determines their representation, the operations applicable to them, and the constraints governing their use. Two types are **equivalent** if and only if they classify the same values under the equivalence rules defined in this section.
-
 ##### Static Semantics
 
 **Static Type Checking**
@@ -1876,24 +1860,19 @@ The `shared` permission does **not** imply cleanup responsibility; a procedure p
 of type `shared T` (without `move`) grants synchronized access while the caller retains
 responsibility for cleanup.
 
-The following table specifies which operations are permitted through a `shared` path:
+The following table specifies which operations are permitted through a `shared` path when key semantics are available (see §13.1 for key system rules):
 
-| Operation                   | Permitted | Key Mode  |
-| :-------------------------- | :-------- | :-------- |
-| Field read                  | Yes       | Read key  |
-| Field mutation              | Yes       | Write key |
-| Method call (`~` receiver)  | Yes       | Read key  |
-| Method call (`~%` receiver) | Yes       | Write key |
-| Method call (`~!` receiver) | No        | N/A       |
+| Operation                   | Permitted | Key Mode  | Notes                                    |
+| :-------------------------- | :-------- | :-------- | :--------------------------------------- |
+| Field read                  | Yes       | Read key  |                                          |
+| Field mutation              | Yes*      | Write key | *Via key system only; see note below     |
+| Method call (`~` receiver)  | Yes       | Read key  |                                          |
+| Method call (`~%` receiver) | Yes       | Write key |                                          |
+| Method call (`~!` receiver) | No        | N/A       | Requires `unique` permission             |
 
-**Key Modes:**
+**Note on Field Mutation:** Direct field assignment through a `shared` path (e.g., `obj.field = value`) requires key acquisition per §13.1. For types that do not participate in the key system or outside valid key contexts, direct field mutation is rejected with `E-TYP-1604`. See §4.5.4 (shared Access to Types Without Synchronized Methods) for read-only shared access patterns.
 
-| Mode  | Grants       | Multiple Holders | Acquired By  |
-| :---- | :----------- | :--------------- | :----------- |
-| Read  | Read         | Yes              | Read access  |
-| Write | Read + Write | No               | Write access |
-
-> **Cross-Reference:** See §13 (Key System) and §4.5.5 (Receiver Compatibility).
+Key modes (Read, Write) are defined in §13.1.2 (Key Modes).
 
 **Exclusion Principle (Normative)**
 
@@ -4083,8 +4062,6 @@ A **pointer type** is a type whose values are memory addresses. Cursive provides
 
 2. **Raw Pointers (`*imm T`, `*mut T`)**: Unsafe, C-style pointers providing no safety guarantees. Raw pointers are intended for `unsafe` blocks and Foreign Function Interface (FFI) interoperability.
 
-The safe pointer type integrates with the modal type system (§6.1) to encode pointer validity as a static property. The raw pointer types bypass this system entirely, delegating all safety responsibility to the programmer.
-
 **Formal Definition**
 
 The `Ptr<T>` type is defined as a member of the modal type family (§6.1):
@@ -4655,9 +4632,7 @@ This clause defines mechanisms that extend or constrain the type system: static 
 
 ##### Definition
 
-**Static polymorphism** (also called **generics**) is the mechanism by which a single type or procedure definition operates uniformly over multiple concrete types. A **generic declaration** introduces one or more **type parameters** that serve as placeholders for concrete types supplied at instantiation. Generic declarations are resolved entirely at compile time via **monomorphization**: the compiler generates specialized code for each distinct combination of type arguments.
-
-Static polymorphism provides zero-overhead polymorphism on *inputs* resolved at compile time. It contrasts with dynamic polymorphism (§9.5), which uses runtime dispatch via class objects.
+A **generic declaration** introduces one or more **type parameters** that serve as placeholders for concrete types supplied at instantiation. Generic declarations are resolved entirely at compile time via **monomorphization**.
 
 **Formal Definition**
 
@@ -7256,11 +7231,7 @@ A **Predicate** is a pure boolean expression evaluated in a specific evaluation 
 
 **Distinguished from Capabilities**
 
-Contracts and Capabilities (Clause 13) serve orthogonal purposes:
-- **Contracts** control the *logical validity* of data and operations
-- **Capabilities** control the *authority* to perform external effects
-
-A procedure may have both contracts (specifying what values are valid) and capability requirements (specifying what effects it may perform).
+Contracts control the logical validity of data and operations. Capabilities (Clause 12) control authority to perform external effects. A procedure may have both.
 
 ##### Syntax & Declaration
 
@@ -9677,7 +9648,7 @@ This clause defines the Cursive Capability System, which governs all procedures 
 
 **Capability**
 
-A **Capability** is a first-class value representing unforgeable authority to perform a specific class of external effects. Capabilities are the sole mechanism by which a Cursive program may interact with the external world.
+A **Capability** is a first-class value representing unforgeable authority to perform a specific class of external effects.
 
 **Formal Definition**
 
@@ -9818,20 +9789,6 @@ A procedure **MUST NOT** access capabilities not explicitly provided as paramete
 | Code         | Severity | Condition                                                   | Detection    | Effect    |
 | :----------- | :------- | :---------------------------------------------------------- | :----------- | :-------- |
 | `E-CAP-1002` | Error    | Effect-producing procedure lacks required capability param. | Compile-time | Rejection |
-
----
-
-### 12.5 System Capability Forms
-
-##### Definition
-
-The language defines the following system capability forms: `FileSystem`, `Network`, `HeapAllocator`, and the `System` record. Their normative signatures and complete semantics are provided in **Appendix D.2**.
-
-##### Constraints & Legality
-
-| Code         | Severity | Condition                                             | Detection    | Effect    |
-| :----------- | :------- | :---------------------------------------------------- | :----------- | :-------- |
-| `E-CAP-1003` | Error    | Side-effecting capability method has `const` receiver | Compile-time | Rejection |
 
 ---
 
@@ -10615,10 +10572,6 @@ Keys held when a scope exits are released **before** `defer` blocks execute:
 
 ### 13.3 Key Acquisition at Procedure Boundaries
 
-##### Definition
-
-When a `shared` value is passed to a procedure, key analysis occurs at the **point of access** within the callee, not at the call site.
-
 ##### Static Semantics
 
 **(K-Procedure-Boundary)**
@@ -11078,17 +11031,6 @@ When a `#` block executes:
 | `#p { }`       | `#p write { }` | Yes                   | One blocks until other releases |
 | `#p write { }` | `#p write { }` | Yes                   | One blocks until other releases |
 
-**Runtime Implementation**
-
-When runtime synchronization is required:
-
-| Block Mode | Typical Implementation    |
-| :--------- | :------------------------ |
-| Read       | May have multiple holders |
-| Write      | Exclusive holder          |
-
-The implementation strategy is Implementation-Defined Behavior (IDB).
-
 ##### Constraints & Legality
 
 **Negative Constraints**
@@ -11346,72 +11288,7 @@ $\text{SameLocation}(P, Q) \implies \text{AcquireOnce}(P)$
 
 **Ordering Mechanism (Implementation-Defined)**
 
-The mechanism for computing $\text{DynOrder}$ is Implementation-Defined. Conforming implementations MAY use any of the following approaches:
-
-| Mechanism                 | Applicability                                | Trade-off                   |
-| :------------------------ | :------------------------------------------- | :-------------------------- |
-| Index-value comparison    | Single array, integer indices                | Minimal overhead            |
-| Memory address comparison | General (multiple arrays, nested structures) | Pointer arithmetic required |
-| Lock coarsening           | Any                                          | Reduced concurrency         |
-
-**Index-Value Comparison**
-
-For paths $a[i]$ and $a[j]$ indexing the same array with integer indices:
-
-$a[i] <_{\text{dyn}} a[j] \iff i < j$
-
-This is valid because array elements are contiguous: $i < j \iff \text{addr}(a[i]) < \text{addr}(a[j])$.
-
-**Memory Address Comparison**
-
-For arbitrary paths $P$ and $Q$:
-
-$P <_{\text{dyn}} Q \iff \text{addr}(P) < \text{addr}(Q)$
-
-This generalizes to multiple arrays, nested structures, and non-integer indices.
-
-**Lock Coarsening**
-
-An implementation MAY coarsen the lock granularity when dynamic indices are present:
-
-$\#a[i], a[j]\ \text{write}\ \{ \ldots \} \implies \#a\ \text{write}\ \{ \ldots \}$
-
-This sacrifices concurrency for simplicity. The implementation MUST document when coarsening is applied.
-
-**Hybrid Strategies**
-
-Implementations MAY combine mechanisms. A reasonable strategy:
-1. Use index-value comparison for single-array cases with integer indices.
-2. Use address comparison for cross-array or complex cases.
-3. Optionally coarsen based on heuristics (e.g., high contention detection).
-
-**Integration with Static Ordering**
-
-When a `#` block contains both statically-orderable and dynamically-orderable paths:
-
-1. Partition paths into static set $S$ and dynamic set $D$.
-2. Sort $S$ by canonical order (§13.7).
-3. Sort $D$ by the chosen dynamic ordering mechanism.
-4. Merge $S$ and $D$ into a single acquisition sequence.
-
-The merge ordering is Implementation-Defined but MUST satisfy cross-task consistency.
-
-```cursive
-[[dynamic]]
-procedure swap(arr: shared [i32], i: usize, j: usize) {
-    #arr[i], arr[j] write {
-        // Runtime determines order:
-        // - Index comparison: acquire arr[min(i,j)], then arr[max(i,j)]
-        // - Address comparison: equivalent for contiguous arrays
-        // - Coarsening: acquire arr (whole array)
-        let temp = arr[i]
-        arr[i] = arr[j]
-        arr[j] = temp
-    }
-}
-```
-
-Regardless of mechanism, two tasks calling `swap(arr, 2, 5)` and `swap(arr, 5, 2)` acquire keys in the same order.
+The mechanism for computing $\text{DynOrder}$ is Implementation-Defined Behavior (IDB). The implementation MUST satisfy the cross-task consistency property.
 
 **Deadlock Avoidance**
 
@@ -11488,58 +11365,13 @@ $$\frac{
     \end{cases}
 }$$
 
-```cursive
-// Escalation: Read → Write
-#player {
-    let h = player.health          // Read access, covered
-    #player release write {
-        // WARNING: h may be stale after reacquisition
-        player.health = h + 10     // Write access via release
-    }
-    let m = player.mana            // Read key reacquired after inner block
-}
-
-// Downgrade: Write → Read
-#player write {
-    player.health = 100            // Write access
-    #player release read {
-        // Other writers may interleave during this block
-        let snapshot = player.health  // Read-only access
-    }
-    player.mana = 50               // Write key reacquired after inner block
-}
-
-// ERROR: Missing `release` keyword
-#player {
-    let h = player.health
-    #player write {                // E-KEY-0012: nested mode change requires `release`
-        player.health = h + 10
-    }
-}
-
-// ERROR: Redundant release (same mode)
-#player {
-    #player release read { }       // E-KEY-0018: already hold Read, release read is redundant
-}
-```
-
 **Nested Block Ordering:**
 
 Each `#` block orders its own listed paths canonically. The relative order of keys between nesting levels is determined by nesting structure (outer acquired before inner).
 
 **Deadlock Hazard from Inconsistent Nesting:**
 
-Nested `#` blocks that acquire overlapping keys in different orders across tasks create potential deadlock:
-
-```cursive
-// HAZARD: Potential deadlock
-// Task 1:              // Task 2:
-#alpha {                #beta {
-    #beta { }               #alpha { }
-}                       }
-```
-
-The programmer MUST ensure consistent nesting order across tasks to avoid deadlock. The compiler SHOULD detect this pattern when both blocks are visible:
+Nested `#` blocks that acquire overlapping keys in different orders across tasks create potential deadlock. The programmer MUST ensure consistent nesting order across tasks. The compiler SHOULD detect this pattern when both blocks are visible:
 
 **(K-Nested-Cycle-Detection)**
 $$\frac{
@@ -11549,12 +11381,6 @@ $$\frac{
 }{
     \text{Emit}(\texttt{W-KEY-0012})
 }$$
-
-**Resolution:** Combine into a single `#` block:
-
-```cursive
-#alpha, beta { ... }    // Canonical order: alpha, beta — no deadlock
-```
 
 ##### Constraints & Legality
 
@@ -12238,8 +12064,6 @@ This clause defines Cursive's structured parallelism model. Parallelism enables 
 
 ##### Definition
 
-**Structured parallelism** is a concurrency model in which all concurrent work spawned within a scope completes before that scope exits. This guarantee enables safe capture of stack-local bindings, deterministic destruction ordering, and composable parallel regions.
-
 **Formal Definition**
 
 Let $\mathcal{W}$ denote the set of work items spawned within a parallel block $P$. The **structured concurrency invariant** states:
@@ -12808,14 +12632,6 @@ ctx.inline()
 - `dispatch i in range { e }` executes as a sequential loop.
 - No actual parallelism occurs.
 - All capture rules and permission requirements remain enforced.
-
-#### 14.6.4 Domain in Context Record
-
-##### Definition
-
-Execution domains are accessed through factory fields on the `Context` record (see **Appendix E** for the normative `Context` definition). The `Context` record includes `cpu`, `gpu`, and `inline` domain factories.
-
-The `gpu` field is `None` when no GPU is available.
 
 ---
 
