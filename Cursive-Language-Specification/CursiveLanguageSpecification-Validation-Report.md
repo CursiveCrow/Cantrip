@@ -12,6 +12,49 @@ This report documents the systematic validation of all 20 clauses and 9 appendic
 
 ---
 
+## Document Structural Changes (2025-12-05)
+
+**Important**: The specification document has been restructured since this validation report was created. The following changes affect clause and section numbering:
+
+### New Clause 9: Procedures and Methods
+
+A new **Clause 9: Procedures and Methods** has been inserted to consolidate procedure and method content that was previously scattered across multiple locations. This clause provides the authoritative treatment of:
+
+- **§9.1 Procedure Declarations**: Grammar, parameter modes, return types, formal typing rules
+- **§9.2 Method Definitions and Receivers**: Receiver shorthand (`~`, `~!`, `~%`), receiver compatibility matrix, formal Receiver-Compat rule
+- **§9.3 Parameter Passing and Binding**: Evaluation order, move semantics, non-move semantics
+- **§9.4 Procedure Execution Model**: Invocation sequence, return semantics, cleanup ordering
+- **§9.5 Overloading and Signature Matching**: Overload resolution, disambiguation rules
+
+### Clause Renumbering
+
+All subsequent clauses have been renumbered:
+
+| Previous | New | Clause Title |
+|----------|-----|--------------|
+| Clause 9 | Clause 10 | Classes and Polymorphism |
+| Clause 10 | Clause 11 | Contracts |
+| Clause 11 | Clause 12 | Expressions & Statements |
+| Clause 12 | Clause 13 | The Capability System |
+| Clause 13 | Clause 14 | The Key System |
+| Clause 14 | Clause 15 | Structured Parallelism |
+| Clause 15 | Clause 16 | Asynchronous Execution |
+| Clause 16 | Clause 17 | Compile-Time Execution |
+| Clause 17 | Clause 18 | Type Reflection |
+| Clause 18 | Clause 19 | Code Generation |
+| Clause 19 | Clause 20 | Derivation |
+| Clause 20 | Clause 21 | Foreign Function Interface |
+
+### Content Consolidation
+
+- **§4.5.5 (Method Receiver Permissions)**: Streamlined to a summary with cross-reference to §9.2 (duplicate detailed content removed)
+- All internal cross-references (§X.Y patterns) updated throughout the document
+- All "Clause N" textual references updated
+
+**Note**: The clause validations below reference the *original* clause numbers as of the validation date (2025-12-03). When consulting the current specification, apply the renumbering table above.
+
+---
+
 ## Issue Registry
 
 ### Issue Codes

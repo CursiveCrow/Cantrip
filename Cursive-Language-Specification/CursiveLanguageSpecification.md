@@ -131,7 +131,7 @@ Implementation limit violations are diagnosed per §1.4.
 
 **Unspecified Behavior (USB)** occurs when this specification permits a set of valid outcomes but does not require the implementation to document which outcome is chosen. The choice MAY vary between executions, compilations, or within a single execution. USB in safe code MUST NOT introduce memory unsafety or data races. See Appendix I for the complete USB index.
 
-**Unverifiable Behavior (UVB)** comprises operations whose runtime correctness depends on properties external to the language's semantic model. UVB is permitted only within `unsafe` blocks and Foreign Function Interface (FFI) calls. By using an `unsafe` block, the programmer asserts responsibility for upholding an external contract that the compiler cannot verify. See Appendix I for the complete UVB index.
+**Unverifiable Behavior (UVB)** comprises operations whose runtime correctness depends on properties external to the language's semantic model. UVB is permitted only within `unsafe` blocks and Foreign Function Interface (FFI) calls. An `unsafe` block assertion transfers responsibility for maintaining external invariants to the programmer. See Appendix I for the complete UVB index.
 
 **Diagnostic Coordination**
 
@@ -214,11 +214,9 @@ The `cursive.*` namespace prefix is reserved for specification-defined features.
 
 Implementations MAY reserve additional identifier patterns.
 
-**Compiler-Generated Identifier Prefix**
+**Synthetic Identifier Prefix**
 
-The identifier prefix `gen_` is reserved for compiler-generated identifiers. User declarations MUST NOT define identifiers beginning with `gen_`.
-
-This prefix is used by the compiler when generating internal fields, synthetic type names, and other implementation artifacts not directly corresponding to user-written code.
+The identifier prefix `gen_` is reserved for synthetic identifiers. User declarations MUST NOT define identifiers beginning with `gen_`.
 
 Unlike implementation-reserved patterns (which are IDB), the `gen_` prefix is specification-mandated and applies uniformly across all conforming implementations.
 
@@ -273,7 +271,7 @@ Attempting to shadow a universe-protected binding at module scope MUST be diagno
 
 **Compile-Time Execution Limits**:
 
-The minimum guaranteed capacities for compile-time execution are defined in §16.8. For reference:
+The minimum guaranteed capacities for compile-time execution are defined in §17.8. For reference:
 
 *   **Comptime Recursion Depth**: 256 frames
 *   **Comptime Evaluation Steps**: 10,000,000
@@ -394,7 +392,7 @@ This section defines foundational concepts used throughout the specification for
 
 **Program Point**
 
-A **Program Point** is a unique location in the abstract control flow representation of a procedure body at which the compiler tracks state.
+A **Program Point** is a unique location in the abstract control flow representation of a procedure body.
 
 $$\text{ProgramPoint} ::= (\text{ProcedureId}, \text{CFGNodeId})$$
 
@@ -1071,7 +1069,7 @@ Liveness is enforced through RAII and deterministic destruction (§3.6), modal p
 
 **Aliasing Enforcement**
 
-Aliasing is enforced through permission types (§4.5) and the key-based concurrency model (§13.1).
+Aliasing is enforced through permission types (§4.5) and the key-based concurrency model (§14.1).
 
 ---
 
@@ -1213,7 +1211,7 @@ A **Temporary Value** is an object resulting from expression evaluation that is 
 <var_decl>         ::= "var" <pattern> (":" <type>)? <binding_op> <expression>
 ```
 
-See §11.2 for the `<pattern>` production.
+See §12.2 for the `<pattern>` production.
 
 ##### Static Semantics
 
@@ -1421,7 +1419,7 @@ exits.
 - Arena-style bulk allocation with deterministic deallocation
 - LIFO lifetime ordering relative to nested regions
 
-Task execution is managed separately by the `parallel` block (§13.3). While regions
+Task execution is managed separately by the `parallel` block (§14.3). While regions
 and parallel blocks are orthogonal, they compose naturally: region-allocated data
 can be shared across tasks within a `parallel` block because structured concurrency
 guarantees all tasks complete before the enclosing scope (and thus any enclosing
@@ -1443,7 +1441,7 @@ region) exits.
 <alloc_expr>       ::= <identifier> "^" <expression>
 ```
 
-Execution modifiers are specified on `parallel` blocks (§13.3), not regions.
+Execution modifiers are specified on `parallel` blocks (§14.3), not regions.
 
 **Region Allocation**
 
@@ -1942,7 +1940,7 @@ The following table specifies which operations are permitted through a `shared` 
 
 **Note on Field Mutation:** Direct field assignment through a `shared` path (e.g., `obj.field = value`) requires key acquisition per §13.1. For types that do not participate in the key system or outside valid key contexts, direct field mutation is rejected with `E-TYP-1604`. See §4.5.4 (shared Access to Types Without Synchronized Methods) for read-only shared access patterns.
 
-Key modes (Read, Write) are defined in §13.1.2 (Key Modes).
+Key modes (Read, Write) are defined in §14.1.2 (Key Modes).
 
 **Exclusion Principle (Normative)**
 
@@ -2011,51 +2009,15 @@ let timeout = config.timeout_ms    // OK: field read
 
 ##### Definition
 
-Method receiver permissions determine which paths may be used to invoke a method.
+Method receiver permissions determine which paths may be used to invoke a method. This section summarizes the key constraint; the complete treatment is in §9.2 (Method Definitions and Receivers).
 
 ##### Static Semantics
 
-**Receiver Compatibility Matrix**
-
 A method with receiver permission $P_{\text{method}}$ is callable through a path with permission $P_{\text{caller}}$ if and only if $P_{\text{caller}} <: P_{\text{method}}$ in the permission subtyping lattice (§4.5.4).
 
-> **Cross-Reference:** See §9.3 for complete method dispatch semantics, including class-based polymorphism and resolution rules.
+**Summary:** `unique` callers may invoke any method. `const` callers may only invoke `const` methods. `shared` callers may invoke `const` or `shared` methods.
 
-| Caller's Permission | `~` (const) | `~!` (unique) | `~%` (shared) |
-| :------------------ | :---------: | :-----------: | :-----------: |
-| `const`             |      ✓      |       ✗       |       ✗       |
-| `unique`            |      ✓      |       ✓       |       ✓       |
-| `shared`            |      ✓      |       ✗       |       ✓       |
-
-**Reading the matrix:** Row = permission of the caller's path to the receiver. Column = permission required by the method's receiver parameter. ✓ = method is callable. ✗ = method is not callable (error `E-TYP-1605`).
-
-**Formal Rule (Receiver-Compat):**
-
-$$\frac{
-    \Gamma \vdash e : P_{\text{caller}}\ T \quad
-    m \in \text{Methods}(T) \quad
-    m.\text{receiver} = P_{\text{method}}\ \texttt{Self} \quad
-    \Gamma \vdash P_{\text{caller}}\ T <: P_{\text{method}}\ T
-}{
-    \Gamma \vdash e.m(\ldots)\ \text{well-typed}
-} \quad \text{(Receiver-Compat)}$$
-
-**Key Acquisition in Method Calls**
-
-When a method with `~%` receiver is called through a `shared` path, the key is
-acquired for the duration of the method call:
-
-```cursive
-let counter: shared Counter = Counter { value: 0 }
-
-// Key acquisition sequence:
-counter.increment()
-// 1. Acquire write key to `counter` (method has ~% receiver)
-// 2. Execute increment method body
-// 3. Release key
-```
-
-For explicit control over key scope, see the `#` coarsening annotation in §13.2.
+> **Cross-Reference:** See §9.2 for the complete receiver compatibility matrix, formal typing rules (Receiver-Compat), key acquisition semantics for `shared` receivers, and diagnostic codes.
 
 ---
 
@@ -2523,7 +2485,7 @@ Permission propagates per §4.5.
 
 **Bounds Checking**
 
-**Bounds Checking**: All array indexing is bounds-checked at runtime per §11.4.2.
+**Bounds Checking**: All array indexing is bounds-checked at runtime per §12.4.2.
 
 **Initialization**
 
@@ -2637,7 +2599,7 @@ Permission propagates per §4.5.
 
 ##### Dynamic Semantics
 
-**Bounds Checking**: All slice indexing is bounds-checked at runtime per §11.4.2.
+**Bounds Checking**: All slice indexing is bounds-checked at runtime per §12.4.2.
 
 **Slice Range Bounds**
 
@@ -2890,7 +2852,7 @@ field_access     ::= expression "." identifier
 
 **Type Invariant**
 
-A record declaration MAY include a `where` clause to specify a type invariant. The syntax, semantics, predicate context, and enforcement points are defined in §10.3.1 (Type Invariants).
+A record declaration MAY include a `where` clause to specify a type invariant. The syntax, semantics, predicate context, and enforcement points are defined in §11.3.1 (Type Invariants).
 
 ##### Static Semantics
 
@@ -2922,7 +2884,7 @@ A record declaration MAY implement classes using the `<:` syntax. See §9.3 for 
 
 **Invariant Enforcement**
 
-Invariant enforcement modes and verification strategies are defined in §10.4.
+Invariant enforcement modes and verification strategies are defined in §11.4.
 
 **Permission Propagation**
 
@@ -3062,7 +3024,7 @@ enum Status {
 
 **Type Invariant**
 
-An enum declaration MAY include a `where` clause to specify a type invariant. The syntax, semantics, predicate context, and enforcement points are defined in §10.3.1 (Type Invariants).
+An enum declaration MAY include a `where` clause to specify a type invariant. The syntax, semantics, predicate context, and enforcement points are defined in §11.3.1 (Type Invariants).
 
 When the invariant predicate requires access to variant-specific data, it MUST use a `match` expression.
 
@@ -3106,11 +3068,11 @@ If the implicit discriminant value of a variant would exceed the maximum value o
 
 **Variant Access**
 
-Accessing the data stored within an enum variant MUST be performed using a `match` expression (§11.2). Direct field access on an enum value is forbidden; the active variant must first be determined through pattern matching.
+Accessing the data stored within an enum variant MUST be performed using a `match` expression (§12.2). Direct field access on an enum value is forbidden; the active variant must first be determined through pattern matching.
 
 **Exhaustiveness**
 
-A `match` expression on an enum type MUST be exhaustive: the set of patterns in its arms, taken together, MUST cover every variant of the enum. Exhaustiveness checking is mandatory for all enum types. See §11.2 for pattern matching semantics.
+A `match` expression on an enum type MUST be exhaustive: the set of patterns in its arms, taken together, MUST cover every variant of the enum. Exhaustiveness checking is mandatory for all enum types. See §12.2 for pattern matching semantics.
 
 **Class Implementation**
 
@@ -3118,7 +3080,7 @@ An enum declaration MAY implement classes using the `<:` syntax. See §9.3 for c
 
 **Invariant Enforcement**
 
-Invariant enforcement modes and verification strategies are defined in §10.4.
+Invariant enforcement modes and verification strategies are defined in §11.4.
 
 **Subtyping**
 
@@ -3181,7 +3143,7 @@ When an enum is annotated with `[[layout(C)]]` or `[[layout(IntType)]]` (e.g., `
 | `P-TYP-2011` | Panic    | Type invariant violated at construction.                    | Runtime      | Panic     |
 | `P-TYP-2012` | Panic    | Type invariant violated at procedure boundary.              | Runtime      | Panic     |
 
-See §11.2 for pattern exhaustiveness diagnostics (`E-PAT-2741`).
+See §12.2 for pattern exhaustiveness diagnostics (`E-PAT-2741`).
 
 ---
 
@@ -3337,7 +3299,7 @@ $$\Gamma \vdash e : U \implies \Gamma \nvdash e.f : T \quad \text{(Union-No-Dire
 
 **Exhaustiveness Requirement**
 
-A `match` expression over a union type MUST be exhaustive. The set of patterns MUST cover all member types of the union (§11.2).
+A `match` expression over a union type MUST be exhaustive. The set of patterns MUST cover all member types of the union (§12.2).
 
 **Nested Unions**
 
@@ -3585,7 +3547,7 @@ transition_def    ::= "transition" identifier "(" param_list ")" "->" "@" target
 target_state      ::= identifier
 ```
 
-The `implements_clause` production is defined in §5.3 (Records). The `param_list` production is defined in §20 (FFI).
+The `implements_clause` production is defined in §5.3 (Records). The `param_list` production is defined in §9.1 (Procedure Declarations).
 
 Methods and transitions MUST be defined inline within their state block. Separate declaration and definition is not supported.
 
@@ -3988,7 +3950,7 @@ This operation has complexity $O(n)$ where $n$ is the view's byte length.
 
 **`string@Managed` Operations**
 
-Operations on `string@Managed` that may allocate or reallocate the buffer MUST receive a `HeapAllocator` capability parameter (§10.5):
+Operations on `string@Managed` that may allocate or reallocate the buffer MUST receive a `HeapAllocator` capability parameter (§11.5):
 
 - **Construction:** `string::from(source: string@View, heap: dyn HeapAllocator): string@Managed`
 - **Mutation:** `append(self: unique, data: string@View, heap: dyn HeapAllocator)`
@@ -4274,7 +4236,7 @@ When `Ptr::null()` is evaluated:
 
 **Dereference Evaluation**
 
-> **Cross-Reference:** The evaluation semantics of the dereference operator `*` are defined in §11.4.5 (Unary Operators).
+> **Cross-Reference:** The evaluation semantics of the dereference operator `*` are defined in §12.4.5 (Unary Operators).
 
 **Region Exit State Transition**
 
@@ -4362,7 +4324,7 @@ The following constraints govern pointer casts:
 
 **FFI Constraints**
 
-Raw pointers are the only FFI-safe (Clause 20) pointer types:
+Raw pointers are the only FFI-safe (Clause 21) pointer types:
 
 1. The `Ptr<T>@State` modal type MUST NOT appear in `extern` procedure signatures.
 2. Procedures accepting or returning pointers across the FFI boundary MUST use raw pointer types.
@@ -4493,7 +4455,7 @@ The distinction between sparse function pointers `(T) -> U` and closures `|T| ->
 
 1. **Storage and Passing:** Closures require two machine words (code pointer + environment pointer), while sparse function pointers require one. A binding of type `|T| -> U` cannot hold a value of type `(T) -> U` without implicit coercion (which is permitted via subtyping, see below).
 
-2. **FFI Boundaries:** Only sparse function pointer types are FFI-safe (§20). A procedure accepting a callback from foreign code MUST declare that parameter with sparse function pointer type `(T) -> U`, not closure type `|T| -> U`.
+2. **FFI Boundaries:** Only sparse function pointer types are FFI-safe (§21). A procedure accepting a callback from foreign code MUST declare that parameter with sparse function pointer type `(T) -> U`, not closure type `|T| -> U`.
 
 3. **Environment Capture:** A closure type indicates that the callable may hold references to captured bindings from its defining scope. Procedures may require this property (accepting `|T| -> U`) when the callback must close over external state, or prohibit it (accepting `(T) -> U`) when callbacks must be stateless.
 
@@ -4632,7 +4594,7 @@ The following structural constraints apply to function types:
 
 Closure types are NOT FFI-safe:
 
-1. Closure types (`|T| -> U`) MUST NOT appear in `extern` procedure signatures (Clause 20).
+1. Closure types (`|T| -> U`) MUST NOT appear in `extern` procedure signatures (Clause 21).
 2. Only sparse function pointer types are permitted at FFI boundaries.
 3. Sparse function pointers used in FFI contexts MUST NOT have generic type parameters.
 
@@ -5159,7 +5121,7 @@ Multiple layout kinds MAY be combined in a single attribute:
 | `modal`                   |   ✗   |    ✗     |     ✗      |     ✗     |
 | Generic (unmonomorphized) |   ✗   |    ✗     |     ✗      |     ✗     |
 
-Applying `[[layout(...)]]` to a `modal` type or an unmonomorphized generic type is ill-formed (`E-FFI-3303`, as defined in §20).
+Applying `[[layout(...)]]` to a `modal` type or an unmonomorphized generic type is ill-formed (`E-FFI-3303`, as defined in §21).
 
 ---
 
@@ -5242,7 +5204,7 @@ The `[[reflect]]` attribute enables compile-time introspection for a type declar
 1. The `[[reflect]]` attribute takes no arguments.
 2. It is valid on `record`, `enum`, and `modal` type declarations.
 3. The attribute has no effect on runtime behavior or memory layout.
-4. Full semantics for compile-time introspection are defined in Clause 17 (Metaprogramming).
+4. Full semantics for compile-time introspection are defined in Clause 17 (Compile-Time Execution) and Clause 18 (Type Reflection).
 
 ---
 
@@ -5254,13 +5216,13 @@ The `[[reflect]]` attribute enables compile-time introspection for a type declar
 
 ##### Static Semantics
 
-The following FFI attributes are recognized. Complete semantics are defined in Clause 20 (Foreign Function Interface):
+The following FFI attributes are recognized. Complete semantics are defined in Clause 21 (Foreign Function Interface):
 
 | Attribute              | Reference | Effect                                                       |
 | :--------------------- | :-------- | :----------------------------------------------------------- |
-| `[[link_name("sym")]]` | §20.3     | Overrides the linker symbol name for an extern procedure     |
-| `[[no_mangle]]`        | §20.5     | Disables name mangling (implicit for `extern "C"`)           |
-| `[[unwind(mode)]]`     | §20.3     | Controls panic behavior at FFI boundary (`abort` or `catch`) |
+| `[[link_name("sym")]]` | §21.3     | Overrides the linker symbol name for an extern procedure     |
+| `[[no_mangle]]`        | §21.5     | Disables name mangling (implicit for `extern "C"`)           |
+| `[[unwind(mode)]]`     | §21.3     | Controls panic behavior at FFI boundary (`abort` or `catch`) |
 
 These attributes are valid only on `extern` procedure declarations.
 
@@ -5274,7 +5236,7 @@ These attributes are valid only on `extern` procedure declarations.
 
 ##### Static Semantics
 
-The following memory ordering attributes are recognized. Complete semantics are defined in §13.10 (Memory Ordering):
+The following memory ordering attributes are recognized. Complete semantics are defined in §14.10 (Memory Ordering):
 
 | Attribute     | Target        | Effect                                |
 | :------------ | :------------ | :------------------------------------ |
@@ -5373,12 +5335,12 @@ The `[[dynamic]]` attribute scope propagates inward according to lexical structu
 Within a `[[dynamic]]` scope:
 
 - If static key safety analysis fails, the compiler MAY insert runtime synchronization
-- The rules K-Static-Required and K-Dynamic-Permitted (§13.9) govern this behavior
-- Same-statement conflicts (§13.6.1) remain compile-time errors regardless of `[[dynamic]]`
+- The rules K-Static-Required and K-Dynamic-Permitted (§14.9) govern this behavior
+- Same-statement conflicts (§14.6.1) remain compile-time errors regardless of `[[dynamic]]`
 
 **Dynamic Index Ordering**
 
-Within a `[[dynamic]]` scope, `#` blocks containing dynamically-indexed paths that cannot be statically ordered use runtime ordering to determine acquisition sequence. The semantic guarantee is deadlock freedom; the ordering mechanism is Implementation-Defined (see §13.7).
+Within a `[[dynamic]]` scope, `#` blocks containing dynamically-indexed paths that cannot be statically ordered use runtime ordering to determine acquisition sequence. The semantic guarantee is deadlock freedom; the ordering mechanism is Implementation-Defined (see §14.7).
 
 This converts what would otherwise be ill-formed code into safe, deadlock-free code at the cost of runtime ordering computation.
 
@@ -5388,7 +5350,7 @@ Within a `[[dynamic]]` scope:
 
 - If a contract predicate cannot be proven statically, a runtime check is inserted
 - Failed runtime checks result in panic (`P-CON-2850`)
-- The rules Contract-Static-OK, Contract-Static-Fail, Contract-Dynamic-Elide, Contract-Dynamic-Check (§10.4) govern this behavior
+- The rules Contract-Static-OK, Contract-Static-Fail, Contract-Dynamic-Elide, Contract-Dynamic-Check (§11.4) govern this behavior
 
 **Effect on Refinement Types (§7.3)**
 
@@ -5574,7 +5536,7 @@ $$\frac{
 
 **(T-Refine-Intro)**
 
-A value of base type `T` has refinement type `T where { P }` when a Verification Fact (§10.5) establishes that `P` holds for that value:
+A value of base type `T` has refinement type `T where { P }` when a Verification Fact (§11.5) establishes that `P` holds for that value:
 
 $$\frac{
     \Gamma \vdash e : T \quad
@@ -5639,7 +5601,7 @@ $$(T \text{ where } \{P\}) \text{ where } \{Q\} \equiv T \text{ where } \{P \lan
 
 The predicate `P` in a refinement type `T where { P }` MUST satisfy:
 
-1. The predicate MUST be a pure expression (§10.1.1).
+1. The predicate MUST be a pure expression (§11.1.1).
 2. The predicate MUST evaluate to type `bool`.
 3. In type aliases and standalone refinement type expressions, the predicate MUST use `self` to refer to the constrained value.
 4. In inline parameter constraints, the predicate MUST use the parameter name to refer to the constrained value; use of `self` is forbidden.
@@ -5648,7 +5610,7 @@ The predicate MAY reference other in-scope bindings, including earlier parameter
 
 **Automatic Coercion**
 
-The implementation MUST automatically coerce a value of type `T` to type `T where { P }` when active Verification Facts (§10.5) prove that `P` holds for that value. This coercion is implicit and requires no runtime check.
+The implementation MUST automatically coerce a value of type `T` to type `T where { P }` when active Verification Facts (§11.5) prove that `P` holds for that value. This coercion is implicit and requires no runtime check.
 
 **Variance Interaction**
 
@@ -5658,7 +5620,7 @@ Refinement types participate in the standard subtyping relation defined in §4.2
 
 **Verification**
 
-When a value is assigned to a binding of refinement type, or passed to a parameter of refinement type, and no Verification Fact (§10.5) establishes that the predicate holds, the predicate MUST be verified.
+When a value is assigned to a binding of refinement type, or passed to a parameter of refinement type, and no Verification Fact (§11.5) establishes that the predicate holds, the predicate MUST be verified.
 
 **Static Verification by Default**
 
@@ -5710,7 +5672,7 @@ The following constraints apply to refinement types:
 
 ---
 
-# Part 3: Program Behavior
+# Part 3: Program Execution
 
 ## Clause 8: Modules and Name Resolution
 
@@ -5770,7 +5732,7 @@ type_decl      ::= visibility? ("record" | "enum" | "modal" | "type") identifier
 procedure_decl ::= visibility? "procedure" identifier ...
 ```
 
-The `class_declaration` production is defined in §9.2 (Form Declarations). The semantics of `let` and `var` bindings in `static_decl` (mutability and movability) are defined in §3.4 (The Binding Model).
+The `class_declaration` production is defined in §10.2 (Class Declarations). The semantics of `let` and `var` bindings in `static_decl` (mutability and movability) are defined in §3.4 (The Binding Model).
 
 **Module Path Grammar**
 
@@ -6525,27 +6487,369 @@ The `main` procedure:
 
 ---
 
-## Clause 8.5: Procedures and Methods (Placeholder)
+## Clause 9: Procedures and Methods
 
-> **Note:** This section is a placeholder. Content will be consolidated from the following locations:
->
-> - §2.7: Receiver shorthand notation (`~`, `~!`, `~%`)
-> - §4.5.5: Permission compatibility with method receivers
-> - §6.1: Method grammar (`method_def` production)
-> - §8.1: `procedure_decl` production
-> - §9: Class method signatures
->
-> This clause will provide a unified treatment of:
-> - Procedure declaration syntax and semantics
-> - Method definition and receiver binding
-> - Receiver permission requirements
-> - The relationship between standalone procedures and type-associated methods
+This clause defines the syntax and semantics of procedures, the fundamental units of computation in Cursive. Procedures may be standalone (module-level) or associated with types (methods). This clause provides the authoritative treatment of procedure declarations, method definitions, parameter passing, and execution semantics.
+
+### 9.1 Procedure Declarations
+
+##### Definition
+
+A **procedure** is a named, callable unit of computation that accepts zero or more parameters, performs computation, and optionally returns a value. Procedures are the primary abstraction for encapsulating behavior in Cursive.
+
+**Formal Definition**
+
+A procedure $P$ is defined as a tuple:
+
+$$P = (N, V, G, \Sigma, C, B)$$
+
+Where:
+- $N$: The procedure name (identifier)
+- $V$: Visibility level (public, internal, protected, private)
+- $G$: Generic parameter list (possibly empty)
+- $\Sigma$: Signature (parameter types and return type)
+- $C$: Contract clauses (preconditions, postconditions)
+- $B$: Body (statement block)
+
+##### Syntax & Declaration
+
+**Grammar**
+
+```ebnf
+procedure_decl ::= [visibility] "procedure" identifier [generic_params]
+                   "(" [param_list] ")" ["->" return_type]
+                   [contract_clauses] block
+
+param_list     ::= param ("," param)* [","]
+
+param          ::= [param_mode] identifier ":" type
+
+param_mode     ::= "move" | permission_prefix
+
+permission_prefix ::= "const" | "unique" | "shared"
+
+return_type    ::= type | union_return
+
+union_return   ::= type ("|" type)+
+
+contract_clauses ::= (precondition | postcondition)+
+
+precondition   ::= "|=" expression
+
+postcondition  ::= "=>" expression
+```
+
+The `visibility`, `generic_params`, and `block` productions are defined in §8.5 (Visibility), §7.1 (Generics), and §12.7 (Block Expressions), respectively.
+
+**Parameter Modes**
+
+| Mode            | Syntax        | Semantics                                                          |
+| :-------------- | :------------ | :----------------------------------------------------------------- |
+| Default (const) | `x: T`        | Caller retains responsibility; callee receives `const` access      |
+| Unique          | `unique x: T` | Caller retains responsibility; callee receives exclusive access    |
+| Shared          | `shared x: T` | Caller retains responsibility; callee receives synchronized access |
+| Move            | `move x: T`   | Caller transfers responsibility to callee                          |
+
+**Return Type Syntax**
+
+A procedure may return a single type or a union of types. Union returns are used for error handling:
+
+```cursive
+procedure divide(a: i32, b: i32) -> i32 | DivisionByZero {
+    if b == 0 {
+        result DivisionByZero {}
+    }
+    result a / b
+}
+```
+
+##### Static Semantics
+
+**Procedure Type Derivation (T-Proc)**
+
+$$\frac{
+  \Gamma \vdash p_1 : T_1, \ldots, p_n : T_n \quad
+  \Gamma, p_1 : T_1, \ldots, p_n : T_n \vdash B : T_r
+}{
+  \Gamma \vdash \texttt{procedure } N(p_1: T_1, \ldots, p_n: T_n) \rightarrow T_r\ \{B\} : (T_1, \ldots, T_n) \rightarrow T_r
+}$$
+
+**Well-Formedness (WF-Proc)**
+
+A procedure declaration is well-formed if:
+
+1. The procedure name is a valid identifier not already bound in the current scope
+2. All parameter names are distinct
+3. All parameter types are well-formed
+4. The return type (if specified) is well-formed
+5. The body is well-typed with respect to the parameter context
+6. If the return type is specified, all return paths produce values of compatible types
+7. Contract expressions are pure and of type `bool`
+
+##### Constraints & Legality
+
+| Code          | Severity | Condition                                                   | Detection    | Effect    |
+| :------------ | :------- | :---------------------------------------------------------- | :----------- | :-------- |
+| `E-PROC-3001` | Error    | Duplicate parameter name in procedure signature.            | Compile-time | Rejection |
+| `E-PROC-3002` | Error    | Return type mismatch in procedure body.                     | Compile-time | Rejection |
+| `E-PROC-3003` | Error    | Non-exhaustive return paths (not all paths return a value). | Compile-time | Rejection |
+| `E-PROC-3004` | Error    | Impure expression in contract clause.                       | Compile-time | Rejection |
 
 ---
 
-## Clause 9: Classes and Polymorphism
+### 9.2 Method Definitions and Receivers
 
-### 9.1 Introduction to Classes
+##### Definition
+
+A **method** is a procedure associated with a type. Methods are invoked on instances of their associated type through the receiver parameter.
+
+**Receiver Shorthand**
+
+Cursive provides shorthand notation for method receivers:
+
+| Shorthand | Expansion           | Permission | Description                  |
+| :-------- | :------------------ | :--------- | :--------------------------- |
+| `~`       | `self: const Self`  | `const`    | Read-only access to receiver |
+| `~!`      | `self: unique Self` | `unique`   | Exclusive mutable access     |
+| `~%`      | `self: shared Self` | `shared`   | Synchronized shared access   |
+
+##### Syntax & Declaration
+
+**Grammar**
+
+```ebnf
+method_def     ::= [visibility] "procedure" identifier "(" receiver ["," param_list] ")"
+                   ["->" return_type] [contract_clauses] block
+
+receiver       ::= receiver_shorthand | explicit_receiver
+
+receiver_shorthand ::= "~" | "~!" | "~%"
+
+explicit_receiver  ::= [param_mode] "self" ":" type
+```
+
+**Method vs. Standalone Procedure**
+
+The presence of a receiver parameter distinguishes methods from standalone procedures:
+
+```cursive
+// Standalone procedure (no receiver)
+procedure compute(x: i32, y: i32) -> i32 {
+    result x + y
+}
+
+// Method (has receiver)
+record Counter { value: i32 }
+// Within type block:
+procedure increment(~!) {
+    self.value += 1
+}
+```
+
+##### Static Semantics
+
+**Receiver Permission Compatibility**
+
+A method with receiver permission $P_{\text{method}}$ is callable through a path with permission $P_{\text{caller}}$ if and only if $P_{\text{caller}} <: P_{\text{method}}$ in the permission subtyping lattice.
+
+| Caller's Permission | `~` (const) | `~!` (unique) | `~%` (shared) |
+| :------------------ | :---------: | :-----------: | :-----------: |
+| `const`             |      ✓      |       ✗       |       ✗       |
+| `unique`            |      ✓      |       ✓       |       ✓       |
+| `shared`            |      ✓      |       ✗       |       ✓       |
+
+**Reading the matrix:** Row = permission of the caller's path to the receiver. Column = permission required by the method's receiver parameter. ✓ = method is callable. ✗ = method is not callable.
+
+**Formal Rule (Receiver-Compat):**
+
+$$\frac{
+    \Gamma \vdash e : P_{\text{caller}}\ T \quad
+    m \in \text{Methods}(T) \quad
+    m.\text{receiver} = P_{\text{method}}\ \texttt{Self} \quad
+    \Gamma \vdash P_{\text{caller}}\ T <: P_{\text{method}}\ T
+}{
+    \Gamma \vdash e.m(\ldots)\ \text{well-typed}
+} \quad \text{(Receiver-Compat)}$$
+
+**Key Acquisition in Method Calls**
+
+When a method with `~%` receiver is called through a `shared` path, the key is acquired for the duration of the method call:
+
+```cursive
+let counter: shared Counter = Counter { value: 0 }
+
+// Key acquisition sequence:
+counter.increment()
+// 1. Acquire write key to `counter` (method has ~% receiver)
+// 2. Execute increment method body
+// 3. Release key
+```
+
+For explicit control over key scope, see the `#` coarsening annotation in §14.4.
+
+##### Constraints & Legality
+
+| Code          | Severity | Condition                                                         | Detection    | Effect    |
+| :------------ | :------- | :---------------------------------------------------------------- | :----------- | :-------- |
+| `E-PROC-3010` | Error    | Method receiver permission incompatible with caller's permission. | Compile-time | Rejection |
+| `E-PROC-3011` | Error    | Method defined outside of type context.                           | Compile-time | Rejection |
+| `E-PROC-3012` | Error    | Duplicate method name in type.                                    | Compile-time | Rejection |
+
+---
+
+### 9.3 Parameter Passing and Binding
+
+##### Definition
+
+This section defines the semantics of parameter evaluation, binding, and the transfer of responsibility between caller and callee.
+
+##### Static Semantics
+
+**Parameter Evaluation Order**
+
+Arguments are evaluated left-to-right in declaration order:
+
+$$\text{eval}(f(e_1, e_2, \ldots, e_n)) = \text{eval}(e_1); \text{eval}(e_2); \ldots; \text{eval}(e_n); \text{call}(f)$$
+
+**Move Parameter Semantics**
+
+When a parameter is declared with `move`, the caller MUST use the `move` keyword at the call site:
+
+```cursive
+procedure consume(move data: Buffer) {
+    // data is now owned by this procedure
+}
+
+let buffer = Buffer::new()
+consume(move buffer)  // Caller uses `move` keyword
+// buffer is now INVALID (Moved state)
+```
+
+**Non-Move Parameter Semantics**
+
+For parameters without `move`, the caller retains responsibility:
+
+```cursive
+procedure inspect(data: const Buffer) {
+    // Read-only access to data
+}
+
+let buffer = Buffer::new()
+inspect(buffer)  // No move required
+// buffer is still valid
+```
+
+##### Dynamic Semantics
+
+**Argument Binding Sequence**
+
+1. Each argument expression is evaluated in left-to-right order
+2. For `move` parameters: responsibility transfers from caller to callee
+3. For non-move parameters: a permission-appropriate view is created
+4. Parameter bindings are introduced into the procedure's scope
+5. The procedure body executes with these bindings
+
+##### Constraints & Legality
+
+| Code          | Severity | Condition                                       | Detection    | Effect    |
+| :------------ | :------- | :---------------------------------------------- | :----------- | :-------- |
+| `E-PROC-3020` | Error    | Missing `move` keyword for move parameter.      | Compile-time | Rejection |
+| `E-PROC-3021` | Error    | `move` keyword on non-move parameter.           | Compile-time | Rejection |
+| `E-PROC-3022` | Error    | Argument type incompatible with parameter type. | Compile-time | Rejection |
+
+---
+
+### 9.4 Procedure Execution Model
+
+##### Definition
+
+This section defines the runtime behavior of procedure invocation, including stack frame construction, body execution, return value production, and cleanup.
+
+##### Dynamic Semantics
+
+**Invocation Sequence**
+
+Procedure invocation proceeds through the following phases:
+
+1. **Argument Evaluation**: Arguments are evaluated left-to-right
+2. **Frame Construction**: A new stack frame is allocated
+3. **Parameter Binding**: Arguments are bound to parameters in the new frame
+4. **Precondition Check**: If contracts are enabled, preconditions are verified
+5. **Body Execution**: The procedure body executes
+6. **Postcondition Check**: If contracts are enabled, postconditions are verified
+7. **Return**: The return value is produced and control returns to caller
+8. **Cleanup**: Deferred actions and destructors execute in LIFO order
+
+**Return Semantics**
+
+The `return` statement exits the procedure and produces a value:
+
+```cursive
+procedure compute() -> i32 {
+    if condition {
+        return 42  // Early return
+    }
+    result expensive()  // Final result (tail position)
+}
+```
+
+> **Cross-Reference:** See §12.10 (Control Flow Statements) for the distinction between `return` (exits procedure) and `result` (exits block).
+
+**Cleanup Ordering**
+
+When a procedure exits (normally or via `return`), cleanup proceeds in reverse declaration order:
+
+1. Deferred actions (`defer`) execute in LIFO order
+2. Destructor calls for bindings with responsibility execute in reverse declaration order
+3. The stack frame is deallocated
+
+> **Cross-Reference:** See §3.6 (Deterministic Destruction) and §12.12 (Defer Statements) for detailed cleanup semantics.
+
+---
+
+### 9.5 Overloading and Signature Matching
+
+##### Definition
+
+Cursive supports **procedure overloading**: multiple procedures may share the same name if their signatures are distinguishable.
+
+**Overload Set**
+
+An **overload set** is the collection of all procedures with the same name visible at a call site.
+
+##### Static Semantics
+
+**Overload Resolution**
+
+Given a call $f(a_1, \ldots, a_n)$ where $f$ names an overload set $O$:
+
+1. **Candidate Selection**: All procedures in $O$ with matching arity are candidates
+2. **Type Filtering**: Candidates whose parameter types are not compatible with argument types are eliminated
+3. **Best Match**: If exactly one candidate remains, it is selected
+4. **Ambiguity**: If multiple candidates remain, the call is ambiguous (error)
+5. **No Match**: If no candidates remain, the call is ill-formed (error)
+
+**Disambiguation Rules**
+
+When multiple overloads are candidates:
+
+1. An exact type match is preferred over a subtype match
+2. A non-generic overload is preferred over a generic overload
+3. A more specific generic constraint is preferred over a less specific one
+
+##### Constraints & Legality
+
+| Code          | Severity | Condition                                                          | Detection    | Effect    |
+| :------------ | :------- | :----------------------------------------------------------------- | :----------- | :-------- |
+| `E-PROC-3030` | Error    | Ambiguous overload resolution.                                     | Compile-time | Rejection |
+| `E-PROC-3031` | Error    | No matching overload found.                                        | Compile-time | Rejection |
+| `E-PROC-3032` | Error    | Duplicate procedure signature (overloads must be distinguishable). | Compile-time | Rejection |
+
+---
+
+## Clause 10: Classes and Polymorphism
+
+### 10.1 Introduction to Classes
 
 ##### Definition
 
@@ -6603,7 +6907,7 @@ The polymorphism path is determined by usage context:
 
 ---
 
-### 9.2 Class Declarations
+### 10.2 Class Declarations
 
 ##### Definition
 
@@ -6703,7 +7007,7 @@ Class items are separated by newlines. Semicolons are not used as terminators wi
 
 A `class_path` is syntactically identical to `type_path`; the semantic constraint is that the path must resolve to a class declaration.
 
-The `generic_params` and `generic_args` productions are defined in §7.1 (Static Polymorphism). The `contract_clause` production is defined in §10.1 (Contract Fundamentals). The `field_list` production is defined in §5.3 (Record Types).
+The `generic_params` and `generic_args` productions are defined in §7.1 (Static Polymorphism). The `contract_clause` production is defined in §11.1 (Contract Fundamentals). The `field_list` production is defined in §5.3 (Record Types).
 
 ##### Static Semantics
 
@@ -6818,7 +7122,7 @@ $$\frac{\text{type } Alias = A + B}{\Gamma \vdash T <: Alias \iff \Gamma \vdash 
 
 ---
 
-### 9.3 Class Implementation
+### 10.3 Class Implementation
 
 ##### Definition
 
@@ -7019,7 +7323,7 @@ $$\frac{
 
 ---
 
-### 9.4 Class Constraints in Generics
+### 10.4 Class Constraints in Generics
 
 ##### Definition
 
@@ -7052,7 +7356,7 @@ Class constraints integrate classes with the generic type system: a generic para
 
 ---
 
-### 9.5 Dynamic Polymorphism
+### 10.5 Dynamic Polymorphism
 
 ##### Definition
 
@@ -7220,7 +7524,7 @@ Dynamic class types may be combined with permissions per §4.5. Additional const
 
 ---
 
-### 9.6 Opaque Polymorphism
+### 10.6 Opaque Polymorphism
 
 ##### Definition
 
@@ -7311,7 +7615,7 @@ Opaque types MUST incur zero runtime overhead. The returned value is the concret
 
 ---
 
-### 9.7 Foundational Classes
+### 10.7 Foundational Classes
 
 ##### Definition
 
@@ -7319,13 +7623,13 @@ Foundational classes (`Drop`, `Copy`, `Clone`, `Iterator`) have special compiler
 
 ---
 
-## Clause 10: Contracts and Verification
+## Clause 11: Contracts and Verification
 
 This clause defines the formal semantics, syntax, and verification rules for Contracts in Cursive. Contracts are the primary mechanism for specifying behavioral properties of code beyond the type system. They govern the logical validity of procedures, types, and loops through preconditions, postconditions, and invariants.
 
 ---
 
-### 10.1 Contract Fundamentals
+### 11.1 Contract Fundamentals
 
 ##### Definition
 
@@ -7339,11 +7643,11 @@ A contract $C$ is a pair $(P_{pre}, P_{post})$ where:
 
 $$C = (P_{pre}, P_{post}) \quad \text{where} \quad P_{pre}, P_{post} \in \text{Predicate}^*$$
 
-A **Predicate** is a pure boolean expression evaluated in a specific evaluation context (see §10.1.2).
+A **Predicate** is a pure boolean expression interpreted in a specific evaluation context (see §11.1.2).
 
 **Distinguished from Capabilities**
 
-Contracts control the logical validity of data and operations. Capabilities (Clause 12) control authority to perform external effects. A procedure may have both.
+Contracts control the logical validity of data and operations. Capabilities (Clause 13) control authority to perform external effects. A procedure may have both.
 
 ##### Syntax & Declaration
 
@@ -7392,6 +7696,8 @@ contract_intrinsic
       | "@entry" "(" expression ")"
 ```
 
+> **Note:** The `comparison_expr` and `procedure_call` productions reference the expression grammar defined in Clause 12. Pure procedure calls are enforced semantically per §11.1.1.
+
 **Positioning**
 
 A contract clause (introduced by `|=`) MUST appear after the return type annotation (or after the parameter list if no return type is specified) and before the procedure body or terminating semicolon.
@@ -7429,9 +7735,9 @@ $$
 $$
 
 where:
-- $\Gamma_{pre}$ is the precondition evaluation context (§10.1.2)
-- $\Gamma_{post}$ is the postcondition evaluation context (§10.1.2)
-- $\text{pure}(e)$ holds iff $e$ satisfies all purity constraints (§10.1.1)
+- $\Gamma_{pre}$ is the precondition evaluation context (§11.1.2)
+- $\Gamma_{post}$ is the postcondition evaluation context (§11.1.2)
+- $\text{pure}(e)$ holds iff $e$ satisfies all purity constraints (§11.1.1)
 
 **Logical Operators**
 
@@ -7448,7 +7754,7 @@ A syntactically malformed contract clause causes the program to be ill-formed; t
 
 ---
 
-#### 10.1.1 Purity Constraints
+#### 11.1.1 Purity Constraints
 
 ##### Definition
 
@@ -7458,7 +7764,7 @@ A **pure expression** is an expression whose evaluation produces no observable s
 
 An expression $e$ satisfies $\text{pure}(e)$ if and only if:
 
-1. $e$ MUST NOT invoke any procedure that accepts capability parameters (`dyn` bindings).
+1. $e$ MUST NOT invoke any procedure that accepts capability parameters.
 2. $e$ MUST NOT mutate state observable outside the expression's evaluation.
 3. Built-in operators on primitive types and `comptime` procedures are always pure.
 
@@ -7470,7 +7776,7 @@ An expression $e$ satisfies $\text{pure}(e)$ if and only if:
 
 ---
 
-#### 10.1.2 Evaluation Contexts
+#### 11.1.2 Evaluation Contexts
 
 ##### Definition
 
@@ -7497,8 +7803,8 @@ The postcondition evaluation context includes:
   - Immutable parameters (`const`, `~`): same value as at entry
   - Mutable parameters (`unique`, `shared`): post-state value
 - The receiver binding (post-state for mutable receivers)
-- The `@result` intrinsic (§10.2.2)
-- The `@entry` operator (§10.2.2)
+- The `@result` intrinsic (§11.2.2)
+- The `@entry` operator (§11.2.2)
 - All bindings visible in the enclosing scope
 
 **Mutable Parameter State Semantics**
@@ -7523,12 +7829,9 @@ record Counter {
 }
 ```
 
-- `self.value >= 0` (left of `=>`) references the entry state (precondition)
-- `self.value == @entry(self.value) + 1` (right of `=>`) asserts post-state equals entry + 1
-
 ---
 
-#### 10.1.3 Inline Parameter Constraints
+#### 11.1.3 Inline Parameter Constraints
 
 ##### Definition
 
@@ -7561,7 +7864,7 @@ Constraints are conjoined left-to-right in parameter declaration order.
 
 ---
 
-### 10.2 Contract Clauses
+### 11.2 Contract Clauses
 
 ##### Definition
 
@@ -7569,7 +7872,7 @@ Contract clauses define preconditions and postconditions expressed with the `|=`
 
 ---
 
-#### 10.2.1 Preconditions
+#### 11.2.1 Preconditions
 
 ##### Definition
 
@@ -7579,7 +7882,7 @@ A **Precondition** is the logical expression appearing to the left of `=>` in a 
 
 **Caller Obligation Rule**
 
-When a procedure $f$ with precondition $P_{pre}$ is called at site $S$, the implementation MUST verify that a Verification Fact (§10.5) $F(P_{pre}, L)$ exists where $L$ dominates $S$ in the Control Flow Graph.
+When a procedure $f$ with precondition $P_{pre}$ is called at site $S$, the implementation MUST verify that a Verification Fact (§11.5) $F(P_{pre}, L)$ exists where $L$ dominates $S$ in the Control Flow Graph.
 
 $$
 \frac{
@@ -7594,7 +7897,7 @@ $$
 
 **Attribution**
 
-Failure to satisfy a precondition is attributed to the **caller**. The diagnostic MUST identify the call site, not the callee's declaration.
+Failure to satisfy a precondition is diagnosed at the **caller**. The diagnostic MUST identify the call site, not the callee's declaration.
 
 **Elision Rules**
 
@@ -7607,11 +7910,11 @@ Failure to satisfy a precondition is attributed to the **caller**. The diagnosti
 
 ##### Constraints & Legality
 
-Precondition scope is defined by $\Gamma_{pre}$ (§10.1.2). Precondition verification follows the strategy specified by `[[verify(...)]]` (§10.4). A precondition that cannot be statically verified in `static` mode is diagnosed as `E-CON-2801`. In `dynamic` mode, a runtime check is inserted; failure causes a panic.
+Precondition scope is defined by $\Gamma_{pre}$ (§11.1.2). Static verification is required by default; a precondition that cannot be statically verified is diagnosed as `E-CON-2801`. If the expression is within a `[[dynamic]]` scope (§11.4), a runtime check is inserted when static proof fails; runtime failure causes a panic.
 
 ---
 
-#### 10.2.2 Postconditions
+#### 11.2.2 Postconditions
 
 ##### Definition
 
@@ -7633,9 +7936,11 @@ $$
 \tag{Post-Valid}
 $$
 
+> **Note:** The judgments `: valid` and `: satisfied` denote successful verification of the predicate in context. These are equivalent and indicate the predicate holds.
+
 **Attribution**
 
-Failure to satisfy a postcondition is attributed to the **callee**. The diagnostic MUST identify the return point within the procedure body.
+Failure to satisfy a postcondition is diagnosed at the **callee**. The diagnostic MUST identify the return point within the procedure body.
 
 **Elision Rules**
 
@@ -7662,6 +7967,8 @@ Two intrinsics are available exclusively in postcondition expressions:
 | Unit Returns | If procedure returns `()`, `@result` has value `()`                       |
 | Shadowing    | `@result` is an intrinsic keyword; it MUST NOT be shadowed by any binding |
 
+> **Note:** `@result` and `@entry` are contract intrinsics and are reserved identifiers within contract contexts. They cannot be shadowed or used as user-defined identifiers in any scope.
+
 ```cursive
 procedure abs(x: i32) -> i32
     |= => @result >= 0 && (@result == x || @result == -x)
@@ -7677,7 +7984,7 @@ procedure abs(x: i32) -> i32
 | Availability          | Postcondition expressions only (right of `=>`)         |
 | Semantics             | Evaluates `expr` in the entry state of the procedure   |
 | Evaluation Point      | After parameter binding, before body execution         |
-| Expression Constraint | `expr` MUST be pure (§10.1.1)                          |
+| Expression Constraint | `expr` MUST be pure (§11.1.1)                          |
 | Expression Scope      | `expr` MUST reference only parameters and receiver     |
 | Type Constraint       | Result type of `expr` MUST implement `Copy` or `Clone` |
 | Capture Mechanism     | Implementation captures the value at procedure entry   |
@@ -7698,7 +8005,6 @@ record Vec<T> {
     // ...
 
     procedure push(~!, item: T)
-        where T <: Copy
         |= => self.len() == @entry(self.len()) + 1
     {
         // Implementation...
@@ -7714,11 +8020,22 @@ Direct capture of non-copyable resources is prohibited. To reference properties 
 // Invalid: Buffer is not Copy
 procedure process(buf: unique Buffer)
     |= => buf == @entry(buf)  // Error: Buffer does not implement Copy
+{ /* ... */ }
 
 // Valid: Capture the length (usize is Copy)
-procedure process(buf: unique Buffer)
+procedure process_valid(buf: unique Buffer)
     |= => buf.len() == @entry(buf.len())  // OK
+{ /* ... */ }
 ```
+
+**Formal Typing**
+
+The typing judgment for `@entry` establishes that the expression must be well-typed in the postcondition context and its type must satisfy the copyability constraint:
+
+$$
+\frac{\Gamma_{post} \vdash e : T \quad (T <: \text{Copy} \lor T <: \text{Clone})}{\Gamma_{post} \vdash \text{@entry}(e) : T}
+\tag{Entry-Type}
+$$
 
 ##### Constraints & Legality
 
@@ -7735,21 +8052,21 @@ Postcondition expressions:
 | `E-CON-2805` | Error    | `@entry()` result type does not implement Copy/Clone. | Compile-time | Rejection |
 | `E-CON-2806` | Error    | `@result` used outside postcondition context.         | Compile-time | Rejection |
 
-Postcondition verification follows the strategy specified by `[[verify(...)]]` (§10.4). A postcondition that cannot be statically verified in `static` mode is diagnosed as `E-CON-2801`. In `dynamic` mode, a runtime check is inserted; failure causes a panic.
+Static verification is required by default; a postcondition that cannot be statically verified is diagnosed as `E-CON-2801`. If the expression is within a `[[dynamic]]` scope (§11.4), a runtime check is inserted when static proof fails; runtime failure causes a panic.
 
 ---
 
-### 10.3 Invariants
+### 11.3 Invariants
 
 ##### Definition
 
 An **Invariant** is a predicate that MUST hold true over a defined scope or lifetime. Cursive defines two forms of invariants: Type Invariants and Loop Invariants.
 
-> **Cross-Reference:** Refinement Types (§7.3) provide anonymous invariants attached to type references (e.g., `usize where { self < len }`). Verification of refinement type predicates uses the mechanisms defined in §10.4 and §10.5.
+> **Cross-Reference:** Refinement Types (§7.3) provide anonymous invariants attached to type references (e.g., `usize where { self < len }`). Verification of refinement type predicates uses the mechanisms defined in §11.4 and §11.5.
 
 ---
 
-#### 10.3.1 Type Invariants
+#### 11.3.1 Type Invariants
 
 ##### Definition
 
@@ -7777,12 +8094,6 @@ type_invariant
 ```
 
 ```cursive
-record NonEmptyList<T> {
-    head: T,
-    tail: Vec<T>,
-}
-where { self.len() >= 1 }
-
 record BoundedCounter {
     value: u32,
     max: u32,
@@ -7799,7 +8110,7 @@ Within a type invariant predicate:
 - Field access on `self` is permitted
 - Method calls on `self` are permitted if the method accepts no capability parameters (i.e., is pure)
 
-**Enforcement Points (Boundary Points)**
+**Enforcement Points**
 
 A type invariant MUST be verified at the following program points:
 
@@ -7813,13 +8124,13 @@ At each enforcement point:
 - If the expression is within a `[[dynamic]]` scope (§7.2.9): runtime check is emitted when static proof fails
 - If the expression is outside `[[dynamic]]` scope: static proof is required; failure is ill-formed (`E-CON-2801`)
 
-```cursive
-type Positive = i32 where { self > 0 }
+**Public Field Constraint**
 
-// Type declaration makes enforcement points for Positive require static proof
-// unless the specific expression is marked [[dynamic]]
+Types with type invariants MUST NOT declare public mutable fields. Allowing direct public field mutation would bypass invariant enforcement. All mutations to such types MUST go through procedures.
 
-```
+| Code         | Severity | Condition                                   | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------ | :----------- | :-------- |
+| `E-CON-2824` | Error    | Public mutable field on type with invariant | Compile-time | Rejection |
 
 **Effective Postcondition Desugaring**
 
@@ -7838,26 +8149,24 @@ The implementation MUST verify both the explicit postcondition and the type inva
 
 Private procedures (visibility `internal` or less) are exempt from the Pre-Call enforcement point. This exemption enables internal helper procedures to temporarily violate the type invariant during complex state transitions.
 
-**Invariant Restoration Requirement**
+1. The type invariant MAY be violated at any point during private procedure execution.
+2. The type invariant MAY remain violated when returning to another private caller (intra-private composition).
+3. **Boundary Enforcement:** The type invariant MUST be verified when a private procedure returns to a public caller. This return boundary is a **Type Invariant Enforcement Point**.
 
-When invariants are temporarily violated within private procedures:
-1. The type invariant MAY be violated at any point during private procedure execution
-2. The type invariant MUST be restored before any return path that directly or indirectly reaches a public caller
-3. This restoration is the **type author's responsibility**; the compiler does not track invariant states across private procedure boundaries
-
-Failure to restore the invariant before returning to public callers results in observable invariant violations at the next public enforcement point. This constitutes a logic error in the type's implementation.
+Enforcement at the private-to-public boundary follows standard verification rules (§11.4): static proof is required by default; if static proof fails and the scope is marked `[[dynamic]]`, a runtime check is inserted.
 
 ##### Constraints & Legality
 
-| Code         | Severity | Condition                                            | Detection | Effect    |
-| :----------- | :------- | :--------------------------------------------------- | :-------- | :-------- |
-| `E-CON-2820` | Error    | Type invariant violated at construction.             | See §10.4 | See §10.4 |
-| `E-CON-2821` | Error    | Type invariant violated at public procedure entry.   | See §10.4 | See §10.4 |
-| `E-CON-2822` | Error    | Type invariant violated at mutator procedure return. | See §10.4 | See §10.4 |
+| Code         | Severity | Condition                                                     | Detection | Effect    |
+| :----------- | :------- | :------------------------------------------------------------ | :-------- | :-------- |
+| `E-CON-2820` | Error    | Type invariant violated at construction.                      | See §11.4 | See §11.4 |
+| `E-CON-2821` | Error    | Type invariant violated at public procedure entry.            | See §11.4 | See §11.4 |
+| `E-CON-2822` | Error    | Type invariant violated at mutator procedure return.          | See §11.4 | See §11.4 |
+| `E-CON-2823` | Error    | Type invariant violated at private-to-public return boundary. | See §11.4 | See §11.4 |
 
 ---
 
-#### 10.3.2 Loop Invariants
+#### 11.3.2 Loop Invariants
 
 ##### Definition
 
@@ -7878,6 +8187,8 @@ loop_condition
     ::= expression
 ```
 
+> The `block` production is defined in §11.7.
+
 ```cursive
 var sum = 0;
 var i = 0;
@@ -7888,7 +8199,6 @@ loop i < n
     sum += i;
     i += 1;
 }
-// After loop: sum == n * (n - 1) / 2
 ```
 
 ##### Static Semantics
@@ -7905,31 +8215,18 @@ A loop invariant $Inv$ MUST be verified at three points:
 
 **Verification Fact Generation**
 
-Upon successful verification of a loop invariant at the Termination point, the implementation MUST generate a Verification Fact $F(Inv, L_{exit})$ where $L_{exit}$ is the program location immediately after the loop.
-
-This enables the invariant to be used as a postcondition of the loop construct:
-
-```cursive
-var i = 0;
-loop i < 10
-    where { i >= 0 && i <= 10 }
-{
-    i += 1;
-}
-// Fact available: i >= 0 && i <= 10
-// Combined with loop exit condition !(i < 10): i == 10
-```
+Upon successful verification of a loop invariant at the Termination point, the implementation MUST generate a Verification Fact $F(Inv, L_{exit})$ where $L_{exit}$ is the program location immediately after the loop. This enables the invariant to be used as a postcondition of the loop construct.
 
 ##### Constraints & Legality
 
 | Code         | Severity | Condition                                         | Detection | Effect    |
 | :----------- | :------- | :------------------------------------------------ | :-------- | :-------- |
-| `E-CON-2830` | Error    | Loop invariant not established at initialization. | See §10.4 | See §10.4 |
-| `E-CON-2831` | Error    | Loop invariant not maintained across iteration.   | See §10.4 | See §10.4 |
+| `E-CON-2830` | Error    | Loop invariant not established at initialization. | See §11.4 | See §11.4 |
+| `E-CON-2831` | Error    | Loop invariant not maintained across iteration.   | See §11.4 | See §11.4 |
 
 ---
 
-### 10.4 Contract Verification
+### 11.4 Contract Verification
 
 ##### Definition
 
@@ -7945,7 +8242,7 @@ $$
 \frac{
     \text{StaticProof}(\Gamma, P)
 }{
-    P : \text{verified (zero overhead)}
+    P : \text{verified (no runtime check)}
 }
 \tag{Contract-Static-OK}
 $$
@@ -7968,7 +8265,7 @@ $$
 \frac{
     \text{StaticProof}(\Gamma, P)
 }{
-    P : \text{verified (zero overhead)}
+    P : \text{verified (no runtime check)}
 }
 \tag{Contract-Dynamic-Elide}
 $$
@@ -7998,7 +8295,7 @@ All conforming implementations MUST support the following proof techniques:
 | Boolean algebra          | Simplify and prove boolean expressions                |
 | Control flow analysis    | Track predicates established by conditionals          |
 | Type-derived bounds      | Use type constraints (e.g., `usize >= 0`)             |
-| Verification facts       | Use facts established by prior checks (§10.5)         |
+| Verification facts       | Use facts established by prior checks (§11.5)         |
 
 **Recommended Proof Techniques**
 
@@ -8046,23 +8343,17 @@ procedure caller(n: i32) {
 A postcondition is verified within the procedure body. The procedure's own `[[dynamic]]` status determines whether runtime checking is permitted:
 
 ```cursive
-// Without [[dynamic]]: postcondition must be statically provable
 procedure abs(x: i32) -> i32
-    => @result >= 0
+    |= => @result >= 0
 {
     if x >= 0 { result x }
     else { result -x }
-    // Compiler must prove both paths yield @result >= 0
 }
 
-// With [[dynamic]]: runtime check permitted
 [[dynamic]]
 procedure complex_computation(x: f64) -> f64
-    => @result.is_finite()
-{
-    // Complex logic where finiteness is hard to prove statically
-    // Runtime check emitted for postcondition
-}
+    |= => @result.is_finite()
+{ /* ... */ }
 ```
 
 ##### Dynamic Semantics
@@ -8075,8 +8366,8 @@ When `[[dynamic]]` permits and static proof fails:
 | :------------- | :------------------------------------- |
 | Precondition   | Immediately before call (at call site) |
 | Postcondition  | Immediately before return (in callee)  |
-| Type invariant | At each enforcement point (§10.3.1)    |
-| Loop invariant | At each enforcement point (§10.3.2)    |
+| Type invariant | At each enforcement point (§11.3.1)    |
+| Loop invariant | At each enforcement point (§11.3.2)    |
 
 **Runtime Check Failure**
 
@@ -8087,23 +8378,19 @@ When a runtime-checked predicate evaluates to `false`:
    - The predicate text (if available)
    - Source location of the contract
    - Whether it was a precondition or postcondition failure
-3. Normal panic propagation rules apply (Clause 3)
+3. Normal panic propagation rules apply (Clause 3, RAII destruction)
 
 **Fact Synthesis After Runtime Check**
 
-Successful execution of a runtime check synthesizes a Verification Fact per §10.5:
+Successful execution of a runtime check synthesizes a Verification Fact per §11.5:
 
 ```cursive
 [[dynamic]]
-
+procedure process(x: i32)
     |= x > 0
 {
-    // If we reach here, x > 0 is a Verification Fact
-    // Subsequent code may rely on this fact for static proofs
     let y = x - 1
-    if y > 0 {
-        // Can prove y > 0 using control flow
-    }
+    if y > 0 { /* ... */ }
 }
 ```
 
@@ -8118,7 +8405,7 @@ Successful execution of a runtime check synthesizes a Verification Fact per §10
 
 ---
 
-### 10.5 Verification Facts
+### 11.5 Verification Facts
 
 ##### Definition
 
@@ -8176,11 +8463,7 @@ When a Verification Fact $F(P, L)$ is active for binding $x$ at location $L$, th
 
 $$\text{typeof}(x) \xrightarrow{F(P, L)} \text{typeof}(x) \texttt{ where } \{P\}$$
 
-This enables flow-sensitive typing:
-
-```cursive
-
-```
+This enables flow-sensitive typing through refinement types.
 
 ##### Dynamic Semantics
 
@@ -8198,11 +8481,11 @@ When a `[[dynamic]]` scope requires a runtime check and no static fact dominates
 
 ---
 
-### 10.6 Behavioral Subtyping (Liskov Substitution)
+### 11.6 Liskov Substitution Principle
 
 ##### Definition
 
-When a type implements a class (Clause 9), procedure implementations MUST adhere to the **Behavioral Subtyping Principle** (Liskov Substitution Principle) with respect to class-defined contracts.
+When a type implements a class (Clause 10), procedure implementations MUST adhere to the **Liskov Substitution Principle** with respect to class-defined contracts.
 
 ##### Static Semantics
 
@@ -8222,7 +8505,7 @@ Behavioral subtyping constraints are verified **statically at compile-time**. Th
 
 2. **Postcondition Check**: For each procedure in the class, verify that the class's postcondition logically implies the implementation's postcondition (i.e., the implementation guarantees at least what the class promises).
 
-These checks use the same proof infrastructure as `[[verify(static)]]` (§10.4.1). If the implication cannot be proven, the program is ill-formed. No runtime checks are generated for behavioral subtyping; violations are structural errors in the type definition.
+These checks use the same proof infrastructure as standard static contract verification (§11.4). If the implication cannot be proven, the program is ill-formed. No runtime checks are generated for behavioral subtyping; violations are structural errors in the type definition.
 
 ```cursive
 class Container {
@@ -8264,7 +8547,7 @@ record BadList <: Container {
 
 ---
 
-## Clause 11: Expressions & Statements
+## Clause 12: Expressions & Statements
 
 This clause defines the syntax and semantics of expressions and statements in Cursive. Expressions are syntactic forms that produce typed values; statements are syntactic forms executed for their side effects. This clause establishes evaluation rules, pattern matching, operators, control flow, and the binding of values to identifiers.
 
@@ -8272,7 +8555,7 @@ This clause defines the syntax and semantics of expressions and statements in Cu
 
 ---
 
-### 11.1 Foundational Definitions
+### 12.1 Foundational Definitions
 
 ##### Definition
 
@@ -8305,7 +8588,7 @@ Expression type judgments use the **typing context** $\Gamma$ as defined in §4.
 
 **Value Categories**
 
-Every expression is classified into exactly one **value category**:
+Every expression is classified into exactly one **value category** (terminology adapted from C++ lvalue/rvalue distinction):
 
 | Category         | Notation    | Definition                                               |
 | :--------------- | :---------- | :------------------------------------------------------- |
@@ -8356,7 +8639,7 @@ Statement termination rules, including implicit newline termination and continua
 
 ---
 
-### 11.2 Pattern Matching
+### 12.2 Pattern Matching
 
 ##### Definition
 
@@ -8385,6 +8668,10 @@ A **refutable pattern** is a pattern that can fail to match a value of its expec
 - Multi-variant enum patterns
 - Modal state patterns (`@State`)
 - Range patterns (`0..10`)
+
+**Scrutinee**
+
+The **scrutinee** is the value being matched against in a `match` expression. In `match expr { ... }`, the scrutinee is `expr`. The scrutinee's type determines which patterns are valid and how pattern bindings receive their permissions.
 
 **Pattern Binding Judgment**
 
@@ -8426,7 +8713,7 @@ enum_payload_pattern ::= "(" tuple_pattern_elements? ")"
 
 modal_pattern       ::= "@" identifier [ "{" [ field_pattern ( "," field_pattern )* ","? ] "}" ]
 
-range_pattern       ::= pattern ".." pattern
+range_pattern       ::= pattern ( ".." | "..=" ) pattern
 ```
 
 ##### Static Semantics
@@ -8435,9 +8722,14 @@ range_pattern       ::= pattern ".." pattern
 
 1. **Literal Pattern**: Matches if `scrutinee == literal`. The literal type MUST be compatible with the scrutinee type.
 
-2. **Wildcard Pattern (`_`)**: Matches any value. No binding is introduced. The matched value is not consumed.
+2. **Wildcard Pattern (`_`)**: Matches any value. No binding is introduced. The matched value is neither moved nor bound; it remains in place.
 
-3. **Identifier Pattern (`x`)**: Matches any value. The value is bound to `x` using move semantics: responsibility for the value transfers to the new binding unless the scrutinee is accessed through a `const` permission, in which case the binding receives a `const` view.
+3. **Identifier Pattern (`x`)**: Matches any value. The binding semantics depend on the **permission** of the scrutinee path, not the binding keyword (`let`/`var`):
+   - **`unique` scrutinee**: The value is moved; responsibility transfers to the new binding. The original path becomes invalid.
+   - **`shared` scrutinee**: The binding receives a `shared` view with synchronized access.
+   - **`const` scrutinee**: The binding receives a `const` view. If the type implements `Copy`, the value is copied.
+
+   The `let`/`var` keyword determines only whether the new binding is reassignable, not the transfer semantics.
 
 4. **Tuple Pattern (`(p₁, p₂, ..., pₙ)`)**: Matches if the scrutinee is a tuple of arity $n$ and each component matches the corresponding sub-pattern. Sub-patterns are matched left-to-right.
 
@@ -8447,7 +8739,36 @@ range_pattern       ::= pattern ".." pattern
 
 7. **Modal Pattern (`@State { ... }`)**: Matches if the scrutinee's active modal state is `@State`. State payload fields are recursively matched.
 
-8. **Range Pattern (`start..end`)**: Matches if $\text{start} \le \text{scrutinee} < \text{end}$. Both `start` and `end` MUST be compile-time constant expressions of the same ordered type as the scrutinee.
+8. **Range Pattern**: Two forms exist:
+   - **Exclusive (`start..end`)**: Matches if $\text{start} \le \text{scrutinee} < \text{end}$ (end-exclusive).
+   - **Inclusive (`start..=end`)**: Matches if $\text{start} \le \text{scrutinee} \le \text{end}$ (end-inclusive).
+
+   Both `start` and `end` MUST be compile-time constant expressions of the same ordered type as the scrutinee.
+
+**Pattern Examples**
+
+```cursive
+// Range patterns (exclusive and inclusive)
+match score {
+    0..60 => "failing",       // 0 <= score < 60
+    60..=100 => "passing",    // 60 <= score <= 100
+    _ => "invalid",
+}
+
+// Modal pattern matching
+match connection {
+    @Disconnected { last_error } => handle_disconnect(last_error),
+    @Connecting { host, started } => check_timeout(host, started),
+    @Connected { socket, host } => process_data(socket, host),
+}
+
+// Record pattern with field shorthand
+let point = Point { x: 10, y: 20 }
+match point {
+    Point { x, y: 0 } => handle_on_x_axis(x),  // y bound explicitly
+    Point { x, y } => handle_general(x, y),     // shorthand: { x } means { x: x }
+}
+```
 
 **Typing Rules**
 
@@ -8517,7 +8838,7 @@ Implementations MUST detect unreachable arms and issue diagnostic `E-PAT-2751`.
 
 ---
 
-### 11.3 Operator Precedence and Associativity
+### 12.3 Operator Precedence and Associativity
 
 ##### Definition
 
@@ -8555,7 +8876,7 @@ Disambiguation is syntactic: if the operator appears after a complete operand ex
 
 ---
 
-### 11.4 Primary Expressions and Operators
+### 12.4 Primary Expressions and Operators
 
 ##### Definition
 
@@ -8828,7 +9149,7 @@ $$\frac{\Gamma \vdash r : T \quad \text{method } m(self : T', \ldots) \to R \in 
 1. Search for method `m` in the inherent methods of the receiver's type $T$.
 2. If not found, search for method `m` in all forms implemented by $T$ that are visible in the current scope.
 3. If multiple forms provide method `m`, the call is ambiguous. Disambiguation via qualified syntax `Form::m(receiver, ...)` is required.
-4. **Strict Receiver Matching**: The receiver type MUST match the method's `self` parameter type exactly. Auto-dereference and auto-reference are NOT performed.
+4. **Strict Receiver Matching**: The receiver type MUST match the method's `self` parameter type exactly. Implicit dereference (e.g., automatically dereferencing `&T` to call a method expecting `T`) and implicit reference creation (e.g., automatically inserting `&` to match a `const Self` parameter) are NOT performed.
 
 **Static/Qualified Dispatch (`::`)**
 
@@ -8851,6 +9172,8 @@ Form::method(receiver, ...) // Disambiguated form method
 | `E-EXP-2536` | Error    | Method not found for receiver type.                   | Compile-time | Rejection |
 | `E-EXP-2537` | Error    | Method call using `.` instead of `~>`.                | Compile-time | Rejection |
 | `E-NAM-1305` | Error    | Ambiguous method resolution; disambiguation required. | Compile-time | Rejection |
+
+> **Clarification (E-EXP-2537):** The `.` operator is valid for field access; the `~>` operator is required for method dispatch. Chained expressions such as `obj.field~>method()` are valid: `.` accesses the field, then `~>` dispatches the method on the field's value.
 
 ---
 
@@ -9030,11 +9353,13 @@ Logical operators MUST implement short-circuit evaluation:
 - `e₁ && e₂`: If `e₁` evaluates to `false`, `e₂` is NOT evaluated; the result is `false`.
 - `e₁ || e₂`: If `e₁` evaluates to `true`, `e₂` is NOT evaluated; the result is `true`.
 
-This is the sole exception to strict left-to-right evaluation: the right operand may be skipped entirely.
+This is the exception to strict left-to-right evaluation within sequential code: the right operand may be skipped entirely. (Parallel blocks in Clause 15 introduce concurrent evaluation, which is a different evaluation model.)
 
 **Integer Overflow**
 
-Integer arithmetic operations (`+`, `-`, `*`) MUST panic on overflow in `strict` mode. Behavior in `release` mode is Implementation-Defined (IDB); implementations MUST document whether overflow wraps or panics.
+Integer arithmetic operations (`+`, `-`, `*`) MUST panic on overflow in **debug mode**. Behavior in **release mode** is Implementation-Defined (IDB); implementations MUST document whether overflow wraps or panics.
+
+> **Cross-Reference:** See §4.1.3 (Integer Overflow) for the authoritative definition of overflow behavior, including the full set of permitted release-mode behaviors.
 
 **Division and Remainder**
 
@@ -9056,8 +9381,9 @@ If the right operand of a shift operation is greater than or equal to the bit wi
 | `E-EXP-2554` | Error    | Comparison of incompatible types.                 | Compile-time | Rejection |
 | `E-EXP-2555` | Error    | Logical operator applied to non-bool operands.    | Compile-time | Rejection |
 | `E-EXP-2556` | Error    | Shift amount is not of type `u32`.                | Compile-time | Rejection |
-| `P-EXP-2560` | Panic    | Integer overflow in strict mode.                  | Runtime      | Panic     |
+| `P-EXP-2560` | Panic    | Integer overflow in debug mode.                   | Runtime      | Panic     |
 | `P-EXP-2561` | Panic    | Division by zero.                                 | Runtime      | Panic     |
+| `I-EXP-2562` | IDB      | Shift amount ≥ bit width of left operand.         | Runtime      | IDB       |
 
 ---
 
@@ -9162,7 +9488,7 @@ Large integers that cannot be exactly represented are rounded to the nearest rep
 
 ---
 
-### 11.5 Closure Expressions
+### 12.5 Closure Expressions
 
 ##### Definition
 
@@ -9192,7 +9518,7 @@ closure_body ::= expression | block_expr
 
 **Syntactic Notes**
 
-1. The `|` delimiters distinguish closure expressions from other uses of `|` (bitwise OR). Context disambiguates: `|` at expression start, followed by an optional parameter list and another `|`, forms a closure.
+1. The `|` delimiters distinguish closure expressions from other uses of `|` (bitwise OR). Context disambiguates: `|` at expression start, followed by an optional parameter list and another `|`, forms a closure. For example, `|x| x + 1` is a closure, while `a | b` is bitwise OR. The ambiguity `| x |` at statement start is resolved by requiring closure parameters: `|x|` with no spaces is a closure with parameter `x`, whereas `| x |` in expression context after an operand is parsed as `(operand) | x |` (two bitwise OR operations).
 
 2. Parameter types MAY be omitted when the closure is checked against a known function type (see Bidirectional Type Checking).
 
@@ -9282,7 +9608,7 @@ The closure's environment has a lifetime tied to the closure value. When the clo
 
 ---
 
-### 11.6 Control Flow Expressions
+### 12.6 Control Flow Expressions
 
 ##### Definition
 
@@ -9314,7 +9640,7 @@ label ::= "'" identifier ":"
 loop_kind ::=
     "loop" block_expr
   | "loop" expression block_expr
-  | "loop" pattern ":" type "in" expression block_expr
+  | "loop" pattern [ ":" type ] "in" expression block_expr
 ```
 
 ##### Static Semantics
@@ -9337,8 +9663,10 @@ An `if` without `else` has type `()`. The then-branch MUST also have type `()`.
 $$\frac{\Gamma \vdash e : T_s \quad \forall i,\ \Gamma, \text{bindings}(p_i) \vdash e_i : T \quad \text{exhaustive}(\{p_i\}, T_s) \quad \text{reachable}(p_i)}{\Gamma \vdash \texttt{match } e\ \{ p_1 \Rightarrow e_1, \ldots \} : T}$$
 
 1. All arm bodies MUST have the same type.
-2. The pattern set MUST be exhaustive for the scrutinee type (§11.2).
-3. No arm MUST be unreachable (§11.2).
+2. The pattern set MUST be exhaustive for the scrutinee type (§12.2).
+3. No arm MUST be unreachable (§12.2).
+
+**Reachability Predicate**: The predicate $\text{reachable}(p_i)$ holds when pattern $p_i$ can potentially match some value not already covered by preceding patterns $p_1, \ldots, p_{i-1}$. Formally, the arm is reachable if the value space covered by $p_i$ is not a subset of the union of value spaces covered by earlier patterns.
 
 **Match Guards**
 
@@ -9348,6 +9676,7 @@ A match arm MAY include a guard clause `if guard_expr`. The guard:
 2. Is evaluated only if the pattern matches.
 3. If the guard evaluates to `false`, matching continues with the next arm.
 4. Guard expressions MAY reference bindings introduced by the pattern.
+5. Guard expressions MUST NOT mutate pattern bindings derived from `const` or `shared` scrutinees. Bindings from `unique` scrutinees MAY be mutated if declared with `var`.
 
 Guards do not affect exhaustiveness checking; patterns with guards are considered to cover their full range for exhaustiveness purposes.
 
@@ -9366,7 +9695,7 @@ A conditional loop (`loop condition { ... }`) has type `()`.
 **(T-Loop-Iterator)**
 $$\frac{\Gamma \vdash e_{iter} : I \quad I : \texttt{Iterator}\langle\texttt{Item} = T\rangle \quad \Gamma, x : T \vdash e_b : ()}{\Gamma \vdash \texttt{loop } x : T\ \texttt{in } e_{iter}\ \{ e_b \} : ()}$$
 
-An iterator loop has type `()`. The iterator expression MUST implement the `Iterator` class.
+An iterator loop has type `()`. The iterator expression MUST implement the `Iterator` class. When the type annotation is omitted, `T` is inferred from the iterator's `Item` associated type.
 
 **Loop with Break Value**
 
@@ -9400,6 +9729,28 @@ Iterator loops desugar to match on `Iterator::next`:
 
 $$\texttt{loop}\ x: T\ \texttt{in}\ iter\ \{\ B\ \} \quad \rightarrow \quad \{\ \texttt{var}\ it = iter;\ \texttt{loop}\ \{\ \texttt{match}\ it\texttt{\sim>next()}\ \{\ \texttt{Some}(x) \Rightarrow B,\ \texttt{None} \Rightarrow \texttt{break}\ \}\ \}\ \}$$
 
+The desugaring binds the iterator to a `var` binding because `Iterator::next(~!)` requires a mutable receiver. The iterator expression `iter` must therefore evaluate to a type implementing `Iterator`, and its `next` method mutates the iterator state.
+
+**Iterator Loop Desugaring Example**
+
+```cursive
+// Source: Iterator loop
+loop x in items {
+    process(x)
+}
+
+// Desugared form:
+{
+    var it = items
+    loop {
+        match it~>next() {
+            Some(x) => process(x),
+            None => break,
+        }
+    }
+}
+```
+
 ##### Constraints & Legality
 
 | Code         | Severity | Condition                                          | Detection    | Effect    |
@@ -9414,7 +9765,7 @@ $$\texttt{loop}\ x: T\ \texttt{in}\ iter\ \{\ B\ \} \quad \rightarrow \quad \{\ 
 
 ---
 
-### 11.7 Block Expressions
+### 12.7 Block Expressions
 
 ##### Definition
 
@@ -9435,6 +9786,8 @@ The type of a block expression is determined by:
 1. The type of an explicit `result` statement, if present, OR
 2. The type of the final unterminated expression, if present, OR
 3. The unit type `()` if the block is empty or ends with a terminated statement.
+
+> **Cross-Reference:** See §2.11 (Statement Terminator) for the rules governing statement termination and the distinction between terminated statements and unterminated result expressions.
 
 **(T-Block-Result)**
 $$\frac{\Gamma \vdash s_1; \ldots; s_n \quad \Gamma \vdash e : T}{\Gamma \vdash \{ s_1; \ldots; s_n;\ e \} : T}$$
@@ -9460,18 +9813,18 @@ $$\frac{\Gamma \vdash s_1; \ldots; s_n}{\Gamma \vdash \{ s_1; \ldots; s_n; \} : 
 
 The following block forms have specialized semantics defined in other clauses:
 
-| Block Form              | Authoritative Section         |
-| :---------------------- | :---------------------------- |
-| `region { ... }`        | §3.7 Regions                  |
-| `unsafe { ... }`        | §3.8 Unsafe Memory Operations |
-| `parallel(...) { ... }` | §13.3 Structured Concurrency  |
-| `comptime { ... }`      | §14.1 Compile-Time Execution  |
+| Block Form              | Authoritative Section              |
+| :---------------------- | :--------------------------------- |
+| `region { ... }`        | §3.7 Regions                       |
+| `unsafe { ... }`        | §3.8 Unsafe Memory Operations      |
+| `parallel(...) { ... }` | Clause 15 (Structured Parallelism) |
+| `comptime { ... }`      | Clause 17 (Compile-Time Execution) |
 
 This clause does not redefine these block forms; see the authoritative sections.
 
 ---
 
-### 11.8 Declaration Statements
+### 12.8 Declaration Statements
 
 ##### Definition
 
@@ -9506,7 +9859,7 @@ If the type annotation is omitted, the type is inferred from the initializer exp
 
 **Pattern Requirements**
 
-The pattern in a declaration statement MUST be irrefutable (§11.2). Refutable patterns are diagnosed as errors.
+The pattern in a declaration statement MUST be irrefutable (§12.2). Refutable patterns are diagnosed as errors.
 
 ##### Dynamic Semantics
 
@@ -9521,11 +9874,11 @@ The pattern in a declaration statement MUST be irrefutable (§11.2). Refutable p
 | `E-DEC-2401` | Error    | Reassignment of immutable `let` binding.         | Compile-time | Rejection |
 | `E-DEC-2402` | Error    | Type annotation incompatible with inferred type. | Compile-time | Rejection |
 
-See §11.2 for refutable pattern diagnostics (`E-PAT-2711`).
+See §12.2 for refutable pattern diagnostics (`E-PAT-2711`).
 
 ---
 
-### 11.9 Expression Statements
+### 12.9 Expression Statements
 
 ##### Definition
 
@@ -9551,7 +9904,7 @@ The type of an expression statement is the unit type `()`. The expression's valu
 
 ---
 
-### 11.10 Control Flow Statements
+### 12.10 Control Flow Statements
 
 ##### Definition
 
@@ -9584,8 +9937,23 @@ continue_stmt ::= "continue" [ "'" identifier ]
 `result` terminates the current block and yields a value as the block's result.
 
 1. The expression type becomes (or must match) the enclosing block's type.
-2. `result` exits only the immediately enclosing block, not the procedure.
+2. `result` exits only the immediately enclosing block, not the procedure. This differs from `return`, which exits the entire procedure.
 3. `result` is the primary mechanism for yielding values from blocks.
+
+```cursive
+// result vs return distinction
+procedure example() -> i32 {
+    let value = {
+        let temp = compute()
+        if temp < 0 {
+            result 0           // Exits this block with value 0
+        }
+        result temp * 2        // Exits this block with temp * 2
+    }
+    // value is now bound to the block's result
+    return value + 1           // Exits the procedure
+}
+```
 
 **Break Statement**
 
@@ -9637,7 +10005,7 @@ continue_stmt ::= "continue" [ "'" identifier ]
 
 ---
 
-### 11.11 Assignment Statements
+### 12.11 Assignment Statements
 
 ##### Definition
 
@@ -9670,7 +10038,7 @@ Compound assignment `place op= expr` desugars to `place = place op expr`, except
 The movability property of a binding is determined at declaration and preserved across reassignments:
 
 - A `var x = v` binding remains movable after reassignment.
-- A `var x := v` binding remains immovable after reassignment; the new value is also immovable.
+- A `var x := v` binding remains immovable after reassignment; the new value is also immovable. This means `move x` is always prohibited, but `x = new_value` is permitted. The value currently in `x` is dropped before the new value is assigned.
 
 Reassignment uses the plain `=` operator regardless of movability. The `:=` operator appears only at binding declaration.
 
@@ -9698,7 +10066,7 @@ The execution order is:
 
 ---
 
-### 11.12 Defer Statements
+### 12.12 Defer Statements
 
 ##### Definition
 
@@ -9712,8 +10080,21 @@ defer_stmt ::= "defer" block_expr
 
 ##### Static Semantics
 
+**(T-Defer)**
+$$\frac{\Gamma \vdash e : ()}{\Gamma \vdash \texttt{defer}\ \{ e \} : \text{stmt}}$$
+
+The defer statement is well-typed when its body expression has type `()`.
+
+**Constraints:**
+
 1. The deferred block MUST have type `()`.
-2. The deferred block MUST NOT contain non-local control flow (`return`, `break`, `continue`) that would transfer control outside the defer block.
+2. The deferred block MUST NOT contain control flow that transfers outside the defer block:
+   - `return` is **always prohibited** within a defer block.
+   - `break` targeting a label outside the defer block is prohibited.
+   - `continue` targeting a label outside the defer block is prohibited.
+   - `result` targeting an expression outside the defer block is prohibited.
+
+   **Permitted:** `break` and `continue` targeting loops or labeled blocks **contained within** the defer block are allowed.
 3. The deferred block MAY reference bindings from the enclosing scope that are in scope at the `defer` statement.
 
 ##### Dynamic Semantics
@@ -9722,12 +10103,23 @@ defer_stmt ::= "defer" block_expr
 
 When a `defer` statement is executed, the block is not evaluated immediately. Instead, it is pushed onto a per-scope stack of deferred actions.
 
-**Execution Order (LIFO)**
+**Execution Order (Unified LIFO)**
 
-When a scope exits—by normal completion, `return`, `result`, `break`, or panic—all deferred blocks for that scope are executed in Last-In, First-Out (LIFO) order.
+When a scope exits—by normal completion, `return`, `result`, `break`, or panic—all cleanup actions for that scope are executed in Last-In, First-Out (LIFO) order based on source position. **Defer blocks and binding destructions are interleaved in a single unified stack**, not executed as separate phases.
+
+The cleanup stack includes:
+1. **Defer blocks** registered by `defer` statements
+2. **Binding drops** for bindings with responsibility that implement `Drop`
+
+These are ordered by their source position: the last statement in source order executes its cleanup first.
 
 ```cursive
-  // Output: "second defer", "first defer"
+{
+    let a = Resource::new()   // Position 1: drop(a) added to cleanup stack
+    defer { cleanup_a() }     // Position 2: defer block added to cleanup stack
+    let b = Resource::new()   // Position 3: drop(b) added to cleanup stack
+}
+// Scope exit cleanup order: drop(b), defer { cleanup_a() }, drop(a)
 ```
 
 **Nested Scopes**
@@ -9740,7 +10132,7 @@ If a panic occurs during execution of a deferred block:
 
 1. The remaining deferred blocks in that scope are still executed.
 2. After all deferred blocks complete, the panic propagates.
-3. If multiple panics occur, behavior is Implementation-Defined.
+3. If multiple panics occur (e.g., a deferred block panics while unwinding from an earlier panic), behavior is Implementation-Defined (IDB). Conforming implementations MUST document their behavior via the Conformance Dossier field `defer.multiple_panic_policy`.
 
 ##### Constraints & Legality
 
@@ -9751,11 +10143,11 @@ If a panic occurs during execution of a deferred block:
 
 ---
 
-## Clause 12: The Capability System
+## Clause 13: The Capability System
 
 This clause defines the Cursive Capability System, which governs all procedures that produce observable **external effects** (e.g., I/O, networking, threading, heap allocation) and enforces the security principle of **No Ambient Authority**.
 
-### 12.1 Foundational Principles
+### 13.1 Foundational Principles
 
 ##### Definition
 
@@ -9765,12 +10157,12 @@ A **Capability** is a first-class value representing unforgeable authority to pe
 
 **Formal Definition**
 
-$$\text{Capability} ::= (\text{Authority}, \text{Interface}, \text{Provenance})$$
+$$\text{Capability} ::= (\text{Authority}, \text{Interface}, \text{Lineage})$$
 
 Where:
 - **Authority**: The set of permitted operations (e.g., read files, connect to network)
 - **Interface**: The form defining available methods
-- **Provenance**: The derivation chain from the root capability
+- **Lineage**: The derivation chain from the root capability
 
 ##### Static Semantics
 
@@ -9778,7 +10170,7 @@ Where:
 
 A procedure $p$ may perform effect $e$ iff $p$ receives a capability $c$ where $e \in \text{Authority}(c)$:
 
-$$\frac{\Gamma \vdash c : \text{dyn } T \quad e \in \text{Authority}(T)}{\Gamma \vdash p(c) \text{ may perform } e}$$
+$$\frac{\Gamma \vdash c : \$T \quad e \in \text{Authority}(T)}{\Gamma \vdash p(c) \text{ may perform } e}$$
 
 ##### Constraints & Legality
 
@@ -9786,9 +10178,13 @@ $$\frac{\Gamma \vdash c : \text{dyn } T \quad e \in \text{Authority}(T)}{\Gamma 
 | :----------- | :------- | :------------------------------------------------------------------ | :----------- | :-------- |
 | `E-CAP-1001` | Error    | Ambient authority detected: global procedure performs side effects. | Compile-time | Rejection |
 
+**Ambient Authority Detection Mechanism**
+
+The compiler detects ambient authority violations (E-CAP-1001) by checking the **Capability Requirement Subset Property**: for every call from procedure $A$ to procedure $B$, $\text{capabilities}(B) \subseteq \text{capabilities}(A)$ must hold. Intrinsic operations (e.g., file open, network connect) have hardcoded capability requirements; user procedures declare their required capabilities through capability parameters in their signatures. A procedure without capability parameters has empty requirements and therefore cannot invoke effect-producing operations.
+
 ---
 
-### 12.2 The Root of Authority
+### 13.2 The Root of Authority
 
 ##### Definition
 
@@ -9796,7 +10192,7 @@ $$\frac{\Gamma \vdash c : \text{dyn } T \quad e \in \text{Authority}(T)}{\Gamma 
 
 All system-level capabilities originate from the Cursive runtime and are injected into the program via the `Context` parameter at the entry point.
 
-**Cross-Reference**: Entry point signature (§8.9); `Context` record (Appendix E).
+**Cross-Reference**: Entry point signature (§8.9); `Context` record (Appendix H).
 
 **Runtime Injection**
 
@@ -9816,7 +10212,7 @@ The runtime **MUST** guarantee that `ctx` is a valid, initialized `Context` reco
 
 ---
 
-### 12.3 Capability Attenuation
+### 13.3 Capability Attenuation
 
 ##### Definition
 
@@ -9853,11 +10249,11 @@ Attenuation methods (e.g., `restrict`, `with_quota`) **MUST** return a capabilit
 
 Attenuation preserves the capability form:
 
-$$\frac{\Gamma \vdash c : \text{dyn } T \quad \Gamma \vdash c.restrict(r) : \text{dyn } T'}{\Gamma \vdash T' \equiv T}$$
+$$\frac{\Gamma \vdash c : \$T \quad \Gamma \vdash c.restrict(r) : \$T'}{\Gamma \vdash T' <: T}$$
 
 ---
 
-### 12.4 Capability Propagation
+### 13.4 Capability Propagation
 
 ##### Definition
 
@@ -9869,20 +10265,22 @@ Capabilities travel through the call graph as explicit parameters. A procedure r
 
 **Capability Parameter Syntax**
 
-Capability parameters **MUST** be declared using `dyn` types to enable polymorphism:
+Capability parameters use the `$` sigil to indicate capability type polymorphism. The `$Class` syntax accepts any concrete type implementing `Class`:
 
 ```cursive
-procedure read_config(fs: dyn FileSystem, path: string@View): string {
+procedure read_config(fs: $FileSystem, path: string@View): string {
     let file = fs~>open(path, Mode::Read)
     file~>read_all()
 }
 ```
 
+**Cross-Reference**: For dynamic dispatch mechanics and existential types, see §7.6.3 (Dynamic Class Types).
+
 ##### Static Semantics
 
-**Witness Parameter Rule**
+**Capability Parameter Rule**
 
-A parameter of type `dyn Class` accepts any concrete type `T` where `T` implements `Form`.
+A parameter of type `$Class` accepts any concrete type `T` where `T` implements `Class`.
 
 **Permission Requirements for Capability Methods**
 
@@ -9892,6 +10290,10 @@ Capability methods **MUST** declare appropriate receiver permissions per the sem
 | :----------------------------- | :------------------ |
 | Side-effecting I/O             | `shared` (`~%`)     |
 | Pure queries (no state change) | `const` (`~`)       |
+
+**Rationale for `shared` Permission**
+
+Side-effecting I/O requires `shared` permission rather than `unique` because capabilities support **attenuation**. Attenuated child capabilities delegate operations to the parent capability, requiring both parent and child to coexist with valid access. The `unique` permission would prevent this aliasing, making attenuation impossible. The `shared` permission enables multiple capability references (parent and attenuated children) to access the underlying resource with key-based synchronization per §14.
 
 ##### Constraints & Legality
 
@@ -9905,19 +10307,92 @@ A procedure **MUST NOT** access capabilities not explicitly provided as paramete
 
 ---
 
+### 13.5 Capability-Concurrency Interaction
+
+This section defines how capabilities interact with the concurrency primitives defined in Part 4.
+
+##### Definition
+
+**Capability Capture Rules**
+
+When a closure captures bindings from its enclosing scope for use within `spawn` or `dispatch` blocks, capability values follow specific capture rules based on the concurrency model:
+
+1. **Capability Delegation**: Spawned closures inherit the capability context of their parent. If the parent procedure has access to capabilities `C`, spawned children may use any capability `c ∈ C`. The compiler verifies this at the spawn site.
+
+2. **Key Isolation**: The Key State Context (§14.1) MUST NOT be inherited across spawn boundaries. Each spawned task MUST start with an empty key context and acquire its own keys independently.
+
+3. **Resource Capture**: Capability values captured by spawned closures follow the standard capture semantics:
+   - `const` capabilities are captured by reference (read-only access, no synchronization required)
+   - `shared` capabilities are captured with `shared` permission (concurrent access with key-based synchronization)
+   - `unique` capabilities MUST be explicitly moved into exactly one spawned task using the `move` keyword
+
+**Cross-Reference**: Parallelism primitives (§15); Key System (§14).
+
+##### Static Semantics
+
+**Spawn Capture Verification**
+
+The compiler **MUST** verify at each spawn site that:
+
+1. All capabilities used within the spawned closure are either captured from the enclosing scope or derived from captured capabilities
+2. No `unique` capability is captured by multiple concurrent tasks
+3. The parent's capability context covers all effects performed by spawned children
+
+---
+
+### 13.6 Attenuated Capability Lifecycle
+
+This section defines the lifecycle rules for attenuated (restricted) capabilities.
+
+##### Definition
+
+**Attenuation Lifetime Constraint**
+
+Attenuated capabilities are **derived** from parent capabilities and maintain a dependency relationship with their parent. The following invariants hold:
+
+1. **Derivation Dependency**: An attenuated capability maintains a runtime dependency on its parent capability. Operations on the child delegate to the parent.
+
+2. **Parent Outlives Children**: The lifetime of a parent capability MUST equal or exceed the lifetime of all attenuated children derived from it.
+
+3. **Child Drop Independence**: Dropping an attenuated child does not affect the parent capability. The parent remains valid and usable.
+
+4. **Parent Drop Restriction**: A parent capability **MUST NOT** be dropped while any attenuated children derived from it are still active.
+
+##### Static Semantics
+
+**Lifetime Enforcement Rule**
+
+For any attenuation operation $c_{child} = c_{parent}.restrict(r)$:
+
+$$\text{Lifetime}(c_{parent}) \geq \text{Lifetime}(c_{child})$$
+
+The compiler enforces this through standard scope analysis. Attenuated capabilities cannot escape the scope of their parent.
+
+**Example**
+
+```cursive
+procedure process_files(fs: $FileSystem) {
+    let restricted_fs = fs~>restrict("/app/data")    // Child derived from fs
+    use_restricted(restricted_fs)
+    // restricted_fs dropped here (child)
+}   // fs still valid (parent outlives child)
+```
+
+---
+
 # Part 4: Concurrency
 
 This clause defines the Cursive concurrency model, specifying key-based synchronization, structured concurrency primitives, and abstractions for shared mutable state.
 
 ---
 
-## Clause 13: The Key System
+## Clause 14: The Key System
 
 This clause defines the key system, which provides safe access to `shared` data through static verification with runtime synchronization as a fallback.
 
 ---
 
-### 13.1 Key Fundamentals
+### 14.1 Key Fundamentals
 
 ##### Definition
 
@@ -9932,7 +10407,7 @@ $$\text{Key} ::= (\text{Path}, \text{Mode}, \text{Scope})$$
 | Component | Type                            | Description                                     |
 | :-------- | :------------------------------ | :---------------------------------------------- |
 | Path      | $\text{PathExpr}$               | The memory location being accessed              |
-| Mode      | $\{\text{Read}, \text{Write}\}$ | The access grant (see §13.1.2)                  |
+| Mode      | $\{\text{Read}, \text{Write}\}$ | The access grant (see §14.1.2)                  |
 | Scope     | $\text{LexicalScope}$           | The lexical scope during which the key is valid |
 
 The definitions of **Program Point** and **Lexical Scope** are provided in **§1.6 (Foundational Semantic Concepts)**.
@@ -9955,17 +10430,17 @@ When the program point is clear from context, we write $\text{Held}(P, M, \Gamma
 
 **Key Invariants**
 
-The following invariants are enforced by the compiler and, when necessary, by runtime mechanisms:
+The following invariants govern key behavior:
 
-1. **Path-specificity:** A key to path $P$ grants access only to $P$ and paths for which $P$ is a prefix. A key to `player.health` does not grant access to `player.mana`.
+1. **Path-specificity:** A key to path $P$ MUST grant access only to $P$ and paths for which $P$ is a prefix.
 
-2. **Implicit acquisition:** Accessing a `shared` path logically acquires the necessary key. Keys are not exposed to user code as values; there is no syntax to explicitly acquire, release, store, or pass keys.
+2. **Implicit acquisition:** Accessing a `shared` path MUST logically acquire the necessary key.
 
-3. **Scoped lifetime:** Keys are valid for a bounded lexical scope and become invalid when that scope exits.
+3. **Scoped lifetime:** Keys MUST be valid for a bounded lexical scope and MUST become invalid when that scope exits.
 
-4. **Reentrancy:** If a key covering path $P$ is already held by the current task, nested access to $P$ or any path prefixed by $P$ succeeds without conflict.
+4. **Reentrancy:** If a key covering path $P$ is already held by the current task, nested access to $P$ or any path prefixed by $P$ MUST succeed without conflict.
 
-5. **Task locality:** Keys are associated with tasks (§14.1), not procedures or bindings. A key held by a task remains valid until its scope exits, even across procedure calls within that task.
+5. **Task locality:** Keys MUST be associated with tasks (§14.1). A key held by a task MUST remain valid until its scope exits.
 
 ##### Syntax & Declaration
 
@@ -10018,7 +10493,7 @@ $$\frac{
     \text{KeyPath}(e) = \text{id}(*e').p
 }$$
 
-The $\text{id}$ operation is defined in §13.3.3.
+The $\text{id}$ operation is defined in §14.3.3.
 
 ```cursive
 player                      // Depth 1: root only
@@ -10036,14 +10511,12 @@ For path `(*e).p` where `e : shared Ptr<T>@Valid`:
 - A key is first acquired for `e` (to safely dereference)
 - A separate key is then acquired for `(*e).p`, rooted at the dereferenced value
 
-This rule ensures that concurrent access to different nodes in recursive structures (e.g., linked lists, trees) can proceed in parallel without contention, provided the nodes themselves are distinct allocations.
-
 **Key Boundary Rules:**
 
-1. **Direct field paths:** `a.b.c` is a single key path (no indirection)
-2. **Pointer field access:** Accessing a pointer field (e.g., `list.next`) acquires a fine-grained key to that field path (`list.next`), following normal key acquisition behavior
-3. **Pointer dereference:** `(*ptr).field` starts a new key path rooted at the dereferenced value
-4. **Coarsening applies:** The `#` operator can coarsen pointer field access to the containing node (e.g., `#list.next` acquires key to `list`)
+1. **Direct field paths:** A path `a.b.c` MUST be treated as a single key path.
+2. **Pointer field access:** Accessing a pointer field MUST acquire a fine-grained key to that field path.
+3. **Pointer dereference:** `(*ptr).field` MUST start a new key path rooted at the dereferenced value.
+4. **Coarsening applies:** The `#` operator MAY coarsen pointer field access to the containing node.
 
 **(K-Deref-Boundary)**
 $$\frac{
@@ -10078,7 +10551,7 @@ A path expression $P = p_1.p_2.\ldots.p_n$ is **well-formed** if and only if:
 2. For each subsequent segment $p_i$ ($i > 1$):
    - If $p_i$ is a field access, $T_{i-1}$ has a field named $p_i$ with type $T_i$
    - If $p_i$ is an index access $[e]$, $T_{i-1}$ is an array or slice type with element type $T_i$, and $e$ has type `usize`
-3. At most one `#` marker appears in the entire path (see §13.4)
+3. At most one `#` marker appears in the entire path (see §14.4)
 
 **(WF-Path)**
 $$\frac{
@@ -10190,7 +10663,7 @@ $\frac{
 
 ##### Definition
 
-The **prefix relation** and **disjointness relation** on paths are used by the compiler to determine key coverage and to prove static safety of concurrent accesses.
+The **prefix relation** and **disjointness relation** on paths determine key coverage and static safety of concurrent accesses.
 
 **Formal Definition**
 
@@ -10262,7 +10735,7 @@ Two index expressions $e_1$ and $e_2$ are **provably disjoint** ($\text{Provably
 1. **Static Disjointness:** Both are statically resolvable with different values:
    $$\text{StaticResolvable}(e_1) \land \text{StaticResolvable}(e_2) \land \text{StaticValue}(e_1) \neq \text{StaticValue}(e_2)$$
 
-2. **Control Flow Facts:** A Verification Fact (§10.5) establishes $e_1 \neq e_2$ via conditional guard (e.g., `if i != j { ... }`).
+2. **Control Flow Facts:** A Verification Fact (§11.5) establishes $e_1 \neq e_2$ via conditional guard (e.g., `if i != j { ... }`).
 
 3. **Contract-Based:** A procedure precondition or inline parameter constraint asserts $e_1 \neq e_2$.
 
@@ -10421,11 +10894,11 @@ where $\Diamond$ is the temporal "eventually" operator.
 
 ---
 
-### 13.2 Key Acquisition and Release
+### 14.2 Key Acquisition and Release
 
 ##### Definition
 
-Keys are logically acquired **on demand** during expression evaluation and released **at scope exit**. The compiler tracks this lifecycle statically; runtime synchronization occurs only when static safety cannot be proven.
+Keys are logically acquired **on demand** during expression evaluation and released **at scope exit**.
 
 **Formal Definition**
 
@@ -10439,7 +10912,7 @@ Let $\text{KeySet}(s)$ denote the set of keys logically acquired during evaluati
 
 **Mode Ordering and Sufficiency**
 
-Key modes form a total order (§13.1.2): $\text{Read} < \text{Write}$.
+Key modes form a total order (§14.1.2): $\text{Read} < \text{Write}$.
 
 A held mode is **sufficient** for a required mode when the held mode is at least as strong:
 
@@ -10461,7 +10934,7 @@ $$\text{ReleaseScope}(S, \Gamma_{\text{keys}}) = \Gamma_{\text{keys}} \setminus 
 
 **(Mode Transition)**
 
-The mode transition operation replaces a key of one mode with a key of a different mode for the same path and scope. This is a compile-time transformation of the key state context; runtime behavior follows release-and-reacquire semantics (§13.7.2).
+The mode transition operation replaces a key of one mode with a key of a different mode for the same path and scope. This is a compile-time transformation of the key state context; runtime behavior follows release-and-reacquire semantics (§14.7.2).
 
 $$\text{ModeTransition}(P, M_{\text{new}}, \Gamma_{\text{keys}}) = (\Gamma_{\text{keys}} \setminus \{(P, M_{\text{old}}, S)\}) \cup \{(P, M_{\text{new}}, S)\}$$
 
@@ -10473,7 +10946,7 @@ $$\text{ModeTransition}(P, M, \Gamma_{\text{keys}}) \text{ is defined} \iff \exi
 
 **Dynamic Realization**
 
-At runtime, key mode transition follows the release-and-reacquire protocol defined in §13.7.2. The compile-time `ModeTransition` operation reflects the intended final state; the runtime achieves this state through the five-step sequence.
+At runtime, key mode transition follows the release-and-reacquire protocol defined in §14.7.2. The compile-time `ModeTransition` operation reflects the intended final state; the runtime achieves this state through the five-step sequence.
 
 **Panic Release Semantics**
 
@@ -10483,8 +10956,16 @@ $$\text{PanicRelease}(S, \Gamma_{\text{keys}}) = \Gamma_{\text{keys}} \setminus 
 
 where $S' \leq_{\text{nest}} S$ indicates $S'$ is $S$ or any scope nested within $S$.
 
-All keys held by the panicking scope and its nested scopes are released atomically 
+All keys held by the panicking scope and its nested scopes are released atomically
 before panic unwinding proceeds. Keys held by enclosing scopes are unaffected.
+
+**Key and RAII Cleanup Interaction**
+
+Keys acquired within explicit `#` blocks are released at the closing brace of the `#` block, not at the containing scope exit. For implicit key acquisition (direct access to `shared` paths without `#`), keys are released at scope exit **before** any `Drop::drop` calls for bindings in that scope.
+
+Within the unified LIFO cleanup stack (§12.12), key releases precede destructor invocations. This ordering prevents potential deadlocks where a destructor might attempt to acquire a key that is still held.
+
+**Cross-Reference**: For the unified cleanup ordering rules governing defer blocks and destructor interleaving, see §12.12 (Defer Statements).
 
 ##### Static Semantics
 
@@ -10492,8 +10973,8 @@ before panic unwinding proceeds. Keys held by enclosing scopes are unaffected.
 
 The compiler MUST track key state at each program point. For each `shared` path access, the compiler:
 
-1. Computes the key path (per §13.4)
-2. Determines the required mode (per §13.1.2)
+1. Computes the key path (per §14.4)
+2. Determines the required mode (per §14.1.2)
 3. Checks for coverage by an existing key
 4. Adds the key to $\Gamma_{\text{keys}}$ if not covered
 5. Marks the key for release at scope exit
@@ -10504,7 +10985,7 @@ An access to path $Q$ requiring mode $M_Q$ is **covered** by the current key sta
 
 $$\text{Covered}(Q, M_Q, \Gamma_{\text{keys}}) \iff \exists (P, M_P, S) \in \Gamma_{\text{keys}} : \text{Prefix}(P, Q) \land \text{ModeSufficient}(M_P, M_Q)$$
 
-Mode Sufficiency ($\text{ModeSufficient}$) is defined above in §13.2 Formal Operation Definitions.
+Mode Sufficiency ($\text{ModeSufficient}$) is defined above in §14.2 Formal Operation Definitions.
 
 **Acquisition Rules**
 
@@ -10571,13 +11052,7 @@ $$\text{eval}(e_1 \oplus e_2) \longrightarrow \text{eval}(e_1);\ \text{eval}(e_2
 
 **Destructuring Patterns**
 
-When a `shared` value is destructured via pattern matching, a single key is acquired to the root of the matched expression:
-
-```cursive
-let (a, b) = shared_pair   // Key to shared_pair (Read mode)
-```
-
-The key is held for the duration of pattern evaluation and binding initialization. All bindings introduced by the pattern receive copies/moves of the destructured values; they do not retain key requirements.
+When a `shared` value is destructured via pattern matching, a single key is acquired to the root of the matched expression. The key is held for the duration of pattern evaluation and binding initialization. All bindings introduced by the pattern receive copies/moves of the destructured values; they do not retain key requirements.
 
 **(K-Destructure)**
 $$\frac{
@@ -10639,23 +11114,7 @@ In either case, the original key (if any) is released, and no new key is acquire
 
 **Defer Interaction**
 
-Keys acquired within a `defer` block are scoped to that block:
-
-```cursive
-{
-    defer { player.health = 100 }   // Key acquired when defer executes
-    // ... other code ...
-}  // defer executes here: key acquired, body runs, key released
-```
-
-Keys held when a scope exits are released **before** `defer` blocks execute:
-
-```cursive
-{
-    player.health = 50              // Key K1 acquired
-    defer { player.mana = 100 }     // Defer registered (not yet executed)
-}  // K1 released, then defer executes with fresh key K2 for player.mana
-```
+Keys acquired within a `defer` block are scoped to that block. Keys held when a scope exits are released **before** `defer` blocks execute. Deferred statements that access `shared` paths acquire fresh keys when the `defer` body executes.
 
 ##### Constraints & Legality
 
@@ -10683,7 +11142,7 @@ Keys held when a scope exits are released **before** `defer` blocks execute:
 
 ---
 
-### 13.3 Key Acquisition at Procedure Boundaries
+### 14.3 Key Acquisition at Procedure Boundaries
 
 ##### Static Semantics
 
@@ -10700,24 +11159,7 @@ $$\frac{
 
 **Callee `[[dynamic]]` Independence**
 
-The `[[dynamic]]` status of a callee is independent of the caller's status:
-
-```cursive
-[[dynamic]]
-procedure dynamic_caller(data: shared [Record], idx: usize) {
-    static_callee(data)      // Callee enforces its own static requirements
-    dynamic_callee(data)     // Callee permits its own runtime sync
-}
-
-procedure static_callee(data: shared [Record]) {
-    data[0].process()        // Must be statically safe (not [[dynamic]])
-}
-
-[[dynamic]]
-procedure dynamic_callee(data: shared [Record]) {
-    data[0].process()        // May use runtime sync
-}
-```
+The `[[dynamic]]` status of a callee is independent of the caller's status. A `[[dynamic]]` caller MAY invoke non-`[[dynamic]]` callees, and vice versa. Each procedure's key safety is analyzed independently based on its own `[[dynamic]]` annotation.
 
 **Interprocedural Analysis**
 
@@ -10738,59 +11180,17 @@ The compiler MAY perform interprocedural analysis to prove static safety across 
 
 **Fine-Grained Parallelism**
 
-When interprocedural analysis proves that callees access disjoint paths, the implementation MAY execute those callees concurrently without synchronization:
-```cursive
-procedure increment_health(p: shared Player) {
-    p.health += 1              // Key analysis: p.health (Write)
-}
-
-procedure increment_mana(p: shared Player) {
-    p.mana += 1                // Key analysis: p.mana (Write)
-}
-
-parallel {
-    spawn { increment_health(player) }
-    spawn { increment_mana(player) }
-}
-// Compiler proves disjoint paths: both may execute without synchronization
-```
+When interprocedural analysis proves that callees access disjoint paths, the implementation MAY execute those callees concurrently without synchronization.
 
 **Callee-Determined Granularity**
 
-The callee determines key granularity through its access patterns. A callee MAY use explicit `#` blocks to coarsen granularity or rely on implicit fine-grained key acquisition:
-```cursive
-procedure update_all(p: shared Player) {
-    #p {
-        p.health = 100
-        p.mana = 100
-    }
-}
-// Callee chooses coarse granularity (entire player)
-
-procedure update_selective(p: shared Player) {
-    p.health = 100             // Fine-grained: p.health
-    p.mana = 100               // Fine-grained: p.mana
-}
-// Callee chooses fine granularity (individual fields)
-```
+The callee determines key granularity through its access patterns. A callee MAY use explicit `#` blocks to coarsen granularity or rely on implicit fine-grained key acquisition.
 
 ##### Constraints & Legality
 
 **Reentrancy**
 
-If a caller holds a key covering the callee's access paths, the callee's accesses are covered (reentrant):
-
-```cursive
-procedure process(p: shared Player) {
-    #p {
-        helper(p)              // Callee's accesses covered by caller's key
-    }
-}
-
-procedure helper(p: shared Player) {
-    p.health += 1              // Covered by caller's key to p
-}
-```
+If a caller holds a key covering the callee's access paths, the callee's accesses are covered (reentrant). No additional key acquisition occurs for paths already protected by a covering key held in the call stack.
 
 **(K-Reentrant)**
 $$\frac{
@@ -10991,15 +11391,13 @@ root, preserving fine-grained path analysis.
 
 ---
 
-### 13.4 The `#` Key Block
+### 14.4 The `#` Key Block
 
 ##### Definition
 
 The **`#` key block** is the explicit key acquisition construct. It acquires a key to one or more paths at block entry and holds those keys until block exit.
 
 **Mode Semantics**
-
-Following the language principle that immutability is the default and mutability requires explicit opt-in:
 
 | Block Form        | Key Mode | Mutation Permitted |
 | :---------------- | :------- | :----------------- |
@@ -11031,7 +11429,7 @@ release_modifier ::= "release" ("write" | "read")
 
 The `path_expr`, `key_marker`, and `index_suffix` productions are defined in §13.1.
 
-The `release` modifier is used for nested key release (mode transitions); see §13.7.2 for semantics.
+The `release` modifier is used for nested key release (mode transitions); see §14.7.2 for semantics.
 
 **Desugaring**
 
@@ -11055,7 +11453,7 @@ The `write` modifier acquires Write keys, allowing read–modify–write within 
 
 **Multiple Paths**
 
-`#` blocks MAY list multiple paths; keys are acquired in canonical order (§13.7).
+`#` blocks MAY list multiple paths; keys are acquired in canonical order (§14.7).
 
 **Ordered Mode**
 
@@ -11063,7 +11461,7 @@ The `ordered` modifier enforces deterministic acquisition for dynamic indices an
 
 **Speculative Mode**
 
-`speculative write` requests optimistic execution with retry on commit failure; semantics are in §13.7.3.
+`speculative write` requests optimistic execution with retry on commit failure; semantics are in §14.7.3.
 
 **Inline Coarsening**
 
@@ -11159,7 +11557,7 @@ To coarsen the key path when accessing `shared` data through a method call, plac
 | Expression                | Key Path       | Validity               |
 | :------------------------ | :------------- | :--------------------- |
 | `#player.get_health()`    | `player`       | Valid                  |
-| `player.#get_health()`    | —              | Invalid (`E-KEY-0020`) |
+| `player.#get_health()`    | —              | Invalid (`E-KEY-0030`) |
 | `#player.stats.compute()` | `player`       | Valid                  |
 | `player.#stats.compute()` | `player.stats` | Valid                  |
 
@@ -11170,7 +11568,7 @@ The `#` marker coarsens from that point in the path; subsequent segments (includ
 | Code         | Severity | Condition                                                  | Detection    | Effect    |
 | :----------- | :------- | :--------------------------------------------------------- | :----------- | :-------- |
 | `E-KEY-0014` | Error    | `ordered` modifier on paths with different array bases     | Compile-time | Rejection |
-| `E-KEY-0020` | Error    | `#` immediately before method name                         | Compile-time | Rejection |
+| `E-KEY-0030` | Error    | `#` immediately before method name                         | Compile-time | Rejection |
 | `E-KEY-0031` | Error    | `#` block path not in scope                                | Compile-time | Rejection |
 | `E-KEY-0032` | Error    | `#` block path is not `shared`                             | Compile-time | Rejection |
 | `E-KEY-0070` | Error    | Write operation in `#` block without `write` modifier      | Compile-time | Rejection |
@@ -11179,7 +11577,7 @@ The `#` marker coarsens from that point in the path; subsequent segments (includ
 
 ---
 
-### 13.5 Type-Level Key Boundaries
+### 14.5 Type-Level Key Boundaries
 
 ##### Definition
 
@@ -11232,26 +11630,26 @@ $$\frac{
 
 ---
 
-### 13.6 Static Index Resolution and Disjointness Proofs
+### 14.6 Static Index Resolution and Disjointness Proofs
 
 ##### Definition
 
-This section specifies the application of path disjointness rules (§13.1.1) to array accesses within the **same statement**.
+This section specifies the application of path disjointness rules (§14.1.1) to array accesses within the **same statement**.
 
-When multiple dynamic indices access the same array within a single statement, the compiler MUST either prove they are disjoint (per §13.1.1) or reject the program with `E-KEY-0010`. Same-statement accesses cannot be serialized by runtime key acquisition—they occur as part of one atomic key-holding scope.
+When multiple dynamic indices access the same array within a single statement, they MUST be provably disjoint (per §14.1.1); otherwise, the program is ill-formed (`E-KEY-0010`). Same-statement accesses cannot be serialized by runtime key acquisition—they occur as part of one atomic key-holding scope.
 
-> **Cross-Reference:** The authoritative definitions for static resolvability, index expression equivalence, and provable disjointness are in §13.1.1 (Path Prefix and Disjointness). This section applies those definitions to same-statement conflict detection.
+> **Cross-Reference:** The authoritative definitions for static resolvability, index expression equivalence, and provable disjointness are in §14.1.1 (Path Prefix and Disjointness). This section applies those definitions to same-statement conflict detection.
 
 ##### Static Semantics
 
 **Same-Statement Conflict Detection**
 
-For two index expressions $e_1$ and $e_2$ accessing the same array within a single statement, the compiler classifies them using the provable disjointness rules from §13.1.1:
+For two index expressions $e_1$ and $e_2$ accessing the same array within a single statement, classification follows the provable disjointness rules from §14.1.1:
 
-| Classification          | Condition (per §13.1.1)                                  | Compiler Action              |
+| Classification          | Condition (per §14.1.1)                                  | Compiler Action              |
 | :---------------------- | :------------------------------------------------------- | :--------------------------- |
 | Statically Disjoint     | $\text{ProvablyDisjoint}(e_1, e_2)$ via static values    | Fine-grained keys permitted  |
-| Provably Disjoint       | $\text{ProvablyDisjoint}(e_1, e_2)$ via any §13.1.1 rule | Fine-grained keys permitted  |
+| Provably Disjoint       | $\text{ProvablyDisjoint}(e_1, e_2)$ via any §14.1.1 rule | Fine-grained keys permitted  |
 | Potentially Overlapping | $\neg\text{ProvablyDisjoint}(e_1, e_2)$                  | **Rejection** (`E-KEY-0010`) |
 
 ---
@@ -11260,18 +11658,18 @@ For two index expressions $e_1$ and $e_2$ accessing the same array within a sing
 
 ##### Definition
 
-When multiple dynamic indices access the same array within a single statement, the compiler MUST either prove they are disjoint (per §13.1.1) or reject the program with `E-KEY-0010`. Same-statement accesses cannot be serialized by runtime key acquisition—they occur as part of one atomic key-holding scope.
+When multiple dynamic indices access the same array within a single statement, they MUST be provably disjoint (per §14.1.1); otherwise, the program is ill-formed (`E-KEY-0010`). Same-statement accesses cannot be serialized by runtime key acquisition—they occur as part of one atomic key-holding scope.
 
 ##### Static Semantics
 
 **Same-Statement Conflict Detection**
 
-For two index expressions $e_1$ and $e_2$ accessing the same array within a single statement, the compiler classifies them using the provable disjointness rules from §13.1.1:
+For two index expressions $e_1$ and $e_2$ accessing the same array within a single statement, classification follows the provable disjointness rules from §14.1.1:
 
-| Classification          | Condition (per §13.1.1)                                  | Compiler Action              |
+| Classification          | Condition (per §14.1.1)                                  | Compiler Action              |
 | :---------------------- | :------------------------------------------------------- | :--------------------------- |
 | Statically Disjoint     | $\text{ProvablyDisjoint}(e_1, e_2)$ via static values    | Fine-grained keys permitted  |
-| Provably Disjoint       | $\text{ProvablyDisjoint}(e_1, e_2)$ via any §13.1.1 rule | Fine-grained keys permitted  |
+| Provably Disjoint       | $\text{ProvablyDisjoint}(e_1, e_2)$ via any §14.1.1 rule | Fine-grained keys permitted  |
 | Potentially Overlapping | $\neg\text{ProvablyDisjoint}(e_1, e_2)$                  | **Rejection** (`E-KEY-0010`) |
 
 This table applies regardless of `[[dynamic]]` scope. Same-statement conflicts are always ill-formed.
@@ -11315,7 +11713,7 @@ procedure same_statement_conflict(arr: shared [i32], i: usize, j: usize) {
 
 ---
 
-### 13.7 Deadlock Prevention
+### 14.7 Deadlock Prevention
 
 ##### Definition
 
@@ -11369,7 +11767,7 @@ Let $\text{Paths} = \{P_1, \ldots, P_n\}$ be the paths listed in a `#` block, so
 | Property             | Guarantee                                                          |
 | :------------------- | :----------------------------------------------------------------- |
 | No rollback          | Partially-acquired keys are retained during blocking, not released |
-| Eventual acquisition | Each key is eventually acquired (per progress guarantee, §13.1.2)  |
+| Eventual acquisition | Each key is eventually acquired (per progress guarantee, §14.1.2)  |
 | Order preservation   | Keys are acquired in canonical order                               |
 | Body precondition    | Block body executes only after all keys are held                   |
 
@@ -11455,7 +11853,7 @@ When a nested `#` block specifies a path that overlaps with an outer `#` block's
 
 1. **Identical path, same mode:** The inner block's key request is covered by the outer block's key. No additional acquisition occurs.
 
-2. **Identical path, different mode (escalation or downgrade):** If the outer and inner blocks request different modes, the inner block MUST use the `release` modifier with a target mode. This triggers release-and-reacquire semantics as defined in §13.7.2. The `release` keyword is required to acknowledge that interleaving may occur between the release of the outer key and acquisition of the inner key.
+2. **Identical path, different mode (escalation or downgrade):** If the outer and inner blocks request different modes, the inner block MUST use the `release` modifier with a target mode. This triggers release-and-reacquire semantics as defined in §14.7.2. The `release` keyword is required to acknowledge that interleaving may occur between the release of the outer key and acquisition of the inner key.
 
    - `release write`: Escalation (Read → Write)
    - `release read`: Downgrade (Write → Read)
@@ -11473,7 +11871,7 @@ $$\frac{
 }{
     \begin{cases}
     \text{Covered (no acquisition)} & \text{if } M_{\text{inner}} = M_{\text{outer}} \\
-    \text{Release-and-Reacquire per §13.7.2} & \text{if } M_{\text{inner}} \neq M_{\text{outer}} \land \texttt{release} \in \text{modifiers} \\
+    \text{Release-and-Reacquire per §14.7.2} & \text{if } M_{\text{inner}} \neq M_{\text{outer}} \land \texttt{release} \in \text{modifiers} \\
     \text{Emit}(\texttt{E-KEY-0012}) & \text{if } M_{\text{inner}} \neq M_{\text{outer}} \land \texttt{release} \notin \text{modifiers}
     \end{cases}
 }$$
@@ -11520,7 +11918,7 @@ $$\text{ReadsPath}(e, P) \iff \text{Accesses}(e, P) \land \text{ReadContext}(e)$
 
 $$\text{WritesPath}(e, P) \iff \text{Accesses}(e, P) \land \text{WriteContext}(e)$$
 
-where $\text{Accesses}(e, P)$ holds when expression $e$ accesses path $P$ (directly or through a prefix), and $\text{ReadContext}$ and $\text{WriteContext}$ are defined in §13.1.2.
+where $\text{Accesses}(e, P)$ holds when expression $e$ accesses path $P$ (directly or through a prefix), and $\text{ReadContext}$ and $\text{WriteContext}$ are defined in §14.1.2.
 
 A **read-then-write pattern** occurs when a statement contains both a read and a write to the same `shared` path:
 
@@ -11586,15 +11984,6 @@ procedure update_distinct(a: shared Player, b: shared Player)
 1. A program MUST NOT read and write the same `shared` path in the same statement without a covering Write key.
 2. A program MUST NOT rely on implicit read-to-write key upgrade semantics; no such operation exists.
 
-**Resolution Strategies**
-
-When `E-KEY-0060` is emitted, the programmer MUST resolve it by one of:
-
-1. **Use compound assignment:** `p += e` instead of `p = p + e`
-2. **Use explicit `#` block:** `#p { p = p + e }`
-3. **Separate into distinct statements:** `let tmp = p; p = tmp + e`
-4. **Prove path distinctness:** Add contract or use disjoint paths
-
 **Advisory Warnings**
 
 The implementation SHOULD emit `W-KEY-0006` when a programmer writes an explicit `#path write { let v = path; path = v + e }` block that could be expressed as compound assignment (`path += e`). This warning is advisory; the explicit form is valid but unnecessarily verbose.
@@ -11621,7 +12010,7 @@ The `release` keyword MUST be present to indicate the programmer understands and
 
 **Grammar**
 
-The `release write` and `release read` modifiers are part of the `key_block` grammar defined in §13.4.
+The `release write` and `release read` modifiers are part of the `key_block` grammar defined in §14.4.
 
 **Mode Transition Table**
 
@@ -11754,7 +12143,7 @@ $$\text{SpeculativeCommit}(R, W) \iff \text{Atomic}\left(\bigwedge_{(p,v) \in R}
 
 **Grammar**
 
-The `speculative write` modifier is part of the `key_block` grammar defined in §13.4.
+The `speculative write` modifier is part of the `key_block` grammar defined in §14.4.
 
 ##### Static Semantics
 
@@ -11855,7 +12244,7 @@ Evaluation of `#path speculative write { body }` proceeds as follows:
    - Increment $\text{retries}$
    - If $\text{retries} < \text{MAX\_SPECULATIVE\_RETRIES}$: goto step 2
    - Otherwise: proceed to fallback (step 7)
-7. **Fallback**: Acquire a blocking Write key (per §13.2), execute $body$, release key, return value
+7. **Fallback**: Acquire a blocking Write key (per §14.2), execute $body$, release key, return value
 
 **Retry Limit**
 
@@ -11966,7 +12355,7 @@ If the compiler proves a `shared` value is never accessed speculatively (no `spe
 
 ---
 
-### 13.8 Keys and Async Suspension
+### 14.8 Keys and Async Suspension
 
 ##### Definition
 
@@ -11998,7 +12387,7 @@ yield health                             // No keys held at yield point
 
 ---
 
-### 13.9 Compile-Time Verification and Runtime Realization
+### 14.9 Compile-Time Verification and Runtime Realization
 
 ##### Definition
 
@@ -12017,8 +12406,8 @@ Keys are a **compile-time abstraction**. The compiler performs static key analys
 
 The compiler MUST perform key analysis for all `shared` path accesses:
 
-1. Compute the key path (per §13.4, §13.5)
-2. Determine the required mode (per §13.1.2)
+1. Compute the key path (per §14.4, §13.5)
+2. Determine the required mode (per §14.1.2)
 3. Track key state through control flow
 4. Verify no conflicting accesses
 5. Determine if static safety can be proven
@@ -12074,7 +12463,7 @@ $$\frac{
 
 When runtime synchronization is required, the implementation MUST provide:
 
-1. Mutual exclusion per key compatibility rules (§13.1.2)
+1. Mutual exclusion per key compatibility rules (§14.1.2)
 2. Blocking when incompatible keys are held
 3. Release on scope exit (including panic)
 4. Progress guarantee (no indefinite starvation)
@@ -12118,7 +12507,7 @@ When runtime synchronization is permitted via `[[dynamic]]`:
 | `E-KEY-0020` | Error    | Key safety not statically provable outside `[[dynamic]]`         | Compile-time | Rejection |
 | `W-KEY-0021` | Warning  | `[[dynamic]]` present but all key operations are statically safe | Compile-time | Advisory  |
 
-### 13.10 Memory Ordering
+### 14.10 Memory Ordering
 
 ##### Definition
 
@@ -12157,6 +12546,18 @@ flag = true
 
 The annotation affects the memory operation, not the key synchronization. Keys always use acquire/release semantics.
 
+**Ordering Annotations and `#` Blocks**
+
+Memory ordering annotations (including `[[relaxed]]`) are **permitted** inside standard `#` blocks. The annotation affects only the data access ordering within the block; it does not modify the key's acquire/release semantics at block entry and exit. This enables expert optimization of data operations while preserving synchronization correctness.
+
+```cursive
+#counter write {
+    [[relaxed]] counter += 1   // Relaxed increment, but key still uses acquire/release
+}
+```
+
+In contrast, memory ordering annotations MUST NOT appear inside **speculative blocks** (§14.9), where the implementation controls all ordering to ensure rollback correctness.
+
 **Fence Operations**
 
 ```cursive
@@ -12167,13 +12568,13 @@ fence(seq_cst)       // Full barrier
 
 ---
 
-## Clause 14: Structured Parallelism
+## Clause 15: Structured Parallelism
 
 This clause defines Cursive's structured parallelism model. Parallelism enables concurrent execution of code across multiple workers within a bounded scope. The model guarantees that all spawned work completes before the parallel scope exits, ensuring deterministic resource cleanup and composable concurrency.
 
 ---
 
-### 14.1 Parallelism Overview
+### 15.1 Parallelism Overview
 
 ##### Definition
 
@@ -12189,7 +12590,7 @@ A **work item** is a unit of computation queued for execution by a worker. Work 
 
 ---
 
-### 14.2 The Parallel Block
+### 15.2 The Parallel Block
 
 ##### Definition
 
@@ -12293,7 +12694,7 @@ Work items complete in Unspecified order. The parallel block guarantees only tha
 
 ---
 
-### 14.3 Capture Semantics
+### 15.3 Capture Semantics
 
 ##### Definition
 
@@ -12317,7 +12718,7 @@ Captured references are guaranteed valid because structured concurrency (§14.1)
 
 ---
 
-### 14.4 The Spawn Expression
+### 15.4 The Spawn Expression
 
 ##### Definition
 
@@ -12409,7 +12810,7 @@ Spawn results are collected through three mechanisms:
 
 ---
 
-### 14.5 The Dispatch Expression
+### 15.5 The Dispatch Expression
 
 ##### Definition
 
@@ -12494,7 +12895,7 @@ $$\frac{
   \forall v_1, v_2 \in r,\ v_1 \neq v_2 \implies \text{ProvablyDisjoint}(a[v_1], a[v_2])
 } \quad \text{(K-Disjoint-Dispatch)}$$
 
-Per §13.6, this enables full parallelization when iterations access disjoint array elements.
+Per §14.6, this enables full parallelization when iterations access disjoint array elements.
 
 ##### Dynamic Semantics
 
@@ -12505,7 +12906,7 @@ Evaluation of `dispatch i in range [attrs] { B }` proceeds as follows:
 1. Evaluate `range` to determine iteration count $n$.
 2. Analyze key patterns to partition iterations into conflict-free groups.
 3. For each group, enqueue iterations as work items to the worker pool.
-4. Workers execute iterations, acquiring keys as needed per §13.2.
+4. Workers execute iterations, acquiring keys as needed per §14.2.
 5. If `[reduce: op]` is present, combine partial results using `op`.
 6. Block until all iterations complete.
 7. Return the reduced value (if reduction) or unit.
@@ -12562,7 +12963,7 @@ dispatch i in 0..arr.len() - 1 {
 
 ---
 
-### 14.6 Execution Domains
+### 15.6 Execution Domains
 
 ##### Definition
 
@@ -12584,7 +12985,7 @@ This form is dyn-safe, enabling heterogeneous domain handling.
 
 > **Cross-Reference:** The specific domain implementations (`ctx.cpu`, `ctx.gpu`, `ctx.inline`) and their APIs are library interfaces defined in **Appendix E**.
 
-#### 14.6.1 CPU Domain
+#### 15.6.1 CPU Domain
 
 ##### Definition
 
@@ -12632,7 +13033,7 @@ The `Realtime` priority requires elevated OS privileges. Attempting to use `Real
 
 ##### Dynamic Semantics
 
-#### 14.6.2 GPU Domain
+#### 15.6.2 GPU Domain
 
 ##### Definition
 
@@ -12723,7 +13124,7 @@ dispatch i in 0..n [workgroup: 256] { ... }
 | `E-PAR-0051` | Error    | `shared` capture in GPU dispatch | Compile-time | Rejection |
 | `E-PAR-0052` | Error    | Nested GPU parallel block        | Compile-time | Rejection |
 
-#### 14.6.3 Inline Domain
+#### 15.6.3 Inline Domain
 
 ##### Definition
 
@@ -12748,7 +13149,7 @@ ctx.inline()
 
 ---
 
-### 14.7 Async Integration
+### 15.7 Async Integration
 
 ##### Definition
 
@@ -12787,7 +13188,7 @@ parallel ctx.cpu() {
 
 ---
 
-### 14.8 Cancellation
+### 15.8 Cancellation
 
 ##### Definition
 
@@ -12833,7 +13234,7 @@ Cancellation is a request, not a guarantee:
 
 ---
 
-### 14.9 Parallel Block Result Types
+### 15.9 Parallel Block Result Types
 
 ##### Definition
 
@@ -12872,7 +13273,7 @@ $$\frac{
 
 ---
 
-### 14.10 Panic Handling
+### 15.10 Panic Handling
 
 ##### Definition
 
@@ -12911,7 +13312,7 @@ let results = parallel ctx.cpu() {
 
 ---
 
-### 14.11 Nested Parallelism
+### 15.11 Nested Parallelism
 
 ##### Definition
 
@@ -12967,7 +13368,7 @@ parallel ctx.cpu(workers: 4) {
 
 ---
 
-### 14.12 Determinism
+### 15.12 Determinism
 
 ##### Definition
 
@@ -12999,7 +13400,7 @@ Iterations MAY execute in parallel, but side effects (I/O, shared mutation) are 
 
 ---
 
-### 14.13 Memory Allocation in Parallel Blocks
+### 15.13 Memory Allocation in Parallel Blocks
 
 ##### Definition
 
@@ -13033,13 +13434,13 @@ region work_arena {
 
 ---
 
-## Clause 15: Asynchronous Operations
+## Clause 16: Asynchronous Operations
 
 This clause defines Cursive's model for asynchronous computation. Asynchronous operations are computations that may suspend execution and resume later, producing values incrementally, completing after external events, or interleaving execution with other computations.
 
 ---
 
-### 15.2 The Async Class
+### 16.2 The Async Class
 
 ##### Definition
 
@@ -13194,7 +13595,7 @@ When fewer than four type arguments are provided:
 
 ---
 
-### 15.3 Type Aliases for Common Patterns
+### 16.3 Type Aliases for Common Patterns
 
 ##### Definition
 
@@ -13236,13 +13637,13 @@ Type aliases inherit variance from their expansion:
 
 ---
 
-### 15.4 Producing Async Values
+### 16.4 Producing Async Values
 
 ##### Definition
 
 Producing async values covers constructs that create `Async` instances, including async-returning procedures and `yield` forms that drive the generated modal state machine.
 
-#### 15.4.1 Async-Returning Procedures
+#### 16.4.1 Async-Returning Procedures
 
 ##### Definition
 
@@ -13330,7 +13731,7 @@ procedure read_lines(path: string, fs: dyn FileSystem) -> Stream<string, IoError
 
 ---
 
-#### 15.4.2 The `yield` Expression
+#### 16.4.2 The `yield` Expression
 
 ##### Definition
 
@@ -13432,7 +13833,7 @@ Values read from `shared` data before `yield release` SHOULD be considered poten
 
 ---
 
-#### 15.4.3 The `yield from` Expression
+#### 16.4.3 The `yield from` Expression
 
 ##### Definition
 
@@ -13524,7 +13925,7 @@ Keys are released before each suspension point and reacquired after each resumpt
 
 ---
 
-### 15.5 Consuming Async Values
+### 16.5 Consuming Async Values
 
 ##### Definition
 
@@ -13532,7 +13933,7 @@ An async value may be consumed through three patterns: iteration over outputs, m
 
 ---
 
-#### 15.5.1 Iteration (`loop...in`)
+#### 16.5.1 Iteration (`loop...in`)
 
 ##### Definition
 
@@ -13590,7 +13991,7 @@ $$\frac{
 
 ---
 
-#### 15.5.2 Manual Stepping
+#### 16.5.2 Manual Stepping
 
 ##### Definition
 
@@ -13602,7 +14003,7 @@ The consumer matches on the async value's modal state and invokes `resume` to ad
 
 ---
 
-#### 15.5.3 Synchronous Execution (`sync`)
+#### 16.5.3 Synchronous Execution (`sync`)
 
 ##### Definition
 
@@ -13670,7 +14071,7 @@ The reactor polls the future and any dependent I/O operations until completion.
 
 ---
 
-### 15.6 Concurrent Composition
+### 16.6 Concurrent Composition
 
 ##### Definition
 
@@ -13678,7 +14079,7 @@ Concurrent composition allows multiple async operations to execute simultaneousl
 
 ---
 
-#### 15.6.1 The `race` Expression
+#### 16.6.1 The `race` Expression
 
 ##### Definition
 
@@ -13771,7 +14172,7 @@ When one arm completes (non-streaming) or fails:
 
 ---
 
-#### 15.6.2 The `all` Expression
+#### 16.6.2 The `all` Expression
 
 ##### Definition
 
@@ -13829,7 +14230,7 @@ When any operation transitions to `@Failed`:
 
 ---
 
-#### 15.6.3 Condition Waiting (`until`)
+#### 16.6.3 Condition Waiting (`until`)
 
 ##### Definition
 
@@ -13866,7 +14267,7 @@ Evaluation of `shared_value~>until(pred, action)`:
 
 **Notification on Key Release**
 
-When a Write key to path $P$ is released (per §13.2):
+When a Write key to path $P$ is released (per §14.2):
 
 1. The runtime checks for waiters registered on $P$ or any prefix of $P$.
 2. Each matching waiter is marked **potentially ready**.
@@ -13898,7 +14299,7 @@ When a waiter is notified:
 
 ---
 
-### 15.7 Transformations and Combinators
+### 16.7 Transformations and Combinators
 
 ##### Definition
 
@@ -14001,7 +14402,7 @@ Combinators do not eagerly evaluate their source async. Instead, they return a n
 
 ---
 
-### 15.8 Memory Model and State Representation
+### 16.8 Memory Model and State Representation
 
 ##### Definition
 
@@ -14127,7 +14528,7 @@ The `Async` class itself has no fixed size—it is an interface. Only concrete m
 
 ---
 
-### 15.9 Cancellation and Cleanup
+### 16.9 Cancellation and Cleanup
 
 ##### Definition
 
@@ -14188,7 +14589,7 @@ Implementations MUST document their cancellation behavior in the Conformance Dos
 
 ---
 
-### 15.10 Error Handling
+### 16.10 Error Handling
 
 ##### Definition
 
@@ -14239,7 +14640,7 @@ procedure with_temp_file(fs: dyn FileSystem) -> Stream<string, IoError> {
 
 ---
 
-### 15.11 Integration with Other Language Features
+### 16.11 Integration with Other Language Features
 
 ##### Definition
 
@@ -14247,7 +14648,7 @@ This section specifies how async operations interact with capabilities, the perm
 
 ---
 
-#### 15.11.1 Capability Requirements
+#### 16.11.1 Capability Requirements
 
 ##### Definition
 
@@ -14311,7 +14712,7 @@ class Time {
 
 ---
 
-#### 15.11.2 Permission and Capture Rules
+#### 16.11.2 Permission and Capture Rules
 
 ##### Definition
 
@@ -14396,7 +14797,7 @@ $$\frac{
 
 **Opt-In: Yield Release**
 
-To suspend within a key block, the programmer MUST use the `release` modifier (`yield release` or `yield release from`). This invokes the **Release-and-Reacquire** mechanism analogous to §13.7.2.
+To suspend within a key block, the programmer MUST use the `release` modifier (`yield release` or `yield release from`). This invokes the **Release-and-Reacquire** mechanism analogous to §14.7.2.
 
 **Semantics:**
 1. **Release:** All keys in $\Gamma_{keys}$ are released (LIFO order).
@@ -14454,7 +14855,7 @@ procedure bad(player: shared Player) -> Sequence<i32> {
 
 ---
 
-#### 15.11.3 Parallel Block Composition
+#### 16.11.3 Parallel Block Composition
 
 ##### Definition
 
@@ -14515,13 +14916,13 @@ When a `parallel` block reaches its closing brace:
 
 ---
 
-## Clause 16: Compile-Time Execution
+## Clause 17: Compile-Time Execution
 
 This clause defines the compile-time execution model for Cursive. Compile-time execution enables computation during the Metaprogramming Phase (Translation Phase 2, as defined in §2.12), producing values, types, and code incorporated into the final program.
 
 ---
 
-### 16.1 The Comptime Environment
+### 17.1 The Comptime Environment
 
 ##### Definition
 
@@ -14548,9 +14949,9 @@ $$\Gamma_{ct} ::= (\Sigma_{stdlib}, \Sigma_{imports}, \Sigma_{types}, \Sigma_{ca
 The comptime environment is isolated from the runtime environment. Comptime code MUST NOT access:
 
 1. Runtime memory or heap allocations from $\Gamma_{rt}$
-2. File handles, network sockets, or I/O resources (except via `ProjectFiles` capability, §16.5.3)
-3. Foreign function interfaces (§20)
-4. Runtime capabilities (§12)
+2. File handles, network sockets, or I/O resources (except via `ProjectFiles` capability, §17.5.3)
+3. Foreign function interfaces (§21)
+4. Runtime capabilities (§13)
 
 **Determinism Property**
 
@@ -14560,15 +14961,15 @@ $$\Gamma_{ct} \vdash e \Downarrow v_1 \land \Gamma_{ct} \vdash e \Downarrow v_2 
 
 **Termination Property**
 
-Comptime execution MUST terminate. Implementations MUST enforce resource limits as specified in §16.8.
+Comptime execution MUST terminate. Implementations MUST enforce resource limits as specified in §17.8.
 
 **Purity Requirement**
 
-All expressions evaluated in comptime context MUST be pure as defined in §10.1.1, with exceptions:
+All expressions evaluated in comptime context MUST be pure as defined in §11.1.1, with exceptions:
 
-1. Operations on compile-time capabilities (§16.5)
-2. File reads via `ProjectFiles` capability (§16.5.3)
-3. Diagnostic emissions via `ComptimeDiagnostics` capability (§16.5.4)
+1. Operations on compile-time capabilities (§17.5)
+2. File reads via `ProjectFiles` capability (§17.5.3)
+3. Diagnostic emissions via `ComptimeDiagnostics` capability (§17.5.4)
 
 ##### Constraints & Legality
 
@@ -14595,7 +14996,7 @@ The following constructs are prohibited in comptime context:
 
 ---
 
-### 16.2 Comptime-Available Types
+### 17.2 Comptime-Available Types
 
 ##### Definition
 
@@ -14664,7 +15065,7 @@ The following types are NOT comptime-available:
 
 ---
 
-### 16.3 Comptime Blocks and Expressions
+### 17.3 Comptime Blocks and Expressions
 
 ##### Definition
 
@@ -14695,7 +15096,7 @@ $$\frac{\Gamma_{ct} \vdash e : T \quad \text{IsComptimeAvailable}(T)}{\Gamma \vd
 
 **Validation**
 
-The body of a comptime block or expression MUST satisfy all comptime restrictions (§16.1).
+The body of a comptime block or expression MUST satisfy all comptime restrictions (§17.1).
 
 ##### Dynamic Semantics
 
@@ -14718,7 +15119,7 @@ The body of a comptime block or expression MUST satisfy all comptime restriction
 
 ---
 
-### 16.4 Comptime Procedures
+### 17.4 Comptime Procedures
 
 ##### Definition
 
@@ -14784,13 +15185,13 @@ Comptime procedures MUST NOT:
 
 ---
 
-### 16.5 Comptime Capabilities
+### 17.5 Comptime Capabilities
 
 ##### Definition
 
 **Comptime capabilities** are capability types that authorize specific compile-time operations. Unlike runtime capabilities, comptime capabilities are provided by the compiler and operate on the compilation unit rather than external resources.
 
-#### 16.5.1 TypeEmitter
+#### 17.5.1 TypeEmitter
 
 ##### Definition
 
@@ -14841,7 +15242,7 @@ $$\frac{
 | `E-CTE-0041` | Error    | `[[emit]]` attribute on non-comptime block      | Compile-time | Rejection |
 | `E-CTE-0042` | Error    | Emitted AST is ill-formed                       | Compile-time | Rejection |
 
-#### 16.5.2 Introspect
+#### 17.5.2 Introspect
 
 ##### Definition
 
@@ -14955,7 +15356,7 @@ $$\frac{
 | `E-CTE-0052` | Error    | `states` called on non-modal type  | Compile-time | Rejection |
 | `E-CTE-0053` | Error    | Introspection of incomplete type   | Compile-time | Rejection |
 
-#### 16.5.3 ProjectFiles
+#### 17.5.3 ProjectFiles
 
 ##### Definition
 
@@ -15010,7 +15411,7 @@ File contents are captured at the start of the Metaprogramming Phase. Modificati
 | `E-CTE-0063` | Error    | Absolute path in file operation                  | Compile-time | Rejection |
 | `E-CTE-0064` | Error    | File not found                                   | Compile-time | Rejection |
 
-#### 16.5.4 ComptimeDiagnostics
+#### 17.5.4 ComptimeDiagnostics
 
 ##### Definition
 
@@ -15070,7 +15471,7 @@ When `error` or `error_at` is invoked:
 
 ---
 
-### 16.6 Comptime Control Flow
+### 17.6 Comptime Control Flow
 
 ##### Definition
 
@@ -15138,7 +15539,7 @@ $$\frac{
 
 ---
 
-### 16.7 Comptime Assertions
+### 17.7 Comptime Assertions
 
 ##### Definition
 
@@ -15182,7 +15583,7 @@ $$\frac{
 
 ---
 
-### 16.8 Resource Limits
+### 17.8 Resource Limits
 
 ##### Definition
 
@@ -15216,13 +15617,13 @@ Implementations MAY support higher limits. The actual limits are implementation-
 
 ---
 
-## Clause 17: Type Reflection
+## Clause 18: Type Reflection
 
 This clause defines the type reflection system for Cursive. Type reflection enables compile-time introspection of type structure, enabling generic programming patterns and code generation based on type properties.
 
 ---
 
-### 17.1 The Type Metatype
+### 18.1 The Type Metatype
 
 ##### Definition
 
@@ -15265,7 +15666,7 @@ The subscript $\text{wf}$ indicates that $T$ must be a well-formed type in conte
 
 ---
 
-### 17.2 Type Categories
+### 18.2 Type Categories
 
 ##### Definition
 
@@ -15315,7 +15716,7 @@ enum TypeCategory {
 comptime procedure category<T>() -> TypeCategory
 ```
 
-This procedure is available via the `Introspect` capability (§16.5.2).
+This procedure is available via the `Introspect` capability (§17.5.2).
 
 ##### Constraints & Legality
 
@@ -15327,13 +15728,13 @@ This procedure is available via the `Introspect` capability (§16.5.2).
 
 ---
 
-### 17.3 Structural Introspection
+### 18.3 Structural Introspection
 
 ##### Definition
 
 **Structural introspection** provides compile-time access to the internal structure of composite types: fields of records, variants of enums, and states of modal types.
 
-#### 17.3.1 Record Introspection
+#### 18.3.1 Record Introspection
 
 ##### Definition
 
@@ -15386,7 +15787,7 @@ The returned array contains one `FieldInfo` for each field of $T$, in declaratio
 | :----------- | :------- | :--------------------------------- | :----------- | :-------- |
 | `E-REF-0030` | Error    | `fields` called on non-record type | Compile-time | Rejection |
 
-#### 17.3.2 Enum Introspection
+#### 18.3.2 Enum Introspection
 
 ##### Definition
 
@@ -15432,7 +15833,7 @@ The returned array contains one `VariantInfo` for each variant of $T$, in declar
 | :----------- | :------- | :--------------------------------- | :----------- | :-------- |
 | `E-REF-0040` | Error    | `variants` called on non-enum type | Compile-time | Rejection |
 
-#### 17.3.3 Modal Introspection
+#### 18.3.3 Modal Introspection
 
 ##### Definition
 
@@ -15482,7 +15883,7 @@ $$\frac{
 
 ---
 
-### 17.4 Form Introspection
+### 18.4 Form Introspection
 
 ##### Definition
 
@@ -15552,7 +15953,7 @@ $$\frac{
 
 ---
 
-### 17.5 Type Predicates
+### 18.5 Type Predicates
 
 ##### Definition
 
@@ -15608,7 +16009,7 @@ comptime_predicate_expr ::= identifier "::<" type_args ">" "()"
 
 ---
 
-### 17.6 Type Name and Path Introspection
+### 18.6 Type Name and Path Introspection
 
 ##### Definition
 
@@ -15644,13 +16045,13 @@ For generic types, the name includes type parameters: `"Vec<i32>"`.
 
 ---
 
-## Clause 18: Code Generation
+## Clause 19: Code Generation
 
 This clause defines the code generation system for Cursive. Code generation enables compile-time construction and emission of AST fragments, providing the foundation for derive targets (§19) and custom metaprogramming.
 
 ---
 
-### 18.1 The Ast Type
+### 19.1 The Ast Type
 
 ##### Definition
 
@@ -15692,7 +16093,7 @@ $$\texttt{Ast::Pattern} <: \texttt{Ast}$$
 
 ---
 
-### 18.2 Quote Expressions
+### 19.2 Quote Expressions
 
 ##### Definition
 
@@ -15756,7 +16157,7 @@ $$\frac{
 
 **Validation**
 
-Quoted content MUST be syntactically valid. Type checking of quoted content is deferred until emission (§18.5).
+Quoted content MUST be syntactically valid. Type checking of quoted content is deferred until emission (§19.5).
 
 ##### Constraints & Legality
 
@@ -15769,7 +16170,7 @@ Quoted content MUST be syntactically valid. Type checking of quoted content is d
 
 ---
 
-### 18.3 Splice Expressions
+### 19.3 Splice Expressions
 
 ##### Definition
 
@@ -15857,7 +16258,7 @@ $$\frac{
 
 ---
 
-### 18.4 Hygiene
+### 19.4 Hygiene
 
 ##### Definition
 
@@ -15922,7 +16323,7 @@ This ensures reproducibility across compilations.
 
 ---
 
-### 18.5 Emission
+### 19.5 Emission
 
 ##### Definition
 
@@ -15982,7 +16383,7 @@ Within a single Metaprogramming Phase:
 
 ---
 
-### 18.6 Type Representation
+### 19.6 Type Representation
 
 ##### Definition
 
@@ -16011,7 +16412,7 @@ $$\frac{
 
 ---
 
-### 18.7 Write Keys
+### 19.7 Write Keys
 
 ##### Definition
 
@@ -16062,13 +16463,13 @@ $$\frac{
 
 ---
 
-## Clause 19: Derivation
+## Clause 20: Derivation
 
 This clause defines the derivation system for Cursive. Derivation automates implementation of forms for user-defined types through compile-time code generation.
 
 ---
 
-### 19.1 Derive Attributes
+### 20.1 Derive Attributes
 
 ##### Definition
 
@@ -16115,7 +16516,7 @@ Each identifier in the derive target list MUST resolve to a derive target declar
 
 ---
 
-### 19.2 Derive Target Declarations
+### 20.2 Derive Target Declarations
 
 ##### Definition
 
@@ -16177,7 +16578,7 @@ Within a derive target body, the following bindings are implicitly available:
 
 ---
 
-### 19.3 Derive Contracts
+### 20.3 Derive Contracts
 
 ##### Definition
 
@@ -16222,7 +16623,7 @@ After derive execution, the implementation MUST verify:
 
 ---
 
-### 19.4 Derive Execution Model
+### 20.4 Derive Execution Model
 
 ##### Definition
 
@@ -16267,7 +16668,7 @@ Derive targets with no dependencies between them MAY execute in parallel. The im
 
 ---
 
-### 19.5 Generated Type Declarations
+### 20.5 Generated Type Declarations
 
 ##### Definition
 
@@ -16330,7 +16731,7 @@ The following emission patterns are prohibited:
 
 ---
 
-### 19.6 Standard Derive Targets
+### 20.6 Standard Derive Targets
 
 ##### Definition
 
@@ -16348,7 +16749,7 @@ The **standard derive targets** are derive targets provided by the language impl
 | `Serialize`   | `\|= emits Serialize`         | Record, Enum          |
 | `Deserialize` | `\|= emits Deserialize`       | Record, Enum          |
 
-#### 19.6.1 Debug
+#### 20.6.1 Debug
 
 ##### Definition
 
@@ -16370,7 +16771,7 @@ For enums: Concatenate variant name and, if present, `(` payload values `)`.
 
 All fields MUST implement `Debug`. If any field does not implement `Debug`, emit `E-DRV-0060`.
 
-#### 19.6.2 Clone
+#### 20.6.2 Clone
 
 ##### Definition
 
@@ -16392,7 +16793,7 @@ For enums: Match on variant, clone payload, construct same variant.
 
 All fields MUST implement `Clone`. If any field does not implement `Clone`, emit `E-DRV-0061`.
 
-#### 19.6.3 Eq
+#### 20.6.3 Eq
 
 ##### Definition
 
@@ -16414,7 +16815,7 @@ For enums: Return `true` iff variants match and all payload fields are equal.
 
 All fields MUST implement `Eq`. If any field does not implement `Eq`, emit `E-DRV-0062`.
 
-#### 19.6.4 Hash
+#### 20.6.4 Hash
 
 ##### Definition
 
@@ -16436,7 +16837,7 @@ For enums: Hash discriminant, then hash payload fields.
 
 All fields MUST implement `Hash`. If any field does not implement `Hash`, emit `E-DRV-0063`.
 
-#### 19.6.5 Default
+#### 20.6.5 Default
 
 ##### Definition
 
@@ -16456,7 +16857,7 @@ Construct instance with each field set to its default value.
 
 All fields MUST implement `Default`. If any field does not implement `Default`, emit `E-DRV-0064`.
 
-#### 19.6.6 Serialize and Deserialize
+#### 20.6.6 Serialize and Deserialize
 
 ##### Definition
 
@@ -16493,7 +16894,7 @@ Implementation-defined serialization format. The implementation MUST document th
 
 ---
 
-### 19.7 Type Category Dispatch
+### 20.7 Type Category Dispatch
 
 ##### Definition
 
@@ -16536,9 +16937,9 @@ $$\frac{
 
 # Part 6: Interoperability and ABI
 
-## Clause 20: Foreign Function Interface
+## Clause 21: Foreign Function Interface
 
-### 20.2 The FfiSafe Class
+### 21.1 The FfiSafe Class
 
 ##### Definition
 
@@ -16741,7 +17142,7 @@ Without `[[ffi_pass_by_value]]`, passing a `Drop + FfiSafe` type by value in FFI
 
 ---
 
-### 20.3 Foreign Procedure Declarations
+### 21.2 Foreign Procedure Declarations
 
 ##### Definition
 
@@ -16899,7 +17300,7 @@ Link kinds:
 
 ---
 
-### 20.4 Foreign Global Declarations
+### 21.3 Foreign Global Declarations
 
 ##### Definition
 
@@ -16955,7 +17356,7 @@ procedure clear_errno() {
 
 ---
 
-### 20.5 Exported Procedures
+### 21.4 Exported Procedures
 
 ##### Definition
 
@@ -17054,7 +17455,7 @@ Exported procedures use unmangled names suitable for C linkage. Name conflicts w
 
 ---
 
-### 20.6 Capability Isolation Patterns
+### 21.5 Capability Isolation Patterns
 
 ##### Definition
 
@@ -17062,7 +17463,7 @@ Capability isolation patterns ensure that FFI interactions do not grant foreign 
 
 ##### Static Semantics
 
-1. **Capability Blindness Rule:** Foreign code MUST NOT receive or return capability dynes, inspect capability representations, or exercise capability-mediated authority. This is enforced by prohibiting capability-bearing dyn types in all FFI signatures (§20.3–§20.5).
+1. **Capability Blindness Rule:** Foreign code MUST NOT receive or return capability dynes, inspect capability representations, or exercise capability-mediated authority. This is enforced by prohibiting capability-bearing dyn types in all FFI signatures (§21.3–§21.5).
 2. **Runtime Handle Pattern:** When foreign code needs to reference Cursive resources, the implementation MUST expose opaque, FfiSafe handle types whose fields do not contain capabilities. Handle registration, lookup, and revocation MUST be performed inside Cursive code; invalid handles MUST be diagnosed or signaled as errors.
 3. **Callback Context Pattern:** When foreign code calls back into Cursive, capability-bearing data MUST be wrapped in a heap-allocated context owned by Cursive. Foreign code receives only an opaque pointer; destruction of the context MUST be explicit and exactly once.
 4. **Region Pointer Escape Detection:** Pointers to region-local storage MUST NOT be passed across the FFI boundary. Escape analysis MUST reject any flow of a region-local pointer into foreign code.
@@ -17078,13 +17479,13 @@ Capability isolation patterns ensure that FFI interactions do not grant foreign 
 | `E-FFI-3360` | Error    | Region-local pointer escapes via FFI               | Compile-time | Rejection |
 
 
-### 20.7 Standard FFI Types
+### 21.6 Standard FFI Types
 
 Standard library FFI helper types (string wrappers, pointer wrappers, buffers, booleans, file descriptors, opaque void, error enums, modal foreign resources, variadic helpers, and wide character aliases) are specified in **Appendix H (Core Library Specification)** and are not repeated here.
 
 ----
 
-### 20.8 Foreign Contracts
+### 21.7 Foreign Contracts
 
 ##### Definition
 
@@ -17140,7 +17541,7 @@ Predicates MUST NOT reference:
 
 **Verification Modes**
 
-Foreign contracts integrate with the contract verification modes defined in §10.4:
+Foreign contracts integrate with the contract verification modes defined in §11.4:
 
 | Mode                   | Behavior                                                                  |
 | :--------------------- | :------------------------------------------------------------------------ |
@@ -17306,7 +17707,7 @@ extern "C" {
 
 ---
 
-### 20.9 Platform Type Aliases
+### 21.8 Platform Type Aliases
 
 Platform ABI-specific aliases (`c_long`, `c_ulong`, `c_size_t`, etc.) MUST match the target C ABI types for the compilation target; exact sizes and alignments are implementation-defined and documented with the target triple.
 
@@ -17451,19 +17852,19 @@ This subsection allocates diagnostic code ranges to language domains.
 | `E-TYP-`      | 2300–2399     | Clause 7: Generics                      |
 | `E-DEC-`      | 2400–2499     | Clause 8: Declarations                  |
 | `E-NAM-`      | 1300–1399     | Clause 9: Name Resolution               |
-| `E-EXP-`      | 2500–2599     | Clause 11: Expressions                  |
-| `E-STM-`      | 2630–2639     | Clause 11: Assignment Statements        |
-| `E-STM-`      | 2650–2659     | Clause 11: Defer Statements             |
-| `E-STM-`      | 2660–2669     | Clause 11: Control Flow Statements      |
-| `E-PAT-`      | 2710–2759     | Clause 11: Patterns                     |
+| `E-EXP-`      | 2500–2599     | Clause 12: Expressions                  |
+| `E-STM-`      | 2630–2639     | Clause 12: Assignment Statements        |
+| `E-STM-`      | 2650–2659     | Clause 12: Defer Statements             |
+| `E-STM-`      | 2660–2669     | Clause 12: Control Flow Statements      |
+| `E-PAT-`      | 2710–2759     | Clause 12: Patterns                     |
 | `E-TRS-`      | 2900–2999     | Clause 9: Forms                         |
-| `E-CON-`      | 3200–3299     | Clause 12: Contracts                    |
-| `E-KEY-`      | 0001–0099     | Clause 13: Key System                   |
-| `E-SPAWN-`    | 0001–0099     | Clause 13: Task Spawning                |
-| `E-ASYNC-`    | 0001–0099     | Clause 13: Async Operations             |
-| `E-DISPATCH-` | 0001–0099     | Clause 13: Data Parallelism             |
-| `E-WAIT-`     | 0001–0099     | Clause 13: Wait Expressions             |
-| `W-KEY-`      | 0001–0099     | Clause 13: Key Warnings                 |
+| `E-CON-`      | 3200–3299     | Clause 11: Contracts                    |
+| `E-KEY-`      | 0001–0099     | Clause 14: Key System                   |
+| `E-SPAWN-`    | 0001–0099     | Clause 15: Task Spawning                |
+| `E-ASYNC-`    | 0001–0099     | Clause 16: Async Operations             |
+| `E-DISPATCH-` | 0001–0099     | Clause 15: Data Parallelism             |
+| `E-WAIT-`     | 0001–0099     | Clause 16: Wait Expressions             |
+| `W-KEY-`      | 0001–0099     | Clause 14: Key Warnings                 |
 | `W-DYN-`      | 0001–0099     | Clause 7: `[[dynamic]]` Attribute       |
 | `P-`          | (same ranges) | Runtime Panics (use domain prefix)      |
 | `W-`          | (same ranges) | Warnings (use domain prefix)            |
@@ -17612,10 +18013,10 @@ Minimal normative definitions for core types assumed to be available by the lang
 ```cursive
 record Context {
     // System capabilities
-    fs: dyn FileSystem,
-    net: dyn Network,
+    fs: $FileSystem,
+    net: $Network,
     sys: System,
-    heap: dyn HeapAllocator,
+    heap: $HeapAllocator,
 
     // Async runtime (§15.11.1)
     reactor: Reactor,
@@ -17631,10 +18032,10 @@ record Context {
 
 | Field     | Type                       | Purpose                          |
 | :-------- | :------------------------- | :------------------------------- |
-| `fs`      | `dyn FileSystem`           | Filesystem authority             |
-| `net`     | `dyn Network`              | Network authority                |
+| `fs`      | `$FileSystem`              | Filesystem authority             |
+| `net`     | `$Network`                 | Network authority                |
 | `sys`     | `System`                   | System primitives (env, time)    |
-| `heap`    | `dyn HeapAllocator`        | Dynamic allocation               |
+| `heap`    | `$HeapAllocator`           | Dynamic allocation               |
 | `reactor` | `Reactor`                  | Async runtime (§15.11.1)         |
 | `cpu`     | `CpuDomainFactory`         | CPU parallel execution (§14.6.1) |
 | `gpu`     | `GpuDomainFactory \| None` | GPU execution (§14.6.2)          |
@@ -17696,7 +18097,7 @@ This appendix provides an index of behaviors by classification. Definitions for 
 *   Async Discriminant Encoding (§15.3)
 *   Async Cancellation I/O Behavior (§15.9)
 *   Condition Wake Mechanism (§15.6.3)
-*   **Dynamic Index Ordering Mechanism (§13.7)**: Index-value comparison, address comparison, lock coarsening, or hybrid. MUST satisfy cross-task consistency.
+*   **Dynamic Index Ordering Mechanism (§14.7)**: Index-value comparison, address comparison, lock coarsening, or hybrid. MUST satisfy cross-task consistency.
 
 ### F.3 Unspecified Behavior (USB) Instances
 
@@ -17715,7 +18116,7 @@ This subsection lists runtime panics that are defined by the specification.
 
 *   Integer Overflow (Checked Mode)
 *   Array/Slice Bounds Check
-*   **Dynamic Key Conflict** — occurs only in `[[dynamic]]` scopes where runtime key acquisition blocks indefinitely or detects deadlock (see §13.7)
+*   **Dynamic Key Conflict** — occurs only in `[[dynamic]]` scopes where runtime key acquisition blocks indefinitely or detects deadlock (see §14.7)
 *   **Contract Check Failure** — occurs in `[[dynamic]]` scopes when a runtime-checked contract predicate evaluates to false (`P-CON-2850`)
 *   **Refinement Validation Failure** — occurs in `[[dynamic]]` scopes when a runtime-checked refinement predicate evaluates to false (`P-TYP-1953`)
 

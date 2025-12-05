@@ -21,7 +21,10 @@
       "Bash(codex exec:*)",
       "Bash(dir:*)",
       "Bash(findstr:*)",
-      "Bash(where:*)"
+      "Bash(where:*)",
+      "Skill(gemini-cli)",
+      "Bash(gemini:*)",
+      "Bash(timeout 30 bash:*)"
     ],
     "deny": [],
     "ask": []

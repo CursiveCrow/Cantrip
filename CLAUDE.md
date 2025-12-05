@@ -356,10 +356,10 @@ procedure main(ctx: Context) -> i32 {
 
 ```cursive
 record Context {
-    fs: witness FileSystem,      // File I/O capability
-    net: witness Network,        // Network capability
+    fs: $FileSystem,             // File I/O capability
+    net: $Network,               // Network capability
     sys: System,                 // System operations
-    heap: witness HeapAllocator  // Heap allocation capability
+    heap: $HeapAllocator         // Heap allocation capability
 }
 
 public procedure main(ctx: Context) -> i32
@@ -370,12 +370,12 @@ public procedure main(ctx: Context) -> i32
 Procedures performing effects must accept the required capability:
 
 ```cursive
-procedure write_log(message: string, fs: witness FileSystem) {
+procedure write_log(message: string, fs: $FileSystem) {
     let file = fs.open_append("/var/log/app.log")?
     file.write(message.as_view())?
 }
 
-procedure allocate_buffer(size: usize, heap: witness HeapAllocator) -> Ptr<[u8]>@Valid {
+procedure allocate_buffer(size: usize, heap: $HeapAllocator) -> Ptr<[u8]>@Valid {
     heap.allocate_bytes(size)
 }
 ```
@@ -504,13 +504,13 @@ match result {
 
 ```cursive
 // Union types for errors
-procedure read_file(path: string, fs: witness FileSystem) -> string | IoError | NotFound {
+procedure read_file(path: string, fs: $FileSystem) -> string | IoError | NotFound {
     let file = fs.open(path)?      // Propagates IoError, NotFound
     file.read_all()?
 }
 
 // Propagation operator (?)
-procedure process(path: string, fs: witness FileSystem) -> Result | IoError | ParseError {
+procedure process(path: string, fs: $FileSystem) -> Result | IoError | ParseError {
     let content = read_file(path, fs)?   // Propagates errors automatically
     parse(content)?
 }
@@ -651,11 +651,11 @@ procedure identity<T>(x: T) -> T {
 
 ```cursive
 class Printable {
-    procedure print(~, output: witness FileSystem)
+    procedure print(~, output: $FileSystem)
 }
 
 record Point { x: f64, y: f64 } <: Printable {
-    procedure print(~, output: witness FileSystem) {
+    procedure print(~, output: $FileSystem) {
         output.write_stdout(f"({self.x}, {self.y})")
     }
 }
@@ -741,7 +741,7 @@ record IoError { message: string, code: i32 }
 record ParseError { message: string, line: usize }
 
 // Return union of success and errors
-procedure load_config(path: string, fs: witness FileSystem) -> Config | IoError | ParseError {
+procedure load_config(path: string, fs: $FileSystem) -> Config | IoError | ParseError {
     let content = fs.read_file(path)?
     parse_config(content)?
 }
@@ -750,7 +750,7 @@ procedure load_config(path: string, fs: witness FileSystem) -> Config | IoError 
 ### 12.2 Propagation Pattern
 
 ```cursive
-procedure process_all(paths: [string], fs: witness FileSystem) -> Results | IoError | ParseError {
+procedure process_all(paths: [string], fs: $FileSystem) -> Results | IoError | ParseError {
     var results = Vec::new(ctx.heap)
 
     loop path in paths {
@@ -779,7 +779,7 @@ procedure process_all(paths: [string], fs: witness FileSystem) -> Results | IoEr
 // Resource management with move
 procedure with_file<T>(
     path: string,
-    fs: witness FileSystem,
+    fs: $FileSystem,
     action: procedure(file: unique File) -> T
 ) -> T | IoError {
     let file = fs.open(path)?
@@ -892,7 +892,7 @@ let, var, procedure, record, enum, modal, trait, match, if, else,
 loop, break, continue, return, result, move, const, unique, shared,
 parallel, spawn, dispatch, region, comptime, quote, emit, unsafe,
 public, internal, private, protected, import, use, as, where,
-witness, transition, atomic, defer, widen
+transition, atomic, defer, widen
 ```
 
 ### Operators
