@@ -746,11 +746,11 @@ $$
 
 **Punctuator Semantics**
 
-| Token | Syntactic Role                                                                                          |
-| :---- | :------------------------------------------------------------------------------------------------------ |
-| `;`   | Statement terminator (§2.11); Generic parameter and where predicate separator (§7.1)                    |
-| `,`   | Element separator in tuples, arrays, argument lists; Bound separator in generic constraints (§7.1)      |
-| `:`   | Type annotation; Label prefix; Record field separator                                                   |
+| Token | Syntactic Role                                                                                     |
+| :---- | :------------------------------------------------------------------------------------------------- |
+| `;`   | Statement terminator (§2.11); Generic parameter and where predicate separator (§7.1)               |
+| `,`   | Element separator in tuples, arrays, argument lists; Bound separator in generic constraints (§7.1) |
+| `:`   | Type annotation; Label prefix; Record field separator                                              |
 
 ##### Static Semantics
 
@@ -1932,13 +1932,13 @@ responsibility for cleanup.
 
 The following table specifies which operations are permitted through a `shared` path when key semantics are available (see §13.1 for key system rules):
 
-| Operation                   | Permitted | Key Mode  | Notes                                    |
-| :-------------------------- | :-------- | :-------- | :--------------------------------------- |
-| Field read                  | Yes       | Read key  |                                          |
-| Field mutation              | Yes*      | Write key | *Via key system only; see note below     |
-| Method call (`~` receiver)  | Yes       | Read key  |                                          |
-| Method call (`~%` receiver) | Yes       | Write key |                                          |
-| Method call (`~!` receiver) | No        | N/A       | Requires `unique` permission             |
+| Operation                   | Permitted | Key Mode  | Notes                                |
+| :-------------------------- | :-------- | :-------- | :----------------------------------- |
+| Field read                  | Yes       | Read key  |                                      |
+| Field mutation              | Yes*      | Write key | *Via key system only; see note below |
+| Method call (`~` receiver)  | Yes       | Read key  |                                      |
+| Method call (`~%` receiver) | Yes       | Write key |                                      |
+| Method call (`~!` receiver) | No        | N/A       | Requires `unique` permission         |
 
 **Note on Field Mutation:** Direct field assignment through a `shared` path (e.g., `obj.field = value`) requires key acquisition per §13.1. For types that do not participate in the key system or outside valid key contexts, direct field mutation is rejected with `E-TYP-1604`. See §4.5.4 (shared Access to Types Without Synchronized Methods) for read-only shared access patterns.
 
@@ -5118,13 +5118,13 @@ Packed layout has the following implications:
 
 The distinction between safe direct access and UVB reference-taking is:
 
-| Operation | Classification | Rationale |
-| :-------- | :------------- | :-------- |
-| `packed.field = value` | Direct write (safe) | Compiler emits unaligned store |
-| `let x = packed.field` | Direct read (safe) | Compiler emits unaligned load |
-| `packed.field.method()` | Reference-taking (UVB) | Method call requires implicit receiver reference |
-| Pass to `move` parameter | Direct read (safe) | Value copied via unaligned load |
-| Pass to `const`/`unique` parameter | Reference-taking (UVB) | Reference passed to misaligned field |
+| Operation                          | Classification         | Rationale                                        |
+| :--------------------------------- | :--------------------- | :----------------------------------------------- |
+| `packed.field = value`             | Direct write (safe)    | Compiler emits unaligned store                   |
+| `let x = packed.field`             | Direct read (safe)     | Compiler emits unaligned load                    |
+| `packed.field.method()`            | Reference-taking (UVB) | Method call requires implicit receiver reference |
+| Pass to `move` parameter           | Direct read (safe)     | Value copied via unaligned load                  |
+| Pass to `const`/`unique` parameter | Reference-taking (UVB) | Reference passed to misaligned field             |
 
 The `packed` layout kind is valid only on `record` declarations. Applying `packed` to an `enum` is ill-formed (`E-DEC-2454`).
 
@@ -5276,13 +5276,13 @@ These attributes are valid only on `extern` procedure declarations.
 
 The following memory ordering attributes are recognized. Complete semantics are defined in §13.10 (Memory Ordering):
 
-| Attribute     | Target        | Effect                                                          |
-| :------------ | :------------ | :-------------------------------------------------------------- |
-| `[[relaxed]]` | Memory access | Atomicity only—no ordering guarantees                           |
-| `[[acquire]]` | Memory access | Subsequent reads see prior writes                               |
-| `[[release]]` | Memory access | Prior writes visible to acquire reads                           |
-| `[[acq_rel]]` | Memory access | Both acquire and release semantics                              |
-| `[[seq_cst]]` | Memory access | Total global order (default) |
+| Attribute     | Target        | Effect                                |
+| :------------ | :------------ | :------------------------------------ |
+| `[[relaxed]]` | Memory access | Atomicity only—no ordering guarantees |
+| `[[acquire]]` | Memory access | Subsequent reads see prior writes     |
+| `[[release]]` | Memory access | Prior writes visible to acquire reads |
+| `[[acq_rel]]` | Memory access | Both acquire and release semantics    |
+| `[[seq_cst]]` | Memory access | Total global order (default)          |
 
 These attributes are valid only on expressions that perform memory access to `shared` data.
 
@@ -5699,14 +5699,14 @@ The following constraints apply to refinement types:
 
 **Diagnostic Table**
 
-| Code         | Severity | Condition                                                           | Detection    | Effect    |
-| :----------- | :------- | :------------------------------------------------------------------ | :----------- | :-------- |
-| `E-TYP-1950` | Error    | `self` used in inline parameter constraint.                         | Compile-time | Rejection |
-| `E-TYP-1951` | Error    | Refinement predicate is not of type `bool`.                         | Compile-time | Rejection |
-| `E-TYP-1952` | Error    | Circular type dependency in refinement predicate.                   | Compile-time | Rejection |
+| Code         | Severity | Condition                                                                 | Detection    | Effect    |
+| :----------- | :------- | :------------------------------------------------------------------------ | :----------- | :-------- |
+| `E-TYP-1950` | Error    | `self` used in inline parameter constraint.                               | Compile-time | Rejection |
+| `E-TYP-1951` | Error    | Refinement predicate is not of type `bool`.                               | Compile-time | Rejection |
+| `E-TYP-1952` | Error    | Circular type dependency in refinement predicate.                         | Compile-time | Rejection |
 | `E-TYP-1953` | Error    | Refinement predicate not statically provable outside `[[dynamic]]` scope. | Compile-time | Rejection |
-| `E-CON-2802` | Error    | Impure expression in refinement predicate.                          | Compile-time | Rejection |
-| `P-TYP-1953` | Panic    | Runtime refinement validation failed.                               | Runtime      | Panic     |
+| `E-CON-2802` | Error    | Impure expression in refinement predicate.                                | Compile-time | Rejection |
+| `P-TYP-1953` | Panic    | Runtime refinement validation failed.                                     | Runtime      | Panic     |
 
 ---
 
@@ -6583,7 +6583,6 @@ Additionally, if $St \neq \emptyset$, then $T$ must be a modal type.
 
 ##### Static Semantics
 
-**
 Cursive provides three distinct mechanisms for polymorphism, each with different dispatch semantics, performance characteristics, and use cases:
 
 | Path | Name                 | Dispatch                        | Cost              | Use Case                  |
@@ -6596,11 +6595,11 @@ Cursive provides three distinct mechanisms for polymorphism, each with different
 
 The polymorphism path is determined by usage context:
 
-1. **Static (Path 1):** Selected when a generic parameter `T <: Tr` is used in a procedure signature. The compiler monomorphizes the procedure for each concrete type argument.
+1. **Static (Path 1):** Selected when a generic parameter `T <: Cl` is used in a procedure signature. The compiler monomorphizes the procedure for each concrete type argument.
 
-2. **Dynamic (Path 2):** Selected when `dyn Tr` is used as a type. A vtable-based dense pointer enables runtime dispatch.
+2. **Dynamic (Path 2):** Selected when `dyn Cl` is used as a type. A vtable-based dense pointer enables runtime dispatch.
 
-3. **Opaque (Path 3):** Selected when `opaque Tr` is used as a return type. The concrete type is hidden from callers while retaining direct static dispatch within the defining module.
+3. **Opaque (Path 3):** Selected when `opaque Cl` is used as a return type. The concrete type is hidden from callers while retaining direct static dispatch within the defining module.
 
 ---
 
@@ -6626,7 +6625,7 @@ An **associated type** is a type declaration within a class:
 
 **Abstract Field**
 
-An **abstract field** is a field declaration within a class that specifies a required field name and type. Implementing types MUST have a field with the same name and a compatible type (the implementing field's type must be a subtype of the declared type).
+An **abstract field** is a field declaration within a class that specifies a required field name and type. Implementing types MUST have a field with the same name and a compatible type (the implementing type's field may have a more specific type than required). For example, if the class declares `data: Animal`, the implementing type may declare `data: Dog` since `Dog <: Animal`.
 
 **Abstract State**
 
@@ -6671,6 +6670,7 @@ class_declaration ::=
 
 superclass_bounds ::= <class_bound> ( "+" <class_bound> )*
 class_bound       ::= <type_path> [ <generic_args> ]
+class_path        ::= <type_path>
 
 class_item ::=
     <abstract_procedure>
@@ -6680,13 +6680,13 @@ class_item ::=
   | <abstract_state>
 
 abstract_procedure ::=
-    "procedure" <identifier> <signature> [ <contract_clause> ] ";"
+    "procedure" <identifier> <signature> [ <contract_clause> ]
 
 concrete_procedure ::=
     "procedure" <identifier> <signature> [ <contract_clause> ] <block>
 
 associated_type ::=
-    "type" <identifier> [ "=" <type> ] ";"
+    "type" <identifier> [ "=" <type> ]
 
 abstract_field ::=
     <identifier> ":" <type>
@@ -6699,7 +6699,11 @@ class_alias ::=
     "=" <class_bound> ( "+" <class_bound> )* ";"
 ```
 
-The `generic_params` and `generic_args` productions are defined in §7.1 (Static Polymorphism). The `contract_clause` production is defined in §10.1 (Contract Fundamentals).
+Class items are separated by newlines. Semicolons are not used as terminators within class bodies.
+
+A `class_path` is syntactically identical to `type_path`; the semantic constraint is that the path must resolve to a class declaration.
+
+The `generic_params` and `generic_args` productions are defined in §7.1 (Static Polymorphism). The `contract_clause` production is defined in §10.1 (Contract Fundamentals). The `field_list` production is defined in §5.3 (Record Types).
 
 ##### Static Semantics
 
@@ -6776,6 +6780,8 @@ $$\frac{
   \Gamma \vdash Cl@S_1 \mid Cl@S_2 \mid \ldots \mid Cl@S_n : \text{Type}
 } \quad \text{(T-State-Union)}$$
 
+State union return types use the union type syntax defined in §5.5 (Union Types).
+
 **Superclass Inheritance (T-Superclass)**
 
 $$\frac{\text{class } A <: B \quad T <: A}{\Gamma \vdash T <: B}$$
@@ -6800,11 +6806,11 @@ $$\frac{\text{type } Alias = A + B}{\Gamma \vdash T <: Alias \iff \Gamma \vdash 
 
 | Code         | Severity | Condition                                         | Detection    | Effect    |
 | :----------- | :------- | :------------------------------------------------ | :----------- | :-------- |
-| `E-TRS-2900` | Error    | Duplicate procedure name in class.                | Compile-time | Rejection |
-| `E-TRS-2904` | Error    | Duplicate associated type name in class.          | Compile-time | Rejection |
-| `E-TRS-2905` | Error    | Name conflict among class members.                | Compile-time | Rejection |
-| `E-TRS-2908` | Error    | Cyclic superclass dependency detected.            | Compile-time | Rejection |
-| `E-TRS-2909` | Error    | Superclass bound refers to undefined class.       | Compile-time | Rejection |
+| `E-CLS-2900` | Error    | Duplicate procedure name in class.                | Compile-time | Rejection |
+| `E-CLS-2904` | Error    | Duplicate associated type name in class.          | Compile-time | Rejection |
+| `E-CLS-2905` | Error    | Name conflict among class members.                | Compile-time | Rejection |
+| `E-CLS-2908` | Error    | Cyclic superclass dependency detected.            | Compile-time | Rejection |
+| `E-CLS-2909` | Error    | Superclass bound refers to undefined class.       | Compile-time | Rejection |
 | `E-CLS-0408` | Error    | Duplicate abstract field name in class.           | Compile-time | Rejection |
 | `E-CLS-0409` | Error    | Duplicate abstract state name in class.           | Compile-time | Rejection |
 | `E-CLS-0410` | Error    | State reference to undeclared state in signature. | Compile-time | Rejection |
@@ -6827,9 +6833,9 @@ A type implements a class by:
 
 **Implementation Site**
 
-Class implementation MUST occur at the type's definition site. Extension implementations (implementing a class for a type defined elsewhere) are PROHIBITED.
+Class implementation MUST occur at the type's definition site. Class implementations at sites other than the type's definition (extension implementations) are prohibited.
 
-> **Rationale:** This restriction, enforced by the Orphan Rule below, prevents conflicting implementations when multiple assemblies implement the same class for the same type. By requiring that either the type or the class be defined locally, Cursive guarantees global coherence: every `(Type, Class)` pair has at most one implementation visible to any compilation unit.
+> **Rationale:** This restriction prevents conflicting implementations when multiple assemblies implement the same class for the same type. The Orphan Rule requires that at least one of the type or class be defined in the current assembly. However, even when the class is local, implementations for external types are prohibited; the external type's assembly must provide the implementation. This guarantees global coherence: every `(Type, Class)` pair has at most one implementation visible to any compilation unit.
 
 ##### Syntax & Declaration
 
@@ -6842,7 +6848,7 @@ The class implementation clause is integrated into type declarations using the `
 > - §5.4 (`enum_decl` with `implements_clause`)
 > - §6.1 (`modal_decl` with `implements_clause`)
 >
-> The `implements_clause` and `class_list` productions are defined in §5.3.
+> The `implements_clause` and `class_list` productions are canonically defined in §5.3 (Record Types) and referenced by §5.4 (Enum Types) and §6.1 (Modal Types).
 
 **Class List**
 
@@ -6891,15 +6897,32 @@ The `override` keyword distinguishes between two implementation scenarios:
 - **Implementing an abstract procedure**: When a type provides the first implementation of a procedure that has no body in the class, the `override` keyword MUST NOT be used. This is an *initial implementation*, not an override.
 - **Overriding a concrete procedure**: When a type provides its own implementation of a procedure that already has a default body in the class, the `override` keyword MUST be used. This signals that the type is intentionally replacing the inherited behavior.
 
+**Override Syntax**
+
+Within a type's implementation of a class, procedure implementations follow this grammar:
+
+```ebnf
+impl_procedure ::= [ <visibility> ] [ "override" ] "procedure" <identifier> <signature> <block>
+```
+
+Example:
+```cursive
+record MyType <: SomeClass {
+    public override procedure defaultMethod(~!) {
+        // Replaces the default implementation from SomeClass
+    }
+}
+```
+
 **Coherence Rule**
 
-A type `T` MAY implement a class `Tr` at most once. Multiple implementations of the same class for the same type are forbidden.
+A type `T` MAY implement a class `Cl` at most once. Multiple implementations of the same class for the same type are forbidden.
 
 **Orphan Rule**
 
-For `T <: Tr`, at least one of the following MUST be true:
+For `T <: Cl`, at least one of the following MUST be true:
 - `T` is defined in the current assembly
-- `Tr` is defined in the current assembly
+- `Cl` is defined in the current assembly
 
 This rule prevents external code from creating conflicting implementations.
 
@@ -6981,11 +7004,11 @@ $$\frac{
 
 | Code         | Severity | Condition                                               | Detection    | Effect    |
 | :----------- | :------- | :------------------------------------------------------ | :----------- | :-------- |
-| `E-TRS-2901` | Error    | `override` used on abstract procedure implementation.   | Compile-time | Rejection |
-| `E-TRS-2902` | Error    | Missing `override` on concrete procedure replacement.   | Compile-time | Rejection |
-| `E-TRS-2903` | Error    | Type does not implement required procedure from class.  | Compile-time | Rejection |
-| `E-TRS-2906` | Error    | Coherence violation: duplicate class implementation.    | Compile-time | Rejection |
-| `E-TRS-2907` | Error    | Orphan rule violation: neither type nor class is local. | Compile-time | Rejection |
+| `E-CLS-2901` | Error    | `override` used on abstract procedure implementation.   | Compile-time | Rejection |
+| `E-CLS-2902` | Error    | Missing `override` on concrete procedure replacement.   | Compile-time | Rejection |
+| `E-CLS-2903` | Error    | Type does not implement required procedure from class.  | Compile-time | Rejection |
+| `E-CLS-2906` | Error    | Coherence violation: duplicate class implementation.    | Compile-time | Rejection |
+| `E-CLS-2907` | Error    | Orphan rule violation: neither type nor class is local. | Compile-time | Rejection |
 | `E-CLS-0401` | Error    | Non-modal type implements modal class.                  | Compile-time | Rejection |
 | `E-CLS-0402` | Error    | Implementing type missing required field.               | Compile-time | Rejection |
 | `E-CLS-0403` | Error    | Implementing modal missing required state.              | Compile-time | Rejection |
@@ -7000,15 +7023,15 @@ $$\frac{
 
 ##### Definition
 
-Class constraints integrate classes with the generic type system: a generic parameter `T <: Tr` restricts valid type arguments to types implementing class `Tr`.
+Class constraints integrate classes with the generic type system: a generic parameter `T <: Cl` restricts valid type arguments to types implementing class `Cl`.
 
 > **Cross-Reference:** The complete specification of static polymorphism, including grammar and monomorphization, is defined in §7.1. This section documents class-specific constraint usage.
 
 ##### Static Semantics
 
-1. **Constraint Satisfaction:** A generic instantiation is well-formed only if every constrained parameter `T <: Tr` is instantiated with a type that implements `Tr`. Violations are diagnosed as `E-TRS-2930`.
-2. **Method Availability:** Within the body of a generic item, methods of `Tr` are callable on values of type `T` via static dispatch; calls resolve at monomorphization with no vtable lookup.
-3. **Use of Unconstrained Parameters:** Using an unconstrained type parameter where a class method would be required is ill-formed (`E-TRS-2931`).
+1. **Constraint Satisfaction:** A generic instantiation is well-formed only if every constrained parameter `T <: Cl` is instantiated with a type that implements `Cl`. Violations are diagnosed as `E-CLS-2930`.
+2. **Method Availability:** Within the body of a generic item, methods of `Cl` are callable on values of type `T` via static dispatch; calls resolve at monomorphization with no vtable lookup.
+3. **Use of Unconstrained Parameters:** Using an unconstrained type parameter where a class method would be required is ill-formed (`E-CLS-2931`).
 
 ##### Constraints & Legality
 
@@ -7016,11 +7039,11 @@ Class constraints integrate classes with the generic type system: a generic para
 
 | Code         | Severity | Condition                                          | Detection    | Effect    |
 | :----------- | :------- | :------------------------------------------------- | :----------- | :-------- |
-| `E-TRS-2930` | Error    | Type argument does not satisfy class constraint.   | Compile-time | Rejection |
-| `E-TRS-2931` | Error    | Unconstrained type parameter used in class method. | Compile-time | Rejection |
+| `E-CLS-2930` | Error    | Type argument does not satisfy class constraint.   | Compile-time | Rejection |
+| `E-CLS-2931` | Error    | Unconstrained type parameter used in class method. | Compile-time | Rejection |
 
 > ```cursive
-> procedure summarize<T <: Display>(items: const [T], output: dyn FileSystem) {
+> procedure summarize<T <: Display>(items: const [T], output: dyn Writer) {
 >     loop item in items {
 >         item~>display(output)  // T <: Display guarantees display method
 >     }
@@ -7029,21 +7052,21 @@ Class constraints integrate classes with the generic type system: a generic para
 
 ---
 
-### 9.5 Dynamic Polymorphism (Witnesses)
+### 9.5 Dynamic Polymorphism
 
 ##### Definition
 
 **Dynamic Polymorphism**
 
-Dynamic polymorphism is opt-in runtime dispatch using class dynes. It enables heterogeneous collections and runtime polymorphism at the cost of one vtable lookup per call.
+Dynamic polymorphism is opt-in runtime dispatch using dynamic class types. It enables heterogeneous collections and runtime polymorphism at the cost of one vtable lookup per call.
 
-**Witness**
+**Dynamic Class Type**
 
-A **dyn** (`dyn Class`) is a concrete, sized type representing any value implementing a dyn-safe class. It is implemented as a dense pointer.
+A **dynamic class type** (`dyn Class`) is a concrete, sized type representing any value implementing a dispatchable class. It is implemented as a dense pointer.
 
-**Witness Safety (Object Safety)**
+**Dispatchability**
 
-A class is **dyn-safe** if every procedure in the class (including inherited ones) is either:
+A class is **dispatchable** if every procedure in the class (including inherited ones) is either:
 1. **VTable-eligible**, OR
 2. **Explicitly excluded** via `[[static_dispatch_only]]`
 
@@ -7052,25 +7075,25 @@ A class is **dyn-safe** if every procedure in the class (including inherited one
 A procedure is **vtable-eligible** if **ALL** of the following are true:
 1. Has a receiver parameter (`self`, `~`, `~!`, `~%`)
 2. Has **NO** generic type parameters
-3. Does **NOT** return `Self` by value (except as `box Self` or `dyn Self`)
+3. Does **NOT** return `Self` by value (except via pointer indirection to `Self` or `dyn Self`)
 4. Does **NOT** use `Self` in parameter types (except via pointer indirection)
 
 **The `[[static_dispatch_only]]` Exclusion Attribute**
 
-A procedure that is not vtable-eligible MAY be excluded from dyn safety requirements by applying the `[[static_dispatch_only]]` attribute. This attribute restricts the procedure to contexts where the concrete type is statically known, making it unavailable through dyn dispatch while preserving the class's overall dyn safety.
+A procedure that is not vtable-eligible MAY be excluded from dispatchability requirements by applying the `[[static_dispatch_only]]` attribute. This attribute restricts the procedure to contexts where the concrete type is statically known, making it unavailable through dynamic dispatch while preserving the class's overall dispatchability.
 
-**State Dispatch in Modal Class Witnesses**
+**State Dispatch in Modal Class Dynamic Types**
 
-When a modal class is used as a dyn type, pattern matching on class states dispatches through vtable metadata. The vtable includes a state mapping table that translates between class state indices and concrete modal discriminant values.
+When a modal class is used as a dynamic class type, pattern matching on class states dispatches through vtable metadata. The vtable includes a state mapping table that translates between class state indices and concrete modal discriminant values.
 
-**Formal Definition of `dyn_safe`**
+**Formal Definition of `dispatchable`**
 
 $$
-\text{dyn\_safe}(Tr) \iff \forall p \in \text{procedures}(Tr).\ \text{vtable\_eligible}(p) \lor \text{has\_static\_dispatch\_attr}(p)
+\text{dispatchable}(Cl) \iff \forall p \in \text{procedures}(Cl).\ \text{vtable\_eligible}(p) \lor \text{has\_static\_dispatch\_attr}(p)
 $$
 
 where:
-- $\text{procedures}(Tr)$ includes all procedures declared in $Tr$ and its superclasses
+- $\text{procedures}(Cl)$ includes all procedures declared in $Cl$ and its superclasses
 - $\text{vtable\_eligible}(p)$ holds if $p$ satisfies all four criteria above
 - $\text{has\_static\_dispatch\_attr}(p)$ holds if $p$ has the `[[static_dispatch_only]]` attribute
 
@@ -7084,63 +7107,66 @@ dyn_type ::= "dyn" <class_path>
 
 ##### Static Semantics
 
-**Witness Formation (T-Witness-Form)**
+**Dynamic Class Formation (T-Dynamic-Form)**
 
-A value of concrete type `T` implementing dyn-safe class `Tr` MAY be coerced to `dyn Tr`:
+A value of concrete type `T` implementing dispatchable class `Cl` MAY be coerced to `dyn Cl`:
 
-$$\frac{\Gamma \vdash v : T \quad \Gamma \vdash T <: Cl \quad \text{dyn\_safe}(Tr)}{\Gamma \vdash v : \text{dyn } Cl}$$
-\tag{T-Witness-Form}
+$$\frac{\Gamma \vdash v : T \quad \Gamma \vdash T <: Cl \quad \text{dispatchable}(Cl)}{\Gamma \vdash v : \text{dyn } Cl}$$
+\tag{T-Dynamic-Form}
 
 ##### Dynamic Semantics
 
 **Evaluation**
 
-**Witness Creation**
+**Dynamic Class Type Creation**
 
-Formation of a dyn from a concrete value proceeds as follows:
+Formation of a dynamic class type from a concrete value proceeds as follows:
 
-1. Let `v` be a value of concrete type `T` where `T <: Tr` and `dyn_safe(Tr)`.
+1. Let `v` be a value of concrete type `T` where `T <: Cl` and `dispatchable(Cl)`.
 2. Let `dp` be a pointer to the storage of `v`.
-3. Let `vt` be the static vtable for the `(T, Tr)` type-class pair.
-4. Construct the dyn value as the pair `(dp, vt)`.
+3. Let `vt` be the static vtable for the `(T, Cl)` type-class pair.
+4. Construct the dynamic class value as the pair `(dp, vt)`.
 
-**Formal Witness Formation Rule**
+**Formal Dynamic Class Formation Rule**
 
 $$\frac{
   \Gamma \vdash v : T \quad
   T <: Cl \quad
-  \text{dyn\_safe}(Tr)
+  \text{dispatchable}(Cl)
 }{
-  v \Rightarrow_{\text{dyn}} (\text{ptr}(v), \text{vtable}(T, Tr))
-} \quad \text{(E-Witness-Form)}$$
+  v \Rightarrow_{\text{dyn}} (\text{ptr}(v), \text{vtable}(T, Cl))
+} \quad \text{(E-Dynamic-Form)}$$
 
 **VTable Dispatch Algorithm**
 
-A procedure call `w~>method(args)` on dyn `w: dyn Tr` executes as follows:
+A procedure call `w~>method(args)` on dynamic class type `w: dyn Cl` executes as follows:
 
 1. Let `(dp, vt)` be the data pointer and vtable pointer components of `w`.
 2. Let `offset` be the vtable offset for `method` (determined at compile time from class declaration order, offset by header size).
-3. Let `fp` be the function pointer at `vt + 3 * sizeof(usize) + offset * sizeof(usize)`.
-4. Return the result of calling `fp(dp, args)`.
+3. Let `header_size` be `3 * sizeof(usize)` for non-modal classes, or `4 * sizeof(usize)` for modal classes.
+4. Let `fp` be the function pointer at `vt + header_size + offset * sizeof(usize)`.
+5. Return the result of calling `fp(dp, args)`.
 
 **Formal Dispatch Rule**
 
 $$\frac{
   w = (dp, vt) \quad
-  \text{method} \in \text{interface}(Tr) \quad
+  \text{method} \in \text{interface}(Cl) \quad
   vt[\text{offset}(\text{method})] = fp
 }{
   w\text{\textasciitilde>method}(args) \to fp(dp, args)
-} \quad \text{(E-Witness-Dispatch)}$$
+} \quad \text{(E-Dynamic-Dispatch)}$$
 
 ##### Memory & Layout
 
 **Dense Pointer Layout**
 
-A dyn (`dyn Class`) is represented as a two-word structure:
+A dynamic class type (`dyn Class`) is represented as a two-word structure:
+
+**Memory Layout (Implementation Detail):**
 
 ```
-struct WitnessRepr {
+struct DynRepr {
     data: *imm (),      // Pointer to concrete instance
     vtable: *imm VTable // Pointer to class vtable
 }
@@ -7152,15 +7178,23 @@ struct WitnessRepr {
 **VTable Layout (Stable ABI)**
 
 VTable entries MUST appear in this exact order:
+
+**For non-modal classes (header size = 3):**
 1. `size: usize` — Size of concrete type in bytes
 2. `align: usize` — Alignment requirement of concrete type
 3. `drop: *imm fn` — Destructor function pointer (null if no `Drop`)
-4. `state_map: *imm StateMap` — State discriminant mapping (null if not a modal class)
+4. `methods[..]` — Function pointers in class declaration order
+
+**For modal classes (header size = 4):**
+1. `size: usize` — Size of concrete type in bytes
+2. `align: usize` — Alignment requirement of concrete type
+3. `drop: *imm fn` — Destructor function pointer (null if no `Drop`)
+4. `state_map: *imm StateMap` — State discriminant mapping
 5. `methods[..]` — Function pointers in class declaration order
 
 **State Map Structure**
 
-For modal classes, the `state_map` pointer references a mapping structure. The structure contains the class state count and an array mapping each class state index to the corresponding concrete modal discriminant value. A sentinel value is used for omitted uninhabited states.
+For modal classes, the `state_map` pointer references a mapping structure. The structure contains the class state count and an array mapping each class state index to the corresponding concrete modal discriminant value. A sentinel value (the maximum value for the discriminant type, typically `0xFF` for u8 discriminants or `0xFFFFFFFF` for u32 discriminants) is used for omitted uninhabited states.
 
 **State Match Dispatch**
 
@@ -7176,13 +7210,13 @@ When pattern matching on `dyn ModalClass`:
 
 | Code         | Severity | Condition                                                                | Detection    | Effect    |
 | :----------- | :------- | :----------------------------------------------------------------------- | :----------- | :-------- |
-| `E-TRS-2940` | Error    | Procedure with `[[static_dispatch_only]]` called on dyn.                 | Compile-time | Rejection |
-| `E-TRS-2941` | Error    | Witness created from non-dyn-safe class.                                 | Compile-time | Rejection |
-| `E-TRS-2942` | Error    | Generic procedure in class without `[[static_dispatch_only]]` attribute. | Compile-time | Rejection |
+| `E-CLS-2940` | Error    | Procedure with `[[static_dispatch_only]]` called on dyn.                 | Compile-time | Rejection |
+| `E-CLS-2941` | Error    | Dynamic class type created from non-dispatchable class.                  | Compile-time | Rejection |
+| `E-CLS-2942` | Error    | Generic procedure in class without `[[static_dispatch_only]]` attribute. | Compile-time | Rejection |
 
 **Permission Interaction**
 
-Witness types may be combined with permissions per §4.5. The `shared` permission imposes additional constraints on the class; see §13.3.1 (Witness Types and Shared Permission) for the well-formedness rule.
+Dynamic class types may be combined with permissions per §4.5. Additional constraints apply when combining dynamic class types with the shared permission.
 
 ---
 
@@ -7222,15 +7256,15 @@ A procedure body returning a concrete type is well-typed against an opaque retur
 $$\frac{
   \Gamma \vdash \text{body} : T \quad
   \Gamma \vdash T <: Cl \quad
-  \text{return\_type}(f) = \text{opaque } Tr
+  \text{return\_type}(f) = \text{opaque } Cl
 }{
-  \Gamma \vdash f : () \to \text{opaque } Tr
+  \Gamma \vdash f : () \to \text{opaque } Cl
 } \quad \text{(T-Opaque-Return)}$$
 
 Where:
 - The procedure body evaluates to a value of concrete type $T$
-- The concrete type $T$ implements class $Tr$
-- The declared return type is `opaque Tr`
+- The concrete type $T$ implements class $Cl$
+- The declared return type is `opaque Cl`
 
 **Opaque Type Projection (T-Opaque-Project)**
 
@@ -7238,20 +7272,20 @@ At call sites, the opaque type is treated as an existential; callers may invoke 
 
 $$\frac{
   \Gamma \vdash f() : \text{opaque } Cl \quad
-  m \in \text{interface}(Tr) \quad
+  m \in \text{interface}(Cl) \quad
   \text{signature}(Cl.m) = (S_1, \ldots, S_n) \to R_m
 }{
   \Gamma \vdash f().\text{~>}m(a_1, \ldots, a_n) : R_m
 } \quad \text{(T-Opaque-Project)}$$
 
 Where:
-- $f()$ returns an opaque type with class bound $Tr$
-- $m$ is a procedure declared in class $Tr$ (or its superclasses)
+- $f()$ returns an opaque type with class bound $Cl$
+- $m$ is a procedure declared in class $Cl$ (or its superclasses)
 - The call is well-typed if arguments match the procedure signature
 
 **Opaque Type Equality**
 
-Two opaque types `opaque Tr` are considered equivalent types if and only if they originate from the same procedure definition. Different procedures returning `opaque Tr` produce distinct, incompatible types:
+Two opaque types `opaque Cl` are considered equivalent types if and only if they originate from the same procedure definition. Different procedures returning `opaque Cl` produce distinct, incompatible types:
 
 $$\frac{
   \Gamma \vdash f : () \to \text{opaque } Cl \quad
@@ -7271,9 +7305,9 @@ Opaque types MUST incur zero runtime overhead. The returned value is the concret
 
 | Code         | Severity | Condition                                             | Detection    | Effect    |
 | :----------- | :------- | :---------------------------------------------------- | :----------- | :-------- |
-| `E-TRS-2910` | Error    | Accessing member not defined on opaque type's class.  | Compile-time | Rejection |
-| `E-TRS-2911` | Error    | Opaque return type does not implement required class. | Compile-time | Rejection |
-| `E-TRS-2912` | Error    | Attempting to assign incompatible opaque types.       | Compile-time | Rejection |
+| `E-CLS-2910` | Error    | Accessing member not defined on opaque type's class.  | Compile-time | Rejection |
+| `E-CLS-2911` | Error    | Opaque return type does not implement required class. | Compile-time | Rejection |
+| `E-CLS-2912` | Error    | Attempting to assign incompatible opaque types.       | Compile-time | Rejection |
 
 ---
 
@@ -7281,7 +7315,7 @@ Opaque types MUST incur zero runtime overhead. The returned value is the concret
 
 ##### Definition
 
-Foundational classes (`Drop`, `Copy`, `Clone`, `Iterator`) have special compiler semantics. Their normative signatures, constraints, and complete semantics are defined in **Appendix D.1**.
+Foundational classes (`Drop`, `Copy`, `Clone`, `Iterator`) have special compiler semantics. Their normative signatures, constraints, and complete semantics are defined in **Appendix G (Foundational Forms)**.
 
 ---
 
