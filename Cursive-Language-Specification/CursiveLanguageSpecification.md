@@ -4,8 +4,6 @@
 
 ## Clause 0: Preliminaries
 
-This clause establishes fundamental terminology and notation used throughout the specification.
-
 ---
 
 ### 0.1 Glossary of Terms
@@ -66,10 +64,6 @@ The rule states: if all premises above the line hold, then the conclusion below 
 # Part 1: General Principles and Conformance
 
 ## Clause 1: General Principles and Conformance
-
-This clause establishes the foundational framework for the Cursive language specification. It defines the normative requirements for conforming implementations and programs, the classification of program behaviors, the minimum capacities implementations MUST support, and the rules governing language evolution.
-
----
 
 ### 1.1 Conformance Obligations
 
@@ -314,8 +308,6 @@ Implementations MUST maintain source-level backward compatibility for conforming
 
 **Editions**
 
-Editions provide an optional mechanism for grouping incompatible changes without incrementing the `MAJOR` version for every breaking change.
-
 When editions are supported:
 
 1. An implementation MUST allow a program to declare its target edition.
@@ -388,8 +380,6 @@ Vendor-specific extensions enable implementations to provide additional capabili
 
 ##### Definition
 
-This section defines foundational concepts used throughout the specification for static analysis and scoping.
-
 **Program Point**
 
 A **Program Point** is a unique location in the abstract control flow representation of a procedure body.
@@ -413,11 +403,9 @@ where:
 - $\text{ExitPoint}$ is the program point where the scope ends
 - $\text{Parent}$ is the immediately enclosing scope (absent for procedure-level scope)
 
-## Clause 2: Lexical Structure and Source Text
-
-This clause defines the lexical structure of Cursive: how source text is encoded, preprocessed, and transformed into a sequence of tokens.
-
 ---
+
+## Clause 2: Lexical Structure and Source Text
 
 ### 2.1 Source Text Encoding
 
@@ -576,7 +564,7 @@ A token is a triple $t = (\kappa, \lambda, \sigma)$ where:
 
 ##### Static Semantics
 
-The lexer MUST classify every non-comment, non-whitespace fragment as exactly one token kind from the set $\mathcal{T}$ defined above.
+Every non-comment, non-whitespace fragment corresponds to exactly one token kind in $\mathcal{T}$.
 
 Tokenization MUST be deterministic for a given normalized source file.
 
@@ -754,11 +742,11 @@ $$
 
 **Maximal Munch Rule**
 
-When multiple tokenizations are possible, the lexer MUST emit the longest valid token.
+When multiple tokenizations are possible, the longest valid token takes precedence.
 
 **Generic Argument Exception**
 
-When the token `>>` appears in a context where it would close two or more nested generic parameter lists (e.g., `Vec<Vec<i32>>`), the implementation MUST split `>>` into two separate `>` tokens. The implementation MUST preserve the original lexeme span for diagnostic purposes. This exception applies recursively: `>>>` MUST be split into three `>` tokens when closing three nested generic parameter lists.
+When `>>` appears in a context where it would close two or more nested generic parameter lists, `>>` is treated as two separate `>` tokens. The original lexeme span is preserved for diagnostic purposes. This exception applies recursively: `>>>` is treated as three `>` tokens when closing three nested generic parameter lists.
 
 ---
 
@@ -1047,10 +1035,6 @@ where BLOCK_LIMIT and EXPR_LIMIT are the implementation's documented limits (min
 
 ## Clause 3: The Object and Memory Model
 
-This clause defines the Cursive memory model: how objects are represented, how their lifetimes are tracked, and how memory safety is enforced.
-
----
-
 ### 3.1 Foundational Principles
 
 ##### Definition
@@ -1145,7 +1129,7 @@ The distinction between strict ordering ($<$) and non-strict ordering ($\le$) is
 
 **Provenance Inference Rules**
 
-The compiler MUST infer provenance for all pointer and reference expressions:
+Provenance MUST be inferred for all pointer and reference expressions:
 
 **(P-Literal)**
 $$\frac{c \text{ is a literal constant}}{\Gamma \vdash c : T, \bot}$$
@@ -1266,7 +1250,7 @@ $$\frac{\Gamma \vdash e : T}{\Gamma, x : T \vdash \texttt{var } x := e : () \das
 
 **State Tracking**
 
-The compiler MUST track binding state through control flow. A binding's state is determined by its declaration, any `move` expressions consuming the binding, partial moves consuming fields, and reassignment of `var` bindings.
+Binding state MUST be tracked through control flow. A binding's state is determined by its declaration, any `move` expressions consuming the binding, partial moves consuming fields, and reassignment of `var` bindings.
 
 **Control Flow Merge**
 
@@ -1381,7 +1365,7 @@ This table consolidates all diagnostics related to binding state violations (§3
 
 **Normal Destruction**
 
-At scope exit, the compiler MUST generate code to destroy all responsible bindings in reverse declaration order:
+At scope exit, all responsible bindings MUST be destroyed in reverse declaration order:
 
 1.  If the binding's type implements `Drop` (§9.7), invoke `Drop::drop`.
 2.  Recursively destroy all fields and elements.
@@ -1418,12 +1402,6 @@ exits.
 **Region** provides **memory lifetime** management:
 - Arena-style bulk allocation with deterministic deallocation
 - LIFO lifetime ordering relative to nested regions
-
-Task execution is managed separately by the `parallel` block (§14.3). While regions
-and parallel blocks are orthogonal, they compose naturally: region-allocated data
-can be shared across tasks within a `parallel` block because structured concurrency
-guarantees all tasks complete before the enclosing scope (and thus any enclosing
-region) exits.
 
 ##### Syntax & Declaration
 
@@ -1488,7 +1466,7 @@ Entering `region as r { body }` allocates a region frame `r` and marks it Active
 
 ##### Definition
 
-An **Unsafe Block** is a lexical scope in which the compiler suspends specific memory safety enforcement mechanisms.
+An **Unsafe Block** is a lexical scope in which specific memory safety enforcement mechanisms are suspended.
 
 ##### Syntax & Declaration
 
@@ -1509,7 +1487,7 @@ $$\frac{\Gamma \vdash_{\text{unsafe}} e : S \quad \text{sizeof}(S) = \text{sizeo
 
 **Suspended Checks**
 
-Within an `unsafe` block, the compiler SHALL NOT enforce liveness, aliasing exclusivity, or key disjointness.
+Within an `unsafe` block, liveness, aliasing exclusivity, and key disjointness SHALL NOT be enforced.
 
 **Enabled Operations**
 
@@ -1534,11 +1512,10 @@ The use of an `unsafe` block constitutes a normative assertion by the programmer
 
 # Part 2: Types
 
-## Clause 4: Type System Foundations
-
-This clause defines the foundational machinery of the Cursive type system: the abstract framework governing type equivalence, subtyping, variance, inference, and the permission system. These concepts underpin all concrete type definitions in subsequent clauses.
-
 ---
+
+
+## Clause 4: Type System Foundations
 
 ### 4.1 Type System Architecture
 
@@ -1755,7 +1732,7 @@ When a type parameter has invariant variance, the implementation MUST require ex
 
 ##### Definition
 
-**Type inference** is the process by which the compiler derives type information not explicitly annotated in the source program. Cursive employs **bidirectional type inference**, combining two complementary modes of type propagation.
+**Type inference** is the process by which type information not explicitly annotated in the source program is derived. Cursive employs **bidirectional type inference**, combining two complementary modes of type propagation.
 
 **Formal Definition**
 
@@ -1837,10 +1814,6 @@ When type arguments cannot be inferred, explicit type arguments may be supplied 
 ---
 
 ### 4.5 Permission Types
-
-##### Definition
-
-Permissions form the qualifier system that governs data access, mutation, and aliasing in Cursive. This clause defines the permission lattice, its syntax, and the static rules that enforce exclusive or synchronized access.
 
 ---
 
@@ -2073,19 +2046,6 @@ Per Appendix B.4, type system diagnostics (`E-TYP-`) are canonical; memory model
 
 ## Clause 5: Data Types
 
-**Universal Layout Principles**
-
-The following principles apply to all composite types unless explicitly overridden:
-
-1. **Padding**: The amount and placement of padding is implementation-defined (IDB).
-2. **Alignment**: Type alignment is the maximum alignment of constituent parts unless overridden by layout attributes.
-3. **Field/Element Ordering**: Physical ordering may differ from declaration order unless `[[layout(C)]]` is applied.
-4. **Padding Byte Values**: The values of padding bytes are unspecified behavior (USB).
-
-Individual type sections specify only type-specific layout rules.
-
----
-
 ### 5.1 Primitive Types
 
 ##### Definition
@@ -2292,7 +2252,7 @@ The following invariants define valid bit patterns for specific primitive types.
 
 ##### Definition
 
-**Composite types** are types constructed by aggregating other types into structured collections. This section defines the structural composite types: tuples, arrays, slices, and ranges. These types share the property of **structural equivalence**: two composite type expressions are equivalent if their structure matches, regardless of where or how they are declared.
+**Composite types** are types constructed by aggregating other types into structured collections. The structural composite types are: tuples, arrays, slices, and ranges. Two composite type expressions are equivalent if their structure matches, regardless of where or how they are declared (**structural equivalence**).
 
 **Formal Definition**
 
@@ -2376,7 +2336,7 @@ Permission propagates per §4.5.
 
 **Representation**
 
-A tuple is laid out as a contiguous sequence of its component values. Components are stored in declaration order (left to right).
+A tuple MUST be laid out as a contiguous sequence of its component values. Components MUST be stored in declaration order (left to right).
 
 **Size and Alignment**
 
@@ -2495,7 +2455,7 @@ For list-form literals, elements are initialized in left-to-right order. For rep
 
 **Representation**
 
-An array is laid out as a contiguous sequence of elements with no inter-element padding:
+An array MUST be laid out as a contiguous sequence of elements with no inter-element padding:
 
 $$\text{layout}([T; N]) = T\ ||\ T\ ||\ \cdots\ ||\ T \quad (N \text{ times})$$
 
@@ -2618,7 +2578,7 @@ $$\text{len}(s) : \texttt{usize}$$
 
 **Representation**
 
-A slice is represented as a **dense pointer** containing two machine words:
+A slice MUST be represented as a **dense pointer** containing two machine words:
 
 | Field | Type    | Description                     |
 | :---- | :------ | :------------------------------ |
@@ -2651,11 +2611,11 @@ A slice does not own its data. The underlying storage MUST remain valid for the 
 
 ##### Definition
 
-**Range types** are compiler-intrinsic types with record-like syntax produced by range expressions. Ranges represent bounded or unbounded intervals and are primarily used for iteration and slicing operations. Although range types have structural equivalence semantics and expose public fields like records, they are built-in to the compiler rather than user-definable. Implementations MUST provide these types with the specified field structure and semantics.
+**Range types** are intrinsic types with record-like syntax produced by range expressions. Ranges represent bounded or unbounded intervals. Although range types have structural equivalence semantics and expose public fields like records, they are built-in rather than user-definable. Implementations MUST provide these types with the specified field structure and semantics.
 
 **Formal Definition**
 
-The set of range types comprises six distinct compiler-intrinsic types:
+The set of range types comprises six distinct intrinsic types:
 
 $$\mathcal{T}_{\text{range}} = \{\texttt{Range}\langle T \rangle, \texttt{RangeInclusive}\langle T \rangle, \texttt{RangeFrom}\langle T \rangle, \texttt{RangeTo}\langle T \rangle, \texttt{RangeToInclusive}\langle T \rangle, \texttt{RangeFull}\}$$
 
@@ -2759,7 +2719,7 @@ The types `RangeFrom`, `RangeTo`, `RangeToInclusive`, and `RangeFull` represent 
 
 **Representation**
 
-Range types are laid out as their equivalent record definitions. Each generic range type containing element type `T` has:
+Range types MUST be laid out as their equivalent record definitions. Each generic range type containing element type `T` has:
 
 | Type                  | Size                                         | Alignment           |
 | :-------------------- | :------------------------------------------- | :------------------ |
@@ -2900,7 +2860,7 @@ $$\frac{R\ \texttt{<:}\ \textit{Cl}}{\Gamma \vdash R <: \textit{Cl}} \quad \text
 
 **Representation**
 
-A record is laid out as a contiguous sequence of its field values. Layout follows Universal Layout Principles (Clause 5 introduction).
+A record MUST be laid out as a contiguous sequence of its field values. Layout MUST follow Universal Layout Principles (Clause 5 introduction).
 
 **Size and Alignment**
 
@@ -3092,7 +3052,7 @@ $$\frac{E\ \texttt{<:}\ \textit{Cl}}{\Gamma \vdash E <: \textit{Cl}} \quad \text
 
 **Representation**
 
-An enum is represented as a discriminant followed by a payload region large enough to hold any variant's data:
+An enum MUST be represented as a discriminant followed by a payload region large enough to hold any variant's data:
 
 $$\text{layout}(E) = \text{Discriminant}\ ||\ \text{Payload}\ ||\ \text{Padding}$$
 
@@ -3114,7 +3074,7 @@ For enums without a `[[layout(...)]]` attribute, the discriminant size is implem
 
 **Niche Optimization (Canonical Definition)**
 
-A **niche** is an invalid bit pattern within a type that cannot represent a valid value. **Niche optimization** is an implementation technique that repurposes niches to encode discriminant information, potentially eliding separate discriminant storage.
+A **niche** is an invalid bit pattern within a type that cannot represent a valid value. **Niche optimization** is an implementation technique that repurposes niches to encode discriminant information. Implementations MAY elide separate discriminant storage when niche optimization is applied.
 
 Implementations MUST apply niche optimization to enums when variant payloads contain invalid bit patterns (niches) that can unambiguously encode the discriminant.
 
@@ -3313,7 +3273,7 @@ To match a value of type `(A | B) | C`, the outer union must first be matched, t
 
 **Representation**
 
-A union value is represented as a discriminant followed by a payload region:
+A union value MUST be represented as a discriminant followed by a payload region:
 
 $$\text{layout}(U) = \text{Discriminant}\ ||\ \text{Payload}\ ||\ \text{Padding}$$
 
@@ -3491,8 +3451,6 @@ Where $T_s$ is the success type and $T_e$ ranges over all propagating types.
 
 ## Clause 6: Behavioral Types
 
----
-
 ### 6.1 Modal Types
 
 ##### Definition
@@ -3502,8 +3460,6 @@ A **modal type** is a nominal type that embeds a compile-time-validated state ma
 1. **State-Specific Types (`M@S`)**: Concrete types containing only the data defined in their state's payload. State-specific types do not store a runtime discriminant; the state is tracked statically by the type system.
 
 2. **General Modal Type (`M`)**: A sum type (tagged union) capable of holding a value in any of the declared states. The general type stores the state payload together with a runtime discriminant that identifies the currently active state.
-
-This dual representation keeps state-specific types free of runtime discriminants when the state is statically known, while permitting dynamic state inspection via pattern matching when the state is erased to the general type.
 
 **Formal Definition**
 
@@ -3632,7 +3588,7 @@ $$\frac{
   \Gamma \vdash M <: Cl
 } \quad \text{(Modal-Class-Sub)}$$
 
-This enables polymorphic use of modal types through their class interface. Pattern matching through the class type uses the class's state names; the runtime dispatches to the concrete modal's corresponding state.
+Pattern matching through the class type uses the class's state names; the runtime dispatches to the concrete modal's corresponding state.
 
 **Modal Widening**
 
@@ -3695,9 +3651,9 @@ External code MUST NOT directly access payload fields; access is mediated throug
 
 When a transition procedure is invoked:
 
-1. The receiver value (in the source state) is consumed.
-2. The transition body executes, constructing a new value of the target state.
-3. The resulting value is returned with the target state-specific type.
+1. The receiver value (in the source state) MUST be consumed.
+2. The transition body MUST execute, constructing a new value of the target state.
+3. The resulting value MUST be returned with the target state-specific type.
 
 After a consuming transition, the original binding is statically invalid; the source state's data has been moved into the transition.
 
@@ -3912,7 +3868,7 @@ A procedure accepting the general type `string` may receive either state; the ac
 The following constraints apply per Appendix D.1:
 
 1. `string@Managed` MUST NOT implement `Copy` because it owns a heap allocation.
-2. `string@Managed` MUST NOT implement `Clone`. This is a design choice, not a technical limitation: since cloning a managed string requires heap allocation, the `Clone` class would need access to a `HeapAllocator` capability, which the standard `Clone::clone` signature does not provide. Duplication MUST use the explicit `clone_with(heap)` method to inject the required capability (see Dynamic Semantics).
+2. `string@Managed` MUST NOT implement `Clone`. Duplication MUST use the explicit `clone_with(heap)` method to inject the required capability (see Dynamic Semantics).
 3. `string@Managed` MUST implement `Drop` to deallocate its buffer when responsibility ends.
 4. `string@View` MUST implement `Copy` because it is a non-owning pointer-length pair.
 5. `string@View` MUST implement `Clone` (implied by `Copy` per Appendix D.1).
@@ -4243,8 +4199,8 @@ When `Ptr::null()` is evaluated:
 When a region block (§3.7) exits:
 
 1. For every pointer `p : Ptr<T>@Valid` whose referent was allocated in the exiting region:
-2. The compiler transitions `p` to state `Ptr<T>@Expired`.
-3. Subsequent attempts to dereference `p` are statically rejected.
+2. `p` transitions to state `Ptr<T>@Expired`.
+3. Subsequent attempts to dereference `p` are ill-formed.
 
 See "The `@Expired` State is Compile-Time Only" below for details on this static-only state transition.
 
@@ -4276,7 +4232,7 @@ $$\text{alignof}(\texttt{Ptr<T>}) = \text{alignof}(\texttt{usize})$$
 
 The general modal type `Ptr<T>` MUST occupy exactly one machine word. The null address (`0x0`) serves as an implicit discriminant for the `@Null` state. Non-zero addresses indicate either `@Valid` or `@Expired`; the distinction between these states is tracked statically, not at runtime.
 
-**The `@Expired` State is Compile-Time Only:** The `@Expired` state has no runtime representation and no discriminant value. At runtime, an expired pointer is indistinguishable from a valid pointer—both hold a non-zero address. The `@Expired` state exists purely within the type system to enable precise static error messages (distinguishing use-after-free from null-pointer dereference). The compiler statically prevents any code path where an `@Expired` pointer could be dereferenced or widened to the general type; consequently, no runtime check is needed or performed.
+**The `@Expired` State is Compile-Time Only:** The `@Expired` state has no runtime representation and no discriminant value. At runtime, an expired pointer is indistinguishable from a valid pointer—both hold a non-zero address. The `@Expired` state exists purely within the type system. Any code path where an `@Expired` pointer is dereferenced or widened to the general type is ill-formed; consequently, no runtime check is needed or performed.
 
 **Raw Pointer Representation**
 
@@ -4524,7 +4480,7 @@ The same rule applies to closure type values.
 
 **Sparse Function Pointer Representation**
 
-A sparse function pointer is represented as a single machine word containing the address of the callable code:
+A sparse function pointer MUST be represented as a single machine word containing the address of the callable code:
 
 $$\text{sizeof}((T_1, \ldots, T_n) \to R) = \text{sizeof}(\texttt{usize})$$
 
@@ -4541,7 +4497,7 @@ The representation is a code pointer:
 
 **Closure Representation**
 
-A closure is represented as a two-word structure containing an environment pointer and a code pointer:
+A closure MUST be represented as a two-word structure containing an environment pointer and a code pointer:
 
 $$\text{sizeof}(|T_1, \ldots, T_n| \to R) = 2 \times \text{sizeof}(\texttt{usize})$$
 
@@ -4621,10 +4577,6 @@ The following constraints apply when invoking a function type value:
 ---
 
 ## Clause 7: Type Extensions
-
-This clause defines mechanisms that extend or constrain the type system: static polymorphism (generics), attributes (compile-time metadata), and refinement types (types with predicate constraints). These features do not define new types per se but add parameterization, metadata, or constraints to existing types.
-
----
 
 ### 7.1 Static Polymorphism (Generics)
 
@@ -4908,7 +4860,7 @@ The following constraints apply to generic declarations and instantiations:
 
 ##### Definition
 
-An **attribute** is a compile-time annotation attached to a declaration or expression that provides metadata to the compiler. Attributes influence code generation, memory layout, diagnostics, verification strategies, and interoperability without altering the core semantics of the annotated construct except where this specification explicitly defines such alteration. Attributes may also be attached to expressions, enabling fine-grained control over compiler behavior at specific program points.
+An **attribute** is a compile-time annotation attached to a declaration or expression. Attributes influence code generation, memory layout, diagnostics, verification strategies, and interoperability without altering the core semantics of the annotated construct except where this specification explicitly defines such alteration.
 
 **Formal Definition**
 
@@ -4959,7 +4911,7 @@ An attribute list MUST appear immediately before the declaration it modifies. Th
 
 **Expression-Level Attributes**
 
-An attribute list MAY appear immediately before an expression. The attributed expression has the same type as the underlying expression; the attribute affects only compiler behavior (e.g., verification strategy) not the expression's value or type.
+An attribute list MAY appear immediately before an expression. The attributed expression has the same type as the underlying expression; the attribute affects only static properties (e.g., verification strategy), not the expression's value or type.
 
 **Attribute Block Equivalence**
 
@@ -5055,7 +5007,7 @@ For a `record` marked `[[layout(C)]]`:
 For an `enum` marked `[[layout(C)]]`:
 1. The discriminant MUST be represented as a C-compatible integer tag.
 2. The default tag type is implementation-defined (IDB).
-3. The enum is laid out as a tagged union per the target C ABI.
+3. The enum MUST be laid out as a tagged union per the target C ABI.
 
 **`layout(IntType)` — Explicit Discriminant Type**
 
@@ -5068,7 +5020,7 @@ For an `enum` marked `[[layout(IntType)]]` where `IntType` is one of `i8`, `i16`
 
 For a `record` marked `[[layout(packed)]]`:
 1. All inter-field padding is removed.
-2. Each field is laid out with alignment 1, regardless of its natural alignment.
+2. Each field MUST be laid out with alignment 1, regardless of its natural alignment.
 3. The record's overall alignment becomes 1.
 
 Packed layout has the following implications:
@@ -5080,13 +5032,13 @@ Packed layout has the following implications:
 
 The distinction between safe direct access and UVB reference-taking is:
 
-| Operation                          | Classification         | Rationale                                        |
-| :--------------------------------- | :--------------------- | :----------------------------------------------- |
-| `packed.field = value`             | Direct write (safe)    | Compiler emits unaligned store                   |
-| `let x = packed.field`             | Direct read (safe)     | Compiler emits unaligned load                    |
-| `packed.field.method()`            | Reference-taking (UVB) | Method call requires implicit receiver reference |
-| Pass to `move` parameter           | Direct read (safe)     | Value copied via unaligned load                  |
-| Pass to `const`/`unique` parameter | Reference-taking (UVB) | Reference passed to misaligned field             |
+| Operation                          | Classification         |
+| :--------------------------------- | :--------------------- |
+| `packed.field = value`             | Direct write (safe)    |
+| `let x = packed.field`             | Direct read (safe)     |
+| `packed.field.method()`            | Reference-taking (UVB) |
+| Pass to `move` parameter           | Direct read (safe)     |
+| Pass to `const`/`unique` parameter | Reference-taking (UVB) |
 
 The `packed` layout kind is valid only on `record` declarations. Applying `packed` to an `enum` is ill-formed (`E-DEC-2454`).
 
@@ -5129,7 +5081,7 @@ Applying `[[layout(...)]]` to a `modal` type or an unmonomorphized generic type 
 
 ##### Definition
 
-The `[[inline(...)]]` attribute provides directives to the compiler regarding procedure inlining.
+The `[[inline(...)]]` attribute specifies procedure inlining behavior.
 
 ##### Static Semantics
 
@@ -5334,7 +5286,7 @@ The `[[dynamic]]` attribute scope propagates inward according to lexical structu
 
 Within a `[[dynamic]]` scope:
 
-- If static key safety analysis fails, the compiler MAY insert runtime synchronization
+- If static key safety analysis fails, runtime synchronization MAY be inserted
 - The rules K-Static-Required and K-Dynamic-Permitted (§14.9) govern this behavior
 - Same-statement conflicts (§14.6.1) remain compile-time errors regardless of `[[dynamic]]`
 
@@ -5371,7 +5323,7 @@ When `[[dynamic]]` is present and static verification fails:
 
 **Static Elision**
 
-Even within a `[[dynamic]]` scope, if the compiler can prove a property statically, no runtime code is generated. The `[[dynamic]]` attribute permits but does not require runtime verification.
+Even within a `[[dynamic]]` scope, if a property is statically provable, no runtime code is generated. The `[[dynamic]]` attribute permits but does not require runtime verification.
 
 ##### Constraints & Legality
 
@@ -5676,8 +5628,6 @@ The following constraints apply to refinement types:
 
 ## Clause 8: Modules and Name Resolution
 
-This clause defines Cursive's module system: how code is organized into projects, assemblies, and modules; how names are introduced, resolved, and accessed; and how modules are initialized before program execution.
-
 ### 8.1 Module System Architecture
 
 ##### Definition
@@ -5867,7 +5817,7 @@ $$
 
 $$
 \frac{
-    \text{version} \in M.\text{language} \quad \vdash \text{version} : \text{SemVer} \quad \text{is\_compatible}(\text{version}, \text{compiler\_version})
+    \text{version} \in M.\text{language} \quad \vdash \text{version} : \text{SemVer} \quad \text{is\_compatible}(\text{version}, \text{implementation\_version})
 }{
     M \vdash \text{language} : WF
 }
@@ -5902,7 +5852,7 @@ $$
 | `E-MOD-1103` | Error    | Assembly references a `root` not defined in `[paths]` table.        |
 | `E-MOD-1107` | Error    | `[project]` table or required keys (`name`, `version`) are missing. |
 | `E-MOD-1108` | Error    | Duplicate assembly name in manifest.                                |
-| `E-MOD-1109` | Error    | `[language]` version missing or incompatible with compiler.         |
+| `E-MOD-1109` | Error    | `[language]` version missing or incompatible.                       |
 
 ---
 
@@ -6245,7 +6195,7 @@ $$
 
 ##### Constraints & Legality
 
-**Import Cycle Detection**: The compiler **MUST** detect and reject cyclic import dependencies between assemblies.
+**Import Cycle Detection**: Cyclic import dependencies between assemblies are ill-formed.
 
 **Import Requirement**: For external assemblies, an `import` declaration **MUST** precede any `use` that references that assembly. Attempting to `use` an item from an external assembly without a prior `import` **MUST** be diagnosed as an error.
 
@@ -6489,8 +6439,6 @@ The `main` procedure:
 
 ## Clause 9: Procedures and Methods
 
-This clause defines the syntax and semantics of procedures, the fundamental units of computation in Cursive. Procedures may be standalone (module-level) or associated with types (methods). This clause provides the authoritative treatment of procedure declarations, method definitions, parameter passing, and execution semantics.
-
 ### 9.1 Procedure Declarations
 
 ##### Definition
@@ -6699,10 +6647,6 @@ For explicit control over key scope, see the `#` coarsening annotation in §14.4
 
 ### 9.3 Parameter Passing and Binding
 
-##### Definition
-
-This section defines the semantics of parameter evaluation, binding, and the transfer of responsibility between caller and callee.
-
 ##### Static Semantics
 
 **Parameter Evaluation Order**
@@ -6760,10 +6704,6 @@ inspect(buffer)  // No move required
 ---
 
 ### 9.4 Procedure Execution Model
-
-##### Definition
-
-This section defines the runtime behavior of procedure invocation, including stack frame construction, body execution, return value production, and cleanup.
 
 ##### Dynamic Semantics
 
@@ -6899,7 +6839,7 @@ Cursive provides three distinct mechanisms for polymorphism, each with different
 
 The polymorphism path is determined by usage context:
 
-1. **Static (Path 1):** Selected when a generic parameter `T <: Cl` is used in a procedure signature. The compiler monomorphizes the procedure for each concrete type argument.
+1. **Static (Path 1):** Selected when a generic parameter `T <: Cl` is used in a procedure signature. The procedure is monomorphized for each concrete type argument.
 
 2. **Dynamic (Path 2):** Selected when `dyn Cl` is used as a type. A vtable-based dense pointer enables runtime dispatch.
 
@@ -7139,8 +7079,6 @@ A type implements a class by:
 
 Class implementation MUST occur at the type's definition site. Class implementations at sites other than the type's definition (extension implementations) are prohibited.
 
-> **Rationale:** This restriction prevents conflicting implementations when multiple assemblies implement the same class for the same type. The Orphan Rule requires that at least one of the type or class be defined in the current assembly. However, even when the class is local, implementations for external types are prohibited; the external type's assembly must provide the implementation. This guarantees global coherence: every `(Type, Class)` pair has at most one implementation visible to any compilation unit.
-
 ##### Syntax & Declaration
 
 **Grammar**
@@ -7231,10 +7169,6 @@ For `T <: Cl`, at least one of the following MUST be true:
 This rule prevents external code from creating conflicting implementations.
 
 #### Field and State Implementation
-
-##### Definition
-
-This section defines the compatibility rules for implementing classes with abstract fields and states.
 
 ##### Static Semantics
 
@@ -7498,7 +7432,7 @@ VTable entries MUST appear in this exact order:
 
 **State Map Structure**
 
-For modal classes, the `state_map` pointer references a mapping structure. The structure contains the class state count and an array mapping each class state index to the corresponding concrete modal discriminant value. A sentinel value (the maximum value for the discriminant type, typically `0xFF` for u8 discriminants or `0xFFFFFFFF` for u32 discriminants) is used for omitted uninhabited states.
+For modal classes, the `state_map` pointer references a mapping structure. The structure contains the class state count and an array mapping each class state index to the corresponding concrete modal discriminant value. A sentinel value (the maximum value for the discriminant type, such as `0xFF` for u8 discriminants or `0xFFFFFFFF` for u32 discriminants) is used for omitted uninhabited states.
 
 **State Match Dispatch**
 
@@ -7619,15 +7553,11 @@ Opaque types MUST incur zero runtime overhead. The returned value is the concret
 
 ##### Definition
 
-Foundational classes (`Drop`, `Copy`, `Clone`, `Iterator`) have special compiler semantics. Their normative signatures, constraints, and complete semantics are defined in **Appendix G (Foundational Forms)**.
+Foundational classes (`Drop`, `Copy`, `Clone`, `Iterator`) have special semantics. Their normative signatures, constraints, and complete semantics are defined in **Appendix G (Foundational Forms)**.
 
 ---
 
 ## Clause 11: Contracts and Verification
-
-This clause defines the formal semantics, syntax, and verification rules for Contracts in Cursive. Contracts are the primary mechanism for specifying behavioral properties of code beyond the type system. They govern the logical validity of procedures, types, and loops through preconditions, postconditions, and invariants.
-
----
 
 ### 11.1 Contract Fundamentals
 
@@ -8230,7 +8160,7 @@ Upon successful verification of a loop invariant at the Termination point, the i
 
 ##### Definition
 
-Contract verification determines how the compiler ensures contract predicates hold. By default, **static verification is required**: the compiler must prove the contract holds, or the program is ill-formed. The `[[dynamic]]` attribute permits runtime verification as an explicit opt-in when static proof is not achievable.
+Contract verification determines how contract predicates are ensured to hold. By default, **static verification is required**: the contract MUST be statically provable, or the program is ill-formed. The `[[dynamic]]` attribute permits runtime verification as an explicit opt-in when static proof is not achievable.
 
 ##### Static Semantics
 
@@ -8409,7 +8339,7 @@ procedure process(x: i32)
 
 ##### Definition
 
-A **Verification Fact** is a compiler-internal guarantee that a predicate $P$ holds at program location $L$. Verification Facts are used for static analysis, contract elision, and type narrowing.
+A **Verification Fact** is a static guarantee that a predicate $P$ holds at program location $L$. Verification Facts are used for static analysis, contract elision, and type narrowing.
 
 **Formal Definition**
 
@@ -8463,7 +8393,6 @@ When a Verification Fact $F(P, L)$ is active for binding $x$ at location $L$, th
 
 $$\text{typeof}(x) \xrightarrow{F(P, L)} \text{typeof}(x) \texttt{ where } \{P\}$$
 
-This enables flow-sensitive typing through refinement types.
 
 ##### Dynamic Semantics
 
@@ -8548,12 +8477,6 @@ record BadList <: Container {
 ---
 
 ## Clause 12: Expressions & Statements
-
-This clause defines the syntax and semantics of expressions and statements in Cursive. Expressions are syntactic forms that produce typed values; statements are syntactic forms executed for their side effects. This clause establishes evaluation rules, pattern matching, operators, control flow, and the binding of values to identifiers.
-
-> **Diagnostic Code Allocation:** This clause uses diagnostic codes with prefixes `E-EXP-`, `E-STM-`, `E-PAT-`, and `P-EXP-` within the range 2500–2799. See Appendix B for detailed allocations.
-
----
 
 ### 12.1 Foundational Definitions
 
@@ -8995,7 +8918,7 @@ This clause does not redefine constructor expression syntax or semantics; see th
 
 **Range Expressions**
 
-Range expressions (e.g., `start..end`, `start..=end`, `start..`, `..end`, `..=end`, `..`) produce compiler-intrinsic range types. The syntax, typing rules, and semantics of range expressions are authoritatively defined in §5.2.4 (Range Types).
+Range expressions (e.g., `start..end`, `start..=end`, `start..`, `..end`, `..=end`, `..`) produce intrinsic range types. The syntax, typing rules, and semantics of range expressions are authoritatively defined in §5.2.4 (Range Types).
 
 > **Cross-Reference:** See §5.2.4 for the complete grammar of range expressions and their associated types (`Range<T>`, `RangeInclusive<T>`, `RangeFrom<T>`, `RangeTo<T>`, `RangeToInclusive<T>`, `RangeFull`).
 
@@ -9089,7 +9012,7 @@ Bounds checking is a **safety mechanism** and is not affected by the `[[dynamic]
 - Contract verification
 - Refinement type validation
 
-Bounds checks are always performed (with static elision when provable) regardless of `[[dynamic]]` status. This is because an out-of-bounds access is a program bug that should be caught, not a performance tradeoff.
+Bounds checks are always performed (with static elision when provable) regardless of `[[dynamic]]` status.
 
 ##### Constraints & Legality
 
@@ -9565,7 +9488,7 @@ let closure = |x| process(move buffer, x)  // 'buffer' moved into closure
 
 **Capture Analysis**
 
-The compiler MUST perform capture analysis to determine which bindings are referenced by the closure body. A binding is captured if:
+Capture analysis MUST be performed to determine which bindings are referenced by the closure body. A binding is captured if:
 
 1. It is referenced by name within the closure body, AND
 2. It is not a parameter of the closure, AND
@@ -10145,8 +10068,6 @@ If a panic occurs during execution of a deferred block:
 
 ## Clause 13: The Capability System
 
-This clause defines the Cursive Capability System, which governs all procedures that produce observable **external effects** (e.g., I/O, networking, threading, heap allocation) and enforces the security principle of **No Ambient Authority**.
-
 ### 13.1 Foundational Principles
 
 ##### Definition
@@ -10180,7 +10101,7 @@ $$\frac{\Gamma \vdash c : \$T \quad e \in \text{Authority}(T)}{\Gamma \vdash p(c
 
 **Ambient Authority Detection Mechanism**
 
-The compiler detects ambient authority violations (E-CAP-1001) by checking the **Capability Requirement Subset Property**: for every call from procedure $A$ to procedure $B$, $\text{capabilities}(B) \subseteq \text{capabilities}(A)$ must hold. Intrinsic operations (e.g., file open, network connect) have hardcoded capability requirements; user procedures declare their required capabilities through capability parameters in their signatures. A procedure without capability parameters has empty requirements and therefore cannot invoke effect-producing operations.
+Ambient authority violations (E-CAP-1001) are detected by checking the **Capability Requirement Subset Property**: for every call from procedure $A$ to procedure $B$, $\text{capabilities}(B) \subseteq \text{capabilities}(A)$ MUST hold. Intrinsic operations (e.g., file open, network connect) have hardcoded capability requirements; user procedures declare their required capabilities through capability parameters in their signatures. A procedure without capability parameters has empty requirements and therefore cannot invoke effect-producing operations.
 
 ---
 
@@ -10291,10 +10212,6 @@ Capability methods **MUST** declare appropriate receiver permissions per the sem
 | Side-effecting I/O             | `shared` (`~%`)     |
 | Pure queries (no state change) | `const` (`~`)       |
 
-**Rationale for `shared` Permission**
-
-Side-effecting I/O requires `shared` permission rather than `unique` because capabilities support **attenuation**. Attenuated child capabilities delegate operations to the parent capability, requiring both parent and child to coexist with valid access. The `unique` permission would prevent this aliasing, making attenuation impossible. The `shared` permission enables multiple capability references (parent and attenuated children) to access the underlying resource with key-based synchronization per §14.
-
 ##### Constraints & Legality
 
 **Implicit Capability Prohibition**
@@ -10309,15 +10226,13 @@ A procedure **MUST NOT** access capabilities not explicitly provided as paramete
 
 ### 13.5 Capability-Concurrency Interaction
 
-This section defines how capabilities interact with the concurrency primitives defined in Part 4.
-
 ##### Definition
 
 **Capability Capture Rules**
 
 When a closure captures bindings from its enclosing scope for use within `spawn` or `dispatch` blocks, capability values follow specific capture rules based on the concurrency model:
 
-1. **Capability Delegation**: Spawned closures inherit the capability context of their parent. If the parent procedure has access to capabilities `C`, spawned children may use any capability `c ∈ C`. The compiler verifies this at the spawn site.
+1. **Capability Delegation**: Spawned closures inherit the capability context of their parent. If the parent procedure has access to capabilities `C`, spawned children MAY use any capability `c ∈ C`. This property MUST be verified at the spawn site.
 
 2. **Key Isolation**: The Key State Context (§14.1) MUST NOT be inherited across spawn boundaries. Each spawned task MUST start with an empty key context and acquire its own keys independently.
 
@@ -10332,7 +10247,7 @@ When a closure captures bindings from its enclosing scope for use within `spawn`
 
 **Spawn Capture Verification**
 
-The compiler **MUST** verify at each spawn site that:
+Each spawn site MUST satisfy the following:
 
 1. All capabilities used within the spawned closure are either captured from the enclosing scope or derived from captured capabilities
 2. No `unique` capability is captured by multiple concurrent tasks
@@ -10341,8 +10256,6 @@ The compiler **MUST** verify at each spawn site that:
 ---
 
 ### 13.6 Attenuated Capability Lifecycle
-
-This section defines the lifecycle rules for attenuated (restricted) capabilities.
 
 ##### Definition
 
@@ -10366,7 +10279,7 @@ For any attenuation operation $c_{child} = c_{parent}.restrict(r)$:
 
 $$\text{Lifetime}(c_{parent}) \geq \text{Lifetime}(c_{child})$$
 
-The compiler enforces this through standard scope analysis. Attenuated capabilities cannot escape the scope of their parent.
+This is enforced through standard scope analysis. Attenuated capabilities MUST NOT escape the scope of their parent.
 
 **Example**
 
@@ -10382,21 +10295,13 @@ procedure process_files(fs: $FileSystem) {
 
 # Part 4: Concurrency
 
-This clause defines the Cursive concurrency model, specifying key-based synchronization, structured concurrency primitives, and abstractions for shared mutable state.
-
----
-
 ## Clause 14: The Key System
-
-This clause defines the key system, which provides safe access to `shared` data through static verification with runtime synchronization as a fallback.
-
----
 
 ### 14.1 Key Fundamentals
 
 ##### Definition
 
-A **key** is a **static proof of access rights** to a specific path within `shared` data. Keys are primarily a compile-time verification mechanism: the compiler tracks key state during type checking to ensure safe access patterns. Runtime synchronization is introduced only when static analysis cannot prove safety.
+A **key** is a **static proof of access rights** to a specific path within `shared` data. Keys are primarily a compile-time verification mechanism: key state is tracked during type checking to ensure safe access patterns. Runtime synchronization is introduced only when static analysis cannot prove safety.
 
 **Formal Definition**
 
@@ -10414,7 +10319,7 @@ The definitions of **Program Point** and **Lexical Scope** are provided in **§1
 
 **Key State Context**
 
-The compiler MUST track key state at each program point using a key state context:
+Key state MUST be tracked at each program point using a key state context:
 
 $$\Gamma_{\text{keys}} : \text{ProgramPoint} \to \mathcal{P}(\text{Key})$$
 
@@ -10603,7 +10508,7 @@ $$\frac{
 
 **Compile-Time Representation**
 
-Keys have no runtime representation when statically proven safe. The compiler tracks key state in $\Gamma_{\text{keys}}$ during type checking as an abstract data structure with no physical manifestation.
+Keys have no runtime representation when statically proven safe. Key state is tracked in $\Gamma_{\text{keys}}$ during type checking as an abstract data structure with no physical manifestation.
 
 **Runtime Representation (When Required)**
 
@@ -10753,7 +10658,7 @@ An index expression is **statically resolvable** if it is: an integer literal, a
 
 **Disjointness for Static Safety**
 
-When the compiler can prove two paths are disjoint, concurrent accesses to those paths are statically safe and require no runtime synchronization:
+When two paths are provably disjoint, concurrent accesses to those paths are statically safe and require no runtime synchronization:
 
 **(K-Disjoint-Safe)**
 $$\frac{
@@ -10860,7 +10765,7 @@ $$\text{Compatible}(K_1, K_2) \iff \text{Disjoint}(P_1, P_2) \lor (M_1 = \text{R
 
 **When Runtime Synchronization Is Required**
 
-If the compiler cannot statically prove that concurrent accesses are compatible, runtime synchronization MUST enforce the compatibility rules:
+If concurrent access compatibility cannot be statically proven, runtime synchronization MUST enforce the compatibility rules:
 
 - **Compatible keys:** May proceed concurrently
 - **Incompatible keys:** One task blocks until the other releases
@@ -10971,13 +10876,13 @@ Within the unified LIFO cleanup stack (§12.12), key releases precede destructor
 
 **Compile-Time Key Tracking**
 
-The compiler MUST track key state at each program point. For each `shared` path access, the compiler:
+Key state MUST be tracked at each program point. For each `shared` path access:
 
-1. Computes the key path (per §14.4)
-2. Determines the required mode (per §14.1.2)
-3. Checks for coverage by an existing key
-4. Adds the key to $\Gamma_{\text{keys}}$ if not covered
-5. Marks the key for release at scope exit
+1. The key path is computed (per §14.4)
+2. The required mode is determined (per §14.1.2)
+3. Coverage by an existing key is checked
+4. The key is added to $\Gamma_{\text{keys}}$ if not covered
+5. The key is marked for release at scope exit
 
 **Covered Predicate**
 
@@ -11163,7 +11068,7 @@ The `[[dynamic]]` status of a callee is independent of the caller's status. A `[
 
 **Interprocedural Analysis**
 
-The compiler MAY perform interprocedural analysis to prove static safety across procedure boundaries, subject to the following constraints:
+Interprocedural analysis MAY be performed to prove static safety across procedure boundaries, subject to the following constraints:
 
 **Soundness Requirement:** If interprocedural analysis concludes that no runtime synchronization is needed for a callee's accesses, then concurrent execution of that callee MUST be safe. The analysis MUST be sound—false negatives (missing synchronization) are forbidden.
 
@@ -11634,11 +11539,7 @@ $$\frac{
 
 ##### Definition
 
-This section specifies the application of path disjointness rules (§14.1.1) to array accesses within the **same statement**.
-
 When multiple dynamic indices access the same array within a single statement, they MUST be provably disjoint (per §14.1.1); otherwise, the program is ill-formed (`E-KEY-0010`). Same-statement accesses cannot be serialized by runtime key acquisition—they occur as part of one atomic key-holding scope.
-
-> **Cross-Reference:** The authoritative definitions for static resolvability, index expression equivalence, and provable disjointness are in §14.1.1 (Path Prefix and Disjointness). This section applies those definitions to same-statement conflict detection.
 
 ##### Static Semantics
 
@@ -11646,7 +11547,7 @@ When multiple dynamic indices access the same array within a single statement, t
 
 For two index expressions $e_1$ and $e_2$ accessing the same array within a single statement, classification follows the provable disjointness rules from §14.1.1:
 
-| Classification          | Condition (per §14.1.1)                                  | Compiler Action              |
+| Classification          | Condition (per §14.1.1)                                  | Effect                       |
 | :---------------------- | :------------------------------------------------------- | :--------------------------- |
 | Statically Disjoint     | $\text{ProvablyDisjoint}(e_1, e_2)$ via static values    | Fine-grained keys permitted  |
 | Provably Disjoint       | $\text{ProvablyDisjoint}(e_1, e_2)$ via any §14.1.1 rule | Fine-grained keys permitted  |
@@ -11666,7 +11567,7 @@ When multiple dynamic indices access the same array within a single statement, t
 
 For two index expressions $e_1$ and $e_2$ accessing the same array within a single statement, classification follows the provable disjointness rules from §14.1.1:
 
-| Classification          | Condition (per §14.1.1)                                  | Compiler Action              |
+| Classification          | Condition (per §14.1.1)                                  | Effect                       |
 | :---------------------- | :------------------------------------------------------- | :--------------------------- |
 | Statically Disjoint     | $\text{ProvablyDisjoint}(e_1, e_2)$ via static values    | Fine-grained keys permitted  |
 | Provably Disjoint       | $\text{ProvablyDisjoint}(e_1, e_2)$ via any §14.1.1 rule | Fine-grained keys permitted  |
@@ -11882,7 +11783,7 @@ Each `#` block orders its own listed paths canonically. The relative order of ke
 
 **Deadlock Hazard from Inconsistent Nesting:**
 
-Nested `#` blocks that acquire overlapping keys in different orders across tasks create potential deadlock. The programmer MUST ensure consistent nesting order across tasks. The compiler SHOULD detect this pattern when both blocks are visible:
+Nested `#` blocks that acquire overlapping keys in different orders across tasks create potential deadlock. The programmer MUST ensure consistent nesting order across tasks. This pattern SHOULD be detected when both blocks are visible:
 
 **(K-Nested-Cycle-Detection)**
 $$\frac{
@@ -11908,7 +11809,7 @@ $$\frac{
 
 ##### Definition
 
-The **read-then-write prohibition** prevents patterns where a `shared` path is read and then written within the same statement without holding a covering Write key. Such patterns risk upgrade deadlock when multiple tasks attempt simultaneous read-to-write upgrades.
+The **read-then-write prohibition** prevents patterns where a `shared` path is read and then written within the same statement without holding a covering Write key.
 
 **Formal Definition**
 
@@ -11928,7 +11829,7 @@ $$\text{ReadThenWrite}(P, S) \iff \exists e_r, e_w \in \text{Subexpressions}(S) 
 
 **Prohibition Rule**
 
-The compiler MUST reject read-then-write patterns when no covering Write key is statically held:
+Read-then-write patterns MUST be rejected when no covering Write key is statically held:
 
 **(K-Read-Write-Reject)**
 $$\frac{
@@ -11963,7 +11864,7 @@ This is safe because no key is held across statements; no upgrade occurs.
 
 **Aliasing Considerations**
 
-When the compiler cannot prove that two paths are distinct, it MUST assume they may alias:
+When two paths cannot be proven distinct, they MUST be assumed to potentially alias:
 
 ```cursive
 procedure update(a: shared Player, b: shared Player) {
@@ -12002,7 +11903,7 @@ The implementation SHOULD emit `W-KEY-0006` when a programmer writes an explicit
 
 ##### Definition
 
-A nested `#` block that requests a different mode than its enclosing block performs a **key release and reacquire**. This includes both escalation (Read → Write) and downgrade (Write → Read). Because true atomic mode change risks deadlock when multiple tasks attempt simultaneous changes, Cursive uses **release-and-reacquire** semantics.
+A nested `#` block that requests a different mode than its enclosing block performs a **key release and reacquire**. This includes both escalation (Read → Write) and downgrade (Write → Read).
 
 The `release` keyword MUST be present to indicate the programmer understands and accepts potential interleaving between the release and reacquisition.
 
@@ -12103,7 +12004,7 @@ Between steps 1 and 2 (entry), and between steps 4 and 5 (exit), other tasks MAY
 - Modify the shared data
 - Complete their operations
 
-The programmer MUST account for this interleaving. Values read before the `release` block SHOULD be considered potentially stale after it completes. The compiler emits `W-KEY-0011` when a binding derived from shared data is accessed after a release block on an overlapping path.
+A binding derived from `shared` data before a `release` block is **potentially stale** after the block completes. Accessing a potentially stale binding triggers `W-KEY-0011`.
 
 **Staleness Warning Suppression**
 
@@ -12248,13 +12149,13 @@ Evaluation of `#path speculative write { body }` proceeds as follows:
 
 **Retry Limit**
 
-The constant $\text{MAX\_SPECULATIVE\_RETRIES}$ is IDB. A typical value is 3–10 retries.
+The constant $\text{MAX\_SPECULATIVE\_RETRIES}$ is IDB.
 
 **Snapshot Granularity**
 
 The snapshot (step 2) captures the state of keyed paths at a single instant. The mechanism is Implementation-Defined:
 
-| Data Type             | Typical Snapshot Mechanism                      |
+| Data Type             | Permitted Snapshot Mechanism                    |
 | :-------------------- | :---------------------------------------------- |
 | Primitive (≤ 8 bytes) | Atomic load                                     |
 | Small struct          | Seqlock read or atomic load of version + fields |
@@ -12264,7 +12165,7 @@ The snapshot (step 2) captures the state of keyed paths at a single instant. The
 
 The commit operation (step 4) MUST be atomic with respect to all other key operations (speculative or blocking) on overlapping paths. The mechanism is Implementation-Defined:
 
-| Data Type                  | Typical Commit Mechanism             |
+| Data Type                  | Permitted Commit Mechanism           |
 | :------------------------- | :----------------------------------- |
 | Single primitive           | Compare-and-swap                     |
 | Single pointer-sized value | Compare-and-swap                     |
@@ -12293,8 +12194,6 @@ If a panic occurs during step 3 (Execute):
 1. The write set $W$ is discarded (no writes are committed)
 2. No key is held (nothing to release)
 3. The panic propagates normally
-
-This ensures speculative execution has no observable effect on failure.
 
 **Memory Ordering**
 
@@ -12325,7 +12224,7 @@ When version counters are used:
 
 **No-Overhead Elision**
 
-If the compiler proves a `shared` value is never accessed speculatively (no `speculative write` blocks target it), the implementation MAY omit version counter overhead. This analysis is Implementation-Defined.
+If a `shared` value is provably never accessed speculatively (no `speculative write` blocks target it), the implementation MAY omit version counter overhead. This analysis is Implementation-Defined.
 
 ##### Constraints & Legality
 
@@ -12391,20 +12290,20 @@ yield health                             // No keys held at yield point
 
 ##### Definition
 
-Keys are a **compile-time abstraction**. The compiler performs static key analysis to verify safe access patterns. Runtime synchronization is emitted **only when** the `[[dynamic]]` attribute is present and static verification fails.
+Keys are a **compile-time abstraction**. Static key analysis verifies safe access patterns. Runtime synchronization is emitted **only when** the `[[dynamic]]` attribute is present and static verification fails.
 
 **The Verification Hierarchy**
 
 | Level                       | Mechanism                 | Runtime Cost | Requirement                |
 | :-------------------------- | :------------------------ | :----------- | :------------------------- |
-| **Static Proof**            | Compiler proves safety    | Zero         | **Default (mandatory)**    |
+| **Static Proof**            | Safety proven statically  | Zero         | **Default (mandatory)**    |
 | **Runtime Synchronization** | Static proof insufficient | Non-zero     | **Requires `[[dynamic]]`** |
 
 ##### Static Semantics
 
 **Compile-Time Key Analysis**
 
-The compiler MUST perform key analysis for all `shared` path accesses:
+Key analysis MUST be performed for all `shared` path accesses:
 
 1. Compute the key path (per §14.4, §13.5)
 2. Determine the required mode (per §14.1.2)
@@ -12414,7 +12313,7 @@ The compiler MUST perform key analysis for all `shared` path accesses:
 
 **Static Safety Conditions**
 
-An access is **statically safe** if the compiler proves one of the following:
+An access is **statically safe** if one of the following conditions is proven:
 
 | Condition              | Description                                                       | Rule   |
 | :--------------------- | :---------------------------------------------------------------- | :----- |
@@ -12472,8 +12371,8 @@ When runtime synchronization is required, the implementation MUST provide:
 
 When a `#` block within a `[[dynamic]]` scope contains incomparable dynamic indices:
 
-1. The compiler emits code to evaluate all index expressions.
-2. The compiler emits code to determine acquisition order (mechanism is IDB).
+1. All index expressions are evaluated.
+2. Acquisition order is determined (mechanism is IDB).
 3. Key acquisition proceeds in the computed order.
 
 **Observational Equivalence**
@@ -12515,8 +12414,6 @@ When runtime synchronization is permitted via `[[dynamic]]`:
 
 Key acquisition uses **acquire** semantics. Key release uses **release** semantics. Memory accesses default to **sequentially consistent** ordering.
 
-This provides the strongest guarantees—all tasks observe operations in a consistent global order.
-
 ##### Syntax & Declaration
 
 **Relaxed Ordering**
@@ -12548,7 +12445,7 @@ The annotation affects the memory operation, not the key synchronization. Keys a
 
 **Ordering Annotations and `#` Blocks**
 
-Memory ordering annotations (including `[[relaxed]]`) are **permitted** inside standard `#` blocks. The annotation affects only the data access ordering within the block; it does not modify the key's acquire/release semantics at block entry and exit. This enables expert optimization of data operations while preserving synchronization correctness.
+Memory ordering annotations (including `[[relaxed]]`) are **permitted** inside standard `#` blocks. The annotation affects only the data access ordering within the block; it does not modify the key's acquire/release semantics at block entry and exit.
 
 ```cursive
 #counter write {
@@ -12570,10 +12467,6 @@ fence(seq_cst)       // Full barrier
 
 ## Clause 15: Structured Parallelism
 
-This clause defines Cursive's structured parallelism model. Parallelism enables concurrent execution of code across multiple workers within a bounded scope. The model guarantees that all spawned work completes before the parallel scope exits, ensuring deterministic resource cleanup and composable concurrency.
-
----
-
 ### 15.1 Parallelism Overview
 
 ##### Definition
@@ -12584,7 +12477,7 @@ Let $\mathcal{W}$ denote the set of work items spawned within a parallel block $
 
 $$\forall w \in \mathcal{W}.\ \text{lifetime}(w) \subseteq \text{lifetime}(P)$$
 
-A **work item** is a unit of computation queued for execution by a worker. Work items are created by `spawn` and `dispatch` expressions. A **worker** is an execution context (typically an OS thread or GPU compute unit) that executes work items.
+A **work item** is a unit of computation queued for execution by a worker. Work items are created by `spawn` and `dispatch` expressions. A **worker** is an execution context (such as an OS thread or GPU compute unit) that executes work items.
 
 **Task** is the runtime representation of a work item during execution. A task may suspend (at `wait` expressions) and resume. Tasks are associated with key state per §13.1.
 
@@ -12841,7 +12734,7 @@ reduce_op       ::= "+" | "*" | "min" | "max" | "and" | "or" | identifier
 
 **Key Clause**
 
-The optional key clause explicitly declares the key path and mode for each iteration. When omitted, the compiler infers key requirements from the body's access patterns.
+The optional key clause explicitly declares the key path and mode for each iteration. When omitted, key requirements are inferred from the body's access patterns.
 
 **Attribute Semantics**
 
@@ -12874,7 +12767,7 @@ $$\frac{
 
 **Key Inference**
 
-When no key clause is provided, the compiler analyzes the body to infer key paths and modes:
+When no key clause is provided, the body is analyzed to infer key paths and modes:
 
 | Body Access Pattern       | Inferred Key Path        | Inferred Mode   |
 | :------------------------ | :----------------------- | :-------------- |
@@ -13166,8 +13059,6 @@ When a worker evaluates a `wait` expression:
 3. When the async operation completes, the suspended work item becomes ready.
 4. Some worker resumes the work item.
 
-This enables efficient I/O and compute overlap without blocking threads.
-
 **Key Prohibition**
 
 Per §13.8, keys MUST NOT be held across `wait` suspension points.
@@ -13436,15 +13327,11 @@ region work_arena {
 
 ## Clause 16: Asynchronous Operations
 
-This clause defines Cursive's model for asynchronous computation. Asynchronous operations are computations that may suspend execution and resume later, producing values incrementally, completing after external events, or interleaving execution with other computations.
-
----
-
 ### 16.2 The Async Class
 
 ##### Definition
 
-`Async<Out, In, Result, E>` is a modal class representing the interface for asynchronous computations. The type parameters specify the data flow between the computation and its consumer. Async-returning procedures produce anonymous compiler-generated modal types that implement this class.
+`Async<Out, In, Result, E>` is a modal class representing the interface for asynchronous computations. The type parameters specify the data flow between the computation and its consumer. Async-returning procedures produce anonymous generated modal types that implement this class.
 
 | Parameter | Meaning                                          | Default  |
 | --------- | ------------------------------------------------ | -------- |
@@ -13491,7 +13378,7 @@ As a modal class (§9.2), `Async` declares abstract states that implementing mod
 
 **Type of Async-Returning Procedures**
 
-A procedure declared with return type `Async<Out, In, Result, E>` has a concrete return type that is the compiler-generated modal implementing the class. When the procedure is called, the result has this concrete modal type:
+A procedure declared with return type `Async<Out, In, Result, E>` has a concrete return type that is the generated modal implementing the class. When the procedure is called, the result has this concrete modal type:
 
 $$\frac{
     \Gamma \vdash f : (\overline{T}) \to \texttt{Async}\langle Out, In, Result, E \rangle \quad
@@ -13536,13 +13423,13 @@ $$\frac{
     M <: \texttt{Async}\langle Out_2, In_2, Result_2, E_2 \rangle
 } \quad \text{(Sub-Async-Modal)}$$
 
-**Compiler-Generated Implementations**
+**Generated Implementations**
 
-For each procedure with return type `Async<Out, In, Result, E>`, the compiler generates an anonymous modal type implementing this class:
+For each procedure with return type `Async<Out, In, Result, E>`, an anonymous modal type implementing this class is generated:
 
 ```cursive
 // For: procedure countdown(n: i32) -> Async<i32, (), i32, !>
-// Compiler generates (conceptually):
+// Generated (conceptually):
 modal gen_countdown <: Async<i32, (), i32, !> {
     @Suspended {
         output: i32,          // required by Async
@@ -13567,7 +13454,7 @@ The generated modal:
 
 **Generated Type Naming**
 
-Generated modal types use the `gen_` prefix and are not directly nameable by user code. The compiler may use any naming scheme that:
+Generated modal types use the `gen_` prefix and are not directly nameable by user code. Any naming scheme MAY be used that:
 1. Avoids collision with user-defined types
 2. Produces distinct names for distinct async procedures
 3. Is consistent across compilations with the same source
@@ -13599,7 +13486,7 @@ When fewer than four type arguments are provided:
 
 ##### Definition
 
-The following type aliases provide convenient names for common asynchronous patterns. These are type aliases for the `Async` modal class with specific type parameter bindings. Concrete implementations are compiler-generated modal types that implement these class types.
+The following type aliases provide convenient names for common asynchronous patterns. These are type aliases for the `Async` modal class with specific type parameter bindings. Concrete implementations are generated modal types that implement these class types.
 
 ```cursive
 type Sequence<T> = Async<T, (), (), !>
@@ -13647,7 +13534,7 @@ Producing async values covers constructs that create `Async` instances, includin
 
 ##### Definition
 
-A procedure returns an async value by declaring the `Async` class (or an alias) as its return type. The compiler generates a distinct anonymous modal type for each such procedure and transforms the procedure body into that modal's state machine implementation.
+A procedure returns an async value by declaring the `Async` class (or an alias) as its return type. A distinct anonymous modal type is generated for each such procedure, and the procedure body is transformed into that modal's state machine implementation.
 
 ##### Syntax & Declaration
 
@@ -13666,7 +13553,7 @@ No special syntax modifier is required. The return type determines async behavio
 
 When a procedure's return type is `Async<Out, In, Result, E>`:
 
-1. The compiler generates an anonymous modal type implementing `Async<Out, In, Result, E>`.
+1. An anonymous modal type implementing `Async<Out, In, Result, E>` is generated.
 2. The generated modal has states `@Suspended`, `@Completed`, and (unless `E = !`) `@Failed`.
 3. Each state includes the class-required payload fields plus implementation fields:
    - `@Suspended`: `output: Out` plus `gen_point` (resumption discriminant) and all locals live across suspension points
@@ -13810,7 +13697,7 @@ When `yield release` is used within a key block:
 
 **Staleness at Yield Release**
 
-Values read from `shared` data before `yield release` SHOULD be considered potentially stale after the yield returns. During the suspension period, other tasks may have modified the shared data. The compiler emits `W-KEY-0011` when a binding derived from shared data is accessed after a `yield release` on an overlapping path.
+A binding derived from `shared` data before `yield release` is **potentially stale** after the yield returns. During the suspension period, other tasks MAY modify the shared data. `W-KEY-0011` MUST be emitted when a potentially stale binding is accessed after a `yield release` on an overlapping path.
 
 ##### Constraints & Legality
 
@@ -14240,7 +14127,7 @@ Condition waiting suspends an async operation until a predicate on shared data b
 
 **Method Signature**
 
-Every `shared` type provides a compiler-generated `until` method:
+Every `shared` type MUST provide a generated `until` method:
 
 ```cursive
 procedure until<T; R>(
@@ -14371,7 +14258,7 @@ $$\frac{
 
 **Combinator Return Types**
 
-Combinator methods are declared with `Async` class return types, but each invocation produces a distinct compiler-generated modal implementing that class. The generated modal captures the source async and transformation closure:
+Combinator methods are declared with `Async` class return types, but each invocation produces a distinct generated modal implementing that class. The generated modal captures the source async and transformation closure:
 
 $$\frac{
     \Gamma \vdash a : M_1 \quad
@@ -14403,10 +14290,6 @@ Combinators do not eagerly evaluate their source async. Instead, they return a n
 ---
 
 ### 16.8 Memory Model and State Representation
-
-##### Definition
-
-The compiler generates a modal type for each async-returning procedure. This section specifies the memory representation of these generated modals.
 
 ##### Dynamic Semantics
 
@@ -14466,7 +14349,7 @@ $$\text{lifetime}(A) \leq \text{lifetime}(\text{region}(A))$$
 
 **Generated Modal Structure**
 
-For each async-returning procedure, the compiler generates a modal type containing:
+For each async-returning procedure, a modal type MUST be generated containing:
 - States required by the `Async` class (`@Suspended`, `@Completed`, `@Failed`)
 - Class-required payload fields in each state
 - Implementation fields for resumption state and captured locals
@@ -14481,7 +14364,7 @@ procedure range(start: i32, end: i32) -> Sequence<i32> {
     }
 }
 
-// Compiler generates (conceptually):
+// Generated (conceptually):
 modal gen_range <: Sequence<i32> {
     @Suspended {
         output: i32,       // required by Async (via Sequence alias)
@@ -14642,17 +14525,7 @@ procedure with_temp_file(fs: dyn FileSystem) -> Stream<string, IoError> {
 
 ### 16.11 Integration with Other Language Features
 
-##### Definition
-
-This section specifies how async operations interact with capabilities, the permission system, and parallel blocks.
-
----
-
 #### 16.11.1 Capability Requirements
-
-##### Definition
-
-This subsection specifies the capability requirements for async operations and how captured capabilities persist across suspension.
 
 ##### Static Semantics
 
@@ -14713,10 +14586,6 @@ class Time {
 ---
 
 #### 16.11.2 Permission and Capture Rules
-
-##### Definition
-
-This subsection defines how permission-qualified bindings may be captured by async computations and how `[[dynamic]]` interacts with captures in parallel contexts.
 
 ##### Static Semantics
 
@@ -14793,8 +14662,6 @@ $$\frac{
     \text{Emit}(\texttt{E-ASYNC-0013})
 } \quad \text{(A-No-Keys)}$$
 
-> **Rationale:** Keys represent synchronization primitives. Holding a key across suspension could cause deadlock or priority inversion.
-
 **Opt-In: Yield Release**
 
 To suspend within a key block, the programmer MUST use the `release` modifier (`yield release` or `yield release from`). This invokes the **Release-and-Reacquire** mechanism analogous to §14.7.2.
@@ -14857,10 +14724,6 @@ procedure bad(player: shared Player) -> Sequence<i32> {
 
 #### 16.11.3 Parallel Block Composition
 
-##### Definition
-
-This subsection specifies how async operations compose with `parallel`, `spawn`, and `dispatch` constructs while preserving structured concurrency.
-
 ##### Static Semantics
 
 **Async in `spawn` Blocks**
@@ -14917,10 +14780,6 @@ When a `parallel` block reaches its closing brace:
 ---
 
 ## Clause 17: Compile-Time Execution
-
-This clause defines the compile-time execution model for Cursive. Compile-time execution enables computation during the Metaprogramming Phase (Translation Phase 2, as defined in §2.12), producing values, types, and code incorporated into the final program.
-
----
 
 ### 17.1 The Comptime Environment
 
@@ -15189,7 +15048,7 @@ Comptime procedures MUST NOT:
 
 ##### Definition
 
-**Comptime capabilities** are capability types that authorize specific compile-time operations. Unlike runtime capabilities, comptime capabilities are provided by the compiler and operate on the compilation unit rather than external resources.
+**Comptime capabilities** are capability types that authorize specific compile-time operations. Unlike runtime capabilities, comptime capabilities are intrinsic and operate on the compilation unit rather than external resources.
 
 #### 17.5.1 TypeEmitter
 
@@ -15619,10 +15478,6 @@ Implementations MAY support higher limits. The actual limits are implementation-
 
 ## Clause 18: Type Reflection
 
-This clause defines the type reflection system for Cursive. Type reflection enables compile-time introspection of type structure, enabling generic programming patterns and code generation based on type properties.
-
----
-
 ### 18.1 The Type Metatype
 
 ##### Definition
@@ -16047,10 +15902,6 @@ For generic types, the name includes type parameters: `"Vec<i32>"`.
 
 ## Clause 19: Code Generation
 
-This clause defines the code generation system for Cursive. Code generation enables compile-time construction and emission of AST fragments, providing the foundation for derive targets (§19) and custom metaprogramming.
-
----
-
 ### 19.1 The Ast Type
 
 ##### Definition
@@ -16174,7 +16025,7 @@ Quoted content MUST be syntactically valid. Type checking of quoted content is d
 
 ##### Definition
 
-A **splice expression** inserts a compile-time value into a quote expression. Splicing enables parameterized code generation.
+A **splice expression** inserts a compile-time value into a quote expression.
 
 ##### Syntax & Declaration
 
@@ -16310,8 +16161,6 @@ Fresh names are generated deterministically using:
 2. Unique counter for emission context
 3. Source location of quote
 
-This ensures reproducibility across compilations.
-
 ##### Constraints & Legality
 
 **Diagnostic Table**
@@ -16416,7 +16265,7 @@ $$\frac{
 
 ##### Definition
 
-A **write key** provides exclusive write access to a (type, form) pair during derive execution. Write keys prevent conflicting emissions and enable deterministic code generation.
+A **write key** provides exclusive write access to a (type, form) pair during derive execution.
 
 ##### Syntax & Declaration
 
@@ -16464,8 +16313,6 @@ $$\frac{
 ---
 
 ## Clause 20: Derivation
-
-This clause defines the derivation system for Cursive. Derivation automates implementation of forms for user-defined types through compile-time code generation.
 
 ---
 
@@ -16989,7 +16836,7 @@ $$\frac{
 
 **Automatic Implementations**
 
-The following types have compiler-provided `FfiSafe` implementations:
+The following types have intrinsic `FfiSafe` implementations:
 
 | Type Category            | Examples                                   | Notes                                          |
 | :----------------------- | :----------------------------------------- | :--------------------------------------------- |
@@ -17650,7 +17497,7 @@ extern "C" {
 
 **Static Usage**
 
-When `@foreign_ensures` predicates are present, the compiler may use them as assumptions for subsequent verification:
+When `@foreign_ensures` predicates are present, they MAY be used as assumptions for subsequent verification:
 
 ```cursive
 extern "C" {
@@ -17685,7 +17532,7 @@ extern "C" {
 }
 ```
 
-> **Warning:** `[[trust]]` suppresses runtime checks. Incorrect postconditions lead to unsoundness.
+> **Warning:** `[[trust]]` suppresses runtime checks. Incorrect postconditions cause undefined behavior.
 
 **Constraints & Legality**
 
@@ -17750,7 +17597,7 @@ This appendix provides the normative mapping between C types and their Cursive e
 
 ##### Definition
 
-For critical FFI types, layout can be verified at compile time using the `[[layout(C)]]` and `[[derive(FfiSafe)]]` facilities.
+For critical FFI types, layout MAY be verified at compile time using the `[[layout(C)]]` and `[[derive(FfiSafe)]]` facilities.
 
 ```cursive
 [[layout(C)]]
@@ -17807,7 +17654,7 @@ Complete normative grammar for Cursive in ANTLR4 format. This grammar defines al
 
 ##### Definition
 
-This appendix defines the normative taxonomy for compiler diagnostics and the authoritative allocation of diagnostic code ranges. All conforming implementations **MUST** use these codes when reporting the corresponding conditions to ensure consistent error reporting across toolchains.
+This appendix defines the normative taxonomy for diagnostics and the authoritative allocation of diagnostic code ranges. All conforming implementations **MUST** use these codes when reporting the corresponding conditions to ensure consistent error reporting across toolchains.
 
 #### B.1 Diagnostic Code Format
 
@@ -17885,10 +17732,6 @@ The following ranges are reserved for future specification expansion:
 
 #### B.4 Conflict Resolution
 
-##### Definition
-
-This subsection specifies how to choose the canonical diagnostic when multiple subsystems can report the same violation.
-
 When a program violation is detectable by multiple specification subsystems (e.g., both the type system and the memory model), the **canonical diagnostic** is determined by the following precedence:
 
 1. Type System diagnostics (`E-TYP-`) are canonical for permission and type violations
@@ -17905,9 +17748,6 @@ This appendix defines the normative requirements for the Conformance Dossier. A 
 
 #### C.1 File Format
 
-##### Definition
-
-This subsection defines the file format for the Conformance Dossier.
 The dossier MUST be a valid JSON document encoded in UTF-8.
 
 #### C.2 Required Information
@@ -17917,8 +17757,8 @@ The dossier MUST be a valid JSON document encoded in UTF-8.
 The Conformance Dossier MUST include the following information:
 
 **Metadata:**
-- Compiler identifier (vendor name)
-- Compiler version (semantic versioning)
+- Implementation identifier (vendor name)
+- Implementation version (semantic versioning)
 - Target triple (architecture-vendor-os)
 - Build timestamp
 
@@ -17948,7 +17788,7 @@ This appendix provides normative definitions for foundational forms and system c
 ##### Syntax & Declaration
 
 **Foundational Forms** (§D.1):
-- `Drop`: `procedure drop(~!)` — RAII cleanup, compiler-invoked only
+- `Drop`: `procedure drop(~!)` — RAII cleanup, implicitly invoked
 - `Copy`: Marker form for implicit bitwise duplication
 - `Clone`: `procedure clone(~): Self` — explicit deep copy
 - `Iterator`: `type Item; procedure next(~!): Self::Item | None` — iteration protocol for `loop ... in`
