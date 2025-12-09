@@ -1,0 +1,4 @@
+enum Status {
+    Active(i32),
+    Inactive
+}

@@ -1,0 +1,7 @@
+C:\Dev\Cursive\cursive-bootstrap\src\sema\sema.c;C:\Dev\Cursive\cursive-bootstrap\build\cursive_sema.dir\Release\sema.obj
+C:\Dev\Cursive\cursive-bootstrap\src\sema\scope.c;C:\Dev\Cursive\cursive-bootstrap\build\cursive_sema.dir\Release\scope.obj
+C:\Dev\Cursive\cursive-bootstrap\src\sema\types.c;C:\Dev\Cursive\cursive-bootstrap\build\cursive_sema.dir\Release\types.obj
+C:\Dev\Cursive\cursive-bootstrap\src\sema\resolve.c;C:\Dev\Cursive\cursive-bootstrap\build\cursive_sema.dir\Release\resolve.obj
+C:\Dev\Cursive\cursive-bootstrap\src\sema\typecheck.c;C:\Dev\Cursive\cursive-bootstrap\build\cursive_sema.dir\Release\typecheck.obj
+C:\Dev\Cursive\cursive-bootstrap\src\sema\moves.c;C:\Dev\Cursive\cursive-bootstrap\build\cursive_sema.dir\Release\moves.obj
+C:\Dev\Cursive\cursive-bootstrap\src\sema\perms.c;C:\Dev\Cursive\cursive-bootstrap\build\cursive_sema.dir\Release\perms.obj

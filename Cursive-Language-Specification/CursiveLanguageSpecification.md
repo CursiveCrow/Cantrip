@@ -407,6 +407,61 @@ where:
 
 ## Clause 2: Lexical Structure and Source Text
 
+### 2.0 Semantic Domains
+
+##### Definition
+
+The following semantic domains are used throughout this clause:
+
+| Domain | Notation | Description |
+| :----- | :------- | :---------- |
+| Unicode Scalars | $\mathcal{U}$ | The set of all Unicode scalar values (U+0000–U+D7FF ∪ U+E000–U+10FFFF) |
+| Prohibited | $\mathcal{F}$ | Code points prohibited in source text (§2.1) |
+| Characters | $c \in \mathcal{U}$ | A single Unicode scalar value |
+| Character Sequence | $s \in \mathcal{U}^*$ | Finite sequence of Unicode scalars |
+| Byte Stream | $B \in \mathbb{B}^*$ | Raw byte sequence before decoding |
+| Token | $\tau = (\kappa, \lambda, \pi)$ | Triple of kind, lexeme, and source span |
+| Token Kind | $\kappa \in \mathcal{K}$ | $\{\texttt{identifier}, \texttt{keyword}, \texttt{literal}, \texttt{operator}, \texttt{punctuator}, \texttt{newline}\}$ |
+| Lexeme | $\lambda \in \mathcal{U}^*$ | Character sequence matched by token |
+| Source Position | $\pi = (f, l, c)$ | File path, line number, column number |
+| Source Span | $\sigma = (\pi_{\text{start}}, \pi_{\text{end}})$ | Start and end positions |
+| Token Stream | $\Theta \in \tau^*$ | Ordered sequence of tokens |
+| Lexer Configuration | $\mathcal{C} = (s, \pi, \Theta)$ | Current input, position, accumulated tokens |
+
+##### Judgment Forms
+
+**Lexical Classification Judgment**
+
+$$s \vdash_{\text{lex}} \tau : \kappa \dashv s'$$
+
+The character sequence $s$ produces token $\tau$ of kind $\kappa$, leaving residual input $s'$.
+
+**Small-Step Tokenization**
+
+$$\mathcal{C} \longrightarrow \mathcal{C}'$$
+
+Lexer configuration $\mathcal{C}$ transitions to $\mathcal{C}'$ by consuming input and optionally emitting a token.
+
+**Big-Step Preprocessing**
+
+$$B \Downarrow_{\text{preprocess}} \Theta$$
+
+Byte stream $B$ preprocesses to token stream $\Theta$.
+
+**Validation Judgment**
+
+$$\vdash c\ \text{valid}$$
+
+Character $c$ satisfies source text constraints.
+
+**Error Judgment**
+
+$$\vdash c \dashv E$$
+
+Character $c$ violates constraint, producing diagnostic $E$.
+
+---
+
 ### 2.1 Source Text Encoding
 
 ##### Definition
@@ -639,16 +694,16 @@ The reserved keywords are:
 ```
 and         as          async       atomic      break       class
 comptime    const       continue    defer       dispatch    do
-drop        dyn         else        emit        enum        escape
+drop        else        emit        enum        escape
 extern      false       for         gpu         if          import
 in          interrupt   let         loop        match       modal
-mod         module      move        mut         override    pool
-private     procedure   protected   public      quote       record
-region      result      return      select      self        Self
-set         shared      simd        spawn       sync        then
-transition  transmute   true        type        union       unique
-unsafe      using       var         volatile    where       while
-widen       yield
+mod         module      move        mut         override    parallel
+pool        private     procedure   protected   public      quote
+record      region      result      return      select      self
+Self        set         shared      simd        spawn       sync
+then        transition  transmute   true        type        union
+unique      unsafe      using       var         volatile    where
+while       widen       yield
 ```
 
 Implementations MUST tokenize these as `<keyword>`, not `<identifier>`. The keyword set MUST be identical across conforming implementations for a given language version. All keywords are unconditionally reserved in all syntactic contexts.
@@ -2775,9 +2830,14 @@ $$\frac{D(R_1) = D(R_2)}{\Gamma \vdash R_1 \equiv R_2} \quad \text{(T-Equiv-Reco
 record_decl      ::= [visibility] "record" identifier [generic_params] 
                      [implements_clause] "{" record_body "}" [type_invariant]
 
-record_body      ::= field_decl ("," field_decl)* ","?
+record_body      ::= record_member ("," record_member)* ","?
+
+record_member    ::= field_decl | method_def
 
 field_decl       ::= [visibility] identifier ":" type
+
+method_def       ::= [visibility] "procedure" identifier [generic_params]
+                     "(" [param_list] ")" ["->" return_type] block
 
 implements_clause ::= "<:" class_list
 class_list       ::= type_path ("," type_path)*
@@ -3488,13 +3548,13 @@ A modal type may implement one or more classes, including modal classes (§9.2).
 modal_decl        ::= [visibility] "modal" identifier [generic_params]
                       [implements_clause] "{" state_block+ "}"
 
-state_block       ::= "@" state_name [state_payload] [state_members]
+state_block       ::= "@" state_name "{" state_member* "}"
 
 state_name        ::= identifier
 
-state_payload     ::= "{" (field_decl ("," field_decl)* ","?)? "}"
+state_member      ::= field_decl | method_def | transition_def
 
-state_members     ::= "{" (method_def | transition_def)* "}"
+field_decl        ::= identifier ":" type
 
 method_def        ::= "procedure" identifier "(" param_list ")" ["->" return_type] block
 
@@ -14643,6 +14703,8 @@ For any binding $b$ with permission $p$ captured by an async procedure:
 $$\text{lifetime}(b) \geq \text{lifetime}(\texttt{Async})$$
 
 The captured data MUST remain valid for the entire lifetime of the `Async` value.
+
+
 
 ##### Constraints & Legality
 

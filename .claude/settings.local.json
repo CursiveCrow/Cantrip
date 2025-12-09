@@ -24,7 +24,16 @@
       "Bash(where:*)",
       "Skill(gemini-cli)",
       "Bash(gemini:*)",
-      "Bash(timeout 30 bash:*)"
+      "Bash(timeout 30 bash:*)",
+      "Bash(cmake --help:*)",
+      "Bash(cmake --build:*)",
+      "Bash(.buildReleasetest_lexer.exe)",
+      "Bash(.buildReleasetest_parser.exe)",
+      "Bash(\"C:/Dev/Cursive/cursive-bootstrap/build/Release/test_lexer.exe\")",
+      "Bash(\"C:/Dev/Cursive/cursive-bootstrap/build/Release/test_parser.exe\")",
+      "Bash(\"C:/Dev/Cursive/cursive-bootstrap/build/Release/test_resolve.exe\")",
+      "Bash(\"C:/Dev/Cursive/cursive-bootstrap/build/Release/cursivec.exe\" -check \"C:/Dev/Cursive/cursive-bootstrap/test_input.cur\")",
+      "Bash(timeout:*)"
     ],
     "deny": [],
     "ask": []

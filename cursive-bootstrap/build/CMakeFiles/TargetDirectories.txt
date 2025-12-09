@@ -1,0 +1,13 @@
+C:/Dev/Cursive/cursive-bootstrap/build/CMakeFiles/cursive_common.dir
+C:/Dev/Cursive/cursive-bootstrap/build/CMakeFiles/cursive_lexer.dir
+C:/Dev/Cursive/cursive-bootstrap/build/CMakeFiles/cursive_parser.dir
+C:/Dev/Cursive/cursive-bootstrap/build/CMakeFiles/cursive_sema.dir
+C:/Dev/Cursive/cursive-bootstrap/build/CMakeFiles/cursive_rt.dir
+C:/Dev/Cursive/cursive-bootstrap/build/CMakeFiles/cursivec.dir
+C:/Dev/Cursive/cursive-bootstrap/build/CMakeFiles/test_lexer.dir
+C:/Dev/Cursive/cursive-bootstrap/build/CMakeFiles/test_parser.dir
+C:/Dev/Cursive/cursive-bootstrap/build/CMakeFiles/test_resolve.dir
+C:/Dev/Cursive/cursive-bootstrap/build/CMakeFiles/test_moves.dir
+C:/Dev/Cursive/cursive-bootstrap/build/CMakeFiles/RUN_TESTS.dir
+C:/Dev/Cursive/cursive-bootstrap/build/CMakeFiles/ALL_BUILD.dir
+C:/Dev/Cursive/cursive-bootstrap/build/CMakeFiles/ZERO_CHECK.dir
